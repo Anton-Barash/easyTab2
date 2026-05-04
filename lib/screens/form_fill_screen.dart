@@ -308,22 +308,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         ),
                                         curve: Curves.ease,
                                       );
-                                    } else {
-                                      Future.delayed(
-                                        const Duration(milliseconds: 100),
-                                        () {
-                                          Scrollable.ensureVisible(
-                                            ListTile(
-                                                  trailing: Text('$i'),
-                                                ).key.currentContext ??
-                                                context,
-                                            curve: Curves.ease,
-                                            duration: const Duration(
-                                              milliseconds: 300,
-                                            ),
-                                          );
-                                        },
-                                      );
                                     }
                                   },
                                   borderRadius: BorderRadius.circular(8),
