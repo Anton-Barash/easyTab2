@@ -1,0 +1,29 @@
+name: easy_tab
+description: "EasyTab - Excel Report Builder"
+publish_to: 'none'
+version: 1.0.5
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  path_provider: ^2.1.2
+  image_picker: ^1.0.7
+  provider: ^6.1.2
+  shared_preferences: ^2.2.2
+  file_picker: ^8.0.0+1
+  excel: ^4.0.3
+  archive: ^3.4.10
+  share_plus: ^7.2.1
+  open_file: ^3.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

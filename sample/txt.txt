@@ -1,0 +1,15 @@
+
+
+
+[Environment]::SetEnvironmentVariable("PUB_HOSTED_URL", "https://pub.flutter-io.cn", "User")
+[Environment]::SetEnvironmentVariable("FLUTTER_STORAGE_BASE_URL", "https://storage.flutter-io.cn", "User")
+
+
+cd d:\neiroQC\easyTab2\easy_tab
+$env:PUB_HOSTED_URL = "https://pub.flutter-io.cn"
+$env:FLUTTER_STORAGE_BASE_URL = "https://storage.flutter-io.cn"
+flutter pub get
+flutter clean
+flutter build web
+flutter run -d web-server --web-port=3000
+// flutter run -d edge --web-port=3000
