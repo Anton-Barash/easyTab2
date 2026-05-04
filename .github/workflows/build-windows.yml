@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -25,9 +28,14 @@ jobs:
     - name: Build Windows
       run: flutter build windows --release
 
+    - name: List build directory
+      run: dir build\windows
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: easyTab-windows
-        path: build/windows/runner/Release
+        path: |
+          build/windows/x64/Release/Runner/*
+          build/windows/runner/Release/*
         retention-days: 30
