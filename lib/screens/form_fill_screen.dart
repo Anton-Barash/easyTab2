@@ -790,6 +790,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   ),
                                 ),
                               ),
+                              Tooltip(
+                                message:
+                                    'Этот вопрос требует доработки ответа. Возвращайтесь к нему позже',
+                                child: IconButton(
+                                  icon: const Icon(Icons.edit_note, size: 22),
+                                  color: const Color(0xFFf59e0b),
+                                  onPressed: () {},
+                                ),
+                              ),
                               if (loc?.description?.isNotEmpty ?? false)
                                 IconButton(
                                   icon: const Icon(
@@ -804,6 +813,100 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     'description',
                                   ),
                                 ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert, size: 20),
+                                color: const Color(0xFF6b7280),
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(
+                                    value: 'add_above',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.add, size: 18),
+                                        SizedBox(width: 8),
+                                        Text('Новый вопрос сверху'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'add_below',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.add, size: 18),
+                                        SizedBox(width: 8),
+                                        Text('Новый вопрос снизу'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete,
+                                          size: 18,
+                                          color: Color(0xFFdc2626),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Удалить этот вопрос',
+                                          style: TextStyle(
+                                            color: Color(0xFFdc2626),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                onSelected: (value) async {
+                                  if (value == 'add_above') {
+                                    reportState.addQuestion(index - 1);
+                                    if (index > 0) {
+                                      _pageController.animateToPage(
+                                        index - 1,
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        curve: Curves.ease,
+                                      );
+                                    }
+                                  } else if (value == 'add_below') {
+                                    reportState.addQuestion(index);
+                                    _pageController.animateToPage(
+                                      index + 1,
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.ease,
+                                    );
+                                  } else if (value == 'delete') {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Удалить вопрос?'),
+                                        content: const Text(
+                                          'Вы уверены, что хотите удалить вопрос?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: const Text('Отмена'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: const Text('Удалить'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true &&
+                                        report.questions.length > 1) {
+                                      // TODO: implement delete question
+                                    }
+                                  }
+                                },
+                              ),
                             ],
                           ),
                           if (loc?.example?.isNotEmpty ?? false)
@@ -823,70 +926,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ),
                   ],
                 ),
-                if (!hasTranslation && q.hasSomeTranslation())
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFfff3cd),
-                        border: Border.all(
-                          width: 1,
-                          color: const Color(0xFFffc107),
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.warning,
-                            size: 18,
-                            color: Color(0xFF856404),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Перевод на ${report.currentLanguage} отсутствует. Доступно на: ${q.getAvailableLanguages().where((l) => l != report.currentLanguage).join(', ')}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF856404),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (loc?.example?.isNotEmpty ?? false)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFe0f2fe),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.lightbulb_outline,
-                            size: 18,
-                            color: Color(0xFF0369a1),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Пример: ${loc?.example}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF0369a1),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -904,26 +943,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     answers[j],
                   ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.add, color: Color(0xFF424242)),
-                    label: const Text(
-                      'Добавить ответ',
-                      style: TextStyle(color: Color(0xFF424242)),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: Color(0xFFe5e7eb),
-                        width: 1.5,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.add, size: 20),
+                      color: const Color(0xFF424242),
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFFf3f4f6),
+                        side: const BorderSide(
+                          color: Color(0xFFe5e7eb),
+                          width: 1.5,
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      onPressed: () => reportState.addAnswer(index),
+                      tooltip: 'Добавить ответ',
                     ),
-                    onPressed: () => reportState.addAnswer(index),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -1093,23 +1129,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
             padding: const EdgeInsets.only(top: 12),
             child: Row(
               children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.camera_alt, color: Color(0xFF424242)),
-                  label: const Text(
-                    'Фото/Видео',
-                    style: TextStyle(color: Color(0xFF424242)),
-                  ),
-                  style: OutlinedButton.styleFrom(
+                IconButton(
+                  icon: const Icon(Icons.camera_alt),
+                  color: const Color(0xFF424242),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFf3f4f6),
                     side: const BorderSide(
                       color: Color(0xFFe5e7eb),
                       width: 1.5,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 10,
-                      horizontal: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   onPressed: () => _showMediaPicker(context, i, j, false),
