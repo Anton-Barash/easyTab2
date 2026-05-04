@@ -18,7 +18,6 @@ class FormFillScreen extends StatefulWidget {
 
 class _FormFillScreenState extends State<FormFillScreen> {
   final Map<String, Map<int, TextEditingController>> _answerControllers = {};
-  final Map<int, TextEditingController> _questionControllers = {};
   ViewMode _viewMode = ViewMode.list;
   bool _isSidePanelOpen = true;
   final PageController _pageController = PageController();
@@ -29,16 +28,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
     _answerControllers.values
         .expand((map) => map.values)
         .forEach((c) => c.dispose());
-    _questionControllers.values.forEach((c) => c.dispose());
     _pageController.dispose();
     super.dispose();
-  }
-
-  TextEditingController _getQuestionController(int index, String initialText) {
-    if (!_questionControllers.containsKey(index)) {
-      _questionControllers[index] = TextEditingController(text: initialText);
-    }
-    return _questionControllers[index]!;
   }
 
   @override
@@ -87,6 +78,45 @@ class _FormFillScreenState extends State<FormFillScreen> {
         foregroundColor: const Color(0xFF424242),
         elevation: 0,
         actions: [
+          if (report.availableLanguages.length > 1)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: PopupMenuButton<String>(
+                icon: Row(
+                  children: [
+                    const Icon(Icons.language),
+                    const SizedBox(width: 4),
+                    Text(
+                      report.currentLanguage,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                itemBuilder: (ctx) => report.availableLanguages
+                    .map(
+                      (lang) => PopupMenuItem(
+                        value: lang,
+                        child: Row(
+                          children: [
+                            Text(lang),
+                            if (lang == report.currentLanguage)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: Icon(Icons.check, size: 16),
+                              ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onSelected: (lang) {
+                  reportState.setLanguage(lang);
+                },
+              ),
+            ),
           IconButton(
             icon: Icon(
               _viewMode == ViewMode.list ? Icons.grid_view : Icons.list,
@@ -148,26 +178,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
             ],
             onSelected: (value) async {
               if (value == 0) {
-                if (kIsWeb) {
+                if (!kIsWeb) {
+                  final htmlPath = await reportState.getHtmlPreviewPath(
+                    report.reportName,
+                  );
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('HTML не поддерживается на вебе'),
-                      ),
+                      SnackBar(content: Text('HTML сохранён: $htmlPath')),
                     );
                   }
-                  return;
-                }
-                await reportState.saveReport();
-                final path = await reportState.getHtmlPreviewPath(
-                  reportState.currentReportPath!,
-                );
-                try {
-                  await Process.start('start', [path]);
-                } catch (e) {
+                } else {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Ошибка открытия: $e')),
+                      const SnackBar(content: Text('Просмотр HTML — скоро!')),
                     );
                   }
                 }
@@ -210,8 +233,255 @@ class _FormFillScreenState extends State<FormFillScreen> {
           ),
           Row(
             children: [
-              if (_viewMode == ViewMode.card)
-                _buildSidePanel(reportState, report),
+              if (_isSidePanelOpen)
+                Container(
+                  width: 280,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      right: BorderSide(
+                        width: 2,
+                        color: const Color(0xFF333333),
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Вопросы',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Color(0xFF424242),
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                setState(() {
+                                  _isSidePanelOpen = false;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          itemCount: report.questions.length,
+                          itemBuilder: (ctx, i) {
+                            final qid = i.toString();
+                            final answers = report.answers[qid] ?? [Answer()];
+                            final answerCount = answers
+                                .where((a) => !a.isEmpty)
+                                .length;
+                            final attentionCount = answers
+                                .where((a) => a.attention)
+                                .length;
+                            final emptyCount = answers
+                                .where((a) => a.isEmpty)
+                                .length;
+
+                            final lang = report.currentLanguage;
+                            final q = report.questions[i];
+                            final loc = q.getLocalization(lang);
+                            final hasTranslation = q.hasTranslation(lang);
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Material(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                child: InkWell(
+                                  onTap: () {
+                                    if (_viewMode == ViewMode.card) {
+                                      _pageController.animateToPage(
+                                        i,
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        curve: Curves.ease,
+                                      );
+                                    } else {
+                                      Future.delayed(
+                                        const Duration(milliseconds: 100),
+                                        () {
+                                          Scrollable.ensureVisible(
+                                            ListTile(
+                                                  trailing: Text('$i'),
+                                                ).key.currentContext ??
+                                                context,
+                                            curve: Curves.ease,
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        width: 1.5,
+                                        color:
+                                            _viewMode == ViewMode.card &&
+                                                _currentPage == i
+                                            ? const Color(0xFF3b82f6)
+                                            : const Color(0xFFe5e7eb),
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '${i + 1}.',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF6b7280),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                loc?.name ??
+                                                    q.getDisplayName(lang) ??
+                                                    'Без названия',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Color(0xFF424242),
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        if (!hasTranslation &&
+                                            q.hasSomeTranslation())
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            margin: const EdgeInsets.only(
+                                              bottom: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFfff3cd),
+                                              border: Border.all(
+                                                width: 1,
+                                                color: const Color(0xFFffc107),
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              'Переключите язык',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF856404),
+                                              ),
+                                            ),
+                                          ),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: answerCount > 0
+                                                    ? const Color(0xFFd1fae5)
+                                                    : const Color(0xFFe5e7eb),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                '$answerCount',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: answerCount > 0
+                                                      ? const Color(0xFF065f46)
+                                                      : const Color(0xFF6b7280),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            if (attentionCount > 0)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                    0xFFfff3cd,
+                                                  ),
+                                                  border: Border.all(
+                                                    width: 1,
+                                                    color: const Color(
+                                                      0xFFfbbf24,
+                                                    ),
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Text(
+                                                      '⚡',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '$attentionCount',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: Color(
+                                                          0xFF92400e,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: _viewMode == ViewMode.list
                     ? _buildListView(reportState, report)
@@ -224,185 +494,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  Widget _buildSidePanel(ReportState reportState, Report report) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: _isSidePanelOpen ? 280 : 60,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          right: BorderSide(color: const Color(0xFF999999), width: 1),
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFcccccc), width: 1),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: _isSidePanelOpen
-                  ? MainAxisAlignment.spaceBetween
-                  : MainAxisAlignment.center,
-              children: [
-                if (_isSidePanelOpen)
-                  const Text(
-                    'Навигация',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF424242),
-                    ),
-                  ),
-                IconButton(
-                  icon: Icon(
-                    _isSidePanelOpen ? Icons.chevron_left : Icons.chevron_right,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isSidePanelOpen = !_isSidePanelOpen;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: report.questions.length,
-              itemBuilder: (ctx, index) {
-                final qid = index.toString();
-                final answers = report.answers[qid] ?? [];
-                final answerCount = answers.where((a) => !a.isEmpty).length;
-                final attentionCount = answers.where((a) => a.attention).length;
-                final emptyCount = answers.where((a) => a.isEmpty).length;
-
-                return InkWell(
-                  onTap: () {
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.ease,
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _currentPage == index
-                          ? const Color(0xFFf0f0f0)
-                          : Colors.white,
-                      border: const Border(
-                        bottom: BorderSide(color: Color(0xFFe0e0e0)),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: _isSidePanelOpen
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: _currentPage == index
-                                ? const Color(0xFF333333)
-                                : const Color(0xFFe0e0e0),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${index + 1}',
-                              style: TextStyle(
-                                color: _currentPage == index
-                                    ? Colors.white
-                                    : const Color(0xFF424242),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (_isSidePanelOpen) ...[
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  report.questions[index].text.isNotEmpty
-                                      ? report.questions[index].text
-                                      : 'Вопрос ${index + 1}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF424242),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (answerCount > 0)
-                                      Text(
-                                        '💬 $answerCount',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF666666),
-                                        ),
-                                      ),
-                                    if (attentionCount > 0) ...[
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '⚠️ $attentionCount',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFFf59e0b),
-                                        ),
-                                      ),
-                                    ],
-                                    if (emptyCount > 0) ...[
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '○ $emptyCount',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF999999),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildListView(ReportState reportState, Report report) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: ListView.builder(
-        itemCount: report.questions.length,
-        itemBuilder: (context, index) =>
-            _buildQuestionCard(context, index, reportState, false),
-      ),
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: report.questions.length,
+      itemBuilder: (ctx, i) {
+        final qid = i.toString();
+        final q = report.questions[i];
+        final answers = report.answers[qid] ?? [Answer()];
+        final lang = report.currentLanguage;
+        final loc = q.getLocalization(lang);
+        final hasTranslation = q.hasTranslation(lang);
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: _buildQuestionCard(ctx, i, reportState, false),
+        );
+      },
     );
   }
 
@@ -515,222 +623,304 @@ class _FormFillScreenState extends State<FormFillScreen> {
     ReportState reportState,
     bool isCardView,
   ) {
+    final qid = index.toString();
     final report = reportState.currentReport!;
     final q = report.questions[index];
-    final answers = report.answers[index.toString()] ?? [Answer()];
+    final lang = report.currentLanguage;
+    final loc = q.getLocalization(lang);
+    final hasTranslation = q.hasTranslation(lang);
+    final answers = report.answers[qid] ?? [Answer()];
+
+    final width = isCardView ? 600.0 : double.infinity;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      constraints: isCardView ? const BoxConstraints(maxWidth: 600) : null,
+      constraints: BoxConstraints(maxWidth: width),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(width: 1, color: const Color(0xFFcccccc)),
+        border: Border.all(width: 2, color: const Color(0xFF333333)),
+        borderRadius: BorderRadius.circular(12),
       ),
-      padding: const EdgeInsets.all(12),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFe0e0e0),
-                  borderRadius: BorderRadius.circular(4),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFf3f4f6),
+              border: Border(
+                bottom: BorderSide(width: 1.5, color: const Color(0xFFe5e7eb)),
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF333333),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            loc?.name ??
+                                q.getDisplayName(lang) ??
+                                'Без названия',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                          if (loc?.description?.isNotEmpty ?? false)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                loc?.description ?? '',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF6b7280),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                child: Center(
-                  child: Text(
-                    '${index + 1}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF424242),
+                if (!hasTranslation && q.hasSomeTranslation())
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFfff3cd),
+                        border: Border.all(
+                          width: 1,
+                          color: const Color(0xFFffc107),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.warning,
+                            size: 18,
+                            color: Color(0xFF856404),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Перевод на ${report.currentLanguage} отсутствует. Доступно на: ${q.getAvailableLanguages().where((l) => l != report.currentLanguage).join(', ')}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF856404),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _getQuestionController(index, q.text),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: Color(0xFF424242),
+                if (loc?.example?.isNotEmpty ?? false)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFe0f2fe),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.lightbulb_outline,
+                            size: 18,
+                            color: Color(0xFF0369a1),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Пример: ${loc?.example}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF0369a1),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  decoration: const InputDecoration(
-                    hintText: 'Введите вопрос...',
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
-                  ),
-                  onChanged: (text) =>
-                      reportState.updateQuestionText(index, text),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...answers.asMap().entries.map(
-            (entry) => _buildAnswerItem(
-              context,
-              index,
-              entry.key,
-              entry.value,
-              reportState,
+              ],
             ),
           ),
-          if (!isCardView) ...[
-            const SizedBox(height: 8),
-            _buildSmallButton(
-              '➕ Добавить ответ',
-              () => reportState.addAnswer(index),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                for (int j = 0; j < answers.length; j++)
+                  _buildAnswerBlock(
+                    context,
+                    index,
+                    j,
+                    reportState,
+                    qid,
+                    answers[j],
+                  ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.add, color: Color(0xFF424242)),
+                    label: const Text(
+                      'Добавить ответ',
+                      style: TextStyle(color: Color(0xFF424242)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                        color: Color(0xFFe5e7eb),
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () => reportState.addAnswer(index),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAnswerItem(
+  Widget _buildAnswerBlock(
     BuildContext context,
-    int questionIndex,
-    int answerIndex,
-    Answer answer,
+    int i,
+    int j,
     ReportState reportState,
+    String qid,
+    Answer answer,
   ) {
-    final qid = questionIndex.toString();
-    final isAttention = answer.attention;
-    final answers = reportState.currentReport!.answers[qid]!;
-
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isAttention ? const Color(0xFFfffbeb) : const Color(0xFFf9f9f9),
+        color: answer.attention
+            ? const Color(0xFFfff7ed)
+            : const Color(0xFFf9fafb),
         border: Border.all(
-          color: isAttention
-              ? const Color(0xFFf59e0b)
-              : const Color(0xFFdddddd),
-          width: 1,
+          width: 1.5,
+          color: answer.attention
+              ? const Color(0xFFfed7aa)
+              : const Color(0xFFe5e7eb),
         ),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              IconButton(
+                icon: Icon(
+                  Icons.warning_amber,
+                  color: answer.attention
+                      ? const Color(0xFFf97316)
+                      : const Color(0xFFd1d5db),
+                ),
+                onPressed: () {
+                  reportState.updateAnswerAttention(i, j, !answer.attention);
+                },
+                tooltip: answer.attention
+                    ? 'Снять отметку "Внимание"'
+                    : 'Отметить "Внимание"',
+              ),
               Expanded(
                 child: TextField(
-                  controller: _answerControllers[qid]![answerIndex],
+                  controller: _answerControllers[qid]![j],
                   maxLines: null,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF424242),
-                  ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Введите ответ...',
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: Color(0xFF3b82f6)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Column(
-                children: [
-                  InkWell(
-                    onTap: () => reportState.updateAnswerAttention(
-                      questionIndex,
-                      answerIndex,
-                      !isAttention,
-                    ),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isAttention
-                            ? const Color(0xFFfef3c7)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: const Color(0xFF999999),
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '!',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isAttention
-                                ? const Color(0xFFd97706)
-                                : const Color(0xFF999999),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (answers.length > 1) ...[
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () =>
-                          reportState.removeAnswer(questionIndex, answerIndex),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFfee2e2),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: const Color(0xFFdc2626),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            '×',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Color(0xFFdc2626),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+              IconButton(
+                icon: const Icon(Icons.delete, color: Color(0xFFef4444)),
+                onPressed:
+                    (reportState.currentReport?.answers[qid]?.length ?? 1) > 1
+                    ? () => reportState.removeAnswer(i, j)
+                    : null,
+                tooltip: 'Удалить ответ',
               ),
             ],
           ),
-          if (answer.media.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 80,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: answer.media.length,
-                itemBuilder: (ctx, mediaIndex) {
-                  final media = answer.media[mediaIndex];
-                  return Container(
-                    width: 80,
-                    height: 80,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: const Color(0xFFcccccc),
-                        width: 1,
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
+          if (answer.media.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: answer.media.asMap().entries.map((entry) {
+                  final mediaIndex = entry.key;
+                  final media = entry.value;
+                  return Stack(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFf3f4f6),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            width: 2,
+                            color: media.attention
+                                ? const Color(0xFFf59e0b)
+                                : const Color(0xFFe5e7eb),
+                          ),
+                        ),
+                        child: ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: media.type.startsWith('image')
                               ? (!kIsWeb && media.localPath != null
@@ -751,96 +941,94 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   localPath: media.localPath,
                                 ),
                         ),
-                        Positioned(
-                          top: 2,
-                          right: 2,
-                          child: InkWell(
-                            onTap: () => reportState.removeMedia(
-                              questionIndex,
-                              answerIndex,
-                              mediaIndex,
-                            ),
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFdc2626),
-                                borderRadius: BorderRadius.circular(4),
+                      ),
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: GestureDetector(
+                          onTap: () =>
+                              reportState.removeMedia(i, j, mediaIndex),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                width: 1.5,
+                                color: const Color(0xFFe5e7eb),
                               ),
-                              child: const Center(
-                                child: Text(
-                                  '×',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Color(0xFF6b7280),
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   );
-                },
+                }).toList(),
               ),
             ),
-          ],
-          const SizedBox(height: 8),
-          _buildSquareMediaButton(
-            questionIndex,
-            answerIndex,
-            reportState,
-            answer.attention,
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(
+                      Icons.camera_alt,
+                      color: Color(0xFF424242),
+                    ),
+                    label: const Text(
+                      'Фото/Видео',
+                      style: TextStyle(color: Color(0xFF424242)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                        color: Color(0xFFe5e7eb),
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    onPressed: () => _showMediaPicker(context, i, j, false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(
+                      Icons.warning_amber,
+                      color: Color(0xFFf97316),
+                    ),
+                    label: const Text(
+                      'Внимание!',
+                      style: TextStyle(color: Color(0xFFf97316)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                        color: Color(0xFFfed7aa),
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    onPressed: () => _showMediaPicker(context, i, j, true),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSquareMediaButton(
-    int questionIndex,
-    int answerIndex,
-    ReportState reportState,
-    bool isAttention,
-  ) {
-    return InkWell(
-      onTap: () => _showMediaPicker(
-        context,
-        questionIndex,
-        answerIndex,
-        reportState,
-        isAttention,
-      ),
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: const Color(0xFFe8e8e8),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFcccccc), width: 1),
-        ),
-        child: const Center(
-          child: Icon(Icons.add_a_photo, size: 22, color: Color(0xFF666666)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSmallButton(String text, VoidCallback? onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFe8e8e8),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
-        ),
       ),
     );
   }
@@ -849,91 +1037,62 @@ class _FormFillScreenState extends State<FormFillScreen> {
     BuildContext context,
     int questionIndex,
     int answerIndex,
-    ReportState reportState,
     bool isAttention,
   ) async {
-    final picker = ImagePicker();
-    await showModalBottomSheet(
+    final ImageSource? source = await showDialog<ImageSource>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Wrap(
+      builder: (ctx) => AlertDialog(
+        title: const Text('Добавить медиа'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Выбрать фото из галереи'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final images = await picker.pickMultiImage();
-                for (final image in images) {
-                  if (!kIsWeb) {
-                    await reportState.addMedia(
-                      questionIndex,
-                      answerIndex,
-                      File(image.path),
-                      isAttention,
-                    );
-                  }
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
+              leading: const Icon(Icons.camera),
               title: const Text('Сделать фото'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final image = await picker.pickImage(
-                  source: ImageSource.camera,
-                );
-                if (image != null && !kIsWeb) {
-                  await reportState.addMedia(
-                    questionIndex,
-                    answerIndex,
-                    File(image.path),
-                    isAttention,
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.video_library),
-              title: const Text('Выбрать видео'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final video = await picker.pickVideo(
-                  source: ImageSource.gallery,
-                );
-                if (video != null && !kIsWeb) {
-                  await reportState.addMedia(
-                    questionIndex,
-                    answerIndex,
-                    File(video.path),
-                    isAttention,
-                  );
-                }
-              },
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.videocam),
-              title: const Text('Снять видео'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                final video = await picker.pickVideo(
-                  source: ImageSource.camera,
-                );
-                if (video != null && !kIsWeb) {
-                  await reportState.addMedia(
-                    questionIndex,
-                    answerIndex,
-                    File(video.path),
-                    isAttention,
-                  );
-                }
-              },
+              title: const Text('Сделать видео'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Выбрать из галереи'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
           ],
         ),
       ),
     );
+
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    XFile? file;
+
+    if (source == ImageSource.camera) {
+      file = await picker.pickImage(source: source);
+    } else {
+      file = await picker.pickImage(source: source);
+    }
+
+    if (file != null) {
+      if (kIsWeb) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Добавление медиа на вебе — скоро!')),
+          );
+        }
+        return;
+      }
+      await context.read<ReportState>().addMedia(
+        questionIndex,
+        answerIndex,
+        File(file.path),
+        isAttention,
+      );
+    }
   }
 }
 
@@ -997,6 +1156,7 @@ class DottedPatternPainter extends CustomPainter {
     final paint = Paint()
       ..color = const Color(0xFFcbc7bc)
       ..style = PaintingStyle.fill;
+
     const dotSize = 1.0;
     const spacing = 20.0;
 

@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../providers/report_provider.dart';
 import '../models/report_models.dart';
 
@@ -13,13 +14,37 @@ class TemplateSelectScreen extends StatefulWidget {
 
 class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   final _reportNameController = TextEditingController();
-  List<Question> _selectedTemplate = [];
+  Report? _selectedReport;
 
   final List<Question> _defaultTemplate = [
-    Question(id: 1, text: 'Название объекта', type: 'text'),
-    Question(id: 2, text: 'Дата осмотра', type: 'text'),
-    Question(id: 3, text: 'Статус оборудования', type: 'text'),
-    Question(id: 4, text: 'Комментарии', type: 'text'),
+    Question(
+      id: 1,
+      localizations: {
+        'RU': QuestionLocalization(name: 'Название объекта', description: 'Введите полное название'),
+        'EN': QuestionLocalization(name: 'Object name', description: 'Enter full name'),
+      },
+    ),
+    Question(
+      id: 2,
+      localizations: {
+        'RU': QuestionLocalization(name: 'Дата осмотра', description: 'Введите дату и время'),
+        'EN': QuestionLocalization(name: 'Inspection date', description: 'Enter date and time'),
+      },
+    ),
+    Question(
+      id: 3,
+      localizations: {
+        'RU': QuestionLocalization(name: 'Статус оборудования', description: 'Опишите состояние'),
+        'EN': QuestionLocalization(name: 'Equipment status', description: 'Describe condition'),
+      },
+    ),
+    Question(
+      id: 4,
+      localizations: {
+        'RU': QuestionLocalization(name: 'Комментарии', description: 'Любые дополнительные сведения'),
+        'EN': QuestionLocalization(name: 'Comments', description: 'Any additional info'),
+      },
+    ),
   ];
 
   @override
@@ -94,14 +119,14 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                 _buildTemplateItem(
                   '📊',
                   'Встроенный шаблон',
-                  '4 стандартных вопроса',
+                  '4 вопроса, RU+EN',
                   isBuiltIn: true,
-                  onTap: () => setState(() => _selectedTemplate = _defaultTemplate),
+                  onTap: _loadBuiltInTemplate,
                 ),
                 const SizedBox(height: 15),
                 _buildUploadTemplate(),
                 const SizedBox(height: 20),
-                if (_selectedTemplate.isNotEmpty)
+                if (_selectedReport != null)
                   _buildCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,14 +135,48 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           'Предпросмотр',
                           style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF424242), fontSize: 16),
                         ),
-                        const SizedBox(height: 12),
-                        ..._selectedTemplate.asMap().entries.map((entry) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Text(
-                                '${entry.key + 1}. ${entry.value.text}',
-                                style: const TextStyle(color: Color(0xFF424242)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.language, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: _selectedReport!.availableLanguages
+                                    .map((lang) => Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: lang == _selectedReport!.currentLanguage ? const Color(0xFF333) : const Color(0xFFe0e0e0),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(width: 1, color: const Color(0xFF333333)),
+                                          ),
+                                          child: Text(
+                                            lang,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: lang == _selectedReport!.currentLanguage ? Colors.white : const Color(0xFF333),
+                                            ),
+                                          ),
+                                        ))
+                                    .toList(),
                               ),
-                            )),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ..._selectedReport!.questions.asMap().entries.map((entry) {
+                          final lang = _selectedReport!.currentLanguage;
+                          final loc = entry.value.getLocalization(lang);
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Text(
+                              '${entry.key + 1}. ${loc?.name ?? entry.value.getDisplayName(lang) ?? 'Без названия'}',
+                              style: const TextStyle(color: Color(0xFF424242)),
+                            ),
+                          );
+                        }),
                         const SizedBox(height: 18),
                         _buildButton(
                           label: 'Использовать шаблон',
@@ -132,6 +191,19 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
         ],
       ),
     );
+  }
+
+  void _loadBuiltInTemplate() {
+    setState(() {
+      _selectedReport = Report(
+        reportName: '',
+        availableLanguages: ['RU', 'EN'],
+        currentLanguage: 'RU',
+        questions: _defaultTemplate,
+        answers: {},
+        mediaCounter: {'photos': 1, 'X': 1},
+      );
+    });
   }
 
   Widget _buildButton({required String label, required VoidCallback? onTap}) {
@@ -204,7 +276,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   }
 
   Widget _buildTemplateItem(String icon, String title, String subtitle, {bool isBuiltIn = false, VoidCallback? onTap}) {
-    final isSelected = isBuiltIn && _selectedTemplate == _defaultTemplate;
+    final isSelected = _selectedReport != null && isBuiltIn;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -270,11 +342,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Загрузка Excel шаблона — скоро!')),
-            );
-          },
+          onTap: _pickFile,
           borderRadius: BorderRadius.circular(12),
           child: const Padding(
             padding: EdgeInsets.all(30),
@@ -297,12 +365,35 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     );
   }
 
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    final path = result.files.single.path!;
+    final state = context.read<ReportState>();
+    final report = await state.parseTemplate(path);
+
+    if (report == null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ошибка при загрузке шаблона')),
+      );
+      return;
+    }
+
+    setState(() {
+      _selectedReport = report;
+    });
+  }
+
   Future<void> _useTemplate(BuildContext context) async {
     final state = context.read<ReportState>();
     final name = _reportNameController.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty || _selectedReport == null) return;
 
-    state.newReport(name, _selectedTemplate);
+    state.newReport(name, _selectedReport!.questions, _selectedReport!.availableLanguages);
     await state.saveReport();
     if (mounted) {
       Navigator.pushReplacementNamed(context, '/fill');
