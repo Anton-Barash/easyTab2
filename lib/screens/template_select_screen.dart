@@ -20,29 +20,29 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     Question(
       id: 1,
       localizations: {
-        'RU': QuestionLocalization(name: 'Название объекта', description: 'Введите полное название'),
-        'EN': QuestionLocalization(name: 'Object name', description: 'Enter full name'),
+        'RU': QuestionLocalization(name: 'Название объекта', description: 'Введите полное название объекта', example: 'ООО "ПромСтрой"'),
+        'EN': QuestionLocalization(name: 'Object name', description: 'Enter full object name', example: 'ABC Construction LLC'),
       },
     ),
     Question(
       id: 2,
       localizations: {
-        'RU': QuestionLocalization(name: 'Дата осмотра', description: 'Введите дату и время'),
-        'EN': QuestionLocalization(name: 'Inspection date', description: 'Enter date and time'),
+        'RU': QuestionLocalization(name: 'Дата осмотра', description: 'Введите дату и время осмотра', example: '01.01.2025 14:00'),
+        'EN': QuestionLocalization(name: 'Inspection date', description: 'Enter inspection date and time', example: '01/01/2025 14:00'),
       },
     ),
     Question(
       id: 3,
       localizations: {
-        'RU': QuestionLocalization(name: 'Статус оборудования', description: 'Опишите состояние'),
-        'EN': QuestionLocalization(name: 'Equipment status', description: 'Describe condition'),
+        'RU': QuestionLocalization(name: 'Статус оборудования', description: 'Опишите состояние оборудования', example: 'Исправно / Требует ремонта / Неисправно'),
+        'EN': QuestionLocalization(name: 'Equipment status', description: 'Describe equipment condition', example: 'Operational / Needs repair / Faulty'),
       },
     ),
     Question(
       id: 4,
       localizations: {
-        'RU': QuestionLocalization(name: 'Комментарии', description: 'Любые дополнительные сведения'),
-        'EN': QuestionLocalization(name: 'Comments', description: 'Any additional info'),
+        'RU': QuestionLocalization(name: 'Комментарии', description: 'Любые дополнительные сведения', example: 'Замечаний нет'),
+        'EN': QuestionLocalization(name: 'Comments', description: 'Any additional information', example: 'No remarks'),
       },
     ),
   ];

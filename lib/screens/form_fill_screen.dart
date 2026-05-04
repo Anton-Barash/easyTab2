@@ -138,7 +138,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () {
-              reportState.addQuestion();
+              reportState.addQuestion(
+                _viewMode == ViewMode.card ? _currentPage : null,
+              );
             },
             tooltip: 'Добавить вопрос',
           ),
@@ -381,12 +383,28 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                             children: [
                                               Row(
                                                 children: [
-                                                  Text(
-                                                    '${i + 1}.',
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Color(0xFF6b7280),
+                                                  Container(
+                                                    width: 24,
+                                                    height: 24,
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(
+                                                        0xFF333333,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            4,
+                                                          ),
+                                                    ),
+                                                    child: Center(
+                                                      child: Text(
+                                                        '${i + 1}',
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.white,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
                                                   const SizedBox(width: 8),
