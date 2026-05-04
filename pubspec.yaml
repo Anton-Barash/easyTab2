@@ -1,7 +1,7 @@
 name: easy_tab
 description: "EasyTab - Excel Report Builder"
 publish_to: 'none'
-version: 1.0.5
+version: 1.0.7
 
 environment:
   sdk: ^3.11.5
@@ -19,6 +19,7 @@ dependencies:
   archive: ^3.4.10
   share_plus: ^7.2.1
   open_file: ^3.3.2
+  video_thumbnail: ^0.5.3
 
 dev_dependencies:
   flutter_test:
