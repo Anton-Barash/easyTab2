@@ -21,6 +21,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   ViewMode _viewMode = ViewMode.list;
   bool _isSidePanelCollapsed = false;
   final PageController _pageController = PageController();
+  final ScrollController _listScrollController = ScrollController();
   int _currentPage = 0;
   final Map<int, bool> _needsWorkMap = {};
 
@@ -30,6 +31,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         .expand((map) => map.values)
         .forEach((c) => c.dispose());
     _pageController.dispose();
+    _listScrollController.dispose();
     super.dispose();
   }
 
@@ -362,6 +364,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               ),
                                               curve: Curves.ease,
                                             );
+                                          } else {
+                                            _scrollToQuestion(i);
                                           }
                                         },
                                         borderRadius: BorderRadius.circular(8),
@@ -607,8 +611,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
+  void _scrollToQuestion(int index) {
+    const itemHeight = 300.0;
+    final offset = index * itemHeight;
+    _listScrollController.animateTo(
+      offset,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.ease,
+    );
+  }
+
   Widget _buildListView(ReportState reportState, Report report) {
     return ListView.builder(
+      controller: _listScrollController,
       padding: const EdgeInsets.all(16),
       itemCount: report.questions.length,
       itemBuilder: (ctx, i) {
