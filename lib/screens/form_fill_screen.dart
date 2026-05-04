@@ -22,6 +22,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   bool _isSidePanelCollapsed = false;
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  final Map<int, bool> _needsWorkMap = {};
 
   @override
   void dispose() {
@@ -237,7 +238,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                width: _isSidePanelCollapsed ? 40 : 280,
+                width: _isSidePanelCollapsed ? 40 : 220,
                 child: _isSidePanelCollapsed
                     ? GestureDetector(
                         onTap: () {
@@ -280,7 +281,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ),
                       )
                     : Container(
-                        width: 280,
+                        width: 220,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           border: Border(
@@ -353,13 +354,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                           setState(() {
                                             _currentPage = i;
                                           });
-                                          _pageController.animateToPage(
-                                            i,
-                                            duration: const Duration(
-                                              milliseconds: 300,
-                                            ),
-                                            curve: Curves.ease,
-                                          );
+                                          if (_viewMode == ViewMode.card) {
+                                            _pageController.animateToPage(
+                                              i,
+                                              duration: const Duration(
+                                                milliseconds: 300,
+                                              ),
+                                              curve: Curves.ease,
+                                            );
+                                          }
                                         },
                                         borderRadius: BorderRadius.circular(8),
                                         child: Container(
@@ -550,6 +553,31 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                                 ),
                                                           ),
                                                         ],
+                                                      ),
+                                                    ),
+                                                  const SizedBox(width: 4),
+                                                  if (_needsWorkMap[i] == true)
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 2,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(
+                                                          0xFFfef3c7,
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              4,
+                                                            ),
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.edit_note,
+                                                        size: 14,
+                                                        color: Color(
+                                                          0xFFd97706,
+                                                        ),
                                                       ),
                                                     ),
                                                 ],
@@ -791,12 +819,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 ),
                               ),
                               Tooltip(
-                                message:
-                                    'Этот вопрос требует доработки ответа. Возвращайтесь к нему позже',
+                                message: 'Вопрос требует доработки...',
                                 child: IconButton(
-                                  icon: const Icon(Icons.edit_note, size: 22),
-                                  color: const Color(0xFFf59e0b),
-                                  onPressed: () {},
+                                  icon: Icon(Icons.edit_note, size: 22),
+                                  color: _needsWorkMap[index] == true
+                                      ? const Color(0xFFf59e0b)
+                                      : const Color(0xFF9ca3af),
+                                  onPressed: () {
+                                    setState(() {
+                                      _needsWorkMap[index] =
+                                          !(_needsWorkMap[index] ?? false);
+                                    });
+                                  },
                                 ),
                               ),
                               if (loc?.description?.isNotEmpty ?? false)
