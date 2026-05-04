@@ -7,6 +7,7 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/report_models.dart';
 
 const String reportFilename = 'report.json';
@@ -408,20 +409,20 @@ class ReportState extends ChangeNotifier {
   Future<String?> exportZip() async {
     if (_currentReport == null || _currentReportPath == null) return null;
     try {
-      // Save report first
       await saveReport();
 
-      // Generate Excel
       final excelBytes = _generateExcel();
       final excelFile = File('$_currentReportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
 
       final folderPath = _currentReportPath!;
-      final now = DateTime.now();
       final reportsDir = await _getReportsDir();
-      final zipName = '${_currentReport!.reportName}_${now.millisecondsSinceEpoch}.zip';
-      final zipPath = '$reportsDir/$zipName';
+      final safeName = _currentReport!.reportName.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
+      final zipPath = '$reportsDir/$safeName.zip';
       final zipFile = File(zipPath);
+      if (await zipFile.exists()) {
+        await zipFile.delete();
+      }
       final encoder = ZipFileEncoder();
       encoder.create(zipFile.path);
       final dir = Directory(folderPath);
@@ -437,6 +438,15 @@ class ReportState extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('Error exporting zip: $e');
       return null;
+    }
+  }
+
+  Future<void> shareZip(String zipPath) async {
+    if (kIsWeb) return;
+    try {
+      await Share.shareXFiles([XFile(zipPath)], text: 'EasyTab Report');
+    } catch (e) {
+      if (kDebugMode) print('Error sharing zip: $e');
     }
   }
 }

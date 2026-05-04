@@ -135,6 +135,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ],
                 ),
               ),
+              const PopupMenuItem(
+                value: 2,
+                child: Row(
+                  children: [
+                    Icon(Icons.share),
+                    SizedBox(width: 8),
+                    Text('Поделиться'),
+                  ],
+                ),
+              ),
             ],
             onSelected: (value) async {
               if (value == 0) {
@@ -162,11 +172,28 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   }
                 }
               } else if (value == 1) {
+                await reportState.saveReport();
                 final zipPath = await reportState.exportZip();
                 if (zipPath != null && mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('ZIP сохранён: $zipPath')),
                   );
+                }
+              } else if (value == 2) {
+                if (kIsWeb) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Поделиться недоступно на вебе'),
+                      ),
+                    );
+                  }
+                  return;
+                }
+                await reportState.saveReport();
+                final zipPath = await reportState.exportZip();
+                if (zipPath != null && mounted) {
+                  await reportState.shareZip(zipPath);
                 }
               }
             },
@@ -193,20 +220,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
             ],
           ),
         ],
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(12),
-        child: SafeArea(
-          child: _buildButton('📤 Экспорт', () async {
-            await reportState.saveReport();
-            final zipPath = await reportState.exportZip();
-            if (zipPath != null && mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('ZIP сохранён: $zipPath')));
-            }
-          }, isPrimary: true),
-        ),
       ),
     );
   }
@@ -827,41 +840,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
         child: Text(
           text,
           style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildButton(
-    String text,
-    VoidCallback? onTap, {
-    bool isPrimary = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: onTap == null
-              ? const Color(0xFFcccccc)
-              : isPrimary
-              ? const Color(0xFF3b82f6)
-              : const Color(0xFFe8e8e8),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: onTap == null
-                ? const Color(0xFF999999)
-                : isPrimary
-                ? Colors.white
-                : const Color(0xFF424242),
-          ),
-          textAlign: TextAlign.center,
         ),
       ),
     );

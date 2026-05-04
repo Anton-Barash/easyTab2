@@ -11,11 +11,19 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   Future<List<dynamic>>? _reportsFuture;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadReports();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadReports() {
@@ -42,30 +50,86 @@ class _ReportsScreenState extends State<ReportsScreen> {
               child: CustomPaint(painter: DottedPatternPainter()),
             ),
           ),
-          FutureBuilder<List<dynamic>>(
-            future: _reportsFuture,
-            builder: (ctx, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text('Ошибка загрузки: ${snapshot.error}'),
-                );
-              }
-              final reports = snapshot.data ?? [];
-              if (reports.isEmpty) {
-                return const Center(child: Text('У вас пока нет отчётов'));
-              }
-              return ListView.builder(
+          Column(
+            children: [
+              Padding(
                 padding: const EdgeInsets.all(16),
-                itemCount: reports.length,
-                itemBuilder: (ctx, index) {
-                  final report = reports[index];
-                  return _buildReportCard(context, report);
-                },
-              );
-            },
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Поиск отчётов...',
+                    prefixIcon: const Icon(Icons.search, color: Color(0xFF666666)),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFcccccc)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFcccccc)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<List<dynamic>>(
+                  future: _reportsFuture,
+                  builder: (ctx, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text('Ошибка загрузки: ${snapshot.error}'),
+                      );
+                    }
+                    final reports = snapshot.data ?? [];
+                    final filteredReports = reports.where((report) {
+                      if (_searchQuery.isEmpty) return true;
+                      return report.name.toLowerCase().contains(_searchQuery);
+                    }).toList();
+                    if (filteredReports.isEmpty) {
+                      return Center(
+                        child: Text(
+                          _searchQuery.isEmpty ? 'У вас пока нет отчётов' : 'Отчёты не найдены',
+                          style: const TextStyle(color: Color(0xFF666666), fontSize: 16),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: filteredReports.length,
+                      itemBuilder: (ctx, index) {
+                        final report = filteredReports[index];
+                        return _buildReportCard(context, report);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -76,6 +140,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final reportState = Provider.of<ReportState>(context, listen: false);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      constraints: const BoxConstraints(maxWidth: 500),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
