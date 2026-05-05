@@ -430,7 +430,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             onSelected: (value) async {
               if (value == 0) {
                 final htmlContent = reportState.generateHtmlContent();
-                if (kIsWeb) {
+                try {
                   await Clipboard.setData(ClipboardData(text: htmlContent));
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -439,7 +439,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       ),
                     );
                   }
-                } else {
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка копирования: $e')),
+                    );
+                  }
+                }
+                // Also offer to save to file on non-web platforms
+                if (!kIsWeb) {
                   try {
                     final directory = await FilePicker.platform
                         .getDirectoryPath();
@@ -463,13 +471,21 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 }
               } else if (value == 4) {
                 final excelHtml = reportState.generateExcelHtmlContent();
-                await Clipboard.setData(ClipboardData(text: excelHtml));
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Excel HTML скопирован в буфер обмена'),
-                    ),
-                  );
+                try {
+                  await Clipboard.setData(ClipboardData(text: excelHtml));
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Excel HTML скопирован в буфер обмена'),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка копирования: $e')),
+                    );
+                  }
                 }
               } else if (value == 1) {
                 await reportState.saveReport();
@@ -1692,12 +1708,26 @@ class _SyncDialogState extends State<_SyncDialog> {
 
   String get _syncJson => widget.reportState.generateSyncJson();
 
+  @override
+  void dispose() {
+    _jsonController.dispose();
+    super.dispose();
+  }
+
   Future<void> _copyToClipboard() async {
-    await Clipboard.setData(ClipboardData(text: _syncJson));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('JSON скопирован в буфер обмена')),
-      );
+    try {
+      await Clipboard.setData(ClipboardData(text: _syncJson));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('JSON скопирован в буфер обмена')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка копирования: $e')));
+      }
     }
   }
 
@@ -1935,12 +1965,26 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
 
   String get _syncJson => widget.reportState.generateSyncJson();
 
+  @override
+  void dispose() {
+    _jsonController.dispose();
+    super.dispose();
+  }
+
   Future<void> _copyToClipboard() async {
-    await Clipboard.setData(ClipboardData(text: _syncJson));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('JSON скопирован в буфер обмена')),
-      );
+    try {
+      await Clipboard.setData(ClipboardData(text: _syncJson));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('JSON скопирован в буфер обмена')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка копирования: $e')));
+      }
     }
   }
 

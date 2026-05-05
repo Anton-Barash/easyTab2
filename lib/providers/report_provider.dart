@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -13,11 +12,7 @@ const String exportDir = 'reports';
 
 const int maxLanguages = 5;
 
-const Map<String, int> languagePriority = {
-  'RU': 0,
-  'EN': 1,
-  'ZH': 2,
-};
+const Map<String, int> languagePriority = {'RU': 0, 'EN': 1, 'ZH': 2};
 
 const Map<int, String> languageColors = {
   1: '#888888',
@@ -66,7 +61,11 @@ class ReportState extends ChangeNotifier {
   Report? get currentReport => _currentReport;
   String? get currentReportPath => _currentReportPath;
 
-  void newReport(String name, List<Question> questions, List<String> languages) {
+  void newReport(
+    String name,
+    List<Question> questions,
+    List<String> languages,
+  ) {
     _currentReport = Report(
       reportName: name,
       availableLanguages: languages,
@@ -96,7 +95,9 @@ class ReportState extends ChangeNotifier {
 
   void addQuestion([int? index]) {
     if (_currentReport == null) return;
-    final newIndex = index == null ? _currentReport!.questions.length : index + 1;
+    final newIndex = index == null
+        ? _currentReport!.questions.length
+        : index + 1;
     final newQuestion = Question(
       id: DateTime.now().millisecondsSinceEpoch,
       localizations: {},
@@ -125,9 +126,18 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateQuestionLocalization(int index, String langCode, String? name, String? description, String? example) {
-    if (_currentReport == null || index >= _currentReport!.questions.length) return;
-    final loc = _currentReport!.questions[index].localizations[langCode] ?? QuestionLocalization();
+  void updateQuestionLocalization(
+    int index,
+    String langCode,
+    String? name,
+    String? description,
+    String? example,
+  ) {
+    if (_currentReport == null || index >= _currentReport!.questions.length)
+      return;
+    final loc =
+        _currentReport!.questions[index].localizations[langCode] ??
+        QuestionLocalization();
     if (name != null) loc.name = name;
     if (description != null) loc.description = description;
     if (example != null) loc.example = example;
@@ -176,7 +186,9 @@ class ReportState extends ChangeNotifier {
             _currentReport!.answers[qid]!.containsKey(otherLang) &&
             answerIndex < _currentReport!.answers[qid]![otherLang]!.length) {
           _currentReport!.answers[qid]![otherLang]![answerIndex].text = '';
-          _currentReport!.answers[qid]![otherLang]![answerIndex].isEmpty = true;
+          final a = _currentReport!.answers[qid]![otherLang]![answerIndex];
+          _currentReport!.answers[qid]![otherLang]![answerIndex].isEmpty =
+              a.text.isEmpty && a.media.isEmpty && !a.attention;
         }
       }
     }
@@ -185,13 +197,18 @@ class ReportState extends ChangeNotifier {
         _currentReport!.answers[qid]!.containsKey(lang) &&
         answerIndex < _currentReport!.answers[qid]![lang]!.length) {
       _currentReport!.answers[qid]![lang]![answerIndex].text = text;
+      final a = _currentReport!.answers[qid]![lang]![answerIndex];
       _currentReport!.answers[qid]![lang]![answerIndex].isEmpty =
-          text.isEmpty && _currentReport!.answers[qid]![lang]![answerIndex].media.isEmpty;
+          a.text.isEmpty && a.media.isEmpty && !a.attention;
       notifyListeners();
     }
   }
 
-  void updateAnswerAttention(int questionIndex, int answerIndex, bool attention) {
+  void updateAnswerAttention(
+    int questionIndex,
+    int answerIndex,
+    bool attention,
+  ) {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
     for (final lang in _currentReport!.availableLanguages) {
@@ -199,14 +216,22 @@ class ReportState extends ChangeNotifier {
           _currentReport!.answers[qid]!.containsKey(lang) &&
           answerIndex < _currentReport!.answers[qid]![lang]!.length) {
         _currentReport!.answers[qid]![lang]![answerIndex].attention = attention;
+        final a = _currentReport!.answers[qid]![lang]![answerIndex];
+        _currentReport!.answers[qid]![lang]![answerIndex].isEmpty =
+            a.text.isEmpty && a.media.isEmpty && !attention;
       }
     }
     notifyListeners();
   }
 
-  Future<void> addMedia(int questionIndex, int answerIndex, File file, bool isAttention) async {
+  Future<void> addMedia(
+    int questionIndex,
+    int answerIndex,
+    File file,
+    bool isAttention,
+  ) async {
     if (_currentReport == null) return;
-    
+
     if (_currentReportPath == null) {
       final folderPath = await _generateFolderName();
       _currentReportPath = folderPath;
@@ -217,14 +242,17 @@ class ReportState extends ChangeNotifier {
       await Directory('$folderPath/photos').create(recursive: true);
       await Directory('$folderPath/X').create(recursive: true);
     }
-    
+
     final qid = questionIndex.toString();
     final lang = _currentReport!.currentLanguage;
     if (!_currentReport!.answers.containsKey(qid) ||
         !_currentReport!.answers[qid]!.containsKey(lang) ||
-        answerIndex >= _currentReport!.answers[qid]![lang]!.length) return;
+        answerIndex >= _currentReport!.answers[qid]![lang]!.length)
+      return;
 
-    final counter = isAttention ? _currentReport!.mediaCounter['X']! : _currentReport!.mediaCounter['photos']!;
+    final counter = isAttention
+        ? _currentReport!.mediaCounter['X']!
+        : _currentReport!.mediaCounter['photos']!;
     final ext = file.path.split('.').last;
     final fileName = '${counter.toString().padLeft(3, '0')}.$ext';
 
@@ -246,7 +274,9 @@ class ReportState extends ChangeNotifier {
     );
 
     _currentReport!.answers[qid]![lang]![answerIndex].media.add(mediaItem);
-    _currentReport!.answers[qid]![lang]![answerIndex].isEmpty = false;
+    final a = _currentReport!.answers[qid]![lang]![answerIndex];
+    _currentReport!.answers[qid]![lang]![answerIndex].isEmpty =
+        a.text.isEmpty && a.media.isEmpty && !a.attention;
 
     if (isAttention) {
       _currentReport!.mediaCounter['X'] = counter + 1;
@@ -257,16 +287,23 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> removeMedia(int questionIndex, int answerIndex, int mediaIndex) async {
+  Future<void> removeMedia(
+    int questionIndex,
+    int answerIndex,
+    int mediaIndex,
+  ) async {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
     final lang = _currentReport!.currentLanguage;
     if (!_currentReport!.answers.containsKey(qid) ||
         !_currentReport!.answers[qid]!.containsKey(lang) ||
         answerIndex >= _currentReport!.answers[qid]![lang]!.length ||
-        mediaIndex >= _currentReport!.answers[qid]![lang]![answerIndex].media.length) return;
+        mediaIndex >=
+            _currentReport!.answers[qid]![lang]![answerIndex].media.length)
+      return;
 
-    final media = _currentReport!.answers[qid]![lang]![answerIndex].media[mediaIndex];
+    final media =
+        _currentReport!.answers[qid]![lang]![answerIndex].media[mediaIndex];
     if (_currentReportPath != null && media.localPath != null) {
       final file = File(media.localPath!);
       if (await file.exists()) {
@@ -274,7 +311,12 @@ class ReportState extends ChangeNotifier {
       }
     }
 
-    _currentReport!.answers[qid]![lang]![answerIndex].media.removeAt(mediaIndex);
+    _currentReport!.answers[qid]![lang]![answerIndex].media.removeAt(
+      mediaIndex,
+    );
+    final a = _currentReport!.answers[qid]![lang]![answerIndex];
+    _currentReport!.answers[qid]![lang]![answerIndex].isEmpty =
+        a.text.isEmpty && a.media.isEmpty && !a.attention;
     notifyListeners();
   }
 
@@ -366,12 +408,16 @@ class ReportState extends ChangeNotifier {
               final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
               final name = jsonData['reportName'] as String? ?? 'Без названия';
               final timestamp = jsonData['timestamp'] as int?;
-              final dateTime = timestamp != null ? DateTime.fromMillisecondsSinceEpoch(timestamp) : DateTime.now();
-              reports.add(ReportInfo(
-                folderName: entity.path,
-                name: name,
-                dateTime: dateTime,
-              ));
+              final dateTime = timestamp != null
+                  ? DateTime.fromMillisecondsSinceEpoch(timestamp)
+                  : DateTime.now();
+              reports.add(
+                ReportInfo(
+                  folderName: entity.path,
+                  name: name,
+                  dateTime: dateTime,
+                ),
+              );
             } catch (e) {
               continue;
             }
@@ -424,22 +470,24 @@ class ReportState extends ChangeNotifier {
   String _generateHtml() {
     if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
     final reportName = _currentReport!.reportName;
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(_currentReport!.timestamp).toLocal().toString().substring(0, 16);
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(
+      _currentReport!.timestamp,
+    ).toLocal().toString().substring(0, 16);
     final allLanguages = _currentReport!.availableLanguages;
     final languages = sortLanguages(allLanguages);
     final buffer = StringBuffer();
-    
+
     final List<String> allMediaData = [];
     final List<List<List<Map<String, dynamic>>>> allMediaByQandAandLang = [];
-    
+
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final List<List<Map<String, dynamic>>> questionMedia = [];
-      
+
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final answers = _currentReport!.getAnswersForQuestion(i, lang);
         final List<Map<String, dynamic>> langMedia = [];
-        
+
         for (final a in answers) {
           for (final media in a.media) {
             final mediaMap = {
@@ -455,12 +503,14 @@ class ReportState extends ChangeNotifier {
       }
       allMediaByQandAandLang.add(questionMedia);
     }
-    
+
     buffer.writeln('<!DOCTYPE html>');
     buffer.writeln('<html lang="ru">');
     buffer.writeln('<head>');
     buffer.writeln('  <meta charset="UTF-8">');
-    buffer.writeln('  <meta name="viewport" content="width=device-width, initial-scale=1.0">');
+    buffer.writeln(
+      '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+    );
     buffer.writeln('  <title>${reportName} - Excel таблица</title>');
     buffer.writeln('  <style>');
     buffer.writeln('    * {');
@@ -469,7 +519,9 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      box-sizing: border-box;');
     buffer.writeln('    }');
     buffer.writeln('    body {');
-    buffer.writeln('      font-family: \'Segoe UI\', \'Calibri\', \'Arial\', sans-serif;');
+    buffer.writeln(
+      '      font-family: \'Segoe UI\', \'Calibri\', \'Arial\', sans-serif;',
+    );
     buffer.writeln('      background: #e9e9e9;');
     buffer.writeln('      padding: 20px;');
     buffer.writeln('    }');
@@ -592,146 +644,189 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('  </style>');
     buffer.writeln('</head>');
     buffer.writeln('<body>');
-    
+
     buffer.writeln('<div class="language-switcher">');
     for (int li = 0; li < languages.length; li++) {
       final lang = languages[li];
-      buffer.writeln('  <button class="lang-btn ${li == 0 ? "active" : ""}" data-lang="$li" onclick="switchLanguage($li)">$lang</button>');
+      buffer.writeln(
+        '  <button class="lang-btn ${li == 0 ? "active" : ""}" data-lang="$li" onclick="switchLanguage($li)">$lang</button>',
+      );
     }
     buffer.writeln('</div>');
-    
+
     buffer.writeln('<div class="excel-wrapper">');
     buffer.writeln('  <table>');
     buffer.writeln('    <tr>');
     buffer.writeln('      <th colspan="5">${reportName} | ${dateTime}</th>');
     buffer.writeln('    </tr>');
-    
+
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final q = _currentReport!.questions[i];
       final questionNames = <String>[];
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final loc = q.getLocalization(lang);
-        questionNames.add(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}');
+        questionNames.add(
+          loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
+        );
       }
-      
-      final List<List<Answer>> answersByLang = List.generate(languages.length, (_) => []);
-      
+
+      final List<List<Answer>> answersByLang = List.generate(
+        languages.length,
+        (_) => [],
+      );
+
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        
+
         for (final a in answers) {
           if (a.text.isNotEmpty) {
             answersByLang[li].add(a);
           }
         }
       }
-      
-      final maxAnswers = answersByLang.map((l) => l.length).reduce((a, b) => a > b ? a : b);
-      
+
+      final maxAnswers = answersByLang
+          .map((l) => l.length)
+          .reduce((a, b) => a > b ? a : b);
+
       final answerHasAttention = <bool>[];
       for (int ai = 0; ai < maxAnswers; ai++) {
         bool hasAtt = false;
         for (int li = 0; li < languages.length; li++) {
-          if (ai < answersByLang[li].length && answersByLang[li][ai].attention) {
+          if (ai < answersByLang[li].length &&
+              answersByLang[li][ai].attention) {
             hasAtt = true;
           }
         }
         answerHasAttention.add(hasAtt);
       }
-      
+
       String questionCellContent(int li) {
         return questionNames[li];
       }
-      
+
       String answerCellContent(int ai, int li) {
         if (ai < answersByLang[li].length) {
           return answersByLang[li][ai].text;
         }
         return '';
       }
-      
+
       String mediaCellContent(int ai, int li, int qIndex) {
         if (ai != 0) return '';
-        
-        final List<Map<String, dynamic>> mediaList = allMediaByQandAandLang[qIndex][li];
+
+        final List<Map<String, dynamic>> mediaList =
+            allMediaByQandAandLang[qIndex][li];
         final parts = <String>[];
-        
+
         for (int mi = 0; mi < mediaList.length; mi++) {
           final media = mediaList[mi];
           final onClick = "openModal(${qIndex}, ${li}, ${mi})";
-          parts.add('<span class="media-item" onclick="$onClick">${media['name']}</span>');
+          parts.add(
+            '<span class="media-item" onclick="$onClick">${media['name']}</span>',
+          );
         }
-        
+
         return parts.join('');
       }
-      
+
       for (int ai = 0; ai < maxAnswers; ai++) {
         buffer.writeln('    <tr>');
-        
+
         if (ai == 0) {
-          buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
+          buffer.writeln(
+            '      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
+          );
         }
-        
+
         if (ai == 0) {
           final qContentParts = <String>[];
           for (int li = 0; li < languages.length; li++) {
             final style = li == 0 ? '' : 'display:none;';
-            qContentParts.add('<span class="question-lang-$li" style="$style">${questionCellContent(li)}</span>');
+            qContentParts.add(
+              '<span class="question-lang-$li" style="$style">${questionCellContent(li)}</span>',
+            );
           }
-          buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:160px;">${qContentParts.join('')}</td>');
+          buffer.writeln(
+            '      <td style="background:#fafafa;font-weight:500;width:160px;">${qContentParts.join('')}</td>',
+          );
         }
-        
+
         if (answerHasAttention[ai]) {
-          buffer.writeln('      <td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>');
+          buffer.writeln(
+            '      <td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>',
+          );
         } else {
-          buffer.writeln('      <td style="text-align:center;vertical-align:middle;width:30px;"></td>');
+          buffer.writeln(
+            '      <td style="text-align:center;vertical-align:middle;width:30px;"></td>',
+          );
         }
-        
+
         final aContentParts = <String>[];
         for (int li = 0; li < languages.length; li++) {
           final style = li == 0 ? '' : 'display:none;';
-          aContentParts.add('<span class="answer-lang-$li" style="$style">${answerCellContent(ai, li)}</span>');
+          aContentParts.add(
+            '<span class="answer-lang-$li" style="$style">${answerCellContent(ai, li)}</span>',
+          );
         }
-        buffer.writeln('      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${aContentParts.join('')}</td>');
-        
+        buffer.writeln(
+          '      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${aContentParts.join('')}</td>',
+        );
+
         if (ai == 0) {
           final mContentParts = <String>[];
           for (int li = 0; li < languages.length; li++) {
             final style = li == 0 ? '' : 'display:none;';
-            mContentParts.add('<span class="media-lang-$li" style="$style">${mediaCellContent(ai, li, i)}</span>');
+            mContentParts.add(
+              '<span class="media-lang-$li" style="$style">${mediaCellContent(ai, li, i)}</span>',
+            );
           }
-          buffer.writeln('      <td style="background:#fafafa;width:200px;">${mContentParts.join('')}</td>');
+          buffer.writeln(
+            '      <td style="background:#fafafa;width:200px;">${mContentParts.join('')}</td>',
+          );
         } else {
-          buffer.writeln('      <td style="background:#fafafa;width:200px;"></td>');
+          buffer.writeln(
+            '      <td style="background:#fafafa;width:200px;"></td>',
+          );
         }
-        
+
         buffer.writeln('    </tr>');
       }
     }
     buffer.writeln('  </table>');
     buffer.writeln('</div>');
-    
+
     // Modal
     buffer.writeln('<div id="mediaModal" class="modal">');
-    buffer.writeln('  <span class="close" onclick="closeModal()">&times;</span>');
+    buffer.writeln(
+      '  <span class="close" onclick="closeModal()">&times;</span>',
+    );
     buffer.writeln('  <div class="modal-content">');
-    buffer.writeln('    <img id="modalImg" class="modal-img" style="display:none;" />');
-    buffer.writeln('    <video id="modalVideo" class="modal-video" controls style="display:none;"></video>');
+    buffer.writeln(
+      '    <img id="modalImg" class="modal-img" style="display:none;" />',
+    );
+    buffer.writeln(
+      '    <video id="modalVideo" class="modal-video" controls style="display:none;"></video>',
+    );
     buffer.writeln('  </div>');
     buffer.writeln('  <div class="zoom-controls">');
-    buffer.writeln('    <button class="zoom-btn" onclick="zoomOut()">&minus;</button>');
-    buffer.writeln('    <button class="zoom-btn" onclick="zoomIn()">+</button>');
+    buffer.writeln(
+      '    <button class="zoom-btn" onclick="zoomOut()">&minus;</button>',
+    );
+    buffer.writeln(
+      '    <button class="zoom-btn" onclick="zoomIn()">+</button>',
+    );
     buffer.writeln('  </div>');
     buffer.writeln('</div>');
-    
+
     // JavaScript
     buffer.writeln('<script>');
     buffer.writeln('  let currentZoom = 1;');
     buffer.writeln('  let currentMedia = null;');
     buffer.writeln('  const allLanguages = ${jsonEncode(languages)};');
-    
+
     // Media data
     buffer.writeln('  const mediaData = [');
     for (int i = 0; i < _currentReport!.questions.length; i++) {
@@ -747,30 +842,42 @@ class ReportState extends ChangeNotifier {
       buffer.writeln('    ],');
     }
     buffer.writeln('  ];');
-    
+
     buffer.writeln('  function switchLanguage(li) {');
     buffer.writeln('    // Update buttons');
-    buffer.writeln('    document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));');
-    buffer.writeln('    document.querySelector(\'.lang-btn[data-lang="\' + li + \'"]\').classList.add("active");');
-    
+    buffer.writeln(
+      '    document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));',
+    );
+    buffer.writeln(
+      '    document.querySelector(\'.lang-btn[data-lang="\' + li + \'"]\').classList.add("active");',
+    );
+
     buffer.writeln('    // Update content');
     buffer.writeln('    for (let l = 0; l < allLanguages.length; l++) {');
     buffer.writeln('      const display = l === li ? "" : "none";');
-    buffer.writeln('      document.querySelectorAll(".question-lang-" + l).forEach(el => el.style.display = display);');
-    buffer.writeln('      document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);');
-    buffer.writeln('      document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);');
+    buffer.writeln(
+      '      document.querySelectorAll(".question-lang-" + l).forEach(el => el.style.display = display);',
+    );
+    buffer.writeln(
+      '      document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);',
+    );
+    buffer.writeln(
+      '      document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);',
+    );
     buffer.writeln('    }');
     buffer.writeln('  }');
-    
+
     buffer.writeln('  function openModal(qIndex, li, mi) {');
     buffer.writeln('    const media = mediaData[qIndex][li][mi];');
     buffer.writeln('    const modal = document.getElementById("mediaModal");');
     buffer.writeln('    const modalImg = document.getElementById("modalImg");');
-    buffer.writeln('    const modalVideo = document.getElementById("modalVideo");');
-    
+    buffer.writeln(
+      '    const modalVideo = document.getElementById("modalVideo");',
+    );
+
     buffer.writeln('    currentMedia = media;');
     buffer.writeln('    currentZoom = 1;');
-    
+
     buffer.writeln('    if (media.type.startsWith("image")) {');
     buffer.writeln('      modalImg.style.display = "block";');
     buffer.writeln('      modalVideo.style.display = "none";');
@@ -782,45 +889,63 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      modalVideo.src = media.localPath;');
     buffer.writeln('      modalVideo.style.transform = "scale(1)";');
     buffer.writeln('    }');
-    
+
     buffer.writeln('    modal.style.display = "block";');
     buffer.writeln('  }');
-    
+
     buffer.writeln('  function closeModal() {');
-    buffer.writeln('    document.getElementById("mediaModal").style.display = "none";');
+    buffer.writeln(
+      '    document.getElementById("mediaModal").style.display = "none";',
+    );
     buffer.writeln('  }');
-    
+
     buffer.writeln('  function zoomIn() {');
     buffer.writeln('    currentZoom += 0.2;');
     buffer.writeln('    const modalImg = document.getElementById("modalImg");');
-    buffer.writeln('    const modalVideo = document.getElementById("modalVideo");');
+    buffer.writeln(
+      '    const modalVideo = document.getElementById("modalVideo");',
+    );
     buffer.writeln('    if (modalImg.style.display === "block") {');
-    buffer.writeln('      modalImg.style.transform = "scale(" + currentZoom + ")";');
+    buffer.writeln(
+      '      modalImg.style.transform = "scale(" + currentZoom + ")";',
+    );
     buffer.writeln('    } else {');
-    buffer.writeln('      modalVideo.style.transform = "scale(" + currentZoom + ")";');
+    buffer.writeln(
+      '      modalVideo.style.transform = "scale(" + currentZoom + ")";',
+    );
     buffer.writeln('    }');
     buffer.writeln('  }');
-    
+
     buffer.writeln('  function zoomOut() {');
     buffer.writeln('    if (currentZoom > 0.3) {');
     buffer.writeln('      currentZoom -= 0.2;');
-    buffer.writeln('      const modalImg = document.getElementById("modalImg");');
-    buffer.writeln('      const modalVideo = document.getElementById("modalVideo");');
+    buffer.writeln(
+      '      const modalImg = document.getElementById("modalImg");',
+    );
+    buffer.writeln(
+      '      const modalVideo = document.getElementById("modalVideo");',
+    );
     buffer.writeln('      if (modalImg.style.display === "block") {');
-    buffer.writeln('        modalImg.style.transform = "scale(" + currentZoom + ")";');
+    buffer.writeln(
+      '        modalImg.style.transform = "scale(" + currentZoom + ")";',
+    );
     buffer.writeln('      } else {');
-    buffer.writeln('        modalVideo.style.transform = "scale(" + currentZoom + ")";');
+    buffer.writeln(
+      '        modalVideo.style.transform = "scale(" + currentZoom + ")";',
+    );
     buffer.writeln('      }');
     buffer.writeln('    }');
     buffer.writeln('  }');
-    
+
     // Close modal on background click
-    buffer.writeln('  document.getElementById("mediaModal").onclick = function(event) {');
+    buffer.writeln(
+      '  document.getElementById("mediaModal").onclick = function(event) {',
+    );
     buffer.writeln('    if (event.target == this) {');
     buffer.writeln('      closeModal();');
     buffer.writeln('    }');
     buffer.writeln('  }');
-    
+
     // Close on escape key
     buffer.writeln('  document.onkeydown = function(event) {');
     buffer.writeln('    if (event.key === "Escape") {');
@@ -828,7 +953,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    }');
     buffer.writeln('  }');
     buffer.writeln('</script>');
-    
+
     buffer.writeln('</body>');
     buffer.writeln('</html>');
     return buffer.toString();
@@ -837,7 +962,9 @@ class ReportState extends ChangeNotifier {
   String _generateExcelHtml() {
     if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
     final reportName = _currentReport!.reportName;
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(_currentReport!.timestamp).toLocal().toString().substring(0, 16);
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(
+      _currentReport!.timestamp,
+    ).toLocal().toString().substring(0, 16);
     final allLanguages = _currentReport!.availableLanguages;
     final languages = sortLanguages(allLanguages);
     final langDisplay = languages.join(' / ');
@@ -846,61 +973,77 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('<html lang="ru">');
     buffer.writeln('<head>');
     buffer.writeln('<meta charset="UTF-8">');
-    buffer.writeln('<meta name="viewport" content="width=device-width, initial-scale=1.0">');
+    buffer.writeln(
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+    );
     buffer.writeln('<title>${reportName} - Excel таблица</title>');
-    buffer.writeln('<style>table{border-collapse:collapse;font-size:13px;}th,td{padding:6px 10px;vertical-align:top;border-bottom:1px solid #d0d0d0;}th{background:#f3f3f3;font-weight:600;text-align:center;color:#2c2c2c;}</style>');
+    buffer.writeln(
+      '<style>table{border-collapse:collapse;font-size:13px;}th,td{padding:6px 10px;vertical-align:top;border-bottom:1px solid #d0d0d0;}th{background:#f3f3f3;font-weight:600;text-align:center;color:#2c2c2c;}</style>',
+    );
     buffer.writeln('</head>');
     buffer.writeln('<body>');
     buffer.writeln('<table>');
     buffer.writeln('<thead>');
-    buffer.writeln('<tr><th colspan="5">${reportName} | Язык: ${langDisplay} | ${dateTime}</th></tr>');
+    buffer.writeln(
+      '<tr><th colspan="5">${reportName} | Язык: ${langDisplay} | ${dateTime}</th></tr>',
+    );
     buffer.writeln('</thead>');
     buffer.writeln('<tbody>');
-    
+
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final q = _currentReport!.questions[i];
       final questionNames = <String>[];
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final loc = q.getLocalization(lang);
-        questionNames.add(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}');
+        questionNames.add(
+          loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
+        );
       }
-      
+
       final List<String> allMediaNames = [];
-      final List<List<Answer>> answersByLang = List.generate(languages.length, (_) => []);
-      
+      final List<List<Answer>> answersByLang = List.generate(
+        languages.length,
+        (_) => [],
+      );
+
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        
+
         for (final a in answers) {
           if (a.text.isNotEmpty) {
             answersByLang[li].add(a);
           }
         }
-        
+
         for (final a in answers) {
           for (final media in a.media) {
             allMediaNames.add(media.name);
           }
         }
       }
-      
-      final maxAnswers = answersByLang.map((l) => l.length).reduce((a, b) => a > b ? a : b);
-      
+
+      final maxAnswers = answersByLang
+          .map((l) => l.length)
+          .reduce((a, b) => a > b ? a : b);
+
       final answerHasAttention = <bool>[];
       for (int ai = 0; ai < maxAnswers; ai++) {
         bool hasAtt = false;
         for (int li = 0; li < languages.length; li++) {
-          if (ai < answersByLang[li].length && answersByLang[li][ai].attention) {
+          if (ai < answersByLang[li].length &&
+              answersByLang[li][ai].attention) {
             hasAtt = true;
           }
         }
         answerHasAttention.add(hasAtt);
       }
-      
-      final photoCellContent = allMediaNames.isNotEmpty ? allMediaNames.join(', ') : '';
-      
+
+      final photoCellContent = allMediaNames.isNotEmpty
+          ? allMediaNames.join(', ')
+          : '';
+
       String questionCellContent() {
         final parts = <String>[];
         for (int li = 0; li < languages.length; li++) {
@@ -908,12 +1051,14 @@ class ReportState extends ChangeNotifier {
             parts.add(questionNames[li]);
           } else {
             final color = getLanguageColor(li);
-            parts.add('<span style="font-size:10px;color:$color;">${questionNames[li]}</span>');
+            parts.add(
+              '<span style="font-size:10px;color:$color;">${questionNames[li]}</span>',
+            );
           }
         }
         return parts.join('<br>');
       }
-      
+
       String answerCellContent(int ai) {
         final parts = <String>[];
         for (int li = 0; li < languages.length; li++) {
@@ -923,17 +1068,23 @@ class ReportState extends ChangeNotifier {
               parts.add('<div>$text</div>');
             } else {
               final color = getLanguageColor(li);
-              parts.add('<div style="font-size:10px;color:$color;">$text</div>');
+              parts.add(
+                '<div style="font-size:10px;color:$color;">$text</div>',
+              );
             }
           }
         }
         return parts.join('');
       }
-      
+
       if (maxAnswers == 0) {
         buffer.writeln('<tr>');
-        buffer.writeln('<td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
-        buffer.writeln('<td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>');
+        buffer.writeln(
+          '<td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
+        );
+        buffer.writeln(
+          '<td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>',
+        );
         buffer.writeln('<td style="text-align:center;width:30px;"></td>');
         buffer.writeln('<td style="background:white;width:300px;"></td>');
         buffer.writeln('<td style="background:#fafafa;width:200px;"></td>');
@@ -941,30 +1092,42 @@ class ReportState extends ChangeNotifier {
       } else {
         for (int ai = 0; ai < maxAnswers; ai++) {
           buffer.writeln('<tr>');
-          
+
           if (ai == 0) {
-            buffer.writeln('<td rowspan="$maxAnswers" style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
+            buffer.writeln(
+              '<td rowspan="$maxAnswers" style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
+            );
           }
-          
+
           if (ai == 0) {
-            buffer.writeln('<td rowspan="$maxAnswers" style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>');
+            buffer.writeln(
+              '<td rowspan="$maxAnswers" style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>',
+            );
           }
-          
+
           if (answerHasAttention[ai]) {
-            buffer.writeln('<td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>');
+            buffer.writeln(
+              '<td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>',
+            );
           } else {
-            buffer.writeln('<td style="text-align:center;vertical-align:middle;width:30px;"></td>');
+            buffer.writeln(
+              '<td style="text-align:center;vertical-align:middle;width:30px;"></td>',
+            );
           }
-          
-          buffer.writeln('<td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${answerCellContent(ai)}</td>');
-          
-          buffer.writeln('<td style="background:#fafafa;width:200px;">${ai == 0 ? photoCellContent : ''}</td>');
-          
+
+          buffer.writeln(
+            '<td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${answerCellContent(ai)}</td>',
+          );
+
+          buffer.writeln(
+            '<td style="background:#fafafa;width:200px;">${ai == 0 ? photoCellContent : ''}</td>',
+          );
+
           buffer.writeln('</tr>');
         }
       }
     }
-    
+
     buffer.writeln('</tbody>');
     buffer.writeln('</table>');
     buffer.writeln('</body>');
@@ -979,10 +1142,16 @@ class ReportState extends ChangeNotifier {
 
     int row = 1;
     final lang = _currentReport!.currentLanguage;
-    sheet.cell(CellIndex.indexByString('A$row')).value = TextCellValue('Вопрос ($lang)');
-    sheet.cell(CellIndex.indexByString('B$row')).value = TextCellValue('Расшифровка ($lang)');
+    sheet.cell(CellIndex.indexByString('A$row')).value = TextCellValue(
+      'Вопрос ($lang)',
+    );
+    sheet.cell(CellIndex.indexByString('B$row')).value = TextCellValue(
+      'Расшифровка ($lang)',
+    );
     sheet.cell(CellIndex.indexByString('C$row')).value = TextCellValue('Ответ');
-    sheet.cell(CellIndex.indexByString('D$row')).value = TextCellValue('Внимание');
+    sheet.cell(CellIndex.indexByString('D$row')).value = TextCellValue(
+      'Внимание',
+    );
     sheet.cell(CellIndex.indexByString('E$row')).value = TextCellValue('Медиа');
     row++;
 
@@ -993,15 +1162,27 @@ class ReportState extends ChangeNotifier {
 
       for (int j = 0; j < answers.length; j++) {
         final a = answers[j];
-        final mediaNames = a.media.map((m) => '${m.attention ? 'X' : 'photos'}/${m.name}').join('; ');
+        final mediaNames = a.media
+            .map((m) => '${m.attention ? 'X' : 'photos'}/${m.name}')
+            .join('; ');
 
         if (j == 0) {
-          sheet.cell(CellIndex.indexByString('A$row')).value = TextCellValue(loc?.name ?? q.getDisplayName(lang) ?? '');
-          sheet.cell(CellIndex.indexByString('B$row')).value = TextCellValue(loc?.description ?? '');
+          sheet.cell(CellIndex.indexByString('A$row')).value = TextCellValue(
+            loc?.name ?? q.getDisplayName(lang) ?? '',
+          );
+          sheet.cell(CellIndex.indexByString('B$row')).value = TextCellValue(
+            loc?.description ?? '',
+          );
         }
-        sheet.cell(CellIndex.indexByString('C$row')).value = TextCellValue(a.text);
-        sheet.cell(CellIndex.indexByString('D$row')).value = TextCellValue(a.attention ? 'Да' : 'Нет');
-        sheet.cell(CellIndex.indexByString('E$row')).value = TextCellValue(mediaNames);
+        sheet.cell(CellIndex.indexByString('C$row')).value = TextCellValue(
+          a.text,
+        );
+        sheet.cell(CellIndex.indexByString('D$row')).value = TextCellValue(
+          a.attention ? 'Да' : 'Нет',
+        );
+        sheet.cell(CellIndex.indexByString('E$row')).value = TextCellValue(
+          mediaNames,
+        );
         row++;
       }
     }
@@ -1014,14 +1195,14 @@ class ReportState extends ChangeNotifier {
       final bytes = await File(filePath).readAsBytes();
       final excel = Excel.decodeBytes(bytes);
       final sheet = excel.sheets.values.first;
-      
+
       final rows = sheet.rows;
       if (rows.length < 3) return null;
-      
+
       final langRow = rows[1];
       final languages = <String>[];
       final langColumns = <String, int>{};
-      
+
       for (int col = 0; col < langRow.length; col++) {
         final cell = langRow[col];
         if (cell != null && cell.value != null) {
@@ -1032,46 +1213,54 @@ class ReportState extends ChangeNotifier {
           }
         }
       }
-      
+
       if (languages.isEmpty) {
         languages.add('RU');
       }
-      
+
       final questions = <Question>[];
-      
+
       for (int rowIdx = 2; rowIdx < rows.length; rowIdx++) {
         final row = rows[rowIdx];
         final question = Question(
           id: DateTime.now().millisecondsSinceEpoch + rowIdx,
           localizations: {},
         );
-        
+
         bool hasData = false;
-        
+
         for (final lang in languages) {
           final startCol = langColumns[lang];
           if (startCol == null) continue;
-          
-          final name = (startCol < row.length && row[startCol]?.value != null) ? row[startCol]!.value.toString().trim() : '';
-          final desc = (startCol + 1 < row.length && row[startCol + 1]?.value != null) ? row[startCol + 1]!.value.toString().trim() : '';
-          final example = (startCol + 2 < row.length && row[startCol + 2]?.value != null) ? row[startCol + 2]!.value.toString().trim() : '';
-          
+
+          final name = (startCol < row.length && row[startCol]?.value != null)
+              ? row[startCol]!.value.toString().trim()
+              : '';
+          final desc =
+              (startCol + 1 < row.length && row[startCol + 1]?.value != null)
+              ? row[startCol + 1]!.value.toString().trim()
+              : '';
+          final example =
+              (startCol + 2 < row.length && row[startCol + 2]?.value != null)
+              ? row[startCol + 2]!.value.toString().trim()
+              : '';
+
           question.localizations[lang] = QuestionLocalization(
             name: name.isEmpty ? null : name,
             description: desc.isEmpty ? null : desc,
             example: example.isEmpty ? null : example,
           );
-          
+
           if (name.isNotEmpty || desc.isNotEmpty) {
             hasData = true;
           }
         }
-        
+
         if (hasData) {
           questions.add(question);
         }
       }
-      
+
       final report = Report(
         reportName: 'Новый отчёт',
         availableLanguages: languages,
@@ -1081,14 +1270,14 @@ class ReportState extends ChangeNotifier {
         mediaCounter: {'photos': 1, 'X': 1},
         timestamp: DateTime.now().millisecondsSinceEpoch,
       );
-      
+
       for (int i = 0; i < questions.length; i++) {
         report.answers[i.toString()] = {};
         for (final lang in languages) {
           report.answers[i.toString()]![lang] = [Answer()];
         }
       }
-      
+
       return report;
     } catch (e) {
       if (kDebugMode) print('Error parsing template: $e');
@@ -1107,7 +1296,9 @@ class ReportState extends ChangeNotifier {
 
       final folderPath = _currentReportPath!;
       final reportsDir = await _getReportsDir();
-      final safeName = _currentReport!.reportName.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
+      final safeName = _currentReport!.reportName
+          .replaceAll(RegExp(r'[^\w\s-]'), '')
+          .replaceAll(' ', '_');
       final zipPath = '$reportsDir/$safeName.zip';
       final zipFile = File(zipPath);
       if (await zipFile.exists()) {
@@ -1153,16 +1344,17 @@ class ReportState extends ChangeNotifier {
 
       for (final lang in languages) {
         final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        
+
         if (answerCount == null) {
           answerCount = answers.length;
         } else if (answerCount != answers.length) {
           hasDifferentCount = true;
         }
 
-        final hasAnswer = answers.any((a) => !a.isEmpty);
+        final hasAnswer = answers.any((a) => a.text.isNotEmpty);
         if (hasAnswer) hasAnswerInAnyLang = true;
-        if (!hasAnswer) hasEmptyInAnyLang = true;
+        final hasEmptyText = answers.any((a) => a.text.isEmpty);
+        if (hasEmptyText) hasEmptyInAnyLang = true;
       }
 
       if (hasAnswerInAnyLang && hasEmptyInAnyLang || hasDifferentCount) {
@@ -1262,7 +1454,7 @@ class ReportState extends ChangeNotifier {
       if (_currentReport!.answers[qid]!.containsKey(lang) &&
           answerIndex < _currentReport!.answers[qid]![lang]!.length) {
         final answer = _currentReport!.answers[qid]![lang]![answerIndex];
-        if (!answer.isEmpty) {
+        if (answer.text.isNotEmpty) {
           return true;
         }
       }
@@ -1282,7 +1474,9 @@ class ReportState extends ChangeNotifier {
       final questionId = qData['id'] as int;
       final variants = qData['answer_variants'] as List;
 
-      final qIndex = _currentReport!.questions.indexWhere((q) => q.id == questionId);
+      final qIndex = _currentReport!.questions.indexWhere(
+        (q) => q.id == questionId,
+      );
       if (qIndex == -1) continue;
 
       final qid = qIndex.toString();
@@ -1290,12 +1484,30 @@ class ReportState extends ChangeNotifier {
         _currentReport!.answers[qid] = {};
       }
 
+      // Save existing attention flags before clearing answers
+      final savedAttention = <String, List<bool>>{};
+      for (final lang in _currentReport!.availableLanguages) {
+        if (_currentReport!.answers[qid]!.containsKey(lang)) {
+          final existingAnswers = _currentReport!.answers[qid]![lang]!;
+          savedAttention[lang] = existingAnswers
+              .map((a) => a.attention)
+              .toList();
+        }
+      }
+
+      // Clear answers for all languages in sync data
       for (final lang in languages) {
         if (!_currentReport!.availableLanguages.contains(lang)) continue;
         _currentReport!.answers[qid]![lang] = [];
       }
 
-      for (final variant in variants) {
+      // Now restore answers and add back the attention flags!
+      for (
+        int variantIndex = 0;
+        variantIndex < variants.length;
+        variantIndex++
+      ) {
+        final variant = variants[variantIndex];
         final texts = (variant as List).cast<String>();
         for (int langIndex = 0; langIndex < languages.length; langIndex++) {
           final lang = languages[langIndex];
@@ -1304,7 +1516,19 @@ class ReportState extends ChangeNotifier {
           final text = langIndex < texts.length ? texts[langIndex] : '';
           final answersList = _currentReport!.answers[qid]![lang];
           if (answersList != null) {
-            answersList.add(Answer()..text = text..isEmpty = text.isEmpty);
+            // Get saved attention for this answer index in this language, default false
+            bool attention = false;
+            if (savedAttention.containsKey(lang) &&
+                variantIndex < savedAttention[lang]!.length) {
+              attention = savedAttention[lang]![variantIndex];
+            }
+
+            answersList.add(
+              Answer()
+                ..text = text
+                ..attention = attention
+                ..isEmpty = text.isEmpty && !attention,
+            );
           }
         }
       }
