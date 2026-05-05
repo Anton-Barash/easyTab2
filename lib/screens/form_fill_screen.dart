@@ -27,6 +27,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
   int _currentPage = 0;
   final Map<int, bool> _needsWorkMap = {};
   Set<int> _blockedQuestionIndices = {};
+  bool _isUpdatingControllers = false;
+  final Map<String, Map<int, bool>> _enabledAnswers = {};
 
   @override
   void dispose() {
@@ -92,6 +94,123 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
+  void _showLockDialog(
+    BuildContext context,
+    int i,
+    int j,
+    String qid,
+    ReportState reportState,
+  ) {
+    final currentAnswer = reportState.currentReport?.getAnswersForQuestion(
+      i,
+      reportState.currentReport!.currentLanguage,
+    )[j];
+    final currentText = currentAnswer?.text ?? '';
+
+    final TextEditingController replaceController = TextEditingController(
+      text: currentText,
+    );
+    final TextEditingController newController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Изменение ответа'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Внимание! Изменение этого ответа приведет к удалению текста в других локализациях.',
+                style: TextStyle(color: Color(0xFFef4444)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Заменить существующий ответ:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: replaceController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Введите новый текст ответа',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Или добавить новый ответ:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: newController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Введите текст нового ответа',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563eb),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                _enabledAnswers[qid]![j] = true;
+              });
+
+              if (newController.text.isNotEmpty) {
+                reportState.addAnswer(i);
+                final newJ =
+                    (reportState.currentReport
+                            ?.getAnswersForQuestion(
+                              i,
+                              reportState.currentReport!.currentLanguage,
+                            )
+                            .length ??
+                        1) -
+                    1;
+                reportState.updateAnswerText(i, newJ, newController.text);
+              } else if (replaceController.text.isNotEmpty &&
+                  replaceController.text != currentText) {
+                reportState.updateAnswerText(i, j, replaceController.text);
+              }
+
+              Navigator.pop(ctx);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final reportState = context.watch<ReportState>();
@@ -114,20 +233,45 @@ class _FormFillScreenState extends State<FormFillScreen> {
       if (!_answerControllers.containsKey(qid)) {
         _answerControllers[qid] = {};
       }
+      if (!_enabledAnswers.containsKey(qid)) {
+        _enabledAnswers[qid] = {};
+      }
       final answers = report.getAnswersForQuestion(i, report.currentLanguage);
+
+      final existingIndices = _answerControllers[qid]!.keys.toList();
+      for (final j in existingIndices) {
+        if (j >= answers.length) {
+          _answerControllers[qid]![j]?.dispose();
+          _answerControllers[qid]!.remove(j);
+          _enabledAnswers[qid]!.remove(j);
+        }
+      }
+
       for (int j = 0; j < answers.length; j++) {
         if (!_answerControllers[qid]!.containsKey(j)) {
           _answerControllers[qid]![j] = TextEditingController(
             text: answers[j].text,
           );
           _answerControllers[qid]![j]!.addListener(() {
-            reportState.updateAnswerText(
-              i,
-              j,
-              _answerControllers[qid]![j]!.text,
-            );
+            if (!_isUpdatingControllers) {
+              reportState.updateAnswerText(
+                i,
+                j,
+                _answerControllers[qid]![j]!.text,
+              );
+            }
           });
+        } else {
+          final controller = _answerControllers[qid]![j]!;
+          if (controller.text != answers[j].text) {
+            _isUpdatingControllers = true;
+            controller.text = answers[j].text;
+            _isUpdatingControllers = false;
+          }
         }
+
+        final hasOtherAnswers = reportState.hasAnswersInOtherLanguages(i, j);
+        _enabledAnswers[qid]![j] = !hasOtherAnswers;
       }
     }
 
@@ -1124,10 +1268,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ? 'Снять отметку "Внимание"'
                     : 'Отметить "Внимание"',
               ),
+              const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   controller: _answerControllers[qid]![j],
                   maxLines: null,
+                  enabled: _enabledAnswers[qid]?[j] ?? true,
                   decoration: InputDecoration(
                     hintText: 'Введите ответ...',
                     border: OutlineInputBorder(
@@ -1149,6 +1295,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ),
                 ),
               ),
+              if (reportState.hasAnswersInOtherLanguages(i, j))
+                IconButton(
+                  icon: const Icon(Icons.lock, color: Color(0xFF3b82f6)),
+                  onPressed: () =>
+                      _showLockDialog(context, i, j, qid, reportState),
+                  tooltip: 'Открыть для редактирования',
+                ),
               IconButton(
                 icon: const Icon(Icons.delete, color: Color(0xFFef4444)),
                 onPressed:

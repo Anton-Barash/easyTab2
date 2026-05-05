@@ -210,15 +210,27 @@ class Report {
               answers[qid]![langCode] = answersList.map((a) => Answer.fromJson(a)).toList();
             }
           });
-        } else if (langMap is List) {
-          answers[qid] = {'RU': langMap.map((a) => Answer.fromJson(a)).toList()};
         }
       });
     }
 
+    final availableLanguages = (json['availableLanguages'] as List<dynamic>?)?.cast<String>() ?? [];
+
+    if (answers.isEmpty && availableLanguages.isNotEmpty) {
+      final questionsList = json['questions'] as List?;
+      final questionsCount = questionsList?.length ?? 0;
+      for (int i = 0; i < questionsCount; i++) {
+        final qid = i.toString();
+        answers[qid] = {};
+        for (final lang in availableLanguages) {
+          answers[qid]![lang] = [Answer()];
+        }
+      }
+    }
+
     return Report(
       reportName: json['reportName'] ?? '',
-      availableLanguages: (json['availableLanguages'] as List<dynamic>?)?.cast<String>() ?? [],
+      availableLanguages: availableLanguages,
       currentLanguage: json['currentLanguage'] ?? 'RU',
       questions: (json['questions'] as List<dynamic>?)
               ?.map((q) => Question.fromJson(q))
