@@ -427,8 +427,35 @@ class ReportState extends ChangeNotifier {
     final dateTime = DateTime.fromMillisecondsSinceEpoch(_currentReport!.timestamp).toLocal().toString().substring(0, 16);
     final allLanguages = _currentReport!.availableLanguages;
     final languages = sortLanguages(allLanguages);
-    final langDisplay = languages.join(' / ');
     final buffer = StringBuffer();
+    
+    final List<String> allMediaData = [];
+    final List<List<List<Map<String, dynamic>>>> allMediaByQandAandLang = [];
+    
+    for (int i = 0; i < _currentReport!.questions.length; i++) {
+      final List<List<Map<String, dynamic>>> questionMedia = [];
+      
+      for (int li = 0; li < languages.length; li++) {
+        final lang = languages[li];
+        final answers = _currentReport!.getAnswersForQuestion(i, lang);
+        final List<Map<String, dynamic>> langMedia = [];
+        
+        for (final a in answers) {
+          for (final media in a.media) {
+            final mediaMap = {
+              'name': media.name,
+              'type': media.type,
+              'localPath': media.localPath ?? '',
+            };
+            langMedia.add(mediaMap);
+            allMediaData.add(jsonEncode(mediaMap));
+          }
+        }
+        questionMedia.add(langMedia);
+      }
+      allMediaByQandAandLang.add(questionMedia);
+    }
+    
     buffer.writeln('<!DOCTYPE html>');
     buffer.writeln('<html lang="ru">');
     buffer.writeln('<head>');
@@ -445,6 +472,25 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      font-family: \'Segoe UI\', \'Calibri\', \'Arial\', sans-serif;');
     buffer.writeln('      background: #e9e9e9;');
     buffer.writeln('      padding: 20px;');
+    buffer.writeln('    }');
+    buffer.writeln('    .language-switcher {');
+    buffer.writeln('      margin-bottom: 15px;');
+    buffer.writeln('      display: flex;');
+    buffer.writeln('      gap: 10px;');
+    buffer.writeln('      flex-wrap: wrap;');
+    buffer.writeln('    }');
+    buffer.writeln('    .lang-btn {');
+    buffer.writeln('      padding: 8px 16px;');
+    buffer.writeln('      border: 1px solid #a0a0a0;');
+    buffer.writeln('      background: white;');
+    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('      font-size: 14px;');
+    buffer.writeln('      border-radius: 4px;');
+    buffer.writeln('    }');
+    buffer.writeln('    .lang-btn.active {');
+    buffer.writeln('      background: #00B0F0;');
+    buffer.writeln('      color: white;');
+    buffer.writeln('      border-color: #00B0F0;');
     buffer.writeln('    }');
     buffer.writeln('    .excel-wrapper {');
     buffer.writeln('      background: white;');
@@ -468,13 +514,96 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      text-align: center;');
     buffer.writeln('      color: #2c2c2c;');
     buffer.writeln('    }');
+    buffer.writeln('    .media-item {');
+    buffer.writeln('      display: inline-block;');
+    buffer.writeln('      margin: 2px;');
+    buffer.writeln('      padding: 4px 8px;');
+    buffer.writeln('      background: #f0f0f0;');
+    buffer.writeln('      border: 1px solid #d0d0d0;');
+    buffer.writeln('      border-radius: 4px;');
+    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('      font-size: 12px;');
+    buffer.writeln('    }');
+    buffer.writeln('    .media-item:hover {');
+    buffer.writeln('      background: #e0e0e0;');
+    buffer.writeln('    }');
+    buffer.writeln('    /* Modal styles */');
+    buffer.writeln('    .modal {');
+    buffer.writeln('      display: none;');
+    buffer.writeln('      position: fixed;');
+    buffer.writeln('      z-index: 1000;');
+    buffer.writeln('      left: 0;');
+    buffer.writeln('      top: 0;');
+    buffer.writeln('      width: 100%;');
+    buffer.writeln('      height: 100%;');
+    buffer.writeln('      background-color: rgba(0,0,0,0.9);');
+    buffer.writeln('      overflow: auto;');
+    buffer.writeln('    }');
+    buffer.writeln('    .modal-content {');
+    buffer.writeln('      position: relative;');
+    buffer.writeln('      margin: auto;');
+    buffer.writeln('      top: 50%;');
+    buffer.writeln('      transform: translateY(-50%);');
+    buffer.writeln('      max-width: 90%;');
+    buffer.writeln('      max-height: 90%;');
+    buffer.writeln('      text-align: center;');
+    buffer.writeln('    }');
+    buffer.writeln('    .modal-img, .modal-video {');
+    buffer.writeln('      max-width: 100%;');
+    buffer.writeln('      max-height: 90vh;');
+    buffer.writeln('      transition: transform 0.1s ease;');
+    buffer.writeln('    }');
+    buffer.writeln('    .close {');
+    buffer.writeln('      position: absolute;');
+    buffer.writeln('      top: 15px;');
+    buffer.writeln('      right: 35px;');
+    buffer.writeln('      color: #f1f1f1;');
+    buffer.writeln('      font-size: 40px;');
+    buffer.writeln('      font-weight: bold;');
+    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('      z-index: 1001;');
+    buffer.writeln('    }');
+    buffer.writeln('    .zoom-controls {');
+    buffer.writeln('      position: fixed;');
+    buffer.writeln('      bottom: 30px;');
+    buffer.writeln('      left: 50%;');
+    buffer.writeln('      transform: translateX(-50%);');
+    buffer.writeln('      display: flex;');
+    buffer.writeln('      gap: 15px;');
+    buffer.writeln('      z-index: 1001;');
+    buffer.writeln('    }');
+    buffer.writeln('    .zoom-btn {');
+    buffer.writeln('      padding: 12px 24px;');
+    buffer.writeln('      font-size: 24px;');
+    buffer.writeln('      background: rgba(255,255,255,0.2);');
+    buffer.writeln('      color: white;');
+    buffer.writeln('      border: 2px solid white;');
+    buffer.writeln('      border-radius: 50%;');
+    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('      width: 60px;');
+    buffer.writeln('      height: 60px;');
+    buffer.writeln('      display: flex;');
+    buffer.writeln('      align-items: center;');
+    buffer.writeln('      justify-content: center;');
+    buffer.writeln('    }');
+    buffer.writeln('    .zoom-btn:hover {');
+    buffer.writeln('      background: rgba(255,255,255,0.3);');
+    buffer.writeln('    }');
     buffer.writeln('  </style>');
     buffer.writeln('</head>');
     buffer.writeln('<body>');
+    
+    buffer.writeln('<div class="language-switcher">');
+    for (int li = 0; li < languages.length; li++) {
+      final lang = languages[li];
+      buffer.writeln('  <button class="lang-btn ${li == 0 ? "active" : ""}" data-lang="$li" onclick="switchLanguage($li)">$lang</button>');
+    }
+    buffer.writeln('</div>');
+    
     buffer.writeln('<div class="excel-wrapper">');
     buffer.writeln('  <table>');
     buffer.writeln('    <tr>');
-    buffer.writeln('      <th colspan="5">${reportName} | Язык: ${langDisplay} | ${dateTime}</th>');
+    buffer.writeln('      <th colspan="5">${reportName} | ${dateTime}</th>');
     buffer.writeln('    </tr>');
     
     for (int i = 0; i < _currentReport!.questions.length; i++) {
@@ -486,7 +615,6 @@ class ReportState extends ChangeNotifier {
         questionNames.add(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}');
       }
       
-      final List<String> allMediaNames = [];
       final List<List<Answer>> answersByLang = List.generate(languages.length, (_) => []);
       
       for (int li = 0; li < languages.length; li++) {
@@ -496,12 +624,6 @@ class ReportState extends ChangeNotifier {
         for (final a in answers) {
           if (a.text.isNotEmpty) {
             answersByLang[li].add(a);
-          }
-        }
-        
-        for (final a in answers) {
-          for (final media in a.media) {
-            allMediaNames.add(media.name);
           }
         }
       }
@@ -519,73 +641,194 @@ class ReportState extends ChangeNotifier {
         answerHasAttention.add(hasAtt);
       }
       
-      final photoCellContent = allMediaNames.isNotEmpty ? allMediaNames.join(', ') : '';
-      
-      String questionCellContent() {
-        final parts = <String>[];
-        for (int li = 0; li < languages.length; li++) {
-          if (li == 0) {
-            parts.add(questionNames[li]);
-          } else {
-            final color = getLanguageColor(li);
-            parts.add('<span style="font-size:10px;color:$color;">${questionNames[li]}</span>');
-          }
-        }
-        return parts.join('<br>');
+      String questionCellContent(int li) {
+        return questionNames[li];
       }
       
-      String answerCellContent(int ai) {
-        final parts = <String>[];
-        for (int li = 0; li < languages.length; li++) {
-          if (ai < answersByLang[li].length) {
-            final text = answersByLang[li][ai].text;
-            if (li == 0) {
-              parts.add('<div>$text</div>');
-            } else {
-              final color = getLanguageColor(li);
-              parts.add('<div style="font-size:10px;color:$color;">$text</div>');
-            }
-          }
+      String answerCellContent(int ai, int li) {
+        if (ai < answersByLang[li].length) {
+          return answersByLang[li][ai].text;
         }
+        return '';
+      }
+      
+      String mediaCellContent(int ai, int li, int qIndex) {
+        if (ai != 0) return '';
+        
+        final List<Map<String, dynamic>> mediaList = allMediaByQandAandLang[qIndex][li];
+        final parts = <String>[];
+        
+        for (int mi = 0; mi < mediaList.length; mi++) {
+          final media = mediaList[mi];
+          final onClick = "openModal(${qIndex}, ${li}, ${mi})";
+          parts.add('<span class="media-item" onclick="$onClick">${media['name']}</span>');
+        }
+        
         return parts.join('');
       }
       
-      if (maxAnswers == 0) {
+      for (int ai = 0; ai < maxAnswers; ai++) {
         buffer.writeln('    <tr>');
-        buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
-        buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>');
-        buffer.writeln('      <td style="text-align:center;width:30px;"></td>');
-        buffer.writeln('      <td style="background:white;width:300px;"></td>');
-        buffer.writeln('      <td style="background:#fafafa;width:200px;"></td>');
-        buffer.writeln('    </tr>');
-      } else {
-        for (int ai = 0; ai < maxAnswers; ai++) {
-          buffer.writeln('    <tr>');
-          
-          if (ai == 0) {
-            buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
-          }
-          
-          if (ai == 0) {
-            buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>');
-          }
-          
-          if (answerHasAttention[ai]) {
-            buffer.writeln('      <td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>');
-          } else {
-            buffer.writeln('      <td style="text-align:center;vertical-align:middle;width:30px;"></td>');
-          }
-          
-          buffer.writeln('      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${answerCellContent(ai)}</td>');
-          
-          buffer.writeln('      <td style="background:#fafafa;width:200px;">${ai == 0 ? photoCellContent : ''}</td>');
-          
-          buffer.writeln('    </tr>');
+        
+        if (ai == 0) {
+          buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
         }
+        
+        if (ai == 0) {
+          final qContentParts = <String>[];
+          for (int li = 0; li < languages.length; li++) {
+            final style = li == 0 ? '' : 'display:none;';
+            qContentParts.add('<span class="question-lang-$li" style="$style">${questionCellContent(li)}</span>');
+          }
+          buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:160px;">${qContentParts.join('')}</td>');
+        }
+        
+        if (answerHasAttention[ai]) {
+          buffer.writeln('      <td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>');
+        } else {
+          buffer.writeln('      <td style="text-align:center;vertical-align:middle;width:30px;"></td>');
+        }
+        
+        final aContentParts = <String>[];
+        for (int li = 0; li < languages.length; li++) {
+          final style = li == 0 ? '' : 'display:none;';
+          aContentParts.add('<span class="answer-lang-$li" style="$style">${answerCellContent(ai, li)}</span>');
+        }
+        buffer.writeln('      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${aContentParts.join('')}</td>');
+        
+        if (ai == 0) {
+          final mContentParts = <String>[];
+          for (int li = 0; li < languages.length; li++) {
+            final style = li == 0 ? '' : 'display:none;';
+            mContentParts.add('<span class="media-lang-$li" style="$style">${mediaCellContent(ai, li, i)}</span>');
+          }
+          buffer.writeln('      <td style="background:#fafafa;width:200px;">${mContentParts.join('')}</td>');
+        } else {
+          buffer.writeln('      <td style="background:#fafafa;width:200px;"></td>');
+        }
+        
+        buffer.writeln('    </tr>');
       }
     }
     buffer.writeln('  </table>');
     buffer.writeln('</div>');
+    
+    // Modal
+    buffer.writeln('<div id="mediaModal" class="modal">');
+    buffer.writeln('  <span class="close" onclick="closeModal()">&times;</span>');
+    buffer.writeln('  <div class="modal-content">');
+    buffer.writeln('    <img id="modalImg" class="modal-img" style="display:none;" />');
+    buffer.writeln('    <video id="modalVideo" class="modal-video" controls style="display:none;"></video>');
+    buffer.writeln('  </div>');
+    buffer.writeln('  <div class="zoom-controls">');
+    buffer.writeln('    <button class="zoom-btn" onclick="zoomOut()">&minus;</button>');
+    buffer.writeln('    <button class="zoom-btn" onclick="zoomIn()">+</button>');
+    buffer.writeln('  </div>');
+    buffer.writeln('</div>');
+    
+    // JavaScript
+    buffer.writeln('<script>');
+    buffer.writeln('  let currentZoom = 1;');
+    buffer.writeln('  let currentMedia = null;');
+    buffer.writeln('  const allLanguages = ${jsonEncode(languages)};');
+    
+    // Media data
+    buffer.writeln('  const mediaData = [');
+    for (int i = 0; i < _currentReport!.questions.length; i++) {
+      buffer.writeln('    [');
+      for (int li = 0; li < languages.length; li++) {
+        buffer.writeln('      [');
+        for (int mi = 0; mi < allMediaByQandAandLang[i][li].length; mi++) {
+          final media = allMediaByQandAandLang[i][li][mi];
+          buffer.writeln('        ${jsonEncode(media)},');
+        }
+        buffer.writeln('      ],');
+      }
+      buffer.writeln('    ],');
+    }
+    buffer.writeln('  ];');
+    
+    buffer.writeln('  function switchLanguage(li) {');
+    buffer.writeln('    // Update buttons');
+    buffer.writeln('    document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));');
+    buffer.writeln('    document.querySelector(\'.lang-btn[data-lang="\' + li + \'"]\').classList.add("active");');
+    
+    buffer.writeln('    // Update content');
+    buffer.writeln('    for (let l = 0; l < allLanguages.length; l++) {');
+    buffer.writeln('      const display = l === li ? "" : "none";');
+    buffer.writeln('      document.querySelectorAll(".question-lang-" + l).forEach(el => el.style.display = display);');
+    buffer.writeln('      document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);');
+    buffer.writeln('      document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);');
+    buffer.writeln('    }');
+    buffer.writeln('  }');
+    
+    buffer.writeln('  function openModal(qIndex, li, mi) {');
+    buffer.writeln('    const media = mediaData[qIndex][li][mi];');
+    buffer.writeln('    const modal = document.getElementById("mediaModal");');
+    buffer.writeln('    const modalImg = document.getElementById("modalImg");');
+    buffer.writeln('    const modalVideo = document.getElementById("modalVideo");');
+    
+    buffer.writeln('    currentMedia = media;');
+    buffer.writeln('    currentZoom = 1;');
+    
+    buffer.writeln('    if (media.type.startsWith("image")) {');
+    buffer.writeln('      modalImg.style.display = "block";');
+    buffer.writeln('      modalVideo.style.display = "none";');
+    buffer.writeln('      modalImg.src = media.localPath;');
+    buffer.writeln('      modalImg.style.transform = "scale(1)";');
+    buffer.writeln('    } else {');
+    buffer.writeln('      modalImg.style.display = "none";');
+    buffer.writeln('      modalVideo.style.display = "block";');
+    buffer.writeln('      modalVideo.src = media.localPath;');
+    buffer.writeln('      modalVideo.style.transform = "scale(1)";');
+    buffer.writeln('    }');
+    
+    buffer.writeln('    modal.style.display = "block";');
+    buffer.writeln('  }');
+    
+    buffer.writeln('  function closeModal() {');
+    buffer.writeln('    document.getElementById("mediaModal").style.display = "none";');
+    buffer.writeln('  }');
+    
+    buffer.writeln('  function zoomIn() {');
+    buffer.writeln('    currentZoom += 0.2;');
+    buffer.writeln('    const modalImg = document.getElementById("modalImg");');
+    buffer.writeln('    const modalVideo = document.getElementById("modalVideo");');
+    buffer.writeln('    if (modalImg.style.display === "block") {');
+    buffer.writeln('      modalImg.style.transform = "scale(" + currentZoom + ")";');
+    buffer.writeln('    } else {');
+    buffer.writeln('      modalVideo.style.transform = "scale(" + currentZoom + ")";');
+    buffer.writeln('    }');
+    buffer.writeln('  }');
+    
+    buffer.writeln('  function zoomOut() {');
+    buffer.writeln('    if (currentZoom > 0.3) {');
+    buffer.writeln('      currentZoom -= 0.2;');
+    buffer.writeln('      const modalImg = document.getElementById("modalImg");');
+    buffer.writeln('      const modalVideo = document.getElementById("modalVideo");');
+    buffer.writeln('      if (modalImg.style.display === "block") {');
+    buffer.writeln('        modalImg.style.transform = "scale(" + currentZoom + ")";');
+    buffer.writeln('      } else {');
+    buffer.writeln('        modalVideo.style.transform = "scale(" + currentZoom + ")";');
+    buffer.writeln('      }');
+    buffer.writeln('    }');
+    buffer.writeln('  }');
+    
+    // Close modal on background click
+    buffer.writeln('  document.getElementById("mediaModal").onclick = function(event) {');
+    buffer.writeln('    if (event.target == this) {');
+    buffer.writeln('      closeModal();');
+    buffer.writeln('    }');
+    buffer.writeln('  }');
+    
+    // Close on escape key
+    buffer.writeln('  document.onkeydown = function(event) {');
+    buffer.writeln('    if (event.key === "Escape") {');
+    buffer.writeln('      closeModal();');
+    buffer.writeln('    }');
+    buffer.writeln('  }');
+    buffer.writeln('</script>');
+    
     buffer.writeln('</body>');
     buffer.writeln('</html>');
     return buffer.toString();
