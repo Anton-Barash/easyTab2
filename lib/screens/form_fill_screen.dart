@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:file_picker/file_picker.dart';
 import '../providers/report_provider.dart';
 import '../models/report_models.dart';
 
@@ -24,6 +26,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   final ScrollController _listScrollController = ScrollController();
   int _currentPage = 0;
   final Map<int, bool> _needsWorkMap = {};
+  Set<int> _blockedQuestionIndices = {};
 
   @override
   void dispose() {
@@ -33,6 +36,60 @@ class _FormFillScreenState extends State<FormFillScreen> {
     _pageController.dispose();
     _listScrollController.dispose();
     super.dispose();
+  }
+
+  void _handleLanguageChange(String lang) {
+    final reportState = context.read<ReportState>();
+    final report = reportState.currentReport;
+    if (report == null) return;
+
+    final unsyncIndices = reportState.getUnsyncQuestionIndices();
+    if (unsyncIndices.isNotEmpty) {
+      _showSyncDialog(lang, unsyncIndices);
+    } else {
+      reportState.setLanguage(lang);
+    }
+  }
+
+  void _showSyncDialog(String targetLang, List<int> unsyncIndices) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _SyncDialog(
+        reportState: context.read<ReportState>(),
+        targetLang: targetLang,
+        unsyncIndices: unsyncIndices,
+        onSyncApplied: () {
+          final reportState = context.read<ReportState>();
+          reportState.setLanguage(targetLang);
+          _blockedQuestionIndices.clear();
+        },
+        onSkipSync: () {
+          final reportState = context.read<ReportState>();
+          reportState.setLanguage(targetLang);
+          setState(() {
+            _blockedQuestionIndices = unsyncIndices.toSet();
+          });
+        },
+      ),
+    );
+  }
+
+  void _showSyncMenuDialog() {
+    final reportState = context.read<ReportState>();
+    final report = reportState.currentReport;
+    if (report == null) return;
+
+    final unsyncIndices = reportState.getUnsyncQuestionIndices();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _SyncMenuDialog(
+        reportState: reportState,
+        unsyncIndices: unsyncIndices,
+        onApplied: () {},
+      ),
+    );
   }
 
   @override
@@ -57,7 +114,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       if (!_answerControllers.containsKey(qid)) {
         _answerControllers[qid] = {};
       }
-      final answers = report.answers[qid] ?? [Answer()];
+      final answers = report.getAnswersForQuestion(i, report.currentLanguage);
       for (int j = 0; j < answers.length; j++) {
         if (!_answerControllers[qid]!.containsKey(j)) {
           _answerControllers[qid]![j] = TextEditingController(
@@ -116,7 +173,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     )
                     .toList(),
                 onSelected: (lang) {
-                  reportState.setLanguage(lang);
+                  _handleLanguageChange(lang);
                 },
               ),
             ),
@@ -180,6 +237,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ],
                 ),
               ),
+              const PopupMenuItem(
+                value: 3,
+                child: Row(
+                  children: [
+                    Icon(Icons.sync),
+                    SizedBox(width: 8),
+                    Text('Синхронизировать переводы'),
+                  ],
+                ),
+              ),
             ],
             onSelected: (value) async {
               if (value == 0) {
@@ -223,6 +290,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 if (zipPath != null && mounted) {
                   await reportState.shareZip(zipPath);
                 }
+              } else if (value == 3) {
+                _showSyncMenuDialog();
               }
             },
           ),
@@ -326,20 +395,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 ),
                                 itemCount: report.questions.length,
                                 itemBuilder: (ctx, i) {
-                                  final qid = i.toString();
-                                  final answers =
-                                      report.answers[qid] ?? [Answer()];
+                                  final lang = report.currentLanguage;
+                                  final answers = report.getAnswersForQuestion(
+                                    i,
+                                    lang,
+                                  );
                                   final answerCount = answers
                                       .where((a) => !a.isEmpty)
                                       .length;
                                   final attentionCount = answers
                                       .where((a) => a.attention)
                                       .length;
-                                  final emptyCount = answers
-                                      .where((a) => a.isEmpty)
-                                      .length;
 
-                                  final lang = report.currentLanguage;
                                   final q = report.questions[i];
                                   final loc = q.getLocalization(lang);
                                   final hasTranslation = q.hasTranslation(lang);
@@ -627,9 +694,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       padding: const EdgeInsets.all(16),
       itemCount: report.questions.length,
       itemBuilder: (ctx, i) {
-        final qid = i.toString();
         final q = report.questions[i];
-        final answers = report.answers[qid] ?? [Answer()];
         final lang = report.currentLanguage;
         final loc = q.getLocalization(lang);
         final hasTranslation = q.hasTranslation(lang);
@@ -751,13 +816,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
     ReportState reportState,
     bool isCardView,
   ) {
-    final qid = index.toString();
     final report = reportState.currentReport!;
     final q = report.questions[index];
     final lang = report.currentLanguage;
     final loc = q.getLocalization(lang);
     final hasTranslation = q.hasTranslation(lang);
-    final answers = report.answers[qid] ?? [Answer()];
+    final answers = report.getAnswersForQuestion(index, lang);
 
     final width = isCardView ? 600.0 : double.infinity;
 
@@ -988,7 +1052,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     index,
                     j,
                     reportState,
-                    qid,
+                    index.toString(),
                     answers[j],
                   ),
                 const SizedBox(height: 8),
@@ -1389,6 +1453,532 @@ void _showEditQuestionDialog(
       ],
     ),
   );
+}
+
+class _SyncDialog extends StatefulWidget {
+  final ReportState reportState;
+  final String targetLang;
+  final List<int> unsyncIndices;
+  final VoidCallback onSyncApplied;
+  final VoidCallback onSkipSync;
+
+  const _SyncDialog({
+    required this.reportState,
+    required this.targetLang,
+    required this.unsyncIndices,
+    required this.onSyncApplied,
+    required this.onSkipSync,
+  });
+
+  @override
+  State<_SyncDialog> createState() => _SyncDialogState();
+}
+
+class _SyncDialogState extends State<_SyncDialog> {
+  final TextEditingController _jsonController = TextEditingController();
+
+  String get _syncJson => widget.reportState.generateSyncJson();
+
+  Future<void> _copyToClipboard() async {
+    await Clipboard.setData(ClipboardData(text: _syncJson));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('JSON скопирован в буфер обмена')),
+      );
+    }
+  }
+
+  Future<void> _saveToFile() async {
+    try {
+      final directory = await FilePicker.platform.getDirectoryPath();
+      if (directory == null) return;
+
+      final file = File('$directory/sync_answers_${widget.targetLang}.json');
+      await file.writeAsString(_syncJson);
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Файл сохранён: ${file.path}')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+      }
+    }
+  }
+
+  Future<void> _loadFromFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json', 'txt'],
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    try {
+      final file = File(result.files.single.path!);
+      final content = await file.readAsString();
+      setState(() {
+        _jsonController.text = content;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка чтения файла: $e')));
+      }
+    }
+  }
+
+  void _applySync() {
+    final jsonText = _jsonController.text.trim();
+    if (jsonText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Вставьте переведённый JSON')),
+      );
+      return;
+    }
+
+    try {
+      widget.reportState.applySyncAnswers(jsonText);
+      Navigator.pop(context);
+      widget.onSyncApplied();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Синхронизация завершена')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: неверный формат JSON - $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Синхронизация ответов (${widget.targetLang})'),
+      content: SizedBox(
+        width: 550,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3CD),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFFC107)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Воспользуйтесь любым доступным ИИ.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Пример промта: Изучи json, если в какой-то локализации нет ответа, но он есть в другой локализации, то переведи и вставь перевод; если ответов нет нигде, то оставь пустое поле.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Пример промта для ИИ: "В этом json есть ответы на разных языках. Заполни пустые ответы переводами ответов, которые уже есть."',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Несинхронизированных вопросов: ${widget.unsyncIndices.length}',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _copyToClipboard,
+                      icon: const Icon(Icons.copy),
+                      label: const Text('Копировать'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFe0e0e0),
+                        foregroundColor: const Color(0xFF424242),
+                        side: const BorderSide(
+                          color: Color(0xFF333333),
+                          width: 2,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _saveToFile,
+                      icon: const Icon(Icons.download),
+                      label: const Text('Скачать'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFe0e0e0),
+                        foregroundColor: const Color(0xFF424242),
+                        side: const BorderSide(
+                          color: Color(0xFF333333),
+                          width: 2,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Вставьте переведённый JSON:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _jsonController,
+                maxLines: 8,
+                decoration: InputDecoration(
+                  hintText: 'Вставьте JSON сюда...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF333333),
+                      width: 2,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                onPressed: _loadFromFile,
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Загрузить из файла'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFe0e0e0),
+                  foregroundColor: const Color(0xFF424242),
+                  side: const BorderSide(color: Color(0xFF333333), width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            widget.onSkipSync();
+          },
+          child: const Text(
+            'Отказаться',
+            style: TextStyle(color: Color(0xFF64748b)),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _applySync,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2563eb),
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFF333333), width: 2),
+          ),
+          child: const Text('Синхронизировать'),
+        ),
+      ],
+    );
+  }
+}
+
+class _SyncMenuDialog extends StatefulWidget {
+  final ReportState reportState;
+  final List<int> unsyncIndices;
+  final VoidCallback onApplied;
+
+  const _SyncMenuDialog({
+    required this.reportState,
+    required this.unsyncIndices,
+    required this.onApplied,
+  });
+
+  @override
+  State<_SyncMenuDialog> createState() => _SyncMenuDialogState();
+}
+
+class _SyncMenuDialogState extends State<_SyncMenuDialog> {
+  final TextEditingController _jsonController = TextEditingController();
+
+  String get _syncJson => widget.reportState.generateSyncJson();
+
+  Future<void> _copyToClipboard() async {
+    await Clipboard.setData(ClipboardData(text: _syncJson));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('JSON скопирован в буфер обмена')),
+      );
+    }
+  }
+
+  Future<void> _saveToFile() async {
+    try {
+      final directory = await FilePicker.platform.getDirectoryPath();
+      if (directory == null) return;
+
+      final file = File('$directory/sync_answers.json');
+      await file.writeAsString(_syncJson);
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Файл сохранён: ${file.path}')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+      }
+    }
+  }
+
+  Future<void> _loadFromFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json', 'txt'],
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    try {
+      final file = File(result.files.single.path!);
+      final content = await file.readAsString();
+      setState(() {
+        _jsonController.text = content;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка чтения файла: $e')));
+      }
+    }
+  }
+
+  void _applySync() {
+    final jsonText = _jsonController.text.trim();
+    if (jsonText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Вставьте переведённый JSON')),
+      );
+      return;
+    }
+
+    try {
+      widget.reportState.applySyncAnswers(jsonText);
+      Navigator.pop(context);
+      widget.onApplied();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Синхронизация завершена')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: неверный формат JSON - $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unsyncCount = widget.reportState.getUnsyncQuestionIndices().length;
+
+    return AlertDialog(
+      title: const Text('Синхронизация переводов'),
+      content: SizedBox(
+        width: 550,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (unsyncCount > 0) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3CD),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFFC107)),
+                  ),
+                  child: Text(
+                    'Несинхронизированных вопросов: $unsyncCount',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD4EDDA),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF28A745)),
+                  ),
+                  child: const Text(
+                    'Все ответы синхронизированы!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF155724),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFDEE2E6)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Инструкция:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text('1. Скопируйте или скачайте JSON с текущими ответами'),
+                    Text('2. Отправьте в ИИ для перевода пустых полей'),
+                    Text('3. Вставьте результат или загрузите файл'),
+                    Text('4. Нажмите "Синхронизировать"'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Пример промта для ИИ:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFDEE2E6)),
+                ),
+                child: const Text(
+                  '"В этом json есть ответы на разных языках. Заполни пустые ответы переводами ответов, которые уже есть."',
+                  style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _copyToClipboard,
+                      icon: const Icon(Icons.copy),
+                      label: const Text('Копировать JSON'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFe0e0e0),
+                        foregroundColor: const Color(0xFF424242),
+                        side: const BorderSide(
+                          color: Color(0xFF333333),
+                          width: 2,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _saveToFile,
+                      icon: const Icon(Icons.download),
+                      label: const Text('Скачать'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFe0e0e0),
+                        foregroundColor: const Color(0xFF424242),
+                        side: const BorderSide(
+                          color: Color(0xFF333333),
+                          width: 2,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Загрузите переведённый JSON:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _jsonController,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  hintText: 'Вставьте JSON сюда...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF333333),
+                      width: 2,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                onPressed: _loadFromFile,
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Загрузить из файла'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFe0e0e0),
+                  foregroundColor: const Color(0xFF424242),
+                  side: const BorderSide(color: Color(0xFF333333), width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text(
+            'Закрыть',
+            style: TextStyle(color: Color(0xFF64748b)),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _applySync,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2563eb),
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFF333333), width: 2),
+          ),
+          child: const Text('Синхронизировать'),
+        ),
+      ],
+    );
+  }
 }
 
 class DottedPatternPainter extends CustomPainter {

@@ -131,6 +131,16 @@ class Question {
         'localizations': localizations.map((k, v) => MapEntry(k, v.toJson())),
       };
 
+  Question copyWith({
+    int? id,
+    Map<String, QuestionLocalization>? localizations,
+  }) {
+    return Question(
+      id: id ?? this.id,
+      localizations: localizations ?? this.localizations,
+    );
+  }
+
   factory Question.fromJson(Map<String, dynamic> json) => Question(
         id: json['id'] ?? 0,
         localizations: (json['localizations'] as Map<String, dynamic>?)?.map(
@@ -145,7 +155,7 @@ class Report {
   List<String> availableLanguages;
   String currentLanguage;
   List<Question> questions;
-  Map<String, List<Answer>> answers;
+  Map<String, Map<String, List<Answer>>> answers;
   Map<String, int> mediaCounter;
   int timestamp;
   String? folderPath;
@@ -161,33 +171,87 @@ class Report {
     this.folderPath,
   }) : timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch;
 
+  List<Answer> getAnswersForQuestion(int questionIndex, String langCode) {
+    final qid = questionIndex.toString();
+    if (!answers.containsKey(qid)) return [Answer()];
+    if (!answers[qid]!.containsKey(langCode)) return [Answer()];
+    return answers[qid]![langCode] ?? [Answer()];
+  }
+
+  bool hasAnswersInLanguage(int questionIndex, String langCode) {
+    final answersList = getAnswersForQuestion(questionIndex, langCode);
+    return answersList.any((a) => !a.isEmpty);
+  }
+
+  bool hasAnyAnswerInLanguage(int questionIndex, String langCode) {
+    return hasAnswersInLanguage(questionIndex, langCode);
+  }
+
   Map<String, dynamic> toJson() => {
         'reportName': reportName,
         'availableLanguages': availableLanguages,
         'currentLanguage': currentLanguage,
         'questions': questions.map((q) => q.toJson()).toList(),
-        'answers': answers.map((k, v) => MapEntry(k, v.map((a) => a.toJson()).toList())),
+        'answers': answers.map((k, v) => MapEntry(k, v.map((lk, lva) => MapEntry(lk, lva.map((a) => a.toJson()).toList())))),
         'mediaCounter': mediaCounter,
         'timestamp': timestamp,
       };
 
-  factory Report.fromJson(Map<String, dynamic> json, {String? folderPath}) => Report(
-        reportName: json['reportName'] ?? '',
-        availableLanguages: (json['availableLanguages'] as List<dynamic>?)?.cast<String>() ?? [],
-        currentLanguage: json['currentLanguage'] ?? 'RU',
-        questions: (json['questions'] as List<dynamic>?)
-                ?.map((q) => Question.fromJson(q))
-                .toList() ??
-            [],
-        answers: (json['answers'] as Map<String, dynamic>?)?.map(
-              (k, v) => MapEntry(
-                  k, (v as List<dynamic>).map((a) => Answer.fromJson(a)).toList()),
-            ) ??
-            {},
-        mediaCounter: Map<String, int>.from(json['mediaCounter'] ?? {'photos': 1, 'X': 1}),
-        timestamp: json['timestamp'],
-        folderPath: folderPath,
-      );
+  factory Report.fromJson(Map<String, dynamic> json, {String? folderPath}) {
+    final answersJson = json['answers'] as Map<String, dynamic>?;
+    final answers = <String, Map<String, List<Answer>>>{};
+
+    if (answersJson != null) {
+      answersJson.forEach((qid, langMap) {
+        if (langMap is Map) {
+          answers[qid] = {};
+          (langMap as Map<String, dynamic>).forEach((langCode, answersList) {
+            if (answersList is List) {
+              answers[qid]![langCode] = answersList.map((a) => Answer.fromJson(a)).toList();
+            }
+          });
+        } else if (langMap is List) {
+          answers[qid] = {'RU': langMap.map((a) => Answer.fromJson(a)).toList()};
+        }
+      });
+    }
+
+    return Report(
+      reportName: json['reportName'] ?? '',
+      availableLanguages: (json['availableLanguages'] as List<dynamic>?)?.cast<String>() ?? [],
+      currentLanguage: json['currentLanguage'] ?? 'RU',
+      questions: (json['questions'] as List<dynamic>?)
+              ?.map((q) => Question.fromJson(q))
+              .toList() ??
+          [],
+      answers: answers,
+      mediaCounter: Map<String, int>.from(json['mediaCounter'] ?? {'photos': 1, 'X': 1}),
+      timestamp: json['timestamp'],
+      folderPath: folderPath,
+    );
+  }
+
+  Report copyWith({
+    String? reportName,
+    List<String>? availableLanguages,
+    String? currentLanguage,
+    List<Question>? questions,
+    Map<String, Map<String, List<Answer>>>? answers,
+    Map<String, int>? mediaCounter,
+    int? timestamp,
+    String? folderPath,
+  }) {
+    return Report(
+      reportName: reportName ?? this.reportName,
+      availableLanguages: availableLanguages ?? this.availableLanguages,
+      currentLanguage: currentLanguage ?? this.currentLanguage,
+      questions: questions ?? this.questions,
+      answers: answers ?? this.answers,
+      mediaCounter: mediaCounter ?? this.mediaCounter,
+      timestamp: timestamp ?? this.timestamp,
+      folderPath: folderPath ?? this.folderPath,
+    );
+  }
 
   @override
   String toString() => jsonEncode(toJson());
