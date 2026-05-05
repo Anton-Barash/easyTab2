@@ -194,13 +194,14 @@ class ReportState extends ChangeNotifier {
   void updateAnswerAttention(int questionIndex, int answerIndex, bool attention) {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
-    final lang = _currentReport!.currentLanguage;
-    if (_currentReport!.answers.containsKey(qid) &&
-        _currentReport!.answers[qid]!.containsKey(lang) &&
-        answerIndex < _currentReport!.answers[qid]![lang]!.length) {
-      _currentReport!.answers[qid]![lang]![answerIndex].attention = attention;
-      notifyListeners();
+    for (final lang in _currentReport!.availableLanguages) {
+      if (_currentReport!.answers.containsKey(qid) &&
+          _currentReport!.answers[qid]!.containsKey(lang) &&
+          answerIndex < _currentReport!.answers[qid]![lang]!.length) {
+        _currentReport!.answers[qid]![lang]![answerIndex].attention = attention;
+      }
     }
+    notifyListeners();
   }
 
   Future<void> addMedia(int questionIndex, int answerIndex, File file, bool isAttention) async {
@@ -422,9 +423,11 @@ class ReportState extends ChangeNotifier {
 
   String _generateHtml() {
     if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
-    final lang = _currentReport!.currentLanguage;
     final reportName = _currentReport!.reportName;
     final dateTime = DateTime.fromMillisecondsSinceEpoch(_currentReport!.timestamp).toLocal().toString().substring(0, 16);
+    final allLanguages = _currentReport!.availableLanguages;
+    final languages = sortLanguages(allLanguages);
+    final langDisplay = languages.join(' / ');
     final buffer = StringBuffer();
     buffer.writeln('<!DOCTYPE html>');
     buffer.writeln('<html lang="ru">');
@@ -455,60 +458,15 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      table-layout: auto;');
     buffer.writeln('    }');
     buffer.writeln('    th, td {');
-    buffer.writeln('      border: 1px solid #d0d0d0;');
     buffer.writeln('      padding: 6px 10px;');
     buffer.writeln('      vertical-align: top;');
+    buffer.writeln('      border-bottom: 1px solid #d0d0d0;');
     buffer.writeln('    }');
     buffer.writeln('    th {');
     buffer.writeln('      background: #f3f3f3;');
     buffer.writeln('      font-weight: 600;');
     buffer.writeln('      text-align: center;');
     buffer.writeln('      color: #2c2c2c;');
-    buffer.writeln('      border-bottom: 1px solid #a0a0a0;');
-    buffer.writeln('    }');
-    buffer.writeln('    .label-cell {');
-    buffer.writeln('      background: #fafafa;');
-    buffer.writeln('      font-weight: 500;');
-    buffer.writeln('      width: 160px;');
-    buffer.writeln('      color: #1e1e1e;');
-    buffer.writeln('      border-right: 1px solid #c0c0c0;');
-    buffer.writeln('    }');
-    buffer.writeln('    .value-cell {');
-    buffer.writeln('      background: white;');
-    buffer.writeln('    }');
-    buffer.writeln('    .sub-value {');
-    buffer.writeln('      margin-top: 4px;');
-    buffer.writeln('      padding-top: 4px;');
-    buffer.writeln('      border-top: 1px dotted #e0e0e0;');
-    buffer.writeln('    }');
-    buffer.writeln('    .sub-value:first-child {');
-    buffer.writeln('      margin-top: 0;');
-    buffer.writeln('      padding-top: 0;');
-    buffer.writeln('      border-top: none;');
-    buffer.writeln('    }');
-    buffer.writeln('    .example-hint {');
-    buffer.writeln('      color: #888;');
-    buffer.writeln('      font-size: 11px;');
-    buffer.writeln('      margin-bottom: 6px;');
-    buffer.writeln('      font-style: italic;');
-    buffer.writeln('    }');
-    buffer.writeln('    .photo-cell {');
-    buffer.writeln('      background: #fafafa;');
-    buffer.writeln('      width: 200px;');
-    buffer.writeln('      border-left: 1px solid #c0c0c0;');
-    buffer.writeln('    }');
-    buffer.writeln('    .photo-name {');
-    buffer.writeln('      font-weight: bold;');
-    buffer.writeln('      color: #666;');
-    buffer.writeln('    }');
-    buffer.writeln('    .translation-hint {');
-    buffer.writeln('      background: #fff3cd;');
-    buffer.writeln('      border: 1px solid #ffc107;');
-    buffer.writeln('      padding: 6px;');
-    buffer.writeln('      border-radius: 3px;');
-    buffer.writeln('      font-size: 11px;');
-    buffer.writeln('      color: #856404;');
-    buffer.writeln('      margin-bottom: 6px;');
     buffer.writeln('    }');
     buffer.writeln('  </style>');
     buffer.writeln('</head>');
@@ -516,50 +474,115 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('<div class="excel-wrapper">');
     buffer.writeln('  <table>');
     buffer.writeln('    <tr>');
-    buffer.writeln('      <th colspan="3">${reportName} &nbsp;|&#160; Язык: ${lang} &nbsp;|&#160; ${dateTime}</th>');
+    buffer.writeln('      <th colspan="5">${reportName} | Язык: ${langDisplay} | ${dateTime}</th>');
     buffer.writeln('    </tr>');
+    
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final q = _currentReport!.questions[i];
-      final loc = q.getLocalization(lang);
-      final hasTranslation = q.hasTranslation(lang);
-      final hasSome = q.hasSomeTranslation();
-      final answers = _currentReport!.getAnswersForQuestion(i, lang);
-      final questionName = loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}';
+      final questionNames = <String>[];
+      for (int li = 0; li < languages.length; li++) {
+        final lang = languages[li];
+        final loc = q.getLocalization(lang);
+        questionNames.add(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}');
+      }
       
       final List<String> allMediaNames = [];
-      for (int j = 0; j < answers.length; j++) {
-        final a = answers[j];
-        for (final media in a.media) {
-          allMediaNames.add(media.name);
+      final List<List<Answer>> answersByLang = List.generate(languages.length, (_) => []);
+      
+      for (int li = 0; li < languages.length; li++) {
+        final lang = languages[li];
+        final answers = _currentReport!.getAnswersForQuestion(i, lang);
+        
+        for (final a in answers) {
+          if (a.text.isNotEmpty) {
+            answersByLang[li].add(a);
+          }
         }
-      }
-      final photoCellContent = allMediaNames.isNotEmpty 
-          ? '<div class="photo-name">${allMediaNames.join(', ')}</div>'
-          : '';
-      
-      buffer.writeln('    <tr>');
-      buffer.writeln('      <td class="label-cell">${questionName}</td>');
-      buffer.writeln('      <td class="value-cell">');
-      
-      if (!hasTranslation && hasSome) {
-        final otherLangs = q.getAvailableLanguages().where((l) => l != lang).join(', ');
-        buffer.writeln('        <div class="translation-hint">Перевод на ${lang} отсутствует. Доступно на: ${otherLangs}</div>');
-      }
-      
-      if (loc?.example?.isNotEmpty ?? false) {
-        buffer.writeln('        <div class="example-hint">${loc?.example}</div>');
-      }
-      
-      for (int j = 0; j < answers.length; j++) {
-        final a = answers[j];
-        if (a.text.isNotEmpty) {
-          buffer.writeln('        <div class="sub-value">${a.text}</div>');
+        
+        for (final a in answers) {
+          for (final media in a.media) {
+            allMediaNames.add(media.name);
+          }
         }
       }
       
-      buffer.writeln('      </td>');
-      buffer.writeln('      <td class="photo-cell">${photoCellContent}</td>');
-      buffer.writeln('    </tr>');
+      final maxAnswers = answersByLang.map((l) => l.length).reduce((a, b) => a > b ? a : b);
+      
+      final answerHasAttention = <bool>[];
+      for (int ai = 0; ai < maxAnswers; ai++) {
+        bool hasAtt = false;
+        for (int li = 0; li < languages.length; li++) {
+          if (ai < answersByLang[li].length && answersByLang[li][ai].attention) {
+            hasAtt = true;
+          }
+        }
+        answerHasAttention.add(hasAtt);
+      }
+      
+      final photoCellContent = allMediaNames.isNotEmpty ? allMediaNames.join(', ') : '';
+      
+      String questionCellContent() {
+        final parts = <String>[];
+        for (int li = 0; li < languages.length; li++) {
+          if (li == 0) {
+            parts.add(questionNames[li]);
+          } else {
+            final color = getLanguageColor(li);
+            parts.add('<span style="font-size:10px;color:$color;">${questionNames[li]}</span>');
+          }
+        }
+        return parts.join('<br>');
+      }
+      
+      String answerCellContent(int ai) {
+        final parts = <String>[];
+        for (int li = 0; li < languages.length; li++) {
+          if (ai < answersByLang[li].length) {
+            final text = answersByLang[li][ai].text;
+            if (li == 0) {
+              parts.add('<div>$text</div>');
+            } else {
+              final color = getLanguageColor(li);
+              parts.add('<div style="font-size:10px;color:$color;">$text</div>');
+            }
+          }
+        }
+        return parts.join('');
+      }
+      
+      if (maxAnswers == 0) {
+        buffer.writeln('    <tr>');
+        buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
+        buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>');
+        buffer.writeln('      <td style="text-align:center;width:30px;"></td>');
+        buffer.writeln('      <td style="background:white;width:300px;"></td>');
+        buffer.writeln('      <td style="background:#fafafa;width:200px;"></td>');
+        buffer.writeln('    </tr>');
+      } else {
+        for (int ai = 0; ai < maxAnswers; ai++) {
+          buffer.writeln('    <tr>');
+          
+          if (ai == 0) {
+            buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
+          }
+          
+          if (ai == 0) {
+            buffer.writeln('      <td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>');
+          }
+          
+          if (answerHasAttention[ai]) {
+            buffer.writeln('      <td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>');
+          } else {
+            buffer.writeln('      <td style="text-align:center;vertical-align:middle;width:30px;"></td>');
+          }
+          
+          buffer.writeln('      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${answerCellContent(ai)}</td>');
+          
+          buffer.writeln('      <td style="background:#fafafa;width:200px;">${ai == 0 ? photoCellContent : ''}</td>');
+          
+          buffer.writeln('    </tr>');
+        }
+      }
     }
     buffer.writeln('  </table>');
     buffer.writeln('</div>');
@@ -579,20 +602,17 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('<!DOCTYPE html>');
     buffer.writeln('<html lang="ru">');
     buffer.writeln('<head>');
-    buffer.writeln('  <meta charset="UTF-8">');
-    buffer.writeln('  <meta name="viewport" content="width=device-width, initial-scale=1.0">');
-    buffer.writeln('  <title>${reportName} - Excel таблица</title>');
-    buffer.writeln('  <style>');
-    buffer.writeln('    table { border-collapse: collapse; font-size: 13px; }');
-    buffer.writeln('    th, td { border: 1px solid #d0d0d0; padding: 6px 10px; vertical-align: top; }');
-    buffer.writeln('    th { background: #f3f3f3; font-weight: 600; text-align: center; color: #2c2c2c; border-bottom: 1px solid #a0a0a0; }');
-    buffer.writeln('  </style>');
+    buffer.writeln('<meta charset="UTF-8">');
+    buffer.writeln('<meta name="viewport" content="width=device-width, initial-scale=1.0">');
+    buffer.writeln('<title>${reportName} - Excel таблица</title>');
+    buffer.writeln('<style>table{border-collapse:collapse;font-size:13px;}th,td{padding:6px 10px;vertical-align:top;border-bottom:1px solid #d0d0d0;}th{background:#f3f3f3;font-weight:600;text-align:center;color:#2c2c2c;}</style>');
     buffer.writeln('</head>');
     buffer.writeln('<body>');
-    buffer.writeln('  <table>');
-    buffer.writeln('    <tr>');
-    buffer.writeln('      <th colspan="3">${reportName} | Язык: ${langDisplay} | ${dateTime}</th>');
-    buffer.writeln('    </tr>');
+    buffer.writeln('<table>');
+    buffer.writeln('<thead>');
+    buffer.writeln('<tr><th colspan="5">${reportName} | Язык: ${langDisplay} | ${dateTime}</th></tr>');
+    buffer.writeln('</thead>');
+    buffer.writeln('<tbody>');
     
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final q = _currentReport!.questions[i];
@@ -604,7 +624,7 @@ class ReportState extends ChangeNotifier {
       }
       
       final List<String> allMediaNames = [];
-      final List<List<String>> answersByLang = List.generate(languages.length, (_) => []);
+      final List<List<Answer>> answersByLang = List.generate(languages.length, (_) => []);
       
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
@@ -612,7 +632,7 @@ class ReportState extends ChangeNotifier {
         
         for (final a in answers) {
           if (a.text.isNotEmpty) {
-            answersByLang[li].add(a.text);
+            answersByLang[li].add(a);
           }
         }
         
@@ -623,49 +643,87 @@ class ReportState extends ChangeNotifier {
         }
       }
       
-      buffer.writeln('    <tr>');
-      final labelCellContent = questionNames.asMap().entries.map((entry) {
-        if (entry.key == 0) {
-          return entry.value;
-        } else {
-          final color = getLanguageColor(entry.key);
-          return '<br><span style="font-size: 10px; color: $color;">${entry.value}</span>';
-        }
-      }).join('');
-      buffer.writeln('      <td style="background: #fafafa; font-weight: 500; width: 160px; border-right: 1px solid #c0c0c0;">${labelCellContent}</td>');
-      
-      buffer.writeln('      <td>');
-      
       final maxAnswers = answersByLang.map((l) => l.length).reduce((a, b) => a > b ? a : b);
+      
+      final answerHasAttention = <bool>[];
       for (int ai = 0; ai < maxAnswers; ai++) {
-        final isFirstAnswer = ai == 0;
-        final hasLineAbove = ai > 0;
-        
+        bool hasAtt = false;
+        for (int li = 0; li < languages.length; li++) {
+          if (ai < answersByLang[li].length && answersByLang[li][ai].attention) {
+            hasAtt = true;
+          }
+        }
+        answerHasAttention.add(hasAtt);
+      }
+      
+      final photoCellContent = allMediaNames.isNotEmpty ? allMediaNames.join(', ') : '';
+      
+      String questionCellContent() {
+        final parts = <String>[];
+        for (int li = 0; li < languages.length; li++) {
+          if (li == 0) {
+            parts.add(questionNames[li]);
+          } else {
+            final color = getLanguageColor(li);
+            parts.add('<span style="font-size:10px;color:$color;">${questionNames[li]}</span>');
+          }
+        }
+        return parts.join('<br>');
+      }
+      
+      String answerCellContent(int ai) {
+        final parts = <String>[];
         for (int li = 0; li < languages.length; li++) {
           if (ai < answersByLang[li].length) {
+            final text = answersByLang[li][ai].text;
             if (li == 0) {
-              final style = hasLineAbove 
-                  ? 'margin-top: 4px; padding-top: 4px; border-top: 1px dotted #e0e0e0;'
-                  : '';
-              buffer.writeln('        <div${style.isNotEmpty ? ' style="$style"' : ''}>${answersByLang[li][ai]}</div>');
+              parts.add('<div>$text</div>');
             } else {
               final color = getLanguageColor(li);
-              buffer.writeln('        <div style="font-size: 10px; color: $color;">${answersByLang[li][ai]}</div>');
+              parts.add('<div style="font-size:10px;color:$color;">$text</div>');
             }
           }
         }
+        return parts.join('');
       }
       
-      buffer.writeln('      </td>');
-      
-      final photoCellContent = allMediaNames.isNotEmpty 
-          ? '<div style="font-weight: bold; color: #666;">${allMediaNames.join(', ')}</div>'
-          : '';
-      buffer.writeln('      <td style="background: #fafafa; width: 200px; border-left: 1px solid #c0c0c0;">${photoCellContent}</td>');
-      buffer.writeln('    </tr>');
+      if (maxAnswers == 0) {
+        buffer.writeln('<tr>');
+        buffer.writeln('<td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
+        buffer.writeln('<td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>');
+        buffer.writeln('<td style="text-align:center;width:30px;"></td>');
+        buffer.writeln('<td style="background:white;width:300px;"></td>');
+        buffer.writeln('<td style="background:#fafafa;width:200px;"></td>');
+        buffer.writeln('</tr>');
+      } else {
+        for (int ai = 0; ai < maxAnswers; ai++) {
+          buffer.writeln('<tr>');
+          
+          if (ai == 0) {
+            buffer.writeln('<td rowspan="$maxAnswers" style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>');
+          }
+          
+          if (ai == 0) {
+            buffer.writeln('<td rowspan="$maxAnswers" style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>');
+          }
+          
+          if (answerHasAttention[ai]) {
+            buffer.writeln('<td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>');
+          } else {
+            buffer.writeln('<td style="text-align:center;vertical-align:middle;width:30px;"></td>');
+          }
+          
+          buffer.writeln('<td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${answerCellContent(ai)}</td>');
+          
+          buffer.writeln('<td style="background:#fafafa;width:200px;">${ai == 0 ? photoCellContent : ''}</td>');
+          
+          buffer.writeln('</tr>');
+        }
+      }
     }
     
-    buffer.writeln('  </table>');
+    buffer.writeln('</tbody>');
+    buffer.writeln('</table>');
     buffer.writeln('</body>');
     buffer.writeln('</html>');
     return buffer.toString();
@@ -717,10 +775,9 @@ class ReportState extends ChangeNotifier {
       final rows = sheet.rows;
       if (rows.length < 3) return null;
       
-      // Row 0 is helper (ignored), Row 1 is language codes
       final langRow = rows[1];
       final languages = <String>[];
-      final langColumns = <String, int>{}; // lang -> start column
+      final langColumns = <String, int>{};
       
       for (int col = 0; col < langRow.length; col++) {
         final cell = langRow[col];
@@ -1013,4 +1070,3 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 }
-
