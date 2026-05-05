@@ -1072,7 +1072,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 ),
                               PopupMenuButton<String>(
                                 icon: const Icon(Icons.more_vert, size: 20),
-                                color: const Color(0xFF6b7280),
+                                color: Colors.white,
+                                elevation: 4,
                                 itemBuilder: (ctx) => [
                                   const PopupMenuItem(
                                     value: 'add_above',
@@ -1170,7 +1171,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                'Пример: ${loc?.example}',
+                                '${loc?.example}',
                                 style: const TextStyle(
                                   fontSize: 13,
                                   color: Color(0xFF0369a1),
@@ -1274,6 +1275,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   controller: _answerControllers[qid]![j],
                   maxLines: null,
                   enabled: _enabledAnswers[qid]?[j] ?? true,
+                  style: TextStyle(
+                    color: (_enabledAnswers[qid]?[j] ?? true)
+                        ? Color(0xFF111827)
+                        : Color(0xFF6b7280),
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Введите ответ...',
                     border: OutlineInputBorder(
@@ -1288,6 +1294,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       borderRadius: BorderRadius.circular(6),
                       borderSide: const BorderSide(color: Color(0xFF3b82f6)),
                     ),
+                    disabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: Color(0xFFd1d5db)),
+                    ),
+                    filled: true,
+                    fillColor: (_enabledAnswers[qid]?[j] ?? true)
+                        ? Colors.white
+                        : Color(0xFFf3f4f6),
+                    hoverColor: Colors.white,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 10,
@@ -1297,7 +1312,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               ),
               if (reportState.hasAnswersInOtherLanguages(i, j))
                 IconButton(
-                  icon: const Icon(Icons.lock, color: Color(0xFF3b82f6)),
+                  icon: const Icon(Icons.lock, color: Color(0xFF6b7280)),
                   onPressed: () =>
                       _showLockDialog(context, i, j, qid, reportState),
                   tooltip: 'Открыть для редактирования',
