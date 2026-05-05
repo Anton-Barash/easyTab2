@@ -11,6 +11,42 @@ import '../models/report_models.dart';
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
 
+const int maxLanguages = 5;
+
+const Map<String, int> languagePriority = {
+  'RU': 0,
+  'EN': 1,
+  'ZH': 2,
+};
+
+const Map<int, String> languageColors = {
+  1: '#888888',
+  2: '#27ae60',
+  3: '#8e44ad',
+  4: '#2c7da0',
+};
+
+List<String> sortLanguages(List<String> languages) {
+  final sorted = List<String>.from(languages);
+  sorted.sort((a, b) {
+    final priorityA = languagePriority[a] ?? 999;
+    final priorityB = languagePriority[b] ?? 999;
+    if (priorityA != priorityB) {
+      return priorityA.compareTo(priorityB);
+    }
+    return a.compareTo(b);
+  });
+  if (sorted.length > maxLanguages) {
+    return sorted.sublist(0, maxLanguages);
+  }
+  return sorted;
+}
+
+String getLanguageColor(int index) {
+  if (index == 0) return '#888888';
+  return languageColors[index] ?? '#888888';
+}
+
 class ReportInfo {
   final String folderName;
   final String name;
@@ -369,85 +405,267 @@ class ReportState extends ChangeNotifier {
   }
 
   Future<String> getHtmlPreviewPath(String folderPath) async {
-    return '$folderPath/report.html';
+    final htmlContent = _generateHtml();
+    final path = '$folderPath/report.html';
+    final file = File(path);
+    await file.writeAsString(htmlContent);
+    return path;
+  }
+
+  String generateHtmlContent() {
+    return _generateHtml();
+  }
+
+  String generateExcelHtmlContent() {
+    return _generateExcelHtml();
   }
 
   String _generateHtml() {
     if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
     final lang = _currentReport!.currentLanguage;
+    final reportName = _currentReport!.reportName;
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(_currentReport!.timestamp).toLocal().toString().substring(0, 16);
     final buffer = StringBuffer();
     buffer.writeln('<!DOCTYPE html>');
     buffer.writeln('<html lang="ru">');
     buffer.writeln('<head>');
     buffer.writeln('  <meta charset="UTF-8">');
     buffer.writeln('  <meta name="viewport" content="width=device-width, initial-scale=1.0">');
-    buffer.writeln('  <title>${_currentReport!.reportName}</title>');
+    buffer.writeln('  <title>${reportName} - Excel таблица</title>');
     buffer.writeln('  <style>');
-    buffer.writeln('    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f8f7f2; }');
-    buffer.writeln('    .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border: 2px solid #333; border-radius: 12px; }');
-    buffer.writeln('    h1 { color: #424242; margin-bottom: 10px; }');
-    buffer.writeln('    .lang-indicator { color: #666; font-size: 14px; margin-bottom: 5px; }');
-    buffer.writeln('    .date { color: #666; margin-bottom: 30px; }');
-    buffer.writeln('    .question { margin: 20px 0; padding: 15px; background: #f5f5f5; border: 1px solid #333; border-radius: 8px; }');
-    buffer.writeln('    .question h3 { margin: 0 0 10px 0; color: #424242; }');
-    buffer.writeln('    .description { color: #666; font-size: 14px; margin-bottom: 10px; }');
-    buffer.writeln('    .example { color: #666; font-size: 13px; font-style: italic; margin-bottom: 15px; }');
-    buffer.writeln('    .answer { color: #333; font-size: 16px; margin-bottom: 10px; padding: 10px; border-radius: 4px; }');
-    buffer.writeln('    .answer.attention { background: #fffbeb; border: 1px solid #f59e0b; }');
-    buffer.writeln('    .media { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }');
-    buffer.writeln('    .media img { max-width: 100px; max-height: 100px; border: 1px solid #333; border-radius: 4px; }');
-    buffer.writeln('    .media .video { width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; border: 1px solid #333; border-radius: 4px; font-size: 24px; }');
-    buffer.writeln('    .translation-hint { background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 14px; color: #856404; }');
+    buffer.writeln('    * {');
+    buffer.writeln('      margin: 0;');
+    buffer.writeln('      padding: 0;');
+    buffer.writeln('      box-sizing: border-box;');
+    buffer.writeln('    }');
+    buffer.writeln('    body {');
+    buffer.writeln('      font-family: \'Segoe UI\', \'Calibri\', \'Arial\', sans-serif;');
+    buffer.writeln('      background: #e9e9e9;');
+    buffer.writeln('      padding: 20px;');
+    buffer.writeln('    }');
+    buffer.writeln('    .excel-wrapper {');
+    buffer.writeln('      background: white;');
+    buffer.writeln('      border: 1px solid #a0a0a0;');
+    buffer.writeln('      display: inline-block;');
+    buffer.writeln('      box-shadow: 2px 2px 8px rgba(0,0,0,0.1);');
+    buffer.writeln('    }');
+    buffer.writeln('    table {');
+    buffer.writeln('      border-collapse: collapse;');
+    buffer.writeln('      font-size: 13px;');
+    buffer.writeln('      table-layout: auto;');
+    buffer.writeln('    }');
+    buffer.writeln('    th, td {');
+    buffer.writeln('      border: 1px solid #d0d0d0;');
+    buffer.writeln('      padding: 6px 10px;');
+    buffer.writeln('      vertical-align: top;');
+    buffer.writeln('    }');
+    buffer.writeln('    th {');
+    buffer.writeln('      background: #f3f3f3;');
+    buffer.writeln('      font-weight: 600;');
+    buffer.writeln('      text-align: center;');
+    buffer.writeln('      color: #2c2c2c;');
+    buffer.writeln('      border-bottom: 1px solid #a0a0a0;');
+    buffer.writeln('    }');
+    buffer.writeln('    .label-cell {');
+    buffer.writeln('      background: #fafafa;');
+    buffer.writeln('      font-weight: 500;');
+    buffer.writeln('      width: 160px;');
+    buffer.writeln('      color: #1e1e1e;');
+    buffer.writeln('      border-right: 1px solid #c0c0c0;');
+    buffer.writeln('    }');
+    buffer.writeln('    .value-cell {');
+    buffer.writeln('      background: white;');
+    buffer.writeln('    }');
+    buffer.writeln('    .sub-value {');
+    buffer.writeln('      margin-top: 4px;');
+    buffer.writeln('      padding-top: 4px;');
+    buffer.writeln('      border-top: 1px dotted #e0e0e0;');
+    buffer.writeln('    }');
+    buffer.writeln('    .sub-value:first-child {');
+    buffer.writeln('      margin-top: 0;');
+    buffer.writeln('      padding-top: 0;');
+    buffer.writeln('      border-top: none;');
+    buffer.writeln('    }');
+    buffer.writeln('    .example-hint {');
+    buffer.writeln('      color: #888;');
+    buffer.writeln('      font-size: 11px;');
+    buffer.writeln('      margin-bottom: 6px;');
+    buffer.writeln('      font-style: italic;');
+    buffer.writeln('    }');
+    buffer.writeln('    .photo-cell {');
+    buffer.writeln('      background: #fafafa;');
+    buffer.writeln('      width: 200px;');
+    buffer.writeln('      border-left: 1px solid #c0c0c0;');
+    buffer.writeln('    }');
+    buffer.writeln('    .photo-name {');
+    buffer.writeln('      font-weight: bold;');
+    buffer.writeln('      color: #666;');
+    buffer.writeln('    }');
+    buffer.writeln('    .translation-hint {');
+    buffer.writeln('      background: #fff3cd;');
+    buffer.writeln('      border: 1px solid #ffc107;');
+    buffer.writeln('      padding: 6px;');
+    buffer.writeln('      border-radius: 3px;');
+    buffer.writeln('      font-size: 11px;');
+    buffer.writeln('      color: #856404;');
+    buffer.writeln('      margin-bottom: 6px;');
+    buffer.writeln('    }');
     buffer.writeln('  </style>');
     buffer.writeln('</head>');
     buffer.writeln('<body>');
-    buffer.writeln('  <div class="container">');
-    buffer.writeln('    <h1>${_currentReport!.reportName}</h1>');
-    buffer.writeln('    <div class="lang-indicator">Язык: $lang</div>');
-    buffer.writeln('    <div class="date">${DateTime.fromMillisecondsSinceEpoch(_currentReport!.timestamp).toLocal().toString().substring(0, 16)}</div>');
-    buffer.writeln('    <div class="questions">');
+    buffer.writeln('<div class="excel-wrapper">');
+    buffer.writeln('  <table>');
+    buffer.writeln('    <tr>');
+    buffer.writeln('      <th colspan="3">${reportName} &nbsp;|&#160; Язык: ${lang} &nbsp;|&#160; ${dateTime}</th>');
+    buffer.writeln('    </tr>');
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final q = _currentReport!.questions[i];
       final loc = q.getLocalization(lang);
       final hasTranslation = q.hasTranslation(lang);
       final hasSome = q.hasSomeTranslation();
       final answers = _currentReport!.getAnswersForQuestion(i, lang);
-      buffer.writeln('      <div class="question">');
-      if (!hasTranslation && hasSome) {
-        final otherLangs = q.getAvailableLanguages().where((l) => l != lang).join(', ');
-        buffer.writeln('        <div class="translation-hint">Перевод на $lang отсутствует. Доступно на: $otherLangs</div>');
-      }
-      buffer.writeln('        <h3>${loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}'}</h3>');
-      if (loc?.description?.isNotEmpty ?? false) {
-        buffer.writeln('        <div class="description">${loc?.description}</div>');
-      }
-      if (loc?.example?.isNotEmpty ?? false) {
-        buffer.writeln('        <div class="example">Пример: ${loc?.example}</div>');
-      }
+      final questionName = loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}';
+      
+      final List<String> allMediaNames = [];
       for (int j = 0; j < answers.length; j++) {
         final a = answers[j];
-        buffer.writeln('        <div class="answer${a.attention ? ' attention' : ''}">');
-        if (a.text.isNotEmpty) {
-          buffer.writeln('          <div>${a.text}</div>');
+        for (final media in a.media) {
+          allMediaNames.add(media.name);
         }
-        if (a.media.isNotEmpty) {
-          buffer.writeln('          <div class="media">');
+      }
+      final photoCellContent = allMediaNames.isNotEmpty 
+          ? '<div class="photo-name">${allMediaNames.join(', ')}</div>'
+          : '';
+      
+      buffer.writeln('    <tr>');
+      buffer.writeln('      <td class="label-cell">${questionName}</td>');
+      buffer.writeln('      <td class="value-cell">');
+      
+      if (!hasTranslation && hasSome) {
+        final otherLangs = q.getAvailableLanguages().where((l) => l != lang).join(', ');
+        buffer.writeln('        <div class="translation-hint">Перевод на ${lang} отсутствует. Доступно на: ${otherLangs}</div>');
+      }
+      
+      if (loc?.example?.isNotEmpty ?? false) {
+        buffer.writeln('        <div class="example-hint">${loc?.example}</div>');
+      }
+      
+      for (int j = 0; j < answers.length; j++) {
+        final a = answers[j];
+        if (a.text.isNotEmpty) {
+          buffer.writeln('        <div class="sub-value">${a.text}</div>');
+        }
+      }
+      
+      buffer.writeln('      </td>');
+      buffer.writeln('      <td class="photo-cell">${photoCellContent}</td>');
+      buffer.writeln('    </tr>');
+    }
+    buffer.writeln('  </table>');
+    buffer.writeln('</div>');
+    buffer.writeln('</body>');
+    buffer.writeln('</html>');
+    return buffer.toString();
+  }
+
+  String _generateExcelHtml() {
+    if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
+    final reportName = _currentReport!.reportName;
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(_currentReport!.timestamp).toLocal().toString().substring(0, 16);
+    final allLanguages = _currentReport!.availableLanguages;
+    final languages = sortLanguages(allLanguages);
+    final langDisplay = languages.join(' / ');
+    final buffer = StringBuffer();
+    buffer.writeln('<!DOCTYPE html>');
+    buffer.writeln('<html lang="ru">');
+    buffer.writeln('<head>');
+    buffer.writeln('  <meta charset="UTF-8">');
+    buffer.writeln('  <meta name="viewport" content="width=device-width, initial-scale=1.0">');
+    buffer.writeln('  <title>${reportName} - Excel таблица</title>');
+    buffer.writeln('  <style>');
+    buffer.writeln('    table { border-collapse: collapse; font-size: 13px; }');
+    buffer.writeln('    th, td { border: 1px solid #d0d0d0; padding: 6px 10px; vertical-align: top; }');
+    buffer.writeln('    th { background: #f3f3f3; font-weight: 600; text-align: center; color: #2c2c2c; border-bottom: 1px solid #a0a0a0; }');
+    buffer.writeln('  </style>');
+    buffer.writeln('</head>');
+    buffer.writeln('<body>');
+    buffer.writeln('  <table>');
+    buffer.writeln('    <tr>');
+    buffer.writeln('      <th colspan="3">${reportName} | Язык: ${langDisplay} | ${dateTime}</th>');
+    buffer.writeln('    </tr>');
+    
+    for (int i = 0; i < _currentReport!.questions.length; i++) {
+      final q = _currentReport!.questions[i];
+      final questionNames = <String>[];
+      for (int li = 0; li < languages.length; li++) {
+        final lang = languages[li];
+        final loc = q.getLocalization(lang);
+        questionNames.add(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}');
+      }
+      
+      final List<String> allMediaNames = [];
+      final List<List<String>> answersByLang = List.generate(languages.length, (_) => []);
+      
+      for (int li = 0; li < languages.length; li++) {
+        final lang = languages[li];
+        final answers = _currentReport!.getAnswersForQuestion(i, lang);
+        
+        for (final a in answers) {
+          if (a.text.isNotEmpty) {
+            answersByLang[li].add(a.text);
+          }
+        }
+        
+        for (final a in answers) {
           for (final media in a.media) {
-            final folder = media.attention ? 'X' : 'photos';
-            if (media.type.startsWith('image')) {
-              buffer.writeln('            <img src="$folder/${media.name}" alt="${media.name}">');
+            allMediaNames.add(media.name);
+          }
+        }
+      }
+      
+      buffer.writeln('    <tr>');
+      final labelCellContent = questionNames.asMap().entries.map((entry) {
+        if (entry.key == 0) {
+          return entry.value;
+        } else {
+          final color = getLanguageColor(entry.key);
+          return '<br><span style="font-size: 10px; color: $color;">${entry.value}</span>';
+        }
+      }).join('');
+      buffer.writeln('      <td style="background: #fafafa; font-weight: 500; width: 160px; border-right: 1px solid #c0c0c0;">${labelCellContent}</td>');
+      
+      buffer.writeln('      <td>');
+      
+      final maxAnswers = answersByLang.map((l) => l.length).reduce((a, b) => a > b ? a : b);
+      for (int ai = 0; ai < maxAnswers; ai++) {
+        final isFirstAnswer = ai == 0;
+        final hasLineAbove = ai > 0;
+        
+        for (int li = 0; li < languages.length; li++) {
+          if (ai < answersByLang[li].length) {
+            if (li == 0) {
+              final style = hasLineAbove 
+                  ? 'margin-top: 4px; padding-top: 4px; border-top: 1px dotted #e0e0e0;'
+                  : '';
+              buffer.writeln('        <div${style.isNotEmpty ? ' style="$style"' : ''}>${answersByLang[li][ai]}</div>');
             } else {
-              buffer.writeln('            <div class="video">🎥</div>');
+              final color = getLanguageColor(li);
+              buffer.writeln('        <div style="font-size: 10px; color: $color;">${answersByLang[li][ai]}</div>');
             }
           }
-          buffer.writeln('          </div>');
         }
-        buffer.writeln('        </div>');
       }
-      buffer.writeln('      </div>');
+      
+      buffer.writeln('      </td>');
+      
+      final photoCellContent = allMediaNames.isNotEmpty 
+          ? '<div style="font-weight: bold; color: #666;">${allMediaNames.join(', ')}</div>'
+          : '';
+      buffer.writeln('      <td style="background: #fafafa; width: 200px; border-left: 1px solid #c0c0c0;">${photoCellContent}</td>');
+      buffer.writeln('    </tr>');
     }
-    buffer.writeln('    </div>');
-    buffer.writeln('  </div>');
+    
+    buffer.writeln('  </table>');
     buffer.writeln('</body>');
     buffer.writeln('</html>');
     return buffer.toString();

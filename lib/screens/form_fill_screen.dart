@@ -94,6 +94,40 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
+  void _showDeleteAnswerDialog(
+    BuildContext context,
+    int i,
+    int j,
+    ReportState reportState,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Удалить ответ?'),
+        content: const Text(
+          'Вы уверены, что хотите удалить этот ответ?\n\nЭто действие невозможно отменить.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFdc2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              reportState.removeAnswer(i, j);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showLockDialog(
     BuildContext context,
     int i,
@@ -339,15 +373,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
             },
             tooltip: 'Переключить вид',
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              reportState.addQuestion(
-                _viewMode == ViewMode.card ? _currentPage : null,
-              );
-            },
-            tooltip: 'Добавить вопрос',
-          ),
           PopupMenuButton(
             icon: const Icon(Icons.menu),
             itemBuilder: (ctx) => [
@@ -391,24 +416,60 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ],
                 ),
               ),
+              const PopupMenuItem(
+                value: 4,
+                child: Row(
+                  children: [
+                    Icon(Icons.table_chart),
+                    SizedBox(width: 8),
+                    Text('Экспорт в Excel'),
+                  ],
+                ),
+              ),
             ],
             onSelected: (value) async {
               if (value == 0) {
-                if (!kIsWeb) {
-                  final htmlPath = await reportState.getHtmlPreviewPath(
-                    report.reportName,
-                  );
+                final htmlContent = reportState.generateHtmlContent();
+                if (kIsWeb) {
+                  await Clipboard.setData(ClipboardData(text: htmlContent));
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('HTML сохранён: $htmlPath')),
+                      const SnackBar(
+                        content: Text('HTML скопирован в буфер обмена'),
+                      ),
                     );
                   }
                 } else {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Просмотр HTML — скоро!')),
-                    );
+                  try {
+                    final directory = await FilePicker.platform
+                        .getDirectoryPath();
+                    if (directory != null) {
+                      final filePath = '$directory/report.html';
+                      final file = File(filePath);
+                      await file.writeAsString(htmlContent);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('HTML сохранён: $filePath')),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Ошибка сохранения: $e')),
+                      );
+                    }
                   }
+                }
+              } else if (value == 4) {
+                final excelHtml = reportState.generateExcelHtmlContent();
+                await Clipboard.setData(ClipboardData(text: excelHtml));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Excel HTML скопирован в буфер обмена'),
+                    ),
+                  );
                 }
               } else if (value == 1) {
                 await reportState.saveReport();
@@ -1282,27 +1343,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ),
                   decoration: InputDecoration(
                     hintText: 'Введите ответ...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Color(0xFF3b82f6)),
-                    ),
-                    disabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Color(0xFFd1d5db)),
-                    ),
-                    filled: true,
-                    fillColor: (_enabledAnswers[qid]?[j] ?? true)
-                        ? Colors.white
-                        : Color(0xFFf3f4f6),
-                    hoverColor: Colors.white,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    filled: false,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 10,
@@ -1321,7 +1366,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 icon: const Icon(Icons.delete, color: Color(0xFFef4444)),
                 onPressed:
                     (reportState.currentReport?.answers[qid]?.length ?? 1) > 1
-                    ? () => reportState.removeAnswer(i, j)
+                    ? () => _showDeleteAnswerDialog(context, i, j, reportState)
                     : null,
                 tooltip: 'Удалить ответ',
               ),
