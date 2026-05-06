@@ -506,7 +506,9 @@ class ReportState extends ChangeNotifier {
 
         for (final a in answers) {
           for (final media in a.media) {
-            final relativePath = media.attention ? 'X/${media.name}' : 'photos/${media.name}';
+            final relativePath = media.attention
+                ? 'X/${media.name}'
+                : 'photos/${media.name}';
             final mediaMap = {
               'name': media.name,
               'type': media.type,
@@ -872,7 +874,9 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('  let startX = 0, startY = 0;');
     buffer.writeln('  let translateX = 0, translateY = 0;');
     buffer.writeln('  let isFitMode = false;');
-    buffer.writeln('  let lastZoom = 1, lastTranslateX = 0, lastTranslateY = 0;');
+    buffer.writeln(
+      '  let lastZoom = 1, lastTranslateX = 0, lastTranslateY = 0;',
+    );
     buffer.writeln('  let isWhiteBg = false;');
     buffer.writeln('  const allLanguages = ${jsonEncode(languages)};');
 
@@ -917,7 +921,9 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('  }');
 
     buffer.writeln('  function applyTransform(el) {');
-    buffer.writeln('    el.style.transform = "translate(" + translateX + "px, " + translateY + "px) scale(" + currentZoom + ")";');
+    buffer.writeln(
+      '    el.style.transform = "translate(" + translateX + "px, " + translateY + "px) scale(" + currentZoom + ")";',
+    );
     buffer.writeln('  }');
 
     buffer.writeln('  function openModal(qIndex, li, mi) {');
@@ -1021,7 +1027,9 @@ class ReportState extends ChangeNotifier {
 
     // Wheel zoom
     buffer.writeln('  document.addEventListener("wheel", function(e) {');
-    buffer.writeln('    if (currentElement && document.getElementById("mediaModal").style.display === "block") {');
+    buffer.writeln(
+      '    if (currentElement && document.getElementById("mediaModal").style.display === "block") {',
+    );
     buffer.writeln('      e.preventDefault();');
     buffer.writeln('      const delta = e.deltaY > 0 ? -0.1 : 0.1;');
     buffer.writeln('      let newZoom = currentZoom + delta;');
@@ -1380,7 +1388,7 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  Future<String?> exportZip() async {
+  Future<String?> exportZip({String? customSavePath}) async {
     if (_currentReport == null || _currentReportPath == null) return null;
     try {
       await saveReport();
@@ -1390,26 +1398,47 @@ class ReportState extends ChangeNotifier {
       await excelFile.writeAsBytes(excelBytes);
 
       final folderPath = _currentReportPath!;
-      final reportsDir = await _getReportsDir();
       final safeName = _currentReport!.reportName
           .replaceAll(RegExp(r'[^\w\s-]'), '')
           .replaceAll(' ', '_');
-      final zipPath = '$reportsDir/$safeName.zip';
+
+      String zipPath;
+      if (customSavePath != null && customSavePath.isNotEmpty) {
+        zipPath = '$customSavePath/$safeName.zip';
+      } else {
+        final reportsDir = await _getReportsDir();
+        zipPath = '$reportsDir/$safeName.zip';
+      }
+
       final zipFile = File(zipPath);
       if (await zipFile.exists()) {
         await zipFile.delete();
       }
+
       final encoder = ZipFileEncoder();
       encoder.create(zipFile.path);
+
       final dir = Directory(folderPath);
-      await for (final entity in dir.list()) {
+
+      await for (final entity in dir.list(recursive: true)) {
         if (entity is File) {
-          encoder.addFile(entity, entity.uri.pathSegments.last);
-        } else if (entity is Directory) {
-          encoder.addDirectory(entity);
+          final relativePath = entity.path.replaceFirst(
+            RegExp('^${RegExp.escape(folderPath)}[/\\\\]?'),
+            '',
+          );
+          encoder.addFile(entity, relativePath);
         }
       }
+
       encoder.close();
+
+      if (kDebugMode) {
+        final zipArchive = ZipDecoder().decodeBytes(
+          await zipFile.readAsBytes(),
+        );
+        print('ZIP content: ${zipArchive.files.map((f) => f.name).toList()}');
+      }
+
       return zipPath;
     } catch (e) {
       if (kDebugMode) print('Error exporting zip: $e');
@@ -1584,14 +1613,16 @@ class ReportState extends ChangeNotifier {
       for (final lang in _currentReport!.availableLanguages) {
         if (_currentReport!.answers[qid]!.containsKey(lang)) {
           allAttentionFlags.add(
-            _currentReport!.answers[qid]![lang]!.map((a) => a.attention).toList()
+            _currentReport!.answers[qid]![lang]!
+                .map((a) => a.attention)
+                .toList(),
           );
         }
       }
       // Determine for each answer index: is there ANY language with attention=true?
       final maxAnswers = allAttentionFlags.fold<int>(
         0,
-        (max, list) => list.length > max ? list.length : max
+        (max, list) => list.length > max ? list.length : max,
       );
       final shouldHaveAttention = List.filled(maxAnswers, false);
       for (int i = 0; i < maxAnswers; i++) {

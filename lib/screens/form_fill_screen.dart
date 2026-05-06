@@ -507,12 +507,33 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   }
                 }
               } else if (value == 1) {
+                if (kIsWeb) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Сохранение ZIP недоступно на вебе'),
+                      ),
+                    );
+                  }
+                  return;
+                }
                 await reportState.saveReport();
-                final zipPath = await reportState.exportZip();
-                if (zipPath != null && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('ZIP сохранён: $zipPath')),
-                  );
+                try {
+                  final directory = await FilePicker.platform.getDirectoryPath();
+                  if (directory != null) {
+                    final zipPath = await reportState.exportZip(customSavePath: directory);
+                    if (zipPath != null && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('ZIP сохранён: $zipPath')),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка сохранения ZIP: $e')),
+                    );
+                  }
                 }
               } else if (value == 2) {
                 if (kIsWeb) {
