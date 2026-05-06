@@ -71,14 +71,18 @@ class ReportState extends ChangeNotifier {
       availableLanguages: languages,
       currentLanguage: languages.isNotEmpty ? languages[0] : 'RU',
       questions: questions,
-      answers: {},
+      translations: {},
+      markers: {},
       mediaCounter: {'photos': 1, 'X': 1},
       timestamp: DateTime.now().millisecondsSinceEpoch,
     );
     for (int i = 0; i < questions.length; i++) {
-      _currentReport!.answers[i.toString()] = {};
+      _currentReport!.translations[i.toString()] = {};
+      _currentReport!.markers[i.toString()] = [AnswerMarkers()];
       for (final lang in languages) {
-        _currentReport!.answers[i.toString()]![lang] = [Answer()];
+        _currentReport!.translations[i.toString()]![lang] = [
+          TranslationAnswer(),
+        ];
       }
     }
     _currentReportPath = null;
@@ -107,22 +111,34 @@ class ReportState extends ChangeNotifier {
     }
     _currentReport!.questions.insert(newIndex, newQuestion);
 
-    final newAnswers = <String, Map<String, List<Answer>>>{};
-    _currentReport!.answers.forEach((key, langMap) {
+    final newTranslations = <String, Map<String, List<TranslationAnswer>>>{};
+    _currentReport!.translations.forEach((key, langMap) {
       final k = int.parse(key);
       if (k >= newIndex) {
-        newAnswers[(k + 1).toString()] = langMap;
+        newTranslations[(k + 1).toString()] = langMap;
       } else {
-        newAnswers[key] = langMap;
+        newTranslations[key] = langMap;
       }
     });
 
-    newAnswers[newIndex.toString()] = {};
-    for (final lang in _currentReport!.availableLanguages) {
-      newAnswers[newIndex.toString()]![lang] = [Answer()];
-    }
+    final newMarkers = <String, List<AnswerMarkers>>{};
+    _currentReport!.markers.forEach((key, markersList) {
+      final k = int.parse(key);
+      if (k >= newIndex) {
+        newMarkers[(k + 1).toString()] = markersList;
+      } else {
+        newMarkers[key] = markersList;
+      }
+    });
 
-    _currentReport!.answers = newAnswers;
+    newTranslations[newIndex.toString()] = {};
+    for (final lang in _currentReport!.availableLanguages) {
+      newTranslations[newIndex.toString()]![lang] = [TranslationAnswer()];
+    }
+    newMarkers[newIndex.toString()] = [AnswerMarkers()];
+
+    _currentReport!.translations = newTranslations;
+    _currentReport!.markers = newMarkers;
     notifyListeners();
   }
 
@@ -133,8 +149,9 @@ class ReportState extends ChangeNotifier {
     String? description,
     String? example,
   ) {
-    if (_currentReport == null || index >= _currentReport!.questions.length)
+    if (_currentReport == null || index >= _currentReport!.questions.length) {
       return;
+    }
     final loc =
         _currentReport!.questions[index].localizations[langCode] ??
         QuestionLocalization();
@@ -148,15 +165,21 @@ class ReportState extends ChangeNotifier {
   void addAnswer(int questionIndex) {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
-    final lang = _currentReport!.currentLanguage;
 
-    if (!_currentReport!.answers.containsKey(qid)) {
-      _currentReport!.answers[qid] = {};
+    for (final lang in _currentReport!.availableLanguages) {
+      if (!_currentReport!.translations.containsKey(qid)) {
+        _currentReport!.translations[qid] = {};
+      }
+      if (!_currentReport!.translations[qid]!.containsKey(lang)) {
+        _currentReport!.translations[qid]![lang] = [TranslationAnswer()];
+      }
+      _currentReport!.translations[qid]![lang]!.add(TranslationAnswer());
     }
-    if (!_currentReport!.answers[qid]!.containsKey(lang)) {
-      _currentReport!.answers[qid]![lang] = [Answer()];
+
+    if (!_currentReport!.markers.containsKey(qid)) {
+      _currentReport!.markers[qid] = [];
     }
-    _currentReport!.answers[qid]![lang]!.add(Answer());
+    _currentReport!.markers[qid]!.add(AnswerMarkers());
 
     notifyListeners();
   }
@@ -166,25 +189,29 @@ class ReportState extends ChangeNotifier {
     final qid = questionIndex.toString();
 
     for (final lang in _currentReport!.availableLanguages) {
-      if (_currentReport!.answers.containsKey(qid) &&
-          _currentReport!.answers[qid]!.containsKey(lang) &&
-          _currentReport!.answers[qid]![lang]!.length > 1) {
-        // Delete media files if they exist
-        final answer = _currentReport!.answers[qid]![lang]![answerIndex];
-        for (final media in answer.media) {
-          if (media.localPath != null && !kIsWeb) {
-            try {
-              final file = File(media.localPath!);
-              if (file.existsSync()) {
-                file.deleteSync();
-              }
-            } catch (e) {
-              if (kDebugMode) print('Error deleting media file: $e');
+      if (_currentReport!.translations.containsKey(qid) &&
+          _currentReport!.translations[qid]!.containsKey(lang) &&
+          _currentReport!.translations[qid]![lang]!.length > 1) {
+        _currentReport!.translations[qid]![lang]!.removeAt(answerIndex);
+      }
+    }
+
+    if (_currentReport!.markers.containsKey(qid) &&
+        _currentReport!.markers[qid]!.length > 1) {
+      final markers = _currentReport!.markers[qid]![answerIndex];
+      for (final media in markers.media) {
+        if (media.localPath != null && !kIsWeb) {
+          try {
+            final file = File(media.localPath!);
+            if (file.existsSync()) {
+              file.deleteSync();
             }
+          } catch (e) {
+            if (kDebugMode) print('Error deleting media file: $e');
           }
         }
-        _currentReport!.answers[qid]![lang]!.removeAt(answerIndex);
       }
+      _currentReport!.markers[qid]!.removeAt(answerIndex);
     }
 
     notifyListeners();
@@ -198,24 +225,23 @@ class ReportState extends ChangeNotifier {
     if (text.isNotEmpty) {
       for (final otherLang in _currentReport!.availableLanguages) {
         if (otherLang == lang) continue;
-        if (_currentReport!.answers.containsKey(qid) &&
-            _currentReport!.answers[qid]!.containsKey(otherLang) &&
-            answerIndex < _currentReport!.answers[qid]![otherLang]!.length) {
-          _currentReport!.answers[qid]![otherLang]![answerIndex].text = '';
-          final a = _currentReport!.answers[qid]![otherLang]![answerIndex];
-          _currentReport!.answers[qid]![otherLang]![answerIndex].isEmpty =
-              a.text.isEmpty && a.media.isEmpty && !a.attention;
+        if (_currentReport!.translations.containsKey(qid) &&
+            _currentReport!.translations[qid]!.containsKey(otherLang) &&
+            answerIndex <
+                _currentReport!.translations[qid]![otherLang]!.length) {
+          _currentReport!.translations[qid]![otherLang]![answerIndex].text = '';
+          _currentReport!.translations[qid]![otherLang]![answerIndex].isEmpty =
+              true;
         }
       }
     }
 
-    if (_currentReport!.answers.containsKey(qid) &&
-        _currentReport!.answers[qid]!.containsKey(lang) &&
-        answerIndex < _currentReport!.answers[qid]![lang]!.length) {
-      _currentReport!.answers[qid]![lang]![answerIndex].text = text;
-      final a = _currentReport!.answers[qid]![lang]![answerIndex];
-      _currentReport!.answers[qid]![lang]![answerIndex].isEmpty =
-          a.text.isEmpty && a.media.isEmpty && !a.attention;
+    if (_currentReport!.translations.containsKey(qid) &&
+        _currentReport!.translations[qid]!.containsKey(lang) &&
+        answerIndex < _currentReport!.translations[qid]![lang]!.length) {
+      _currentReport!.translations[qid]![lang]![answerIndex].text = text;
+      _currentReport!.translations[qid]![lang]![answerIndex].isEmpty =
+          text.isEmpty;
       notifyListeners();
     }
   }
@@ -227,16 +253,15 @@ class ReportState extends ChangeNotifier {
   ) {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
-    for (final lang in _currentReport!.availableLanguages) {
-      if (_currentReport!.answers.containsKey(qid) &&
-          _currentReport!.answers[qid]!.containsKey(lang) &&
-          answerIndex < _currentReport!.answers[qid]![lang]!.length) {
-        _currentReport!.answers[qid]![lang]![answerIndex].attention = attention;
-        final a = _currentReport!.answers[qid]![lang]![answerIndex];
-        _currentReport!.answers[qid]![lang]![answerIndex].isEmpty =
-            a.text.isEmpty && a.media.isEmpty && !attention;
-      }
+
+    if (!_currentReport!.markers.containsKey(qid)) {
+      _currentReport!.markers[qid] = [];
     }
+    while (_currentReport!.markers[qid]!.length <= answerIndex) {
+      _currentReport!.markers[qid]!.add(AnswerMarkers());
+    }
+
+    _currentReport!.markers[qid]![answerIndex].attention = attention;
     notifyListeners();
   }
 
@@ -260,11 +285,13 @@ class ReportState extends ChangeNotifier {
     }
 
     final qid = questionIndex.toString();
-    final lang = _currentReport!.currentLanguage;
-    if (!_currentReport!.answers.containsKey(qid) ||
-        !_currentReport!.answers[qid]!.containsKey(lang) ||
-        answerIndex >= _currentReport!.answers[qid]![lang]!.length)
-      return;
+
+    if (!_currentReport!.markers.containsKey(qid)) {
+      _currentReport!.markers[qid] = [];
+    }
+    while (_currentReport!.markers[qid]!.length <= answerIndex) {
+      _currentReport!.markers[qid]!.add(AnswerMarkers());
+    }
 
     final counter = isAttention
         ? _currentReport!.mediaCounter['X']!
@@ -289,10 +316,7 @@ class ReportState extends ChangeNotifier {
       localPath: destPath.path,
     );
 
-    _currentReport!.answers[qid]![lang]![answerIndex].media.add(mediaItem);
-    final a = _currentReport!.answers[qid]![lang]![answerIndex];
-    _currentReport!.answers[qid]![lang]![answerIndex].isEmpty =
-        a.text.isEmpty && a.media.isEmpty && !a.attention;
+    _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
 
     if (isAttention) {
       _currentReport!.mediaCounter['X'] = counter + 1;
@@ -310,16 +334,14 @@ class ReportState extends ChangeNotifier {
   ) async {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
-    final lang = _currentReport!.currentLanguage;
-    if (!_currentReport!.answers.containsKey(qid) ||
-        !_currentReport!.answers[qid]!.containsKey(lang) ||
-        answerIndex >= _currentReport!.answers[qid]![lang]!.length ||
-        mediaIndex >=
-            _currentReport!.answers[qid]![lang]![answerIndex].media.length)
-      return;
 
-    final media =
-        _currentReport!.answers[qid]![lang]![answerIndex].media[mediaIndex];
+    if (!_currentReport!.markers.containsKey(qid) ||
+        answerIndex >= _currentReport!.markers[qid]!.length ||
+        mediaIndex >= _currentReport!.markers[qid]![answerIndex].media.length) {
+      return;
+    }
+
+    final media = _currentReport!.markers[qid]![answerIndex].media[mediaIndex];
     if (_currentReportPath != null && media.localPath != null) {
       final file = File(media.localPath!);
       if (await file.exists()) {
@@ -327,13 +349,35 @@ class ReportState extends ChangeNotifier {
       }
     }
 
-    _currentReport!.answers[qid]![lang]![answerIndex].media.removeAt(
-      mediaIndex,
-    );
-    final a = _currentReport!.answers[qid]![lang]![answerIndex];
-    _currentReport!.answers[qid]![lang]![answerIndex].isEmpty =
-        a.text.isEmpty && a.media.isEmpty && !a.attention;
+    _currentReport!.markers[qid]![answerIndex].media.removeAt(mediaIndex);
     notifyListeners();
+  }
+
+  void updateAnswerNeedsWork(
+    int questionIndex,
+    int answerIndex,
+    bool needsWork,
+  ) {
+    if (_currentReport == null) return;
+    final qid = questionIndex.toString();
+
+    if (!_currentReport!.markers.containsKey(qid)) {
+      _currentReport!.markers[qid] = [];
+    }
+    while (_currentReport!.markers[qid]!.length <= answerIndex) {
+      _currentReport!.markers[qid]!.add(AnswerMarkers());
+    }
+
+    _currentReport!.markers[qid]![answerIndex].needsWork = needsWork;
+    notifyListeners();
+  }
+
+  bool hasAnswersInOtherLanguages(int questionIndex, int answerIndex) {
+    return _currentReport?.hasAnswersInOtherLanguages(
+          questionIndex,
+          answerIndex,
+        ) ??
+        false;
   }
 
   String _getMimeType(String path) {
@@ -505,17 +549,18 @@ class ReportState extends ChangeNotifier {
         final List<Map<String, dynamic>> langMedia = [];
 
         for (final a in answers) {
-          for (final media in a.media) {
-            final relativePath = media.attention
-                ? 'X/${media.name}'
-                : 'photos/${media.name}';
-            final mediaMap = {
-              'name': media.name,
-              'type': media.type,
+          final mediaList = a['media'] as List? ?? [];
+          for (final media in mediaList) {
+            final relativePath = (media['attention'] == true)
+                ? 'X/${media['name']}'
+                : 'photos/${media['name']}';
+            final mediaData = {
+              'name': media['name'],
+              'type': media['type'],
               'localPath': relativePath,
             };
-            langMedia.add(mediaMap);
-            allMediaData.add(jsonEncode(mediaMap));
+            langMedia.add(mediaData);
+            allMediaData.add(jsonEncode(mediaData));
           }
         }
         questionMedia.add(langMedia);
@@ -701,7 +746,7 @@ class ReportState extends ChangeNotifier {
         );
       }
 
-      final List<List<Answer>> answersByLang = List.generate(
+      final List<List<Map<String, dynamic>>> answersByLang = List.generate(
         languages.length,
         (_) => [],
       );
@@ -709,12 +754,7 @@ class ReportState extends ChangeNotifier {
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final answers = _currentReport!.getAnswersForQuestion(i, lang);
-
-        for (final a in answers) {
-          if (a.text.isNotEmpty) {
-            answersByLang[li].add(a);
-          }
-        }
+        answersByLang[li] = answers;
       }
 
       final maxAnswers = answersByLang
@@ -726,7 +766,7 @@ class ReportState extends ChangeNotifier {
         bool hasAtt = false;
         for (int li = 0; li < languages.length; li++) {
           if (ai < answersByLang[li].length &&
-              answersByLang[li][ai].attention) {
+              answersByLang[li][ai]['attention'] == true) {
             hasAtt = true;
           }
         }
@@ -739,7 +779,7 @@ class ReportState extends ChangeNotifier {
 
       String answerCellContent(int ai, int li) {
         if (ai < answersByLang[li].length) {
-          return answersByLang[li][ai].text;
+          return answersByLang[li][ai]['text'] ?? '';
         }
         return '';
       }
@@ -1105,7 +1145,7 @@ class ReportState extends ChangeNotifier {
       }
 
       final List<String> allMediaNames = [];
-      final List<List<Answer>> answersByLang = List.generate(
+      final List<List<Map<String, dynamic>>> answersByLang = List.generate(
         languages.length,
         (_) => [],
       );
@@ -1113,16 +1153,12 @@ class ReportState extends ChangeNotifier {
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final answers = _currentReport!.getAnswersForQuestion(i, lang);
+        answersByLang[li] = answers;
 
         for (final a in answers) {
-          if (a.text.isNotEmpty) {
-            answersByLang[li].add(a);
-          }
-        }
-
-        for (final a in answers) {
-          for (final media in a.media) {
-            allMediaNames.add(media.name);
+          final media = a['media'] as List? ?? [];
+          for (final m in media) {
+            allMediaNames.add(m['name'] ?? '');
           }
         }
       }
@@ -1136,7 +1172,7 @@ class ReportState extends ChangeNotifier {
         bool hasAtt = false;
         for (int li = 0; li < languages.length; li++) {
           if (ai < answersByLang[li].length &&
-              answersByLang[li][ai].attention) {
+              answersByLang[li][ai]['attention'] == true) {
             hasAtt = true;
           }
         }
@@ -1166,7 +1202,7 @@ class ReportState extends ChangeNotifier {
         final parts = <String>[];
         for (int li = 0; li < languages.length; li++) {
           if (ai < answersByLang[li].length) {
-            final text = answersByLang[li][ai].text;
+            final text = answersByLang[li][ai]['text'] ?? '';
             if (li == 0) {
               parts.add('<div>$text</div>');
             } else {
@@ -1265,8 +1301,12 @@ class ReportState extends ChangeNotifier {
 
       for (int j = 0; j < answers.length; j++) {
         final a = answers[j];
-        final mediaNames = a.media
-            .map((m) => '${m.attention ? 'X' : 'photos'}/${m.name}')
+        final mediaList = a['media'] as List? ?? [];
+        final mediaNames = mediaList
+            .map((m) {
+              final media = m as Map<String, dynamic>;
+              return '${(media['attention'] == true) ? 'X' : 'photos'}/${media['name']}';
+            })
             .join('; ');
 
         if (j == 0) {
@@ -1278,10 +1318,10 @@ class ReportState extends ChangeNotifier {
           );
         }
         sheet.cell(CellIndex.indexByString('C$row')).value = TextCellValue(
-          a.text,
+          a['text'] ?? '',
         );
         sheet.cell(CellIndex.indexByString('D$row')).value = TextCellValue(
-          a.attention ? 'Да' : 'Нет',
+          (a['attention'] == true) ? 'Да' : 'Нет',
         );
         sheet.cell(CellIndex.indexByString('E$row')).value = TextCellValue(
           mediaNames,
@@ -1369,15 +1409,17 @@ class ReportState extends ChangeNotifier {
         availableLanguages: languages,
         currentLanguage: languages[0],
         questions: questions,
-        answers: {},
+        translations: {},
+        markers: {},
         mediaCounter: {'photos': 1, 'X': 1},
         timestamp: DateTime.now().millisecondsSinceEpoch,
       );
 
       for (int i = 0; i < questions.length; i++) {
-        report.answers[i.toString()] = {};
+        report.translations[i.toString()] = {};
+        report.markers[i.toString()] = [AnswerMarkers()];
         for (final lang in languages) {
-          report.answers[i.toString()]![lang] = [Answer()];
+          report.translations[i.toString()]![lang] = [TranslationAnswer()];
         }
       }
 
@@ -1461,27 +1503,69 @@ class ReportState extends ChangeNotifier {
     final languages = _currentReport!.availableLanguages;
 
     for (int i = 0; i < _currentReport!.questions.length; i++) {
-      bool hasAnswerInAnyLang = false;
-      bool hasEmptyInAnyLang = false;
-      bool hasDifferentCount = false;
-      int? answerCount;
+      int maxCount = 0;
+      int minCount = 0;
+      final allAnswers = <String, List<Map<String, dynamic>>>{};
 
       for (final lang in languages) {
         final answers = _currentReport!.getAnswersForQuestion(i, lang);
-
-        if (answerCount == null) {
-          answerCount = answers.length;
-        } else if (answerCount != answers.length) {
-          hasDifferentCount = true;
+        allAnswers[lang] = answers;
+        if (answers.length > maxCount) maxCount = answers.length;
+      }
+      minCount = maxCount;
+      for (final lang in languages) {
+        if (allAnswers[lang]!.length < minCount) {
+          minCount = allAnswers[lang]!.length;
         }
-
-        final hasAnswer = answers.any((a) => a.text.isNotEmpty);
-        if (hasAnswer) hasAnswerInAnyLang = true;
-        final hasEmptyText = answers.any((a) => a.text.isEmpty);
-        if (hasEmptyText) hasEmptyInAnyLang = true;
       }
 
-      if (hasAnswerInAnyLang && hasEmptyInAnyLang || hasDifferentCount) {
+      final hasDifferentCount = maxCount != minCount || maxCount == 0;
+
+      bool hasNonEmptyExtra = false;
+      if (hasDifferentCount) {
+        for (final lang in languages) {
+          for (int j = minCount; j < allAnswers[lang]!.length; j++) {
+            if ((allAnswers[lang]![j]['text'] as String? ?? '').isNotEmpty) {
+              hasNonEmptyExtra = true;
+              break;
+            }
+          }
+          if (hasNonEmptyExtra) break;
+        }
+      }
+
+      bool needsSync = false;
+
+      if (hasDifferentCount) {
+        needsSync = hasNonEmptyExtra;
+      } else {
+        final firstLang = languages.first;
+        final firstLangAnswers = allAnswers[firstLang]!;
+        
+        for (int answerIdx = 0; answerIdx < firstLangAnswers.length; answerIdx++) {
+          bool hasEmptyInAnswer = false;
+          bool hasNonEmptyInAnswer = false;
+          
+          for (final lang in languages) {
+            final answers = allAnswers[lang]!;
+            if (answerIdx < answers.length) {
+              final text = answers[answerIdx]['text'] as String? ?? '';
+              if (text.isEmpty) {
+                hasEmptyInAnswer = true;
+              } else {
+                hasNonEmptyInAnswer = true;
+              }
+            }
+          }
+          
+          if (hasEmptyInAnswer && hasNonEmptyInAnswer) {
+            needsSync = true;
+            break;
+          }
+        }
+      }
+
+      if (needsSync) {
         unsyncIndices.add(i);
       }
     }
@@ -1512,15 +1596,30 @@ class ReportState extends ChangeNotifier {
           if (a >= answerVariants.length) {
             answerVariants.add([]);
           }
-          final text = answers[a].text;
+          final text = answers[a]['text'] ?? '';
           answerVariants[a].add(text);
         }
       }
 
-      (data['questions'] as List).add({
-        'id': q.id,
-        'answer_variants': answerVariants,
-      });
+      final answersWithId = <Map<String, dynamic>>[];
+      for (int answerIdx = 0; answerIdx < answerVariants.length; answerIdx++) {
+        final variant = answerVariants[answerIdx];
+        final hasEmpty = variant.any((text) => text.isEmpty);
+        final hasNonEmpty = variant.any((text) => text.isNotEmpty);
+        if (hasEmpty && hasNonEmpty) {
+          answersWithId.add({
+            'id': answerIdx,
+            'variants': variant,
+          });
+        }
+      }
+
+      if (answersWithId.isNotEmpty) {
+        (data['questions'] as List).add({
+          'id': q.id,
+          'answers': answersWithId,
+        });
+      }
     }
 
     return const JsonEncoder.withIndent('  ').convert(data);
@@ -1538,12 +1637,16 @@ class ReportState extends ChangeNotifier {
       for (final q in questions) {
         if (q is! Map) return null;
         if (!q.containsKey('id')) return null;
-        if (!q.containsKey('answer_variants')) return null;
+        if (!q.containsKey('answers')) return null;
 
-        final variants = q['answer_variants'] as List;
-        for (final variant in variants) {
-          if (variant is! List) return null;
-          if ((variant as List).length != languages.length) return null;
+        final answers = q['answers'] as List;
+        for (final answer in answers) {
+          if (answer is! Map) return null;
+          if (!answer.containsKey('id')) return null;
+          if (!answer.containsKey('variants')) return null;
+          
+          final variants = answer['variants'] as List;
+          if (variants.length != languages.length) return null;
         }
       }
 
@@ -1558,32 +1661,11 @@ class ReportState extends ChangeNotifier {
 
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final qid = i.toString();
-      if (_currentReport!.answers.containsKey(qid) &&
-          _currentReport!.answers[qid]!.containsKey(langCode)) {
-        _currentReport!.answers[qid]![langCode] = [Answer()];
+      if (_currentReport!.translations.containsKey(qid)) {
+        _currentReport!.translations[qid]![langCode] = [TranslationAnswer()];
       }
     }
     notifyListeners();
-  }
-
-  bool hasAnswersInOtherLanguages(int questionIndex, int answerIndex) {
-    if (_currentReport == null) return false;
-    final qid = questionIndex.toString();
-    final currentLang = _currentReport!.currentLanguage;
-
-    if (!_currentReport!.answers.containsKey(qid)) return false;
-
-    for (final lang in _currentReport!.availableLanguages) {
-      if (lang == currentLang) continue;
-      if (_currentReport!.answers[qid]!.containsKey(lang) &&
-          answerIndex < _currentReport!.answers[qid]![lang]!.length) {
-        final answer = _currentReport!.answers[qid]![lang]![answerIndex];
-        if (answer.text.isNotEmpty) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   void applySyncAnswers(String jsonStr) {
@@ -1596,7 +1678,7 @@ class ReportState extends ChangeNotifier {
 
     for (final qData in questions) {
       final questionId = qData['id'] as int;
-      final variants = qData['answer_variants'] as List;
+      final answers = qData['answers'] as List;
 
       final qIndex = _currentReport!.questions.indexWhere(
         (q) => q.id == questionId,
@@ -1604,86 +1686,85 @@ class ReportState extends ChangeNotifier {
       if (qIndex == -1) continue;
 
       final qid = qIndex.toString();
-      if (!_currentReport!.answers.containsKey(qid)) {
-        _currentReport!.answers[qid] = {};
-      }
 
       // Collect all attention flags across all languages for this question
-      final allAttentionFlags = <List<bool>>[];
-      for (final lang in _currentReport!.availableLanguages) {
-        if (_currentReport!.answers[qid]!.containsKey(lang)) {
-          allAttentionFlags.add(
-            _currentReport!.answers[qid]![lang]!
-                .map((a) => a.attention)
-                .toList(),
-          );
-        }
+      final allAttentionFlags = <bool>[];
+      final markersList = _currentReport!.markers[qid] ?? [];
+      for (int i = 0; i < markersList.length; i++) {
+        allAttentionFlags.add(markersList[i].attention);
       }
+
       // Determine for each answer index: is there ANY language with attention=true?
-      final maxAnswers = allAttentionFlags.fold<int>(
-        0,
-        (max, list) => list.length > max ? list.length : max,
-      );
+      final maxAnswers = allAttentionFlags.length;
       final shouldHaveAttention = List.filled(maxAnswers, false);
       for (int i = 0; i < maxAnswers; i++) {
-        for (final flags in allAttentionFlags) {
-          if (i < flags.length && flags[i]) {
-            shouldHaveAttention[i] = true;
-            break;
-          }
+        if (i < allAttentionFlags.length && allAttentionFlags[i]) {
+          shouldHaveAttention[i] = true;
         }
       }
 
-      // Save existing media lists before clearing answers
-      final savedMedia = <String, List<List<MediaItem>>>{};
-      for (final lang in _currentReport!.availableLanguages) {
-        if (_currentReport!.answers[qid]!.containsKey(lang)) {
-          final existingAnswers = _currentReport!.answers[qid]![lang]!;
-          savedMedia[lang] = existingAnswers.map((a) => a.media).toList();
-        }
+      // Save existing media lists
+      final savedMedia = <List<MediaItem>>[];
+      for (int i = 0; i < markersList.length; i++) {
+        savedMedia.add(List.from(markersList[i].media));
       }
 
-      // Clear answers for all languages in sync data
-      for (final lang in languages) {
-        if (!_currentReport!.availableLanguages.contains(lang)) continue;
-        _currentReport!.answers[qid]![lang] = [];
-      }
+      // Update translations for all languages in sync data
+      for (final answerData in answers) {
+        final answerId = answerData['id'] as int;
+        final texts = (answerData['variants'] as List).cast<String>();
 
-      // Now restore answers, media, and apply consistent attention flags!
-      for (
-        int variantIndex = 0;
-        variantIndex < variants.length;
-        variantIndex++
-      ) {
-        final variant = variants[variantIndex];
-        final texts = (variant as List).cast<String>();
         for (int langIndex = 0; langIndex < languages.length; langIndex++) {
           final lang = languages[langIndex];
           if (!_currentReport!.availableLanguages.contains(lang)) continue;
 
           final text = langIndex < texts.length ? texts[langIndex] : '';
-          final answersList = _currentReport!.answers[qid]![lang];
-          if (answersList != null) {
-            // Get saved media for this answer index
-            List<MediaItem> media = [];
-            if (savedMedia.containsKey(lang) &&
-                variantIndex < savedMedia[lang]!.length) {
-              media = savedMedia[lang]![variantIndex];
+
+          if (!_currentReport!.translations.containsKey(qid)) {
+            _currentReport!.translations[qid] = {};
+          }
+          if (!_currentReport!.translations[qid]!.containsKey(lang)) {
+            _currentReport!.translations[qid]![lang] = [];
+          }
+
+          final answersList = _currentReport!.translations[qid]![lang]!;
+          if (answerId < answersList.length) {
+            if (text.isNotEmpty) {
+              answersList[answerId].text = text;
+              answersList[answerId].isEmpty = text.isEmpty;
             }
-
-            // Get consistent attention flag
-            bool attention = variantIndex < shouldHaveAttention.length
-                ? shouldHaveAttention[variantIndex]
-                : false;
-
+          } else {
             answersList.add(
-              Answer()
-                ..text = text
-                ..attention = attention
-                ..media = media
-                ..isEmpty = text.isEmpty && media.isEmpty && !attention,
+              TranslationAnswer(text: text, isEmpty: text.isEmpty),
             );
           }
+        }
+      }
+
+      // Update markers with consistent attention flags and preserved media
+      if (!_currentReport!.markers.containsKey(qid)) {
+        _currentReport!.markers[qid] = [];
+      }
+
+      for (final answerData in answers) {
+        final answerId = answerData['id'] as int;
+        
+        bool attention = answerId < shouldHaveAttention.length
+            ? shouldHaveAttention[answerId]
+            : false;
+
+        List<MediaItem> media = [];
+        if (answerId < savedMedia.length) {
+          media = savedMedia[answerId];
+        }
+
+        if (answerId < _currentReport!.markers[qid]!.length) {
+          _currentReport!.markers[qid]![answerId].attention = attention;
+          _currentReport!.markers[qid]![answerId].media = media;
+        } else {
+          _currentReport!.markers[qid]!.add(
+            AnswerMarkers(attention: attention, media: media),
+          );
         }
       }
     }

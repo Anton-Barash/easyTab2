@@ -286,7 +286,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
         availableLanguages: ['RU', 'EN'],
         currentLanguage: 'RU',
         questions: _defaultTemplate,
-        answers: {},
+        translations: {},
+        markers: {},
         mediaCounter: {'photos': 1, 'X': 1},
       );
     });

@@ -147,7 +147,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       i,
       reportState.currentReport!.currentLanguage,
     )[j];
-    final currentText = currentAnswer?.text ?? '';
+    final currentText = currentAnswer?['text'] ?? '';
 
     final TextEditingController replaceController = TextEditingController(
       text: currentText,
@@ -319,7 +319,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       for (int j = 0; j < answers.length; j++) {
         if (!_answerControllers[qid]!.containsKey(j)) {
           _answerControllers[qid]![j] = TextEditingController(
-            text: answers[j].text,
+            text: answers[j]['text'] ?? '',
           );
           _answerControllers[qid]![j]!.addListener(() {
             if (!_isUpdatingControllers) {
@@ -340,9 +340,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
           });
         } else {
           final controller = _answerControllers[qid]![j]!;
-          if (controller.text != answers[j].text) {
+          if (controller.text != (answers[j]['text'] ?? '')) {
             _isUpdatingControllers = true;
-            controller.text = answers[j].text;
+            controller.text = answers[j]['text'] ?? '';
             _isUpdatingControllers = false;
           }
         }
@@ -674,10 +674,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         final answers = report
                                             .getAnswersForQuestion(i, lang);
                                         final answerCount = answers
-                                            .where((a) => !a.isEmpty)
+                                            .where(
+                                              (a) => !(a['isEmpty'] == true),
+                                            )
                                             .length;
                                         final attentionCount = answers
-                                            .where((a) => a.attention)
+                                            .where(
+                                              (a) => a['attention'] == true,
+                                            )
                                             .length;
 
                                         final q = report.questions[i];
@@ -1084,10 +1088,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 lang,
                               );
                               final answerCount = answers
-                                  .where((a) => !a.isEmpty)
+                                  .where((a) => !(a['isEmpty'] == true))
                                   .length;
                               final attentionCount = answers
-                                  .where((a) => a.attention)
+                                  .where((a) => a['attention'] == true)
                                   .length;
 
                               final q = report.questions[i];
@@ -1928,20 +1932,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
     int j,
     ReportState reportState,
     String qid,
-    Answer answer,
+    Map<String, dynamic> answer,
   ) {
+    final attention = answer['attention'] == true;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: answer.attention
-            ? const Color(0xFFfff7ed)
-            : const Color(0xFFf9fafb),
+        color: attention ? const Color(0xFFfff7ed) : const Color(0xFFf9fafb),
         border: Border.all(
           width: 1.5,
-          color: answer.attention
-              ? const Color(0xFFfed7aa)
-              : const Color(0xFFe5e7eb),
+          color: attention ? const Color(0xFFfed7aa) : const Color(0xFFe5e7eb),
         ),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -1953,14 +1954,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
               IconButton(
                 icon: Icon(
                   Icons.warning_amber,
-                  color: answer.attention
+                  color: attention
                       ? const Color(0xFFf97316)
                       : const Color(0xFFd1d5db),
                 ),
                 onPressed: () {
-                  reportState.updateAnswerAttention(i, j, !answer.attention);
+                  reportState.updateAnswerAttention(i, j, !attention);
                 },
-                tooltip: answer.attention
+                tooltip: attention
                     ? 'Снять отметку "Внимание"'
                     : 'Отметить "Внимание"',
               ),
@@ -1999,22 +2000,31 @@ class _FormFillScreenState extends State<FormFillScreen> {
               IconButton(
                 icon: const Icon(Icons.delete, color: Color(0xFFef4444)),
                 onPressed:
-                    (reportState.currentReport?.answers[qid]?.length ?? 1) > 1
+                    (reportState
+                                .currentReport
+                                ?.translations[qid]
+                                ?.values
+                                .firstOrNull
+                                ?.length ??
+                            1) >
+                        1
                     ? () => _showDeleteAnswerDialog(context, i, j, reportState)
                     : null,
                 tooltip: 'Удалить ответ',
               ),
             ],
           ),
-          if (answer.media.isNotEmpty)
+          if ((answer['media'] as List?)?.isNotEmpty ?? false)
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: answer.media.asMap().entries.map((entry) {
+                children: (answer['media'] as List? ?? []).asMap().entries.map((
+                  entry,
+                ) {
                   final mediaIndex = entry.key;
-                  final media = entry.value;
+                  final media = entry.value as Map<String, dynamic>;
                   return Stack(
                     children: [
                       Container(
@@ -2025,17 +2035,20 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             width: 2,
-                            color: media.attention
+                            color: (media['attention'] == true)
                                 ? const Color(0xFFf59e0b)
                                 : const Color(0xFFe5e7eb),
                           ),
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(6),
-                          child: media.type.startsWith('image')
-                              ? (!kIsWeb && media.localPath != null
+                          child:
+                              (media['type'] as String? ?? '').startsWith(
+                                'image',
+                              )
+                              ? (!kIsWeb && media['localPath'] != null
                                     ? Image.file(
-                                        File(media.localPath!),
+                                        File(media['localPath']),
                                         width: 70,
                                         height: 70,
                                         fit: BoxFit.cover,
@@ -2048,7 +2061,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         ),
                                       ))
                               : _VideoThumbnailWidget(
-                                  localPath: media.localPath,
+                                  localPath: media['localPath'] as String?,
                                   size: 70,
                                 ),
                         ),

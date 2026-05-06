@@ -32,33 +32,49 @@ class MediaItem {
       );
 }
 
-class Answer {
-  String text;
+class AnswerMarkers {
   bool attention;
   List<MediaItem> media;
-  bool isEmpty;
+  bool needsWork;
 
-  Answer({
-    this.text = '',
+  AnswerMarkers({
     this.attention = false,
     List<MediaItem>? media,
-    this.isEmpty = true,
+    this.needsWork = false,
   }) : media = media ?? [];
 
   Map<String, dynamic> toJson() => {
-        'text': text,
         'attention': attention,
         'media': media.map((m) => m.toJson()).toList(),
-        '_empty': isEmpty,
+        'needsWork': needsWork,
       };
 
-  factory Answer.fromJson(Map<String, dynamic> json) => Answer(
-        text: json['text'] ?? '',
+  factory AnswerMarkers.fromJson(Map<String, dynamic> json) => AnswerMarkers(
         attention: json['attention'] ?? false,
         media: (json['media'] as List<dynamic>?)
                 ?.map((m) => MediaItem.fromJson(m))
                 .toList() ??
             [],
+        needsWork: json['needsWork'] ?? false,
+      );
+}
+
+class TranslationAnswer {
+  String text;
+  bool isEmpty;
+
+  TranslationAnswer({
+    this.text = '',
+    this.isEmpty = true,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'text': text,
+        '_empty': isEmpty,
+      };
+
+  factory TranslationAnswer.fromJson(Map<String, dynamic> json) => TranslationAnswer(
+        text: json['text'] ?? '',
         isEmpty: json['_empty'] ?? true,
       );
 }
@@ -155,7 +171,8 @@ class Report {
   List<String> availableLanguages;
   String currentLanguage;
   List<Question> questions;
-  Map<String, Map<String, List<Answer>>> answers;
+  Map<String, Map<String, List<TranslationAnswer>>> translations;
+  Map<String, List<AnswerMarkers>> markers;
   Map<String, int> mediaCounter;
   int timestamp;
   String? folderPath;
@@ -165,26 +182,81 @@ class Report {
     this.availableLanguages = const [],
     this.currentLanguage = 'RU',
     this.questions = const [],
-    this.answers = const {},
+    this.translations = const {},
+    this.markers = const {},
     this.mediaCounter = const {'photos': 1, 'X': 1},
     int? timestamp,
     this.folderPath,
   }) : timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch;
 
-  List<Answer> getAnswersForQuestion(int questionIndex, String langCode) {
+  List<Map<String, dynamic>> getAnswersForQuestion(int questionIndex, String langCode) {
     final qid = questionIndex.toString();
-    if (!answers.containsKey(qid)) return [Answer()];
-    if (!answers[qid]!.containsKey(langCode)) return [Answer()];
-    return answers[qid]![langCode] ?? [Answer()];
+    final langAnswers = translations[qid]?[langCode] ?? [];
+    final langMarkers = markers[qid] ?? [];
+    
+    final result = <Map<String, dynamic>>[];
+    final maxLength = langAnswers.length > langMarkers.length ? langAnswers.length : langMarkers.length;
+    
+    for (int i = 0; i < maxLength; i++) {
+      final text = i < langAnswers.length ? langAnswers[i].text : '';
+      final isEmpty = i >= langAnswers.length || langAnswers[i].isEmpty;
+      final attention = i < langMarkers.length ? langMarkers[i].attention : false;
+      final needsWork = i < langMarkers.length ? langMarkers[i].needsWork : false;
+      
+      final mediaList = i < langMarkers.length ? langMarkers[i].media : [];
+      final mediaMaps = mediaList.map((m) => {
+        'name': m.name,
+        'type': m.type,
+        'attention': m.attention,
+        'originalName': m.originalName,
+        'localPath': m.localPath,
+      }).toList();
+      
+      result.add({
+        'text': text,
+        'isEmpty': isEmpty,
+        'attention': attention,
+        'media': mediaMaps,
+        'needsWork': needsWork,
+      });
+    }
+    
+    return result;
+  }
+
+  TranslationAnswer? getTranslationAnswer(int questionIndex, String langCode, int answerIndex) {
+    final qid = questionIndex.toString();
+    return translations[qid]?[langCode]?[answerIndex];
+  }
+
+  AnswerMarkers? getAnswerMarkers(int questionIndex, int answerIndex) {
+    final qid = questionIndex.toString();
+    return markers[qid]?[answerIndex];
   }
 
   bool hasAnswersInLanguage(int questionIndex, String langCode) {
-    final answersList = getAnswersForQuestion(questionIndex, langCode);
-    return answersList.any((a) => !a.isEmpty);
+    final qid = questionIndex.toString();
+    final langAnswers = translations[qid]?[langCode] ?? [];
+    return langAnswers.any((a) => !a.isEmpty);
   }
 
   bool hasAnyAnswerInLanguage(int questionIndex, String langCode) {
     return hasAnswersInLanguage(questionIndex, langCode);
+  }
+
+  bool hasAnswersInOtherLanguages(int questionIndex, int answerIndex) {
+    final qid = questionIndex.toString();
+    final currentLangAnswers = translations[qid]?[currentLanguage] ?? [];
+    if (answerIndex >= currentLangAnswers.length) return false;
+    
+    for (final lang in availableLanguages) {
+      if (lang == currentLanguage) continue;
+      final langAnswers = translations[qid]?[lang] ?? [];
+      if (answerIndex < langAnswers.length && !langAnswers[answerIndex].isEmpty) {
+        return true;
+      }
+    }
+    return false;
   }
 
   Map<String, dynamic> toJson() => {
@@ -192,39 +264,59 @@ class Report {
         'availableLanguages': availableLanguages,
         'currentLanguage': currentLanguage,
         'questions': questions.map((q) => q.toJson()).toList(),
-        'answers': answers.map((k, v) => MapEntry(k, v.map((lk, lva) => MapEntry(lk, lva.map((a) => a.toJson()).toList())))),
+        'translations': translations.map((k, v) => MapEntry(k, v.map((lk, lva) => MapEntry(lk, lva.map((a) => a.toJson()).toList())))),
+        'markers': markers.map((k, v) => MapEntry(k, v.map((m) => m.toJson()).toList())),
         'mediaCounter': mediaCounter,
         'timestamp': timestamp,
       };
 
   factory Report.fromJson(Map<String, dynamic> json, {String? folderPath}) {
-    final answersJson = json['answers'] as Map<String, dynamic>?;
-    final answers = <String, Map<String, List<Answer>>>{};
+    final translationsJson = json['translations'] as Map<String, dynamic>?;
+    final markersJson = json['markers'] as Map<String, dynamic>?;
+    
+    final translations = <String, Map<String, List<TranslationAnswer>>>{};
+    final markers = <String, List<AnswerMarkers>>{};
 
-    if (answersJson != null) {
-      answersJson.forEach((qid, langMap) {
+    if (translationsJson != null) {
+      translationsJson.forEach((qid, langMap) {
         if (langMap is Map) {
-          answers[qid] = {};
+          translations[qid] = {};
           (langMap as Map<String, dynamic>).forEach((langCode, answersList) {
             if (answersList is List) {
-              answers[qid]![langCode] = answersList.map((a) => Answer.fromJson(a)).toList();
+              translations[qid]![langCode] = answersList.map((a) => TranslationAnswer.fromJson(a)).toList();
             }
           });
         }
       });
     }
 
+    if (markersJson != null) {
+      markersJson.forEach((qid, markersList) {
+        if (markersList is List) {
+          markers[qid] = markersList.map((m) => AnswerMarkers.fromJson(m)).toList();
+        }
+      });
+    }
+
     final availableLanguages = (json['availableLanguages'] as List<dynamic>?)?.cast<String>() ?? [];
 
-    if (answers.isEmpty && availableLanguages.isNotEmpty) {
-      final questionsList = json['questions'] as List?;
-      final questionsCount = questionsList?.length ?? 0;
-      for (int i = 0; i < questionsCount; i++) {
-        final qid = i.toString();
-        answers[qid] = {};
-        for (final lang in availableLanguages) {
-          answers[qid]![lang] = [Answer()];
+    final questionsList = json['questions'] as List?;
+    final questionsCount = questionsList?.length ?? 0;
+    
+    for (int i = 0; i < questionsCount; i++) {
+      final qid = i.toString();
+      
+      if (!translations.containsKey(qid)) {
+        translations[qid] = {};
+      }
+      for (final lang in availableLanguages) {
+        if (!translations[qid]!.containsKey(lang)) {
+          translations[qid]![lang] = [TranslationAnswer()];
         }
+      }
+      
+      if (!markers.containsKey(qid)) {
+        markers[qid] = [AnswerMarkers()];
       }
     }
 
@@ -236,7 +328,8 @@ class Report {
               ?.map((q) => Question.fromJson(q))
               .toList() ??
           [],
-      answers: answers,
+      translations: translations,
+      markers: markers,
       mediaCounter: Map<String, int>.from(json['mediaCounter'] ?? {'photos': 1, 'X': 1}),
       timestamp: json['timestamp'],
       folderPath: folderPath,
@@ -248,7 +341,8 @@ class Report {
     List<String>? availableLanguages,
     String? currentLanguage,
     List<Question>? questions,
-    Map<String, Map<String, List<Answer>>>? answers,
+    Map<String, Map<String, List<TranslationAnswer>>>? translations,
+    Map<String, List<AnswerMarkers>>? markers,
     Map<String, int>? mediaCounter,
     int? timestamp,
     String? folderPath,
@@ -258,7 +352,8 @@ class Report {
       availableLanguages: availableLanguages ?? this.availableLanguages,
       currentLanguage: currentLanguage ?? this.currentLanguage,
       questions: questions ?? this.questions,
-      answers: answers ?? this.answers,
+      translations: translations ?? this.translations,
+      markers: markers ?? this.markers,
       mediaCounter: mediaCounter ?? this.mediaCounter,
       timestamp: timestamp ?? this.timestamp,
       folderPath: folderPath ?? this.folderPath,
