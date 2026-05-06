@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 import '../providers/report_provider.dart';
 import '../models/report_models.dart';
 
@@ -251,6 +253,28 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
+  Future<void> viewHtmlWithChooser(String htmlContent) async {
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/easy_report.html');
+    await file.writeAsString(htmlContent);
+
+    // Открывает системный диалог выбора приложения
+    final result = await OpenFile.open(file.path);
+
+    if (result.type == ResultType.noAppToOpen) {
+      // Нет приложения для открытия HTML
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Установите браузер или приложение для просмотра HTML',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final reportState = context.watch<ReportState>();
@@ -449,44 +473,27 @@ class _FormFillScreenState extends State<FormFillScreen> {
             onSelected: (value) async {
               if (value == 0) {
                 final htmlContent = reportState.generateHtmlContent();
-                try {
-                  await Clipboard.setData(ClipboardData(text: htmlContent));
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('HTML скопирован в буфер обмена'),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Ошибка копирования: $e')),
-                    );
-                  }
-                }
-                // Also offer to save to file on non-web platforms
-                if (!kIsWeb) {
+                if (kIsWeb) {
+                  // На вебе копируем в буфер
                   try {
-                    final directory = await FilePicker.platform
-                        .getDirectoryPath();
-                    if (directory != null) {
-                      final filePath = '$directory/report.html';
-                      final file = File(filePath);
-                      await file.writeAsString(htmlContent);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('HTML сохранён: $filePath')),
-                        );
-                      }
+                    await Clipboard.setData(ClipboardData(text: htmlContent));
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('HTML скопирован в буфер обмена'),
+                        ),
+                      );
                     }
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Ошибка сохранения: $e')),
+                        SnackBar(content: Text('Ошибка копирования: $e')),
                       );
                     }
                   }
+                } else {
+                  // На мобильных/десктопах открываем через системный диалог
+                  await viewHtmlWithChooser(htmlContent);
                 }
               } else if (value == 4) {
                 final excelHtml = reportState.generateExcelHtmlContent();

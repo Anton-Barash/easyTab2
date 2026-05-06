@@ -14,5 +14,8 @@ flutter build web
 flutter run -d web-server --web-port=3000
 // flutter run -d edge --web-port=3000
 
+cd d:\neiroQC\easyTab2\easy_tab
+flutter build apk --release
+flutter install
 
-
+//flutter run
