@@ -9,6 +9,8 @@ import 'package:file_picker/file_picker.dart';
 import '../providers/report_provider.dart';
 import '../models/report_models.dart';
 
+import 'dart:async';
+
 enum ViewMode { list, card }
 
 class FormFillScreen extends StatefulWidget {
@@ -20,6 +22,7 @@ class FormFillScreen extends StatefulWidget {
 
 class _FormFillScreenState extends State<FormFillScreen> {
   final Map<String, Map<int, TextEditingController>> _answerControllers = {};
+  final Map<String, Map<int, Timer?>> _debounceTimers = {};
   ViewMode _viewMode = ViewMode.list;
   bool _isSidePanelCollapsed = false;
   final PageController _pageController = PageController();
@@ -35,6 +38,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
     _answerControllers.values
         .expand((map) => map.values)
         .forEach((c) => c.dispose());
+    _debounceTimers.values
+        .expand((map) => map.values)
+        .forEach((timer) => timer?.cancel());
     _pageController.dispose();
     _listScrollController.dispose();
     super.dispose();
@@ -270,6 +276,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       if (!_enabledAnswers.containsKey(qid)) {
         _enabledAnswers[qid] = {};
       }
+      if (!_debounceTimers.containsKey(qid)) {
+        _debounceTimers[qid] = {};
+      }
       final answers = report.getAnswersForQuestion(i, report.currentLanguage);
 
       final existingIndices = _answerControllers[qid]!.keys.toList();
@@ -278,6 +287,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
           _answerControllers[qid]![j]?.dispose();
           _answerControllers[qid]!.remove(j);
           _enabledAnswers[qid]!.remove(j);
+          _debounceTimers[qid]![j]?.cancel();
+          _debounceTimers[qid]!.remove(j);
         }
       }
 
@@ -288,10 +299,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
           );
           _answerControllers[qid]![j]!.addListener(() {
             if (!_isUpdatingControllers) {
-              reportState.updateAnswerText(
-                i,
-                j,
-                _answerControllers[qid]![j]!.text,
+              // Cancel previous timer
+              _debounceTimers[qid]?[j]?.cancel();
+              // Create new timer to update after 300ms of inactivity
+              _debounceTimers[qid]![j] = Timer(
+                const Duration(milliseconds: 300),
+                () {
+                  reportState.updateAnswerText(
+                    i,
+                    j,
+                    _answerControllers[qid]![j]!.text,
+                  );
+                },
               );
             }
           });

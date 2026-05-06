@@ -164,14 +164,30 @@ class ReportState extends ChangeNotifier {
   void removeAnswer(int questionIndex, int answerIndex) {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
-    final lang = _currentReport!.currentLanguage;
 
-    if (_currentReport!.answers.containsKey(qid) &&
-        _currentReport!.answers[qid]!.containsKey(lang) &&
-        _currentReport!.answers[qid]![lang]!.length > 1) {
-      _currentReport!.answers[qid]![lang]!.removeAt(answerIndex);
-      notifyListeners();
+    for (final lang in _currentReport!.availableLanguages) {
+      if (_currentReport!.answers.containsKey(qid) &&
+          _currentReport!.answers[qid]!.containsKey(lang) &&
+          _currentReport!.answers[qid]![lang]!.length > 1) {
+        // Delete media files if they exist
+        final answer = _currentReport!.answers[qid]![lang]![answerIndex];
+        for (final media in answer.media) {
+          if (media.localPath != null && !kIsWeb) {
+            try {
+              final file = File(media.localPath!);
+              if (file.existsSync()) {
+                file.deleteSync();
+              }
+            } catch (e) {
+              if (kDebugMode) print('Error deleting media file: $e');
+            }
+          }
+        }
+        _currentReport!.answers[qid]![lang]!.removeAt(answerIndex);
+      }
     }
+
+    notifyListeners();
   }
 
   void updateAnswerText(int questionIndex, int answerIndex, String text) {
@@ -490,10 +506,11 @@ class ReportState extends ChangeNotifier {
 
         for (final a in answers) {
           for (final media in a.media) {
+            final relativePath = media.attention ? 'X/${media.name}' : 'photos/${media.name}';
             final mediaMap = {
               'name': media.name,
               'type': media.type,
-              'localPath': media.localPath ?? '',
+              'localPath': relativePath,
             };
             langMedia.add(mediaMap);
             allMediaData.add(jsonEncode(mediaMap));
@@ -591,6 +608,9 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      background-color: rgba(0,0,0,0.9);');
     buffer.writeln('      overflow: auto;');
     buffer.writeln('    }');
+    buffer.writeln('    .modal.white-bg {');
+    buffer.writeln('      background-color: rgba(255,255,255,0.95);');
+    buffer.writeln('    }');
     buffer.writeln('    .modal-content {');
     buffer.writeln('      position: relative;');
     buffer.writeln('      margin: auto;');
@@ -615,7 +635,10 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      cursor: pointer;');
     buffer.writeln('      z-index: 1001;');
     buffer.writeln('    }');
-    buffer.writeln('    .zoom-controls {');
+    buffer.writeln('    .white-bg .close {');
+    buffer.writeln('      color: #333;');
+    buffer.writeln('    }');
+    buffer.writeln('    .controls {');
     buffer.writeln('      position: fixed;');
     buffer.writeln('      bottom: 30px;');
     buffer.writeln('      left: 50%;');
@@ -624,10 +647,10 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      gap: 15px;');
     buffer.writeln('      z-index: 1001;');
     buffer.writeln('    }');
-    buffer.writeln('    .zoom-btn {');
+    buffer.writeln('    .control-btn {');
     buffer.writeln('      padding: 12px 24px;');
     buffer.writeln('      font-size: 24px;');
-    buffer.writeln('      background: rgba(255,255,255,0.2);');
+    buffer.writeln('      background: rgba(0,0,0,0.6);');
     buffer.writeln('      color: white;');
     buffer.writeln('      border: 2px solid white;');
     buffer.writeln('      border-radius: 50%;');
@@ -638,8 +661,13 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      align-items: center;');
     buffer.writeln('      justify-content: center;');
     buffer.writeln('    }');
-    buffer.writeln('    .zoom-btn:hover {');
-    buffer.writeln('      background: rgba(255,255,255,0.3);');
+    buffer.writeln('    .white-bg .control-btn {');
+    buffer.writeln('      background: rgba(0,0,0,0.6);');
+    buffer.writeln('      color: white;');
+    buffer.writeln('      border-color: white;');
+    buffer.writeln('    }');
+    buffer.writeln('    .control-btn:hover {');
+    buffer.writeln('      background: rgba(0,0,0,0.7);');
     buffer.writeln('    }');
     buffer.writeln('  </style>');
     buffer.writeln('</head>');
@@ -739,6 +767,10 @@ class ReportState extends ChangeNotifier {
           buffer.writeln(
             '      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
           );
+        } else {
+          buffer.writeln(
+            '      <td style="background:#fafafa;width:40px;"></td>',
+          );
         }
 
         if (ai == 0) {
@@ -751,6 +783,10 @@ class ReportState extends ChangeNotifier {
           }
           buffer.writeln(
             '      <td style="background:#fafafa;font-weight:500;width:160px;">${qContentParts.join('')}</td>',
+          );
+        } else {
+          buffer.writeln(
+            '      <td style="background:#fafafa;width:160px;"></td>',
           );
         }
 
@@ -811,12 +847,18 @@ class ReportState extends ChangeNotifier {
       '    <video id="modalVideo" class="modal-video" controls style="display:none;"></video>',
     );
     buffer.writeln('  </div>');
-    buffer.writeln('  <div class="zoom-controls">');
+    buffer.writeln('  <div class="controls">');
     buffer.writeln(
-      '    <button class="zoom-btn" onclick="zoomOut()">&minus;</button>',
+      '    <button class="control-btn" onclick="toggleBg()">⬜</button>',
     );
     buffer.writeln(
-      '    <button class="zoom-btn" onclick="zoomIn()">+</button>',
+      '    <button class="control-btn" onclick="zoomOut()">&minus;</button>',
+    );
+    buffer.writeln(
+      '    <button class="control-btn" onclick="fitToScreen()">⛶</button>',
+    );
+    buffer.writeln(
+      '    <button class="control-btn" onclick="zoomIn()">+</button>',
     );
     buffer.writeln('  </div>');
     buffer.writeln('</div>');
@@ -825,6 +867,13 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('<script>');
     buffer.writeln('  let currentZoom = 1;');
     buffer.writeln('  let currentMedia = null;');
+    buffer.writeln('  let currentElement = null;');
+    buffer.writeln('  let isDragging = false;');
+    buffer.writeln('  let startX = 0, startY = 0;');
+    buffer.writeln('  let translateX = 0, translateY = 0;');
+    buffer.writeln('  let isFitMode = false;');
+    buffer.writeln('  let lastZoom = 1, lastTranslateX = 0, lastTranslateY = 0;');
+    buffer.writeln('  let isWhiteBg = false;');
     buffer.writeln('  const allLanguages = ${jsonEncode(languages)};');
 
     // Media data
@@ -867,6 +916,10 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    }');
     buffer.writeln('  }');
 
+    buffer.writeln('  function applyTransform(el) {');
+    buffer.writeln('    el.style.transform = "translate(" + translateX + "px, " + translateY + "px) scale(" + currentZoom + ")";');
+    buffer.writeln('  }');
+
     buffer.writeln('  function openModal(qIndex, li, mi) {');
     buffer.writeln('    const media = mediaData[qIndex][li][mi];');
     buffer.writeln('    const modal = document.getElementById("mediaModal");');
@@ -877,19 +930,22 @@ class ReportState extends ChangeNotifier {
 
     buffer.writeln('    currentMedia = media;');
     buffer.writeln('    currentZoom = 1;');
+    buffer.writeln('    translateX = 0;');
+    buffer.writeln('    translateY = 0;');
+    buffer.writeln('    isFitMode = false;');
 
     buffer.writeln('    if (media.type.startsWith("image")) {');
     buffer.writeln('      modalImg.style.display = "block";');
     buffer.writeln('      modalVideo.style.display = "none";');
     buffer.writeln('      modalImg.src = media.localPath;');
-    buffer.writeln('      modalImg.style.transform = "scale(1)";');
+    buffer.writeln('      currentElement = modalImg;');
     buffer.writeln('    } else {');
     buffer.writeln('      modalImg.style.display = "none";');
     buffer.writeln('      modalVideo.style.display = "block";');
     buffer.writeln('      modalVideo.src = media.localPath;');
-    buffer.writeln('      modalVideo.style.transform = "scale(1)";');
+    buffer.writeln('      currentElement = modalVideo;');
     buffer.writeln('    }');
-
+    buffer.writeln('    applyTransform(currentElement);');
     buffer.writeln('    modal.style.display = "block";');
     buffer.writeln('  }');
 
@@ -900,48 +956,87 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('  }');
 
     buffer.writeln('  function zoomIn() {');
-    buffer.writeln('    currentZoom += 0.2;');
-    buffer.writeln('    const modalImg = document.getElementById("modalImg");');
-    buffer.writeln(
-      '    const modalVideo = document.getElementById("modalVideo");',
-    );
-    buffer.writeln('    if (modalImg.style.display === "block") {');
-    buffer.writeln(
-      '      modalImg.style.transform = "scale(" + currentZoom + ")";',
-    );
-    buffer.writeln('    } else {');
-    buffer.writeln(
-      '      modalVideo.style.transform = "scale(" + currentZoom + ")";',
-    );
+    buffer.writeln('    if (currentZoom < 3) {');
+    buffer.writeln('      currentZoom += 0.2;');
+    buffer.writeln('      applyTransform(currentElement);');
     buffer.writeln('    }');
     buffer.writeln('  }');
 
     buffer.writeln('  function zoomOut() {');
     buffer.writeln('    if (currentZoom > 0.3) {');
     buffer.writeln('      currentZoom -= 0.2;');
-    buffer.writeln(
-      '      const modalImg = document.getElementById("modalImg");',
-    );
-    buffer.writeln(
-      '      const modalVideo = document.getElementById("modalVideo");',
-    );
-    buffer.writeln('      if (modalImg.style.display === "block") {');
-    buffer.writeln(
-      '        modalImg.style.transform = "scale(" + currentZoom + ")";',
-    );
-    buffer.writeln('      } else {');
-    buffer.writeln(
-      '        modalVideo.style.transform = "scale(" + currentZoom + ")";',
-    );
-    buffer.writeln('      }');
+    buffer.writeln('      applyTransform(currentElement);');
     buffer.writeln('    }');
     buffer.writeln('  }');
+
+    buffer.writeln('  function fitToScreen() {');
+    buffer.writeln('    if (!isFitMode) {');
+    buffer.writeln('      lastZoom = currentZoom;');
+    buffer.writeln('      lastTranslateX = translateX;');
+    buffer.writeln('      lastTranslateY = translateY;');
+    buffer.writeln('      currentZoom = 1;');
+    buffer.writeln('      translateX = 0;');
+    buffer.writeln('      translateY = 0;');
+    buffer.writeln('      isFitMode = true;');
+    buffer.writeln('    } else {');
+    buffer.writeln('      currentZoom = lastZoom;');
+    buffer.writeln('      translateX = lastTranslateX;');
+    buffer.writeln('      translateY = lastTranslateY;');
+    buffer.writeln('      isFitMode = false;');
+    buffer.writeln('    }');
+    buffer.writeln('    applyTransform(currentElement);');
+    buffer.writeln('  }');
+
+    buffer.writeln('  function toggleBg() {');
+    buffer.writeln('    const modal = document.getElementById("mediaModal");');
+    buffer.writeln('    if (isWhiteBg) {');
+    buffer.writeln('      modal.classList.remove("white-bg");');
+    buffer.writeln('      isWhiteBg = false;');
+    buffer.writeln('    } else {');
+    buffer.writeln('      modal.classList.add("white-bg");');
+    buffer.writeln('      isWhiteBg = true;');
+    buffer.writeln('    }');
+    buffer.writeln('  }');
+
+    // Drag
+    buffer.writeln('  document.addEventListener("mousedown", function(e) {');
+    buffer.writeln('    if (e.target === currentElement) {');
+    buffer.writeln('      e.preventDefault();');
+    buffer.writeln('      isDragging = true;');
+    buffer.writeln('      startX = e.clientX - translateX;');
+    buffer.writeln('      startY = e.clientY - translateY;');
+    buffer.writeln('    }');
+    buffer.writeln('  });');
+
+    buffer.writeln('  document.addEventListener("mousemove", function(e) {');
+    buffer.writeln('    if (!isDragging || !currentElement) return;');
+    buffer.writeln('    translateX = e.clientX - startX;');
+    buffer.writeln('    translateY = e.clientY - startY;');
+    buffer.writeln('    applyTransform(currentElement);');
+    buffer.writeln('  });');
+
+    buffer.writeln('  document.addEventListener("mouseup", function() {');
+    buffer.writeln('    isDragging = false;');
+    buffer.writeln('  });');
+
+    // Wheel zoom
+    buffer.writeln('  document.addEventListener("wheel", function(e) {');
+    buffer.writeln('    if (currentElement && document.getElementById("mediaModal").style.display === "block") {');
+    buffer.writeln('      e.preventDefault();');
+    buffer.writeln('      const delta = e.deltaY > 0 ? -0.1 : 0.1;');
+    buffer.writeln('      let newZoom = currentZoom + delta;');
+    buffer.writeln('      if (newZoom > 3) newZoom = 3;');
+    buffer.writeln('      if (newZoom < 0.3) newZoom = 0.3;');
+    buffer.writeln('      currentZoom = newZoom;');
+    buffer.writeln('      applyTransform(currentElement);');
+    buffer.writeln('    }');
+    buffer.writeln('  }, { passive: false });');
 
     // Close modal on background click
     buffer.writeln(
       '  document.getElementById("mediaModal").onclick = function(event) {',
     );
-    buffer.writeln('    if (event.target == this) {');
+    buffer.writeln('    if (event.target === this) {');
     buffer.writeln('      closeModal();');
     buffer.writeln('    }');
     buffer.writeln('  }');
@@ -1484,14 +1579,36 @@ class ReportState extends ChangeNotifier {
         _currentReport!.answers[qid] = {};
       }
 
-      // Save existing attention flags before clearing answers
-      final savedAttention = <String, List<bool>>{};
+      // Collect all attention flags across all languages for this question
+      final allAttentionFlags = <List<bool>>[];
+      for (final lang in _currentReport!.availableLanguages) {
+        if (_currentReport!.answers[qid]!.containsKey(lang)) {
+          allAttentionFlags.add(
+            _currentReport!.answers[qid]![lang]!.map((a) => a.attention).toList()
+          );
+        }
+      }
+      // Determine for each answer index: is there ANY language with attention=true?
+      final maxAnswers = allAttentionFlags.fold<int>(
+        0,
+        (max, list) => list.length > max ? list.length : max
+      );
+      final shouldHaveAttention = List.filled(maxAnswers, false);
+      for (int i = 0; i < maxAnswers; i++) {
+        for (final flags in allAttentionFlags) {
+          if (i < flags.length && flags[i]) {
+            shouldHaveAttention[i] = true;
+            break;
+          }
+        }
+      }
+
+      // Save existing media lists before clearing answers
+      final savedMedia = <String, List<List<MediaItem>>>{};
       for (final lang in _currentReport!.availableLanguages) {
         if (_currentReport!.answers[qid]!.containsKey(lang)) {
           final existingAnswers = _currentReport!.answers[qid]![lang]!;
-          savedAttention[lang] = existingAnswers
-              .map((a) => a.attention)
-              .toList();
+          savedMedia[lang] = existingAnswers.map((a) => a.media).toList();
         }
       }
 
@@ -1501,7 +1618,7 @@ class ReportState extends ChangeNotifier {
         _currentReport!.answers[qid]![lang] = [];
       }
 
-      // Now restore answers and add back the attention flags!
+      // Now restore answers, media, and apply consistent attention flags!
       for (
         int variantIndex = 0;
         variantIndex < variants.length;
@@ -1516,18 +1633,24 @@ class ReportState extends ChangeNotifier {
           final text = langIndex < texts.length ? texts[langIndex] : '';
           final answersList = _currentReport!.answers[qid]![lang];
           if (answersList != null) {
-            // Get saved attention for this answer index in this language, default false
-            bool attention = false;
-            if (savedAttention.containsKey(lang) &&
-                variantIndex < savedAttention[lang]!.length) {
-              attention = savedAttention[lang]![variantIndex];
+            // Get saved media for this answer index
+            List<MediaItem> media = [];
+            if (savedMedia.containsKey(lang) &&
+                variantIndex < savedMedia[lang]!.length) {
+              media = savedMedia[lang]![variantIndex];
             }
+
+            // Get consistent attention flag
+            bool attention = variantIndex < shouldHaveAttention.length
+                ? shouldHaveAttention[variantIndex]
+                : false;
 
             answersList.add(
               Answer()
                 ..text = text
                 ..attention = attention
-                ..isEmpty = text.isEmpty && !attention,
+                ..media = media
+                ..isEmpty = text.isEmpty && media.isEmpty && !attention,
             );
           }
         }
