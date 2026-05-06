@@ -1335,19 +1335,26 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   Widget _buildListView(ReportState reportState, Report report) {
-    return ListView.builder(
-      controller: _listScrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: report.questions.length,
-      itemBuilder: (ctx, i) {
-        final q = report.questions[i];
-        final lang = report.currentLanguage;
-        final loc = q.getLocalization(lang);
-        final hasTranslation = q.hasTranslation(lang);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth <= 800;
+        return ListView.builder(
+          controller: _listScrollController,
+          padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(16),
+          itemCount: report.questions.length,
+          itemBuilder: (ctx, i) {
+            final q = report.questions[i];
+            final lang = report.currentLanguage;
+            final loc = q.getLocalization(lang);
+            final hasTranslation = q.hasTranslation(lang);
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: _buildQuestionCard(ctx, i, reportState, false),
+            return Padding(
+              padding: isMobile
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(vertical: 8),
+              child: _buildQuestionCard(ctx, i, reportState, false),
+            );
+          },
         );
       },
     );
@@ -1357,79 +1364,87 @@ class _FormFillScreenState extends State<FormFillScreen> {
     if (report.questions.isEmpty) {
       return const Center(child: Text('Нет вопросов'));
     }
-    return Stack(
-      children: [
-        PageView.builder(
-          controller: _pageController,
-          onPageChanged: (page) {
-            setState(() {
-              _currentPage = page;
-            });
-          },
-          itemCount: report.questions.length,
-          itemBuilder: (context, index) => SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Center(
-              child: _buildQuestionCard(context, index, reportState, true),
-            ),
-          ),
-        ),
-        if (report.questions.length > 1) ...[
-          Positioned(
-            left: 8,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: _buildNavButton(
-                Icons.chevron_left,
-                _currentPage > 0
-                    ? () => _pageController.previousPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.ease,
-                      )
-                    : null,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 8,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: _buildNavButton(
-                Icons.chevron_right,
-                _currentPage < report.questions.length - 1
-                    ? () => _pageController.nextPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.ease,
-                      )
-                    : null,
-              ),
-            ),
-          ),
-        ],
-        Positioned(
-          bottom: 16,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                '${_currentPage + 1} / ${report.questions.length}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth <= 800;
+        return Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              onPageChanged: (page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              itemCount: report.questions.length,
+              itemBuilder: (context, index) => SingleChildScrollView(
+                padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(20),
+                child: Center(
+                  child: _buildQuestionCard(context, index, reportState, true),
                 ),
               ),
             ),
-          ),
-        ),
-      ],
+            if (report.questions.length > 1) ...[
+              Positioned(
+                left: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _buildNavButton(
+                    Icons.chevron_left,
+                    _currentPage > 0
+                        ? () => _pageController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.ease,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _buildNavButton(
+                    Icons.chevron_right,
+                    _currentPage < report.questions.length - 1
+                        ? () => _pageController.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.ease,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            ],
+            Positioned(
+              bottom: 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '${_currentPage + 1} / ${report.questions.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1510,6 +1525,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 if (isMobile)
                   Row(
                     children: [
+                      const SizedBox(width: 16),
                       Container(
                         width: 32,
                         height: 32,
@@ -1555,6 +1571,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             'description',
                           ),
                         ),
+                      const Spacer(),
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert, size: 20),
                         color: Colors.white,
