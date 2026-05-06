@@ -1,19 +1,26 @@
 
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import './providers/report_provider.dart';
 import './providers/settings_provider.dart';
+import './providers/locale_provider.dart';
+import './l10n/app_localizations.dart';
 import './screens/template_select_screen.dart';
 import './screens/form_fill_screen.dart';
 import './screens/reports_screen.dart';
 
-void main() {
-  runApp(const EasyTabApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final localeProvider = LocaleProvider();
+  await localeProvider.init();
+  runApp(EasyTabApp(localeProvider: localeProvider));
 }
 
 class EasyTabApp extends StatelessWidget {
-  const EasyTabApp({super.key});
+  final LocaleProvider localeProvider;
+  const EasyTabApp({super.key, required this.localeProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -21,20 +28,37 @@ class EasyTabApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ReportState()),
         ChangeNotifierProvider(create: (_) => SettingsState()),
+        ChangeNotifierProvider.value(value: localeProvider),
       ],
-      child: MaterialApp(
-        title: 'EasyTab',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563eb)),
-          useMaterial3: true,
-        ),
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const StartScreen(),
-          '/template': (context) => const TemplateSelectScreen(),
-          '/fill': (context) => FormFillScreen(),
-          '/reports': (context) => ReportsScreen(),
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, child) {
+          return MaterialApp(
+            title: 'EasyTab',
+            debugShowCheckedModeBanner: false,
+            locale: localeProvider.locale,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('en'),
+              Locale('ru'),
+              Locale('zh'),
+            ],
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563eb)),
+              useMaterial3: true,
+            ),
+            initialRoute: '/',
+            routes: {
+              '/': (context) => const StartScreen(),
+              '/template': (context) => const TemplateSelectScreen(),
+              '/fill': (context) => FormFillScreen(),
+              '/reports': (context) => ReportsScreen(),
+            },
+          );
         },
       ),
     );
@@ -46,6 +70,8 @@ class StartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final localeProvider = Provider.of<LocaleProvider>(context);
     return Scaffold(
       body: Stack(
         children: [
@@ -70,15 +96,12 @@ class StartScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'EasyTab',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF424242),
-                    ),
+                  // Language switcher at top right
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: _buildLanguageSwitcher(context, localeProvider, loc),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 15),
                   const Text(
                     'Excel Report Builder',
                     style: TextStyle(
@@ -88,23 +111,23 @@ class StartScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 30),
                   _buildButton(
-                    label: '+ Create New Report',
+                    label: loc.createNewReport,
                     onTap: () => Navigator.pushNamed(context, '/template'),
                   ),
                   const SizedBox(height: 15),
                   _buildButton(
-                    label: 'Open Existing Report',
-                    onTap: () => _openExistingReport(context),
+                    label: loc.openExistingReport,
+                    onTap: () => _openExistingReport(context, loc),
                   ),
                   const SizedBox(height: 15),
                   _buildButton(
-                    label: 'Your Reports',
+                    label: loc.yourReports,
                     onTap: () => Navigator.pushNamed(context, '/reports'),
                   ),
                   const SizedBox(height: 30),
-                  const Text(
-                    'Instructions: create a report, select a template,\nfill in the data and export!',
-                    style: TextStyle(color: Color(0xFF424242), fontSize: 12),
+                  Text(
+                    loc.instructionsText,
+                    style: const TextStyle(color: Color(0xFF424242), fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
@@ -119,6 +142,56 @@ class StartScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLanguageSwitcher(BuildContext context, LocaleProvider localeProvider, AppLocalizations loc) {
+    return PopupMenuButton<Locale>(
+      icon: const Icon(Icons.language, size: 24),
+      onSelected: (locale) {
+        localeProvider.setLocale(locale);
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: const Locale('en'),
+          child: Row(
+            children: [
+              Text(loc.english),
+              if (localeProvider.locale.languageCode == 'en')
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(Icons.check, size: 16),
+                ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: const Locale('ru'),
+          child: Row(
+            children: [
+              Text(loc.russian),
+              if (localeProvider.locale.languageCode == 'ru')
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(Icons.check, size: 16),
+                ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: const Locale('zh'),
+          child: Row(
+            children: [
+              Text(loc.chinese),
+              if (localeProvider.locale.languageCode == 'zh')
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(Icons.check, size: 16),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -189,9 +262,9 @@ class StartScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _openExistingReport(BuildContext context) async {
+  Future<void> _openExistingReport(BuildContext context, AppLocalizations loc) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Загрузка существующих отчётов — скоро!')),
+      SnackBar(content: Text(loc.comingSoon)),
     );
   }
 }

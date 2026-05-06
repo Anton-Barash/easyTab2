@@ -9,6 +9,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import '../providers/report_provider.dart';
+import '../providers/locale_provider.dart';
+import '../l10n/app_localizations.dart';
 import '../models/report_models.dart';
 
 import 'dart:async';
@@ -277,18 +279,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final reportState = context.watch<ReportState>();
     final report = reportState.currentReport;
 
     if (report == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Новый отчёт'),
+          title: Text(loc.newReport),
           backgroundColor: const Color(0xFFe0e0e0),
           foregroundColor: const Color(0xFF424242),
           elevation: 0,
         ),
-        body: const Center(child: Text('Нет отчёта')),
+        body: Center(child: Text(loc.noQuestions)),
       );
     }
 
@@ -354,20 +357,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu, size: 22),
-          onPressed: () {
-            setState(() {
-              _isSidePanelCollapsed = false;
-            });
-          },
-          tooltip: 'Показать боковую панель',
-        ),
+        leading: const SizedBox(),
         title: Text(report.reportName),
         backgroundColor: const Color(0xFFe0e0e0),
         foregroundColor: const Color(0xFF424242),
         elevation: 0,
         actions: [
+          // Report language switcher
           if (report.availableLanguages.length > 1)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -423,168 +419,220 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 });
               }
             },
-            tooltip: 'Переключить вид',
+            tooltip: loc.toggleView,
           ),
-          PopupMenuButton(
-            icon: const Icon(Icons.menu),
-            itemBuilder: (ctx) => [
-              const PopupMenuItem(
-                value: 0,
-                child: Row(
-                  children: [
-                    Icon(Icons.visibility),
-                    SizedBox(width: 8),
-                    Text('Просмотр HTML'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 1,
-                child: Row(
-                  children: [
-                    Icon(Icons.save_alt),
-                    SizedBox(width: 8),
-                    Text('Сохранить ZIP'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 2,
-                child: Row(
-                  children: [
-                    Icon(Icons.share),
-                    SizedBox(width: 8),
-                    Text('Поделиться'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 3,
-                child: Row(
-                  children: [
-                    Icon(Icons.sync),
-                    SizedBox(width: 8),
-                    Text('Синхронизировать переводы'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 4,
-                child: Row(
-                  children: [
-                    Icon(Icons.table_chart),
-                    SizedBox(width: 8),
-                    Text('Экспорт в Excel'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 5,
-                child: Row(
-                  children: [
-                    Icon(Icons.exit_to_app),
-                    SizedBox(width: 8),
-                    Text('Выход'),
-                  ],
-                ),
-              ),
-            ],
-            onSelected: (value) async {
-              if (value == 0) {
-                final htmlContent = reportState.generateHtmlContent();
-                if (kIsWeb) {
-                  // На вебе копируем в буфер
-                  try {
-                    await Clipboard.setData(ClipboardData(text: htmlContent));
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('HTML скопирован в буфер обмена'),
-                        ),
-                      );
+          Consumer<LocaleProvider>(
+            builder: (context, localeProvider, child) {
+              return PopupMenuButton<dynamic>(
+                icon: const Icon(Icons.menu),
+                itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: 0,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.visibility),
+                        const SizedBox(width: 8),
+                        Text(loc.viewHtml),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 1,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.save_alt),
+                        const SizedBox(width: 8),
+                        Text(loc.saveZip),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 2,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.share),
+                        const SizedBox(width: 8),
+                        Text(loc.share),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 3,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.sync),
+                        const SizedBox(width: 8),
+                        Text(loc.syncTranslations),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 4,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.table_chart),
+                        const SizedBox(width: 8),
+                        Text(loc.exportExcel),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  // App language switcher
+                  PopupMenuItem(
+                    enabled: false,
+                    child: Text(loc.appLanguage, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  PopupMenuItem(
+                    value: const Locale('en'),
+                    child: Row(
+                      children: [
+                        Text(loc.english),
+                        if (localeProvider.locale.languageCode == 'en')
+                          const Padding(
+                            padding: EdgeInsets.only(left: 8),
+                            child: Icon(Icons.check, size: 16),
+                          ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: const Locale('ru'),
+                    child: Row(
+                      children: [
+                        Text(loc.russian),
+                        if (localeProvider.locale.languageCode == 'ru')
+                          const Padding(
+                            padding: EdgeInsets.only(left: 8),
+                            child: Icon(Icons.check, size: 16),
+                          ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: const Locale('zh'),
+                    child: Row(
+                      children: [
+                        Text(loc.chinese),
+                        if (localeProvider.locale.languageCode == 'zh')
+                          const Padding(
+                            padding: EdgeInsets.only(left: 8),
+                            child: Icon(Icons.check, size: 16),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 5,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.exit_to_app),
+                        const SizedBox(width: 8),
+                        Text(loc.exit),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (value) async {
+                  if (value is Locale) {
+                    localeProvider.setLocale(value);
+                  } else if (value == 0) {
+                    final htmlContent = reportState.generateHtmlContent();
+                    if (kIsWeb) {
+                      // На вебе копируем в буфер
+                      try {
+                        await Clipboard.setData(ClipboardData(text: htmlContent));
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(loc.htmlCopied),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${loc.copyError}$e')),
+                          );
+                        }
+                      }
+                    } else {
+                      // На мобильных/десктопах открываем через системный диалог
+                      await viewHtmlWithChooser(htmlContent);
                     }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Ошибка копирования: $e')),
-                      );
+                  } else if (value == 4) {
+                    final excelHtml = reportState.generateExcelHtmlContent();
+                    try {
+                      await Clipboard.setData(ClipboardData(text: excelHtml));
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(loc.excelHtmlCopied),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('${loc.copyError}$e')),
+                        );
+                      }
                     }
-                  }
-                } else {
-                  // На мобильных/десктопах открываем через системный диалог
-                  await viewHtmlWithChooser(htmlContent);
-                }
-              } else if (value == 4) {
-                final excelHtml = reportState.generateExcelHtmlContent();
-                try {
-                  await Clipboard.setData(ClipboardData(text: excelHtml));
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Excel HTML скопирован в буфер обмена'),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Ошибка копирования: $e')),
-                    );
-                  }
-                }
-              } else if (value == 1) {
-                if (kIsWeb) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Сохранение ZIP недоступно на вебе'),
-                      ),
-                    );
-                  }
-                  return;
-                }
-                await reportState.saveReport();
-                try {
-                  final directory = await FilePicker.platform
-                      .getDirectoryPath();
-                  if (directory != null) {
-                    final zipPath = await reportState.exportZip(
-                      customSavePath: directory,
-                    );
+                  } else if (value == 1) {
+                    if (kIsWeb) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(loc.saveZipWeb),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                    await reportState.saveReport();
+                    try {
+                      final directory = await FilePicker.platform
+                          .getDirectoryPath();
+                      if (directory != null) {
+                        final zipPath = await reportState.exportZip(
+                          customSavePath: directory,
+                        );
+                        if (zipPath != null && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${loc.zipSaved}$zipPath')),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('${loc.saveZipError}$e')),
+                        );
+                      }
+                    }
+                  } else if (value == 2) {
+                    if (kIsWeb) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(loc.shareWeb),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                    await reportState.saveReport();
+                    final zipPath = await reportState.exportZip();
                     if (zipPath != null && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('ZIP сохранён: $zipPath')),
-                      );
+                      await reportState.shareZip(zipPath);
                     }
+                  } else if (value == 3) {
+                    _showSyncMenuDialog();
+                  } else if (value == 5) {
+                    Navigator.pushReplacementNamed(context, '/');
                   }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Ошибка сохранения ZIP: $e')),
-                    );
-                  }
-                }
-              } else if (value == 2) {
-                if (kIsWeb) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Поделиться недоступно на вебе'),
-                      ),
-                    );
-                  }
-                  return;
-                }
-                await reportState.saveReport();
-                final zipPath = await reportState.exportZip();
-                if (zipPath != null && mounted) {
-                  await reportState.shareZip(zipPath);
-                }
-              } else if (value == 3) {
-                _showSyncMenuDialog();
-              } else if (value == 5) {
-                Navigator.pushReplacementNamed(context, '/');
-              }
+                },
+              );
             },
           ),
         ],
@@ -1516,38 +1564,50 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   Row(
                     children: [
                       const SizedBox(width: 16),
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF333333),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${index + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isSidePanelCollapsed = false;
+                          });
+                        },
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF333333),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Tooltip(
-                        message: 'Вопрос требует доработки...',
-                        child: IconButton(
-                          icon: Icon(Icons.edit_note, size: 22),
-                          color: _needsWorkMap[index] == true
-                              ? const Color(0xFFf59e0b)
-                              : const Color(0xFF9ca3af),
-                          onPressed: () {
-                            setState(() {
-                              _needsWorkMap[index] =
-                                  !(_needsWorkMap[index] ?? false);
-                            });
-                          },
+                      Expanded(
+                        flex: 1,
+                        child: GestureDetector(
+                          onTap: () => _showEditQuestionDialog(
+                            context,
+                            index,
+                            reportState,
+                            'name',
+                          ),
+                          child: Text(
+                            loc?.name ?? q.getDisplayName(lang) ?? 'Без названия',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF111827),
+                            ),
+                            softWrap: true,
+                          ),
                         ),
                       ),
                       if (loc?.description?.isNotEmpty ?? false)
@@ -1561,7 +1621,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             'description',
                           ),
                         ),
-                      const Spacer(),
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert, size: 20),
                         color: Colors.white,
@@ -1651,26 +1710,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       ),
                     ],
                   ),
-                if (isMobile)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 8, bottom: 8),
-                    child: GestureDetector(
-                      onTap: () => _showEditQuestionDialog(
-                        context,
-                        index,
-                        reportState,
-                        'name',
-                      ),
-                      child: Text(
-                        loc?.name ?? q.getDisplayName(lang) ?? 'Без названия',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF111827),
-                        ),
-                      ),
-                    ),
-                  ),
                 if (!isMobile)
                   Row(
                     children: [
@@ -1700,6 +1739,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             Row(
                               children: [
                                 Expanded(
+                                  flex: 1,
                                   child: GestureDetector(
                                     onTap: () => _showEditQuestionDialog(
                                       context,
@@ -1716,22 +1756,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         fontWeight: FontWeight.bold,
                                         color: Color(0xFF111827),
                                       ),
+                                      softWrap: true,
                                     ),
-                                  ),
-                                ),
-                                Tooltip(
-                                  message: 'Вопрос требует доработки...',
-                                  child: IconButton(
-                                    icon: Icon(Icons.edit_note, size: 22),
-                                    color: _needsWorkMap[index] == true
-                                        ? const Color(0xFFf59e0b)
-                                        : const Color(0xFF9ca3af),
-                                    onPressed: () {
-                                      setState(() {
-                                        _needsWorkMap[index] =
-                                            !(_needsWorkMap[index] ?? false);
-                                      });
-                                    },
                                   ),
                                 ),
                                 if (loc?.description?.isNotEmpty ?? false)
@@ -1929,153 +1955,37 @@ class _FormFillScreenState extends State<FormFillScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.warning_amber,
-                  color: attention
-                      ? const Color(0xFFf97316)
-                      : const Color(0xFFd1d5db),
-                ),
-                onPressed: () {
-                  reportState.updateAnswerAttention(i, j, !attention);
-                },
-                tooltip: attention
-                    ? 'Снять отметку "Внимание"'
-                    : 'Отметить "Внимание"',
+          TextField(
+            controller: _answerControllers[qid]![j],
+            maxLines: null,
+            enabled: _enabledAnswers[qid]?[j] ?? true,
+            style: TextStyle(
+              color: (_enabledAnswers[qid]?[j] ?? true)
+                  ? Color(0xFF111827)
+                  : Color(0xFF6b7280),
+            ),
+            decoration: InputDecoration(
+              hintText: 'Введите ответ...',
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _answerControllers[qid]![j],
-                  maxLines: null,
-                  enabled: _enabledAnswers[qid]?[j] ?? true,
-                  style: TextStyle(
-                    color: (_enabledAnswers[qid]?[j] ?? true)
-                        ? Color(0xFF111827)
-                        : Color(0xFF6b7280),
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Введите ответ...',
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    filled: false,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                ),
-              ),
-              if (reportState.hasAnswersInOtherLanguages(i, j))
-                IconButton(
-                  icon: const Icon(Icons.lock, color: Color(0xFF6b7280)),
-                  onPressed: () =>
-                      _showLockDialog(context, i, j, qid, reportState),
-                  tooltip: 'Открыть для редактирования',
-                ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Color(0xFFef4444)),
-                onPressed:
-                    (reportState
-                                .currentReport
-                                ?.translations[qid]
-                                ?.values
-                                .firstOrNull
-                                ?.length ??
-                            1) >
-                        1
-                    ? () => _showDeleteAnswerDialog(context, i, j, reportState)
-                    : null,
-                tooltip: 'Удалить ответ',
-              ),
-            ],
+            ),
           ),
           if ((answer['media'] as List?)?.isNotEmpty ?? false)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: (answer['media'] as List? ?? []).asMap().entries.map((
-                  entry,
-                ) {
-                  final mediaIndex = entry.key;
-                  final media = entry.value as Map<String, dynamic>;
-                  return Stack(
-                    children: [
-                      Container(
-                        width: 70,
-                        height: 70,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFf3f4f6),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            width: 2,
-                            color: (media['attention'] == true)
-                                ? const Color(0xFFf59e0b)
-                                : const Color(0xFFe5e7eb),
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child:
-                              (media['type'] as String? ?? '').startsWith(
-                                'image',
-                              )
-                              ? (!kIsWeb && media['localPath'] != null
-                                    ? Image.file(
-                                        File(media['localPath']),
-                                        width: 70,
-                                        height: 70,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : const Center(
-                                        child: Icon(
-                                          Icons.image,
-                                          size: 30,
-                                          color: Color(0xFF999999),
-                                        ),
-                                      ))
-                              : _VideoThumbnailWidget(
-                                  localPath: media['localPath'] as String?,
-                                  size: 70,
-                                ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 4,
-                        top: 4,
-                        child: GestureDetector(
-                          onTap: () =>
-                              reportState.removeMedia(i, j, mediaIndex),
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                width: 1.5,
-                                color: const Color(0xFFe5e7eb),
-                              ),
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.close,
-                                size: 16,
-                                color: Color(0xFF6b7280),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
+              child: _buildMediaGrid(
+                context,
+                answer['media'] as List,
+                i,
+                j,
+                reportState,
               ),
             ),
           Padding(
@@ -2085,14 +1995,53 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 IconButton(
                   icon: const Icon(Icons.camera_alt),
                   color: const Color(0xFF424242),
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFFf3f4f6),
-                    side: const BorderSide(
-                      color: Color(0xFFe5e7eb),
-                      width: 1.5,
-                    ),
-                  ),
                   onPressed: () => _showMediaPicker(context, i, j, false),
+                ),
+                Tooltip(
+                  message: 'Вопрос требует доработки...',
+                  child: IconButton(
+                    icon: const Icon(Icons.edit_note),
+                    color: _needsWorkMap[i] == true
+                        ? const Color(0xFFf59e0b)
+                        : const Color(0xFF9ca3af),
+                    onPressed: () {
+                      setState(() {
+                        _needsWorkMap[i] = !(_needsWorkMap[i] ?? false);
+                      });
+                    },
+                  ),
+                ),
+                Tooltip(
+                  message: attention
+                      ? 'Снять отметку "Внимание"'
+                      : 'Отметить "Внимание"',
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.warning_amber,
+                      color: attention
+                          ? const Color(0xFFf97316)
+                          : const Color(0xFFd1d5db),
+                    ),
+                    onPressed: () {
+                      reportState.updateAnswerAttention(i, j, !attention);
+                    },
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Color(0xFFef4444)),
+                  onPressed:
+                      (reportState
+                                  .currentReport
+                                  ?.translations[qid]
+                                  ?.values
+                                  .firstOrNull
+                                  ?.length ??
+                              1) >
+                          1
+                      ? () => _showDeleteAnswerDialog(context, i, j, reportState)
+                      : null,
+                  tooltip: 'Удалить ответ',
                 ),
               ],
             ),
@@ -2108,7 +2057,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
     int answerIndex,
     bool isAttention,
   ) async {
-    final ImageSource? source = await showDialog<ImageSource>(
+    final picker = ImagePicker();
+    List<XFile>? files;
+
+    // Спрашиваем, что хочет пользователь
+    final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Добавить медиа'),
@@ -2118,50 +2071,164 @@ class _FormFillScreenState extends State<FormFillScreen> {
             ListTile(
               leading: const Icon(Icons.camera),
               title: const Text('Сделать фото'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              onTap: () => Navigator.pop(ctx, 'camera-photo'),
             ),
             ListTile(
               leading: const Icon(Icons.videocam),
               title: const Text('Сделать видео'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              onTap: () => Navigator.pop(ctx, 'camera-video'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Выбрать из галереи'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
           ],
         ),
       ),
     );
 
-    if (source == null) return;
+    if (action == null) return;
 
-    final picker = ImagePicker();
-    XFile? file;
-
-    if (source == ImageSource.camera) {
-      file = await picker.pickImage(source: source);
-    } else {
-      file = await picker.pickImage(source: source);
+    if (action == 'camera-photo') {
+      final file = await picker.pickImage(source: ImageSource.camera);
+      if (file != null) {
+        files = [file];
+      }
+    } else if (action == 'camera-video') {
+      final file = await picker.pickVideo(source: ImageSource.camera);
+      if (file != null) {
+        files = [file];
+      }
+    } else if (action == 'gallery') {
+      files = await picker.pickMultipleMedia();
     }
 
-    if (file != null) {
-      if (kIsWeb) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Добавление медиа на вебе — скоро!')),
-          );
-        }
-        return;
+    if (files == null || files.isEmpty) return;
+
+    if (kIsWeb) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Добавление медиа на вебе — скоро!')),
+        );
       }
-      await context.read<ReportState>().addMedia(
+      return;
+    }
+
+    final reportState = context.read<ReportState>();
+    for (final file in files!) {
+      await reportState.addMedia(
         questionIndex,
         answerIndex,
         File(file.path),
         isAttention,
       );
     }
+  }
+
+  Widget _buildMediaGrid(
+    BuildContext context,
+    List mediaList,
+    int questionIndex,
+    int answerIndex,
+    ReportState reportState,
+  ) {
+    final List<Widget> items = [];
+    const maxVisible = 8;
+    final visibleCount = mediaList.length > maxVisible ? maxVisible : mediaList.length;
+
+    for (int idx = 0; idx < visibleCount; idx++) {
+      final media = mediaList[idx] as Map<String, dynamic>;
+      final isLastExtra = idx == maxVisible - 1 && mediaList.length > maxVisible;
+
+      if (isLastExtra) {
+        // Показываем "+N"
+        items.add(
+          GestureDetector(
+            onTap: () => _showFullMediaViewer(context, mediaList),
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: const Color(0xFFf3f4f6),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  width: 2,
+                  color: const Color(0xFFe5e7eb),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '+${mediaList.length - 7}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF424242),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      } else {
+        // Обычный медиа‑элемент
+        items.add(
+          _MediaItemWidget(
+            media: media,
+            onTap: () => _showFullMediaViewer(context, mediaList, initialIndex: idx),
+            onLongPress: () => _showMediaOptions(context, questionIndex, answerIndex, idx, reportState),
+            onDelete: () => reportState.removeMedia(questionIndex, answerIndex, idx),
+          ),
+        );
+      }
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: items,
+    );
+  }
+
+  void _showFullMediaViewer(
+    BuildContext context,
+    List mediaList, {
+    int initialIndex = 0,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => _FullMediaViewerScreen(
+          mediaList: mediaList,
+          initialIndex: initialIndex,
+        ),
+      ),
+    );
+  }
+
+  void _showMediaOptions(
+    BuildContext context,
+    int questionIndex,
+    int answerIndex,
+    int mediaIndex,
+    ReportState reportState,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Удалить'),
+              onTap: () {
+                reportState.removeMedia(questionIndex, answerIndex, mediaIndex);
+                Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -2216,6 +2283,143 @@ class _VideoThumbnailWidgetState extends State<_VideoThumbnailWidget> {
     }
     return const Center(
       child: Icon(Icons.videocam, size: 30, color: Color(0xFF999999)),
+    );
+  }
+}
+
+class _MediaItemWidget extends StatelessWidget {
+  final Map<String, dynamic> media;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback onDelete;
+
+  const _MediaItemWidget({
+    required this.media,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: const Color(0xFFf3f4f6),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                width: 2,
+                color: (media['attention'] == true)
+                    ? const Color(0xFFf59e0b)
+                    : const Color(0xFFe5e7eb),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: (media['type'] as String? ?? '').startsWith('image')
+                  ? (!kIsWeb && media['localPath'] != null
+                      ? Image.file(
+                          File(media['localPath']),
+                          width: 70,
+                          height: 70,
+                          fit: BoxFit.cover,
+                        )
+                      : const Center(
+                          child: Icon(
+                            Icons.image,
+                            size: 30,
+                            color: Color(0xFF999999),
+                          ),
+                        ))
+                  : _VideoThumbnailWidget(
+                      localPath: media['localPath'] as String?,
+                      size: 70,
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FullMediaViewerScreen extends StatefulWidget {
+  final List mediaList;
+  final int initialIndex;
+
+  const _FullMediaViewerScreen({
+    required this.mediaList,
+    this.initialIndex = 0,
+  });
+
+  @override
+  State<_FullMediaViewerScreen> createState() => _FullMediaViewerScreenState();
+}
+
+class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text('${_currentIndex + 1}/${widget.mediaList.length}'),
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.mediaList.length,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        itemBuilder: (ctx, index) {
+          final media = widget.mediaList[index] as Map<String, dynamic>;
+          return Center(
+            child: (media['type'] as String? ?? '').startsWith('image')
+                ? (!kIsWeb && media['localPath'] != null
+                    ? Image.file(
+                        File(media['localPath']),
+                        fit: BoxFit.contain,
+                      )
+                    : const Icon(
+                        Icons.image,
+                        size: 60,
+                        color: Colors.white,
+                      ))
+                : const Center(
+                    child: Icon(
+                      Icons.videocam,
+                      size: 60,
+                      color: Colors.white,
+                    ),
+                  ),
+          );
+        },
+      ),
     );
   }
 }
