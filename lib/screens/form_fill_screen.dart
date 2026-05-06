@@ -519,9 +519,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 }
                 await reportState.saveReport();
                 try {
-                  final directory = await FilePicker.platform.getDirectoryPath();
+                  final directory = await FilePicker.platform
+                      .getDirectoryPath();
                   if (directory != null) {
-                    final zipPath = await reportState.exportZip(customSavePath: directory);
+                    final zipPath = await reportState.exportZip(
+                      customSavePath: directory,
+                    );
                     if (zipPath != null && mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('ZIP сохранён: $zipPath')),
@@ -558,225 +561,686 @@ class _FormFillScreenState extends State<FormFillScreen> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xFFf8f7f2),
-              child: CustomPaint(painter: DottedPatternPainter()),
-            ),
-          ),
-          Row(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth <= 800;
+          return Stack(
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: _isSidePanelCollapsed ? 40 : 220,
-                child: _isSidePanelCollapsed
-                    ? GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isSidePanelCollapsed = false;
-                          });
-                        },
-                        child: Container(
-                          width: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border(
-                              right: BorderSide(
-                                width: 2,
-                                color: const Color(0xFF333333),
+              Positioned.fill(
+                child: Container(
+                  color: const Color(0xFFf8f7f2),
+                  child: CustomPaint(painter: DottedPatternPainter()),
+                ),
+              ),
+              if (!isMobile)
+                Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: _isSidePanelCollapsed ? 40 : 220,
+                      child: _isSidePanelCollapsed
+                          ? GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isSidePanelCollapsed = false;
+                                });
+                              },
+                              child: Container(
+                                width: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border(
+                                    right: BorderSide(
+                                      width: 2,
+                                      color: const Color(0xFF333333),
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    const SizedBox(height: 16),
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      color: Color(0xFF424242),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    RotatedBox(
+                                      quarterTurns: 3,
+                                      child: Text(
+                                        'Вопросы',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: Color(0xFF424242),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 16),
-                              const Icon(
-                                Icons.chevron_right,
-                                color: Color(0xFF424242),
-                              ),
-                              const SizedBox(height: 8),
-                              RotatedBox(
-                                quarterTurns: 3,
-                                child: Text(
-                                  'Вопросы',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF424242),
+                            )
+                          : Container(
+                              width: 220,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border(
+                                  right: BorderSide(
+                                    width: 2,
+                                    color: const Color(0xFF333333),
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : Container(
-                        width: 220,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border(
-                            right: BorderSide(
-                              width: 2,
-                              color: const Color(0xFF333333),
-                            ),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
+                              child: Column(
                                 children: [
-                                  const Text(
-                                    'Вопросы',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Color(0xFF424242),
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        const Text(
+                                          'Вопросы',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: Color(0xFF424242),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        IconButton(
+                                          icon: const Icon(Icons.chevron_left),
+                                          onPressed: () {
+                                            setState(() {
+                                              _isSidePanelCollapsed = true;
+                                            });
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const Spacer(),
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_left),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isSidePanelCollapsed = true;
-                                      });
-                                    },
+                                  Expanded(
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      itemCount: report.questions.length,
+                                      itemBuilder: (ctx, i) {
+                                        final lang = report.currentLanguage;
+                                        final answers = report
+                                            .getAnswersForQuestion(i, lang);
+                                        final answerCount = answers
+                                            .where((a) => !a.isEmpty)
+                                            .length;
+                                        final attentionCount = answers
+                                            .where((a) => a.attention)
+                                            .length;
+
+                                        final q = report.questions[i];
+                                        final loc = q.getLocalization(lang);
+                                        final hasTranslation = q.hasTranslation(
+                                          lang,
+                                        );
+
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 4,
+                                          ),
+                                          child: Material(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            child: InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  _currentPage = i;
+                                                });
+                                                if (_viewMode ==
+                                                    ViewMode.card) {
+                                                  _pageController.animateToPage(
+                                                    i,
+                                                    duration: const Duration(
+                                                      milliseconds: 300,
+                                                    ),
+                                                    curve: Curves.ease,
+                                                  );
+                                                } else {
+                                                  _scrollToQuestion(i);
+                                                }
+                                              },
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                    width: 1.5,
+                                                    color:
+                                                        _viewMode ==
+                                                                ViewMode.card &&
+                                                            _currentPage == i
+                                                        ? const Color(
+                                                            0xFF3b82f6,
+                                                          )
+                                                        : const Color(
+                                                            0xFFe5e7eb,
+                                                          ),
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Container(
+                                                          width: 24,
+                                                          height: 24,
+                                                          decoration: BoxDecoration(
+                                                            color: const Color(
+                                                              0xFF333333,
+                                                            ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  4,
+                                                                ),
+                                                          ),
+                                                          child: Center(
+                                                            child: Text(
+                                                              '${i + 1}',
+                                                              style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: Colors
+                                                                    .white,
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        Expanded(
+                                                          child: Text(
+                                                            loc?.name ??
+                                                                q.getDisplayName(
+                                                                  lang,
+                                                                ) ??
+                                                                'Без названия',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 14,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                  color: Color(
+                                                                    0xFF424242,
+                                                                  ),
+                                                                ),
+                                                            maxLines: 2,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    if (!hasTranslation &&
+                                                        q.hasSomeTranslation())
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 8,
+                                                              vertical: 4,
+                                                            ),
+                                                        margin:
+                                                            const EdgeInsets.only(
+                                                              bottom: 8,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(
+                                                            0xFFfff3cd,
+                                                          ),
+                                                          border: Border.all(
+                                                            width: 1,
+                                                            color: const Color(
+                                                              0xFFffc107,
+                                                            ),
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                4,
+                                                              ),
+                                                        ),
+                                                        child: const Text(
+                                                          'Переключите язык',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: Color(
+                                                              0xFF856404,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    Row(
+                                                      children: [
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 2,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            color:
+                                                                answerCount > 0
+                                                                ? const Color(
+                                                                    0xFFd1fae5,
+                                                                  )
+                                                                : const Color(
+                                                                    0xFFe5e7eb,
+                                                                  ),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  4,
+                                                                ),
+                                                          ),
+                                                          child: Text(
+                                                            '$answerCount',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                              color:
+                                                                  answerCount >
+                                                                      0
+                                                                  ? const Color(
+                                                                      0xFF065f46,
+                                                                    )
+                                                                  : const Color(
+                                                                      0xFF6b7280,
+                                                                    ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+                                                        if (attentionCount > 0)
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 8,
+                                                                  vertical: 2,
+                                                                ),
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFFfff3cd,
+                                                                  ),
+                                                              border: Border.all(
+                                                                width: 1,
+                                                                color:
+                                                                    const Color(
+                                                                      0xFFfbbf24,
+                                                                    ),
+                                                              ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    4,
+                                                                  ),
+                                                            ),
+                                                            child: Row(
+                                                              children: [
+                                                                const Text(
+                                                                  '⚡',
+                                                                  style:
+                                                                      TextStyle(
+                                                                        fontSize:
+                                                                            12,
+                                                                      ),
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 4,
+                                                                ),
+                                                                Text(
+                                                                  '$attentionCount',
+                                                                  style: const TextStyle(
+                                                                    fontSize:
+                                                                        12,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w500,
+                                                                    color: Color(
+                                                                      0xFF92400e,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+                                                        if (_needsWorkMap[i] ==
+                                                            true)
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 6,
+                                                                  vertical: 2,
+                                                                ),
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFFfef3c7,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    4,
+                                                                  ),
+                                                            ),
+                                                            child: const Icon(
+                                                              Icons.edit_note,
+                                                              size: 14,
+                                                              color: Color(
+                                                                0xFFd97706,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                            Expanded(
-                              child: ListView.builder(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                    ),
+                    Expanded(
+                      child: _viewMode == ViewMode.list
+                          ? _buildListView(reportState, report)
+                          : _buildCardView(reportState, report),
+                    ),
+                  ],
+                ),
+              if (isMobile)
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          bottom: BorderSide(
+                            width: 2,
+                            color: const Color(0xFF333333),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.menu, size: 28),
+                            color: const Color(0xFF424242),
+                            onPressed: () {
+                              setState(() {
+                                _isSidePanelCollapsed = false;
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'EasyTab',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Color(0xFF424242),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _viewMode == ViewMode.list
+                          ? _buildListView(reportState, report)
+                          : _buildCardView(reportState, report),
+                    ),
+                  ],
+                ),
+              if (isMobile && !_isSidePanelCollapsed)
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isSidePanelCollapsed = true;
+                      });
+                    },
+                    child: Container(
+                      color: Colors.black.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              if (isMobile && !_isSidePanelCollapsed)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 280,
+                  child: Container(
+                    color: Colors.white,
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              const Text(
+                                'Вопросы',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Color(0xFF424242),
                                 ),
-                                itemCount: report.questions.length,
-                                itemBuilder: (ctx, i) {
-                                  final lang = report.currentLanguage;
-                                  final answers = report.getAnswersForQuestion(
-                                    i,
-                                    lang,
-                                  );
-                                  final answerCount = answers
-                                      .where((a) => !a.isEmpty)
-                                      .length;
-                                  final attentionCount = answers
-                                      .where((a) => a.attention)
-                                      .length;
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () {
+                                  setState(() {
+                                    _isSidePanelCollapsed = true;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            itemCount: report.questions.length,
+                            itemBuilder: (ctx, i) {
+                              final lang = report.currentLanguage;
+                              final answers = report.getAnswersForQuestion(
+                                i,
+                                lang,
+                              );
+                              final answerCount = answers
+                                  .where((a) => !a.isEmpty)
+                                  .length;
+                              final attentionCount = answers
+                                  .where((a) => a.attention)
+                                  .length;
 
-                                  final q = report.questions[i];
-                                  final loc = q.getLocalization(lang);
-                                  final hasTranslation = q.hasTranslation(lang);
+                              final q = report.questions[i];
+                              final loc = q.getLocalization(lang);
+                              final hasTranslation = q.hasTranslation(lang);
 
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    child: Material(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: InkWell(
-                                        onTap: () {
-                                          setState(() {
-                                            _currentPage = i;
-                                          });
-                                          if (_viewMode == ViewMode.card) {
-                                            _pageController.animateToPage(
-                                              i,
-                                              duration: const Duration(
-                                                milliseconds: 300,
-                                              ),
-                                              curve: Curves.ease,
-                                            );
-                                          } else {
-                                            _scrollToQuestion(i);
-                                          }
-                                        },
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              width: 1.5,
-                                              color:
-                                                  _viewMode == ViewMode.card &&
-                                                      _currentPage == i
-                                                  ? const Color(0xFF3b82f6)
-                                                  : const Color(0xFFe5e7eb),
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Material(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _currentPage = i;
+                                        _isSidePanelCollapsed = true;
+                                      });
+                                      if (_viewMode == ViewMode.card) {
+                                        _pageController.animateToPage(
+                                          i,
+                                          duration: const Duration(
+                                            milliseconds: 300,
                                           ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                          curve: Curves.ease,
+                                        );
+                                      } else {
+                                        _scrollToQuestion(i);
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          width: 1.5,
+                                          color:
+                                              _viewMode == ViewMode.card &&
+                                                  _currentPage == i
+                                              ? const Color(0xFF3b82f6)
+                                              : const Color(0xFFe5e7eb),
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
                                             children: [
-                                              Row(
-                                                children: [
-                                                  Container(
-                                                    width: 24,
-                                                    height: 24,
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(
-                                                        0xFF333333,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            4,
-                                                          ),
-                                                    ),
-                                                    child: Center(
-                                                      child: Text(
-                                                        '${i + 1}',
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Colors.white,
-                                                          fontSize: 12,
-                                                        ),
-                                                      ),
+                                              Container(
+                                                width: 24,
+                                                height: 24,
+                                                decoration: BoxDecoration(
+                                                  color: const Color(
+                                                    0xFF333333,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    '${i + 1}',
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.white,
+                                                      fontSize: 12,
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Text(
-                                                      loc?.name ??
-                                                          q.getDisplayName(
-                                                            lang,
-                                                          ) ??
-                                                          'Без названия',
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: Color(
-                                                          0xFF424242,
-                                                        ),
-                                                      ),
-                                                      maxLines: 2,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
+                                                ),
                                               ),
-                                              const SizedBox(height: 8),
-                                              if (!hasTranslation &&
-                                                  q.hasSomeTranslation())
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  loc?.name ??
+                                                      q.getDisplayName(lang) ??
+                                                      'Без названия',
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Color(0xFF424242),
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          if (!hasTranslation &&
+                                              q.hasSomeTranslation())
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              margin: const EdgeInsets.only(
+                                                bottom: 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFfff3cd),
+                                                border: Border.all(
+                                                  width: 1,
+                                                  color: const Color(
+                                                    0xFFffc107,
+                                                  ),
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: const Text(
+                                                'Переключите язык',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xFF856404),
+                                                ),
+                                              ),
+                                            ),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: answerCount > 0
+                                                      ? const Color(0xFFd1fae5)
+                                                      : const Color(0xFFe5e7eb),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  '$answerCount',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: answerCount > 0
+                                                        ? const Color(
+                                                            0xFF065f46,
+                                                          )
+                                                        : const Color(
+                                                            0xFF6b7280,
+                                                          ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              if (attentionCount > 0)
                                                 Container(
                                                   padding:
                                                       const EdgeInsets.symmetric(
                                                         horizontal: 8,
-                                                        vertical: 4,
+                                                        vertical: 2,
                                                       ),
-                                                  margin: const EdgeInsets.only(
-                                                    bottom: 8,
-                                                  ),
                                                   decoration: BoxDecoration(
                                                     color: const Color(
                                                       0xFFfff3cd,
@@ -784,7 +1248,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                     border: Border.all(
                                                       width: 1,
                                                       color: const Color(
-                                                        0xFFffc107,
+                                                        0xFFfbbf24,
                                                       ),
                                                     ),
                                                     borderRadius:
@@ -792,149 +1256,70 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                           4,
                                                         ),
                                                   ),
-                                                  child: const Text(
-                                                    'Переключите язык',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0xFF856404),
-                                                    ),
+                                                  child: Row(
+                                                    children: [
+                                                      const Text(
+                                                        '⚡',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        '$attentionCount',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                          color: Color(
+                                                            0xFF92400e,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
-                                              Row(
-                                                children: [
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 2,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: answerCount > 0
-                                                          ? const Color(
-                                                              0xFFd1fae5,
-                                                            )
-                                                          : const Color(
-                                                              0xFFe5e7eb,
-                                                            ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            4,
-                                                          ),
-                                                    ),
-                                                    child: Text(
-                                                      '$answerCount',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: answerCount > 0
-                                                            ? const Color(
-                                                                0xFF065f46,
-                                                              )
-                                                            : const Color(
-                                                                0xFF6b7280,
-                                                              ),
+                                              const SizedBox(width: 4),
+                                              if (_needsWorkMap[i] == true)
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2,
                                                       ),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(
+                                                      0xFFfef3c7,
                                                     ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
                                                   ),
-                                                  const SizedBox(width: 4),
-                                                  if (attentionCount > 0)
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 8,
-                                                            vertical: 2,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color: const Color(
-                                                          0xFFfff3cd,
-                                                        ),
-                                                        border: Border.all(
-                                                          width: 1,
-                                                          color: const Color(
-                                                            0xFFfbbf24,
-                                                          ),
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              4,
-                                                            ),
-                                                      ),
-                                                      child: Row(
-                                                        children: [
-                                                          const Text(
-                                                            '⚡',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 4,
-                                                          ),
-                                                          Text(
-                                                            '$attentionCount',
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 12,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                  color: Color(
-                                                                    0xFF92400e,
-                                                                  ),
-                                                                ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  const SizedBox(width: 4),
-                                                  if (_needsWorkMap[i] == true)
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 2,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color: const Color(
-                                                          0xFFfef3c7,
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              4,
-                                                            ),
-                                                      ),
-                                                      child: const Icon(
-                                                        Icons.edit_note,
-                                                        size: 14,
-                                                        color: Color(
-                                                          0xFFd97706,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
+                                                  child: const Icon(
+                                                    Icons.edit_note,
+                                                    size: 14,
+                                                    color: Color(0xFFd97706),
+                                                  ),
+                                                ),
                                             ],
                                           ),
-                                        ),
+                                        ],
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-              ),
-              Expanded(
-                child: _viewMode == ViewMode.list
-                    ? _buildListView(reportState, report)
-                    : _buildCardView(reportState, report),
-              ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1084,223 +1469,392 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final hasTranslation = q.hasTranslation(lang);
     final answers = report.getAnswersForQuestion(index, lang);
 
-    final width = isCardView ? 600.0 : double.infinity;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+
+    final width = isCardView && !isMobile ? 600.0 : double.infinity;
 
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(width: 2, color: const Color(0xFF333333)),
-        borderRadius: BorderRadius.circular(12),
+        border: isMobile
+            ? Border(
+                top: BorderSide(width: 2, color: const Color(0xFF333333)),
+                bottom: BorderSide(width: 2, color: const Color(0xFF333333)),
+              )
+            : Border.all(width: 2, color: const Color(0xFF333333)),
+        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: isMobile
+                ? const EdgeInsets.fromLTRB(0, 8, 8, 0)
+                : const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: const Color(0xFFf3f4f6),
               border: Border(
                 bottom: BorderSide(width: 1.5, color: const Color(0xFFe5e7eb)),
               ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(10),
-                topRight: Radius.circular(10),
-              ),
+              borderRadius: isMobile
+                  ? BorderRadius.zero
+                  : const BorderRadius.only(
+                      topLeft: Radius.circular(10),
+                      topRight: Radius.circular(10),
+                    ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF333333),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                if (isMobile)
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF333333),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => _showEditQuestionDialog(
-                                    context,
-                                    index,
-                                    reportState,
-                                    'name',
-                                  ),
-                                  child: Text(
-                                    loc?.name ??
-                                        q.getDisplayName(lang) ??
-                                        'Без названия',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF111827),
-                                    ),
-                                  ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'Вопрос требует доработки...',
+                        child: IconButton(
+                          icon: Icon(Icons.edit_note, size: 22),
+                          color: _needsWorkMap[index] == true
+                              ? const Color(0xFFf59e0b)
+                              : const Color(0xFF9ca3af),
+                          onPressed: () {
+                            setState(() {
+                              _needsWorkMap[index] =
+                                  !(_needsWorkMap[index] ?? false);
+                            });
+                          },
+                        ),
+                      ),
+                      if (loc?.description?.isNotEmpty ?? false)
+                        IconButton(
+                          icon: const Icon(Icons.help_outline, size: 20),
+                          color: const Color(0xFF6b7280),
+                          onPressed: () => _showEditQuestionDialog(
+                            context,
+                            index,
+                            reportState,
+                            'description',
+                          ),
+                        ),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, size: 20),
+                        color: Colors.white,
+                        elevation: 4,
+                        itemBuilder: (ctx) => [
+                          const PopupMenuItem(
+                            value: 'add_above',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add, size: 18),
+                                SizedBox(width: 8),
+                                Text('Новый вопрос сверху'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'add_below',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add, size: 18),
+                                SizedBox(width: 8),
+                                Text('Новый вопрос снизу'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete,
+                                  size: 18,
+                                  color: Color(0xFFdc2626),
                                 ),
-                              ),
-                              Tooltip(
-                                message: 'Вопрос требует доработки...',
-                                child: IconButton(
-                                  icon: Icon(Icons.edit_note, size: 22),
-                                  color: _needsWorkMap[index] == true
-                                      ? const Color(0xFFf59e0b)
-                                      : const Color(0xFF9ca3af),
-                                  onPressed: () {
-                                    setState(() {
-                                      _needsWorkMap[index] =
-                                          !(_needsWorkMap[index] ?? false);
-                                    });
-                                  },
+                                SizedBox(width: 8),
+                                Text(
+                                  'Удалить этот вопрос',
+                                  style: TextStyle(color: Color(0xFFdc2626)),
                                 ),
-                              ),
-                              if (loc?.description?.isNotEmpty ?? false)
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.help_outline,
-                                    size: 20,
-                                  ),
-                                  color: const Color(0xFF6b7280),
-                                  onPressed: () => _showEditQuestionDialog(
-                                    context,
-                                    index,
-                                    reportState,
-                                    'description',
-                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onSelected: (value) async {
+                          if (value == 'add_above') {
+                            reportState.addQuestion(index - 1);
+                            if (index > 0) {
+                              _pageController.animateToPage(
+                                index - 1,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.ease,
+                              );
+                            }
+                          } else if (value == 'add_below') {
+                            reportState.addQuestion(index);
+                            _pageController.animateToPage(
+                              index + 1,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.ease,
+                            );
+                          } else if (value == 'delete') {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Удалить вопрос?'),
+                                content: const Text(
+                                  'Вы уверены, что хотите удалить вопрос?',
                                 ),
-                              PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert, size: 20),
-                                color: Colors.white,
-                                elevation: 4,
-                                itemBuilder: (ctx) => [
-                                  const PopupMenuItem(
-                                    value: 'add_above',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.add, size: 18),
-                                        SizedBox(width: 8),
-                                        Text('Новый вопрос сверху'),
-                                      ],
-                                    ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Отмена'),
                                   ),
-                                  const PopupMenuItem(
-                                    value: 'add_below',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.add, size: 18),
-                                        SizedBox(width: 8),
-                                        Text('Новый вопрос снизу'),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.delete,
-                                          size: 18,
-                                          color: Color(0xFFdc2626),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Удалить этот вопрос',
-                                          style: TextStyle(
-                                            color: Color(0xFFdc2626),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Удалить'),
                                   ),
                                 ],
-                                onSelected: (value) async {
-                                  if (value == 'add_above') {
-                                    reportState.addQuestion(index - 1);
-                                    if (index > 0) {
+                              ),
+                            );
+                            if (confirm == true &&
+                                report.questions.length > 1) {
+                              // TODO: implement delete question
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                if (isMobile)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 8, bottom: 8),
+                    child: GestureDetector(
+                      onTap: () => _showEditQuestionDialog(
+                        context,
+                        index,
+                        reportState,
+                        'name',
+                      ),
+                      child: Text(
+                        loc?.name ?? q.getDisplayName(lang) ?? 'Без названия',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!isMobile)
+                  Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF333333),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _showEditQuestionDialog(
+                                      context,
+                                      index,
+                                      reportState,
+                                      'name',
+                                    ),
+                                    child: Text(
+                                      loc?.name ??
+                                          q.getDisplayName(lang) ??
+                                          'Без названия',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: 'Вопрос требует доработки...',
+                                  child: IconButton(
+                                    icon: Icon(Icons.edit_note, size: 22),
+                                    color: _needsWorkMap[index] == true
+                                        ? const Color(0xFFf59e0b)
+                                        : const Color(0xFF9ca3af),
+                                    onPressed: () {
+                                      setState(() {
+                                        _needsWorkMap[index] =
+                                            !(_needsWorkMap[index] ?? false);
+                                      });
+                                    },
+                                  ),
+                                ),
+                                if (loc?.description?.isNotEmpty ?? false)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.help_outline,
+                                      size: 20,
+                                    ),
+                                    color: const Color(0xFF6b7280),
+                                    onPressed: () => _showEditQuestionDialog(
+                                      context,
+                                      index,
+                                      reportState,
+                                      'description',
+                                    ),
+                                  ),
+                                PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert, size: 20),
+                                  color: Colors.white,
+                                  elevation: 4,
+                                  itemBuilder: (ctx) => [
+                                    const PopupMenuItem(
+                                      value: 'add_above',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.add, size: 18),
+                                          SizedBox(width: 8),
+                                          Text('Новый вопрос сверху'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'add_below',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.add, size: 18),
+                                          SizedBox(width: 8),
+                                          Text('Новый вопрос снизу'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.delete,
+                                            size: 18,
+                                            color: Color(0xFFdc2626),
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Удалить этот вопрос',
+                                            style: TextStyle(
+                                              color: Color(0xFFdc2626),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  onSelected: (value) async {
+                                    if (value == 'add_above') {
+                                      reportState.addQuestion(index - 1);
+                                      if (index > 0) {
+                                        _pageController.animateToPage(
+                                          index - 1,
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          curve: Curves.ease,
+                                        );
+                                      }
+                                    } else if (value == 'add_below') {
+                                      reportState.addQuestion(index);
                                       _pageController.animateToPage(
-                                        index - 1,
+                                        index + 1,
                                         duration: const Duration(
                                           milliseconds: 300,
                                         ),
                                         curve: Curves.ease,
                                       );
-                                    }
-                                  } else if (value == 'add_below') {
-                                    reportState.addQuestion(index);
-                                    _pageController.animateToPage(
-                                      index + 1,
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      curve: Curves.ease,
-                                    );
-                                  } else if (value == 'delete') {
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('Удалить вопрос?'),
-                                        content: const Text(
-                                          'Вы уверены, что хотите удалить вопрос?',
+                                    } else if (value == 'delete') {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          title: const Text('Удалить вопрос?'),
+                                          content: const Text(
+                                            'Вы уверены, что хотите удалить вопрос?',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx, false),
+                                              child: const Text('Отмена'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx, true),
+                                              child: const Text('Удалить'),
+                                            ),
+                                          ],
                                         ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(ctx, false),
-                                            child: const Text('Отмена'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(ctx, true),
-                                            child: const Text('Удалить'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirm == true &&
-                                        report.questions.length > 1) {
-                                      // TODO: implement delete question
+                                      );
+                                      if (confirm == true &&
+                                          report.questions.length > 1) {
+                                        // TODO: implement delete question
+                                      }
                                     }
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                          if (loc?.example?.isNotEmpty ?? false)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                '${loc?.example}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF0369a1),
-                                  fontStyle: FontStyle.italic,
+                                  },
+                                ),
+                              ],
+                            ),
+                            if (loc?.example?.isNotEmpty ?? false)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '${loc?.example}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF0369a1),
+                                    fontStyle: FontStyle.italic,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
               ],
             ),
           ),
