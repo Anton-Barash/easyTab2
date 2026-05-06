@@ -354,6 +354,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu, size: 22),
+          onPressed: () {
+            setState(() {
+              _isSidePanelCollapsed = false;
+            });
+          },
+          tooltip: 'Показать боковую панель',
+        ),
         title: Text(report.reportName),
         backgroundColor: const Color(0xFFe0e0e0),
         foregroundColor: const Color(0xFF424242),
@@ -469,6 +478,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ],
                 ),
               ),
+              const PopupMenuItem(
+                value: 5,
+                child: Row(
+                  children: [
+                    Icon(Icons.exit_to_app),
+                    SizedBox(width: 8),
+                    Text('Выход'),
+                  ],
+                ),
+              ),
             ],
             onSelected: (value) async {
               if (value == 0) {
@@ -563,6 +582,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 }
               } else if (value == 3) {
                 _showSyncMenuDialog();
+              } else if (value == 5) {
+                Navigator.pushReplacementNamed(context, '/');
               }
             },
           ),
@@ -987,48 +1008,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ],
                 ),
               if (isMobile)
-                Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border(
-                          bottom: BorderSide(
-                            width: 2,
-                            color: const Color(0xFF333333),
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.menu, size: 28),
-                            color: const Color(0xFF424242),
-                            onPressed: () {
-                              setState(() {
-                                _isSidePanelCollapsed = false;
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'EasyTab',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Color(0xFF424242),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: _viewMode == ViewMode.list
-                          ? _buildListView(reportState, report)
-                          : _buildCardView(reportState, report),
-                    ),
-                  ],
+                Expanded(
+                  child: _viewMode == ViewMode.list
+                      ? _buildListView(reportState, report)
+                      : _buildCardView(reportState, report),
                 ),
               if (isMobile && !_isSidePanelCollapsed)
                 Positioned.fill(
@@ -1354,11 +1337,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
           padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(16),
           itemCount: report.questions.length,
           itemBuilder: (ctx, i) {
-            final q = report.questions[i];
-            final lang = report.currentLanguage;
-            final loc = q.getLocalization(lang);
-            final hasTranslation = q.hasTranslation(lang);
-
             return Padding(
               padding: isMobile
                   ? EdgeInsets.zero
@@ -1389,7 +1367,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
               },
               itemCount: report.questions.length,
               itemBuilder: (context, index) => SingleChildScrollView(
-                padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(20),
+                padding: isMobile
+                    ? const EdgeInsets.only(bottom: 100)
+                    : const EdgeInsets.all(20),
                 child: Center(
                   child: _buildQuestionCard(context, index, reportState, true),
                 ),
@@ -1492,7 +1472,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final q = report.questions[index];
     final lang = report.currentLanguage;
     final loc = q.getLocalization(lang);
-    final hasTranslation = q.hasTranslation(lang);
     final answers = report.getAnswersForQuestion(index, lang);
 
     final isMobile = MediaQuery.of(context).size.width <= 800;
@@ -1899,7 +1878,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     index.toString(),
                     answers[j],
                   ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -1935,9 +1914,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
     Map<String, dynamic> answer,
   ) {
     final attention = answer['attention'] == true;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: isMobile ? 6 : 12),
+      padding: EdgeInsets.all(isMobile ? 8 : 12),
       decoration: BoxDecoration(
         color: attention ? const Color(0xFFfff7ed) : const Color(0xFFf9fafb),
         border: Border.all(
