@@ -1516,7 +1516,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         children: [
           Container(
             padding: isMobile
-                ? const EdgeInsets.fromLTRB(0, 8, 8, 0)
+                ? const EdgeInsets.fromLTRB(0, 4, 4, 0)
                 : const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: const Color(0xFFf3f4f6),
@@ -1538,11 +1538,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     children: [
                       const SizedBox(width: 16),
                       Container(
-                        width: 32,
-                        height: 32,
+                        width: 24,
+                        height: 24,
                         decoration: BoxDecoration(
                           color: const Color(0xFF333333),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Center(
                           child: Text(
@@ -1550,12 +1550,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              fontSize: 11,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Tooltip(
                         message: 'Вопрос требует доработки...',
                         child: IconButton(
@@ -1887,7 +1887,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: isMobile ? const EdgeInsets.all(8) : const EdgeInsets.all(16),
             child: Column(
               children: [
                 for (int j = 0; j < answers.length; j++)
@@ -2431,10 +2431,12 @@ class _SyncDialogState extends State<_SyncDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+
     return AlertDialog(
       title: Text('Синхронизация ответов (${widget.targetLang})'),
       content: SizedBox(
-        width: 550,
+        width: isMobile ? double.infinity : 550,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2571,6 +2573,7 @@ class _SyncDialogState extends State<_SyncDialog> {
           ),
           child: const Text('Синхронизировать'),
         ),
+        if (isMobile) const SizedBox(height: 100),
       ],
     );
   }
@@ -2689,183 +2692,250 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
   @override
   Widget build(BuildContext context) {
     final unsyncCount = widget.reportState.getUnsyncQuestionIndices().length;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
 
-    return AlertDialog(
-      title: const Text('Синхронизация переводов'),
-      content: SizedBox(
-        width: 550,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    // Общий контент для обеих версий
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (unsyncCount > 0) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3CD),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFFC107)),
+            ),
+            child: Text(
+              'Несинхронизированных вопросов: $unsyncCount',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD4EDDA),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF28A745)),
+            ),
+            child: const Text(
+              'Все ответы синхронизированы!',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF155724),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FA),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFDEE2E6)),
+          ),
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (unsyncCount > 0) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3CD),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFFC107)),
+              Text(
+                'Инструкция:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 4),
+              Text('1. Скопируйте или скачайте JSON с текущими ответами'),
+              Text('2. Отправьте в ИИ для перевода пустых полей'),
+              Text('3. Вставьте результат или загрузите файл'),
+              Text('4. Нажмите "Синхронизировать"'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Пример промта для ИИ:',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFFDEE2E6)),
+          ),
+          child: const Text(
+            '"В этом json есть ответы на разных языках. Заполни пустые ответы переводами ответов, которые уже есть."',
+            style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _copyToClipboard,
+                icon: const Icon(Icons.copy),
+                label: const Text('Копировать JSON'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFe0e0e0),
+                  foregroundColor: const Color(0xFF424242),
+                  side: const BorderSide(
+                    color: Color(0xFF333333),
+                    width: 2,
                   ),
-                  child: Text(
-                    'Несинхронизированных вопросов: $unsyncCount',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                const SizedBox(height: 16),
-              ] else ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD4EDDA),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF28A745)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _saveToFile,
+                icon: const Icon(Icons.download),
+                label: const Text('Скачать'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFe0e0e0),
+                  foregroundColor: const Color(0xFF424242),
+                  side: const BorderSide(
+                    color: Color(0xFF333333),
+                    width: 2,
                   ),
-                  child: const Text(
-                    'Все ответы синхронизированы!',
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Загрузите переведённый JSON:',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _jsonController,
+          maxLines: 6,
+          decoration: InputDecoration(
+            hintText: 'Вставьте JSON сюда...',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF333333),
+                width: 2,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          onPressed: _loadFromFile,
+          icon: const Icon(Icons.upload_file),
+          label: const Text('Загрузить из файла'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFe0e0e0),
+            foregroundColor: const Color(0xFF424242),
+            side: const BorderSide(color: Color(0xFF333333), width: 2),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return Dialog(
+        insetPadding: EdgeInsets.zero,
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Синхронизация переводов',
                     style: TextStyle(
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF155724),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F9FA),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFDEE2E6)),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Инструкция:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 4),
-                    Text('1. Скопируйте или скачайте JSON с текущими ответами'),
-                    Text('2. Отправьте в ИИ для перевода пустых полей'),
-                    Text('3. Вставьте результат или загрузите файл'),
-                    Text('4. Нажмите "Синхронизировать"'),
-                  ],
-                ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Пример промта для ИИ:',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFDEE2E6)),
-                ),
-                child: const Text(
-                  '"В этом json есть ответы на разных языках. Заполни пустые ответы переводами ответов, которые уже есть."',
-                  style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  child: content,
                 ),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _copyToClipboard,
-                      icon: const Icon(Icons.copy),
-                      label: const Text('Копировать JSON'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFe0e0e0),
-                        foregroundColor: const Color(0xFF424242),
-                        side: const BorderSide(
-                          color: Color(0xFF333333),
-                          width: 2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        'Закрыть',
+                        style: TextStyle(color: Color(0xFF64748b)),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _saveToFile,
-                      icon: const Icon(Icons.download),
-                      label: const Text('Скачать'),
+                    child: ElevatedButton(
+                      onPressed: _applySync,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFe0e0e0),
-                        foregroundColor: const Color(0xFF424242),
-                        side: const BorderSide(
-                          color: Color(0xFF333333),
-                          width: 2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: const Color(0xFF2563eb),
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFF333333), width: 2),
                       ),
+                      child: const Text('Синхронизировать'),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Загрузите переведённый JSON:',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _jsonController,
-                maxLines: 6,
-                decoration: InputDecoration(
-                  hintText: 'Вставьте JSON сюда...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF333333),
-                      width: 2,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton.icon(
-                onPressed: _loadFromFile,
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Загрузить из файла'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFe0e0e0),
-                  foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(color: Color(0xFF333333), width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
             ],
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text(
-            'Закрыть',
-            style: TextStyle(color: Color(0xFF64748b)),
+      );
+    } else {
+      return AlertDialog(
+        title: const Text('Синхронизация переводов'),
+        content: SizedBox(
+          width: 550,
+          child: SingleChildScrollView(
+            child: content,
           ),
         ),
-        ElevatedButton(
-          onPressed: _applySync,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563eb),
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Color(0xFF333333), width: 2),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Закрыть',
+              style: TextStyle(color: Color(0xFF64748b)),
+            ),
           ),
-          child: const Text('Синхронизировать'),
-        ),
-      ],
-    );
+          ElevatedButton(
+            onPressed: _applySync,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563eb),
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFF333333), width: 2),
+            ),
+            child: const Text('Синхронизировать'),
+          ),
+        ],
+      );
+    }
   }
 }
 

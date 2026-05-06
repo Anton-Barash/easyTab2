@@ -105,7 +105,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
             ),
           ),
           SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -734,136 +734,194 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Добавить перевод'),
-      content: SizedBox(
-        width: 500,
-        child: SingleChildScrollView(
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+
+    // Общий контент для обеих версий
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Скопируйте шаблон, переведите его на нужный язык с использованием любого ИИ и вставьте результат.',
+          style: TextStyle(color: Color(0xFF64748b)),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          '1. Выберите исходный язык:',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          initialValue: _selectedSourceLang,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF333333),
+                width: 2,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+          items: widget.report.availableLanguages
+              .map(
+                (lang) => DropdownMenuItem(
+                  value: lang,
+                  child: Text(
+                    lang,
+                    style: const TextStyle(color: Color(0xFF424242)),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                _selectedSourceLang = value;
+              });
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _copyTemplate,
+                icon: const Icon(Icons.copy),
+                label: const Text('Копировать шаблон'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFe0e0e0),
+                  foregroundColor: const Color(0xFF424242),
+                  side: const BorderSide(
+                    color: Color(0xFF333333),
+                    width: 2,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _saveTemplateToFile,
+                icon: const Icon(Icons.download),
+                label: const Text('Сохранить'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFe0e0e0),
+                  foregroundColor: const Color(0xFF424242),
+                  side: const BorderSide(
+                    color: Color(0xFF333333),
+                    width: 2,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Divider(),
+        const SizedBox(height: 20),
+        const Text(
+          '2. Вставьте переведенный шаблон:',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _jsonController,
+          maxLines: 10,
+          decoration: InputDecoration(
+            hintText: 'Вставьте JSON сюда...',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(
+                color: Color(0xFF333333),
+                width: 2,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _loadFromFile,
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Загрузить из файла'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFe0e0e0),
+                  foregroundColor: const Color(0xFF424242),
+                  side: const BorderSide(
+                    color: Color(0xFF333333),
+                    width: 2,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    if (isMobile) {
+      return Dialog(
+        insetPadding: EdgeInsets.zero,
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Скопируйте шаблон, переведите его на нужный язык с использованием любого ИИ и вставьте результат.',
-                style: TextStyle(color: Color(0xFF64748b)),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '1. Выберите исходный язык:',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedSourceLang,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF333333),
-                      width: 2,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Добавить перевод',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  filled: true,
-                  fillColor: Colors.white,
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  child: content,
                 ),
-                items: widget.report.availableLanguages
-                    .map(
-                      (lang) => DropdownMenuItem(
-                        value: lang,
-                        child: Text(
-                          lang,
-                          style: const TextStyle(color: Color(0xFF424242)),
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedSourceLang = value;
-                    });
-                  }
-                },
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _copyTemplate,
-                      icon: const Icon(Icons.copy),
-                      label: const Text('Копировать шаблон'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFe0e0e0),
-                        foregroundColor: const Color(0xFF424242),
-                        side: const BorderSide(
-                          color: Color(0xFF333333),
-                          width: 2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        'Отмена',
+                        style: TextStyle(color: Color(0xFF64748b)),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _saveTemplateToFile,
-                      icon: const Icon(Icons.download),
-                      label: const Text('Сохранить'),
+                    child: ElevatedButton(
+                      onPressed: _importTemplate,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFe0e0e0),
-                        foregroundColor: const Color(0xFF424242),
-                        side: const BorderSide(
-                          color: Color(0xFF333333),
-                          width: 2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: const Color(0xFF2563eb),
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFF333333), width: 2),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Divider(),
-              const SizedBox(height: 20),
-              const Text(
-                '2. Вставьте переведенный шаблон:',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _jsonController,
-                maxLines: 10,
-                decoration: InputDecoration(
-                  hintText: 'Вставьте JSON сюда...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF333333),
-                      width: 2,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _loadFromFile,
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Загрузить из файла'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFe0e0e0),
-                        foregroundColor: const Color(0xFF424242),
-                        side: const BorderSide(
-                          color: Color(0xFF333333),
-                          width: 2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+                      child: const Text('Добавить перевод'),
                     ),
                   ),
                 ],
@@ -871,26 +929,36 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
             ],
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text(
-            'Отмена',
-            style: TextStyle(color: Color(0xFF64748b)),
+      );
+    } else {
+      return AlertDialog(
+        title: const Text('Добавить перевод'),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: content,
           ),
         ),
-        ElevatedButton(
-          onPressed: _importTemplate,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563eb),
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Color(0xFF333333), width: 2),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Отмена',
+              style: TextStyle(color: Color(0xFF64748b)),
+            ),
           ),
-          child: const Text('Добавить перевод'),
-        ),
-      ],
-    );
+          ElevatedButton(
+            onPressed: _importTemplate,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563eb),
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFF333333), width: 2),
+            ),
+            child: const Text('Добавить перевод'),
+          ),
+        ],
+      );
+    }
   }
 }
 
