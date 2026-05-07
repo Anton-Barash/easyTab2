@@ -487,4 +487,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String saveZipError(Object error) {
     return 'Ошибка сохранения ZIP: $error';
   }
+
+  @override
+  String get lockAnswerTooltip => 'Заблокировать ответ';
+
+  @override
+  String get unlockAnswerTooltip => 'Разблокировать ответ';
 }

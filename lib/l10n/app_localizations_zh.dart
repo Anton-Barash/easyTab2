@@ -478,4 +478,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String saveZipError(Object error) {
     return '保存ZIP错误：$error';
   }
+
+  @override
+  String get lockAnswerTooltip => '锁定答案';
+
+  @override
+  String get unlockAnswerTooltip => '解锁答案';
 }

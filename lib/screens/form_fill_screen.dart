@@ -2027,6 +2027,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     },
                   ),
                 ),
+                if (reportState.hasAnswersInOtherLanguages(i, j))
+                  IconButton(
+                    icon: const Icon(Icons.lock, color: Color(0xFF6b7280)),
+                    onPressed: () => _showLockDialog(context, i, j, qid, reportState),
+                    tooltip: loc.lockAnswerTooltip,
+                  ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Color(0xFFef4444)),

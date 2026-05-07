@@ -217,5 +217,7 @@
   "editName": "编辑名称",
   "editDescription": "编辑描述",
   "zipSaved": "ZIP已保存到 {path}",
-  "saveZipError": "保存ZIP错误：{error}"
+  "saveZipError": "保存ZIP错误：{error}",
+  "lockAnswerTooltip": "锁定答案",
+  "unlockAnswerTooltip": "解锁答案"
 }

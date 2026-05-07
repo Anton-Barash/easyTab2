@@ -217,5 +217,7 @@
   "editName": "Edit name",
   "editDescription": "Edit description",
   "zipSaved": "ZIP saved to {path}",
-  "saveZipError": "Save ZIP error: {error}"
+  "saveZipError": "Save ZIP error: {error}",
+  "lockAnswerTooltip": "Lock answer",
+  "unlockAnswerTooltip": "Unlock answer"
 }

@@ -486,4 +486,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String saveZipError(Object error) {
     return 'Save ZIP error: $error';
   }
+
+  @override
+  String get lockAnswerTooltip => 'Lock answer';
+
+  @override
+  String get unlockAnswerTooltip => 'Unlock answer';
 }

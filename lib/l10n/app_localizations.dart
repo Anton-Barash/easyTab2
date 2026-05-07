@@ -987,6 +987,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save ZIP error: {error}'**
   String saveZipError(Object error);
+
+  /// No description provided for @lockAnswerTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock answer'**
+  String get lockAnswerTooltip;
+
+  /// No description provided for @unlockAnswerTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock answer'**
+  String get unlockAnswerTooltip;
 }
 
 class _AppLocalizationsDelegate
