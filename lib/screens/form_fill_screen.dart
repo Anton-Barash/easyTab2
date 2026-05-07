@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:video_player/video_player.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
@@ -37,6 +38,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   bool _isUpdatingControllers = false;
   final Map<String, Map<int, bool>> _enabledAnswers = {};
   Timer? _saveTimer;
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -55,8 +57,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
   void _scheduleSave() {
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(seconds: 1), () async {
+      setState(() => _isSaving = true);
       final reportState = context.read<ReportState>();
       await reportState.saveReport();
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     });
   }
 
@@ -498,6 +504,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
             },
             tooltip: loc.toggleView,
           ),
+          // Auto-save indicator
+          if (_isSaving)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
           Consumer<LocaleProvider>(
             builder: (context, localeProvider, child) {
               return PopupMenuButton<dynamic>(
@@ -2236,7 +2254,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         // Показываем "+N"
         items.add(
           GestureDetector(
-            onTap: () => _showFullMediaViewer(context, mediaList),
+            onTap: () => _showFullMediaViewer(context, mediaList, questionIndex: questionIndex, answerIndex: answerIndex, reportState: reportState),
             child: Container(
               width: 70,
               height: 70,
@@ -2266,7 +2284,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         items.add(
           _MediaItemWidget(
             media: media,
-            onTap: () => _showFullMediaViewer(context, mediaList, initialIndex: idx),
+            onTap: () => _showFullMediaViewer(context, mediaList, initialIndex: idx, questionIndex: questionIndex, answerIndex: answerIndex, reportState: reportState),
             onLongPress: () => _showMediaOptions(context, questionIndex, answerIndex, idx, reportState),
             onDelete: () {
               reportState.removeMedia(questionIndex, answerIndex, idx);
@@ -2288,12 +2306,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
     BuildContext context,
     List mediaList, {
     int initialIndex = 0,
+    int? questionIndex,
+    int? answerIndex,
+    ReportState? reportState,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (ctx) => _FullMediaViewerScreen(
           mediaList: mediaList,
           initialIndex: initialIndex,
+          onDelete: (indices) {
+            if (questionIndex != null && answerIndex != null && reportState != null) {
+              for (final index in indices.toList()..sort((a, b) => b.compareTo(a))) {
+                reportState.removeMedia(questionIndex, answerIndex, index);
+              }
+              _scheduleSave();
+            }
+          },
         ),
       ),
     );
@@ -2448,10 +2477,12 @@ class _MediaItemWidget extends StatelessWidget {
 class _FullMediaViewerScreen extends StatefulWidget {
   final List mediaList;
   final int initialIndex;
+  final Function(List<int>)? onDelete;
 
   const _FullMediaViewerScreen({
     required this.mediaList,
     this.initialIndex = 0,
+    this.onDelete,
   });
 
   @override
@@ -2461,60 +2492,289 @@ class _FullMediaViewerScreen extends StatefulWidget {
 class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
   late final PageController _pageController;
   late int _currentIndex;
+  bool _showGrid = false;
+  Set<int> _selectedIndices = {};
+  VideoPlayerController? _videoController;
+  bool _isPlaying = false;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
+    _initializeVideo(widget.initialIndex);
+  }
+
+  void _initializeVideo(int index) {
+    if (_videoController != null) {
+      _videoController!.dispose();
+      _videoController = null;
+    }
+
+    if (index >= 0 && index < widget.mediaList.length) {
+      final media = widget.mediaList[index] as Map<String, dynamic>;
+      if ((media['type'] as String? ?? '').startsWith('video') &&
+          !kIsWeb &&
+          media['localPath'] != null) {
+        _videoController = VideoPlayerController.file(File(media['localPath']))
+          ..initialize().then((_) {
+            setState(() {});
+          });
+      }
+    }
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _videoController?.dispose();
     super.dispose();
+  }
+
+  void _toggleSelect(int index) {
+    setState(() {
+      if (_selectedIndices.contains(index)) {
+        _selectedIndices.remove(index);
+      } else {
+        _selectedIndices.add(index);
+      }
+    });
+  }
+
+  void _deleteSelected() {
+    if (widget.onDelete != null && _selectedIndices.isNotEmpty) {
+      widget.onDelete!(List.from(_selectedIndices));
+    }
+    Navigator.pop(context);
+  }
+
+  void _deleteCurrent() {
+    if (widget.onDelete != null) {
+      widget.onDelete!([_currentIndex]);
+    }
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: Text('${_currentIndex + 1}/${widget.mediaList.length}'),
+        actions: [
+          if (_selectedIndices.isNotEmpty)
+            TextButton(
+              onPressed: _deleteSelected,
+              child: Text(
+                '${loc.delete} (${_selectedIndices.length})',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: _deleteCurrent,
+          ),
+          IconButton(
+            icon: Icon(_showGrid ? Icons.close : Icons.grid_view),
+            onPressed: () {
+              setState(() {
+                _showGrid = !_showGrid;
+              });
+            },
+          ),
+        ],
       ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.mediaList.length,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        itemBuilder: (ctx, index) {
-          final media = widget.mediaList[index] as Map<String, dynamic>;
-          return Center(
-            child: (media['type'] as String? ?? '').startsWith('image')
-                ? (!kIsWeb && media['localPath'] != null
-                    ? Image.file(
-                        File(media['localPath']),
-                        fit: BoxFit.contain,
-                      )
-                    : const Icon(
-                        Icons.image,
-                        size: 60,
-                        color: Colors.white,
-                      ))
-                : const Center(
-                    child: Icon(
-                      Icons.videocam,
-                      size: 60,
-                      color: Colors.white,
-                    ),
-                  ),
-          );
-        },
+      body: _showGrid ? _buildGrid() : _buildViewer(),
+    );
+  }
+
+  Widget _buildGrid() {
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 4,
+        mainAxisSpacing: 4,
+      ),
+      padding: const EdgeInsets.all(4),
+      itemCount: widget.mediaList.length,
+      itemBuilder: (ctx, index) {
+        final media = widget.mediaList[index] as Map<String, dynamic>;
+        final isSelected = _selectedIndices.contains(index);
+        final isVideo = (media['type'] as String? ?? '').startsWith('video');
+
+        return Stack(
+          children: [
+            GestureDetector(
+              onTap: () {
+                if (_selectedIndices.isNotEmpty) {
+                  _toggleSelect(index);
+                } else {
+                  setState(() {
+                    _showGrid = false;
+                    _currentIndex = index;
+                    _pageController.jumpToPage(index);
+                    _initializeVideo(index);
+                  });
+                }
+              },
+              onLongPress: () => _toggleSelect(index),
+              child: isVideo
+                  ? (!kIsWeb && media['localPath'] != null
+                      ? _VideoThumbnailWidget(
+                          localPath: media['localPath'],
+                          size: 100,
+                        )
+                      : const Icon(Icons.videocam, color: Colors.grey))
+                  : (!kIsWeb && media['localPath'] != null
+                      ? Image.file(
+                          File(media['localPath']),
+                          fit: BoxFit.cover,
+                        )
+                      : const Icon(Icons.image, color: Colors.grey)),
+            ),
+            if (isSelected)
+              const Positioned(
+                top: 4,
+                right: 4,
+                child: Icon(
+                  Icons.check_circle,
+                  color: Colors.blue,
+                  size: 20,
+                ),
+              ),
+            if (isVideo)
+              const Positioned(
+                bottom: 4,
+                right: 4,
+                child: Icon(
+                  Icons.play_circle,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildViewer() {
+    return Column(
+      children: [
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: widget.mediaList.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+              _initializeVideo(index);
+            },
+            itemBuilder: (ctx, index) {
+              final media = widget.mediaList[index] as Map<String, dynamic>;
+              final isVideo = (media['type'] as String? ?? '').startsWith('video');
+
+              if (isVideo) {
+                return _buildVideoPlayer(index);
+              } else {
+                return Center(
+                  child: (!kIsWeb && media['localPath'] != null)
+                      ? Image.file(
+                          File(media['localPath']),
+                          fit: BoxFit.contain,
+                        )
+                      : const Icon(
+                          Icons.image,
+                          size: 60,
+                          color: Colors.white,
+                        ),
+                );
+              }
+            },
+          ),
+        ),
+        // Video controls
+        if (_videoController != null && _videoController!.value.isInitialized)
+          _buildVideoControls(),
+      ],
+    );
+  }
+
+  Widget _buildVideoPlayer(int index) {
+    final media = widget.mediaList[index] as Map<String, dynamic>;
+    if (!kIsWeb && media['localPath'] != null && _videoController != null) {
+      return Center(
+        child: Stack(
+          children: [
+            VideoPlayer(_videoController!),
+            if (!_isPlaying)
+              Center(
+                child: IconButton(
+                  icon: const Icon(Icons.play_circle_filled, size: 60),
+                  color: Colors.white,
+                  onPressed: () {
+                    setState(() {
+                      _isPlaying = true;
+                      _videoController!.play();
+                    });
+                  },
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    return const Center(
+      child: Icon(
+        Icons.videocam,
+        size: 60,
+        color: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildVideoControls() {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+            color: Colors.white,
+            onPressed: () {
+              setState(() {
+                if (_isPlaying) {
+                  _videoController!.pause();
+                } else {
+                  _videoController!.play();
+                }
+                _isPlaying = !_isPlaying;
+              });
+            },
+          ),
+          Expanded(
+            child: VideoProgressIndicator(
+              _videoController!,
+              allowScrubbing: true,
+              colors: const VideoProgressColors(
+                playedColor: Colors.blue,
+                bufferedColor: Colors.grey,
+                backgroundColor: Colors.black,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.fullscreen),
+            color: Colors.white,
+            onPressed: () {},
+          ),
+        ],
       ),
     );
   }
