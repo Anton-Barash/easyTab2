@@ -308,12 +308,14 @@ class ReportState extends ChangeNotifier {
     final destPath = File('${destFolder.path}/$fileName');
     await file.copy(destPath.path);
 
+    final relativePath = '$folderName/$fileName';
+
     final mediaItem = MediaItem(
       name: fileName,
       type: _getMimeType(file.path),
       attention: isAttention,
       originalName: file.path.split(Platform.pathSeparator).last,
-      localPath: destPath.path,
+      localPath: relativePath,
     );
 
     _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
@@ -540,6 +542,8 @@ class ReportState extends ChangeNotifier {
     final List<String> allMediaData = [];
     final List<List<List<Map<String, dynamic>>>> allMediaByQandAandLang = [];
 
+    final basePath = _currentReportPath;
+
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final List<List<Map<String, dynamic>>> questionMedia = [];
 
@@ -554,10 +558,22 @@ class ReportState extends ChangeNotifier {
             final relativePath = (media['attention'] == true)
                 ? 'X/${media['name']}'
                 : 'photos/${media['name']}';
+            
+            String contentPath = relativePath;
+            if (basePath != null) {
+              final fullPath = '$basePath/$relativePath';
+              final file = File(fullPath);
+              if (file.existsSync()) {
+                final bytes = file.readAsBytesSync();
+                final base64 = base64Encode(bytes);
+                contentPath = 'data:${media['type']};base64,$base64';
+              }
+            }
+            
             final mediaData = {
               'name': media['name'],
               'type': media['type'],
-              'localPath': relativePath,
+              'localPath': contentPath,
             };
             langMedia.add(mediaData);
             allMediaData.add(jsonEncode(mediaData));
@@ -630,18 +646,58 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      text-align: center;');
     buffer.writeln('      color: #2c2c2c;');
     buffer.writeln('    }');
-    buffer.writeln('    .media-item {');
-    buffer.writeln('      display: inline-block;');
-    buffer.writeln('      margin: 2px;');
-    buffer.writeln('      padding: 4px 8px;');
-    buffer.writeln('      background: #f0f0f0;');
+    buffer.writeln('    .media-thumbnails {');
+    buffer.writeln('      display: flex;');
+    buffer.writeln('      flex-wrap: wrap;');
+    buffer.writeln('      gap: 4px;');
+    buffer.writeln('    }');
+    buffer.writeln('    .media-thumbnail {');
+    buffer.writeln('      width: 50px;');
+    buffer.writeln('      height: 50px;');
+    buffer.writeln('      object-fit: cover;');
+    buffer.writeln('      border-radius: 4px;');
     buffer.writeln('      border: 1px solid #d0d0d0;');
+    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('    }');
+    buffer.writeln('    .media-more {');
+    buffer.writeln('      display: flex;');
+    buffer.writeln('      align-items: center;');
+    buffer.writeln('      justify-content: center;');
+    buffer.writeln('      width: 50px;');
+    buffer.writeln('      height: 50px;');
+    buffer.writeln('      background: #e0e0e0;');
+    buffer.writeln('      border-radius: 4px;');
+    buffer.writeln('      border: 1px solid #d0d0d0;');
+    buffer.writeln('      font-size: 14px;');
+    buffer.writeln('      font-weight: bold;');
+    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('    }');
+    buffer.writeln('    /* Thumbnail grid modal */');
+    buffer.writeln('    .thumbnail-grid-modal {');
+    buffer.writeln('      display: none;');
+    buffer.writeln('      position: fixed;');
+    buffer.writeln('      z-index: 1000;');
+    buffer.writeln('      left: 0;');
+    buffer.writeln('      top: 0;');
+    buffer.writeln('      width: 100%;');
+    buffer.writeln('      height: 100%;');
+    buffer.writeln('      background-color: rgba(0,0,0,0.9);');
+    buffer.writeln('      overflow: auto;');
+    buffer.writeln('    }');
+    buffer.writeln('    .thumbnail-grid {');
+    buffer.writeln('      display: grid;');
+    buffer.writeln('      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));');
+    buffer.writeln('      gap: 10px;');
+    buffer.writeln('      padding: 20px;');
+    buffer.writeln('      max-width: 1000px;');
+    buffer.writeln('      margin: 50px auto;');
+    buffer.writeln('    }');
+    buffer.writeln('    .thumbnail-grid-item {');
+    buffer.writeln('      width: 100%;');
+    buffer.writeln('      aspect-ratio: 1;');
+    buffer.writeln('      object-fit: cover;');
     buffer.writeln('      border-radius: 4px;');
     buffer.writeln('      cursor: pointer;');
-    buffer.writeln('      font-size: 12px;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-item:hover {');
-    buffer.writeln('      background: #e0e0e0;');
     buffer.writeln('    }');
     buffer.writeln('    /* Modal styles */');
     buffer.writeln('    .modal {');
@@ -791,15 +847,32 @@ class ReportState extends ChangeNotifier {
             allMediaByQandAandLang[qIndex][li];
         final parts = <String>[];
 
-        for (int mi = 0; mi < mediaList.length; mi++) {
+        const int maxVisible = 9;
+        final visibleCount = mediaList.length > maxVisible ? maxVisible : mediaList.length;
+
+        for (int mi = 0; mi < visibleCount; mi++) {
           final media = mediaList[mi];
           final onClick = "openModal(${qIndex}, ${li}, ${mi})";
+          final isImage = media['type'].startsWith('image');
+          if (isImage) {
+            parts.add(
+              '<img class="media-thumbnail" src="${media['localPath']}" onclick="$onClick" alt="${media['name']}" />',
+            );
+          } else {
+            parts.add(
+              '<img class="media-thumbnail" src="${media['localPath']}" onclick="$onClick" alt="${media['name']}" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>\'" />',
+            );
+          }
+        }
+
+        if (mediaList.length > maxVisible) {
+          final remaining = mediaList.length - maxVisible;
           parts.add(
-            '<span class="media-item" onclick="$onClick">${media['name']}</span>',
+            '<div class="media-more" onclick="openThumbnailGrid(${qIndex}, ${li})">+${remaining}</div>',
           );
         }
 
-        return parts.join('');
+        return '<div class="media-thumbnails">${parts.join('')}</div>';
       }
 
       for (int ai = 0; ai < maxAnswers; ai++) {
@@ -905,6 +978,13 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('  </div>');
     buffer.writeln('</div>');
 
+    // Thumbnail grid modal
+    buffer.writeln('<div id="thumbnailGridModal" class="thumbnail-grid-modal">');
+    buffer.writeln('  <span class="close" onclick="closeThumbnailGrid()">&times;</span>');
+    buffer.writeln('  <div id="thumbnailGrid" class="thumbnail-grid">');
+    buffer.writeln('  </div>');
+    buffer.writeln('</div>');
+
     // JavaScript
     buffer.writeln('<script>');
     buffer.writeln('  let currentZoom = 1;');
@@ -999,6 +1079,40 @@ class ReportState extends ChangeNotifier {
     buffer.writeln(
       '    document.getElementById("mediaModal").style.display = "none";',
     );
+    buffer.writeln('  }');
+
+    buffer.writeln('  let currentGridQIndex = 0;');
+    buffer.writeln('  let currentGridLi = 0;');
+
+    buffer.writeln('  function openThumbnailGrid(qIndex, li) {');
+    buffer.writeln('    currentGridQIndex = qIndex;');
+    buffer.writeln('    currentGridLi = li;');
+    buffer.writeln('    const grid = document.getElementById("thumbnailGrid");');
+    buffer.writeln('    grid.innerHTML = "";');
+    buffer.writeln('    const media = mediaData[qIndex][li];');
+    buffer.writeln('    for (let mi = 0; mi < media.length; mi++) {');
+    buffer.writeln('      const item = media[mi];');
+    buffer.writeln('      const isImage = item.type.startsWith("image");');
+    buffer.writeln('      const img = document.createElement("img");');
+    buffer.writeln('      img.className = "thumbnail-grid-item";');
+    buffer.writeln('      img.src = item.localPath;');
+    buffer.writeln('      img.alt = item.name;');
+    buffer.writeln('      img.onclick = () => {');
+    buffer.writeln('        closeThumbnailGrid();');
+    buffer.writeln('        openModal(qIndex, li, mi);');
+    buffer.writeln('      };');
+    buffer.writeln('      if (!isImage) {');
+    buffer.writeln('        img.onerror = () => {');
+    buffer.writeln('          img.src = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 100 100%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2232%22>🎬</text></svg>";');
+    buffer.writeln('        };');
+    buffer.writeln('      }');
+    buffer.writeln('      grid.appendChild(img);');
+    buffer.writeln('    }');
+    buffer.writeln('    document.getElementById("thumbnailGridModal").style.display = "block";');
+    buffer.writeln('  }');
+
+    buffer.writeln('  function closeThumbnailGrid() {');
+    buffer.writeln('    document.getElementById("thumbnailGridModal").style.display = "none";');
     buffer.writeln('  }');
 
     buffer.writeln('  function zoomIn() {');

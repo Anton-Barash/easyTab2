@@ -493,4 +493,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get unlockAnswerTooltip => 'Разблокировать ответ';
+
+  @override
+  String get saved => 'Сохранено';
 }

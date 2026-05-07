@@ -484,4 +484,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get unlockAnswerTooltip => '解锁答案';
+
+  @override
+  String get saved => '已保存';
 }

@@ -219,5 +219,6 @@
   "zipSaved": "ZIP сохранён в {path}",
   "saveZipError": "Ошибка сохранения ZIP: {error}",
   "lockAnswerTooltip": "Заблокировать ответ",
-  "unlockAnswerTooltip": "Разблокировать ответ"
+  "unlockAnswerTooltip": "Разблокировать ответ",
+  "saved": "Сохранено"
 }

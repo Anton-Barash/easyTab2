@@ -999,6 +999,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unlock answer'**
   String get unlockAnswerTooltip;
+
+  /// No description provided for @saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get saved;
 }
 
 class _AppLocalizationsDelegate

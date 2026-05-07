@@ -39,6 +39,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   final Map<String, Map<int, bool>> _enabledAnswers = {};
   Timer? _saveTimer;
   bool _isSaving = false;
+  bool _hasUnsavedChanges = false;
 
   @override
   void dispose() {
@@ -55,15 +56,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   void _scheduleSave() {
+    setState(() => _hasUnsavedChanges = true);
     _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(seconds: 1), () async {
-      setState(() => _isSaving = true);
-      final reportState = context.read<ReportState>();
-      await reportState.saveReport();
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+    _saveTimer = Timer(const Duration(seconds: 2), () async {
+      await _doSave();
     });
+  }
+
+  Future<void> _doSave() async {
+    setState(() => _isSaving = true);
+    final reportState = context.read<ReportState>();
+    await reportState.saveReport();
+    if (mounted) {
+      setState(() {
+        _isSaving = false;
+        _hasUnsavedChanges = false;
+      });
+    }
   }
 
   void _handleLanguageChange(String lang) {
@@ -337,15 +346,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   Future<void> viewHtmlWithChooser(String htmlContent) async {
-    final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/easy_report.html');
+    final reportState = context.read<ReportState>();
+    
+    if (reportState.currentReportPath == null) {
+      await reportState.saveReport();
+    }
+    
+    final folderPath = reportState.currentReportPath!;
+    final file = File('$folderPath/easy_report.html');
     await file.writeAsString(htmlContent);
 
-      // Открывает системный диалог выбора приложения
     final result = await OpenFile.open(file.path);
 
     if (result.type == ResultType.noAppToOpen) {
-      //
       if (mounted) {
         final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -441,7 +454,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: const SizedBox(),
-        title: Text(report.reportName),
+        title: Text(
+          report.reportName,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         backgroundColor: const Color(0xFFe0e0e0),
         foregroundColor: const Color(0xFF424242),
         elevation: 0,
@@ -504,18 +522,26 @@ class _FormFillScreenState extends State<FormFillScreen> {
             },
             tooltip: loc.toggleView,
           ),
-          // Auto-save indicator
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                ),
-              ),
-            ),
+          // Manual save button
+          IconButton(
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Icon(
+                    Icons.save,
+                    size: 24,
+                    color: _hasUnsavedChanges
+                        ? const Color(0xFF3B82F6)
+                        : const Color(0xFF9CA3AF),
+                  ),
+            onPressed: _hasUnsavedChanges && !_isSaving ? _doSave : null,
+            tooltip: _hasUnsavedChanges ? loc.save : loc.saved,
+          ),
           Consumer<LocaleProvider>(
             builder: (context, localeProvider, child) {
               return PopupMenuButton<dynamic>(
@@ -1151,7 +1177,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ],
                 ),
               if (isMobile)
-                Expanded(
+                Positioned.fill(
                   child: _viewMode == ViewMode.list
                       ? _buildListView(reportState, report)
                       : _buildCardView(reportState, report),
@@ -1509,6 +1535,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   _currentPage = page;
                 });
               },
+              physics: const BouncingScrollPhysics(),
               itemCount: report.questions.length,
               itemBuilder: (context, index) => SingleChildScrollView(
                 padding: isMobile
@@ -1519,40 +1546,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 ),
               ),
             ),
-            if (report.questions.length > 1) ...[
-              Positioned(
-                left: 8,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: _buildNavButton(
-                    Icons.chevron_left,
-                    _currentPage > 0
-                        ? () => _pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.ease,
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 8,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: _buildNavButton(
-                    Icons.chevron_right,
-                    _currentPage < report.questions.length - 1
-                        ? () => _pageController.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.ease,
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-            ],
             Positioned(
               bottom: 16,
               left: 0,
@@ -2284,8 +2277,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
         items.add(
           _MediaItemWidget(
             media: media,
+            reportPath: reportState.currentReportPath,
             onTap: () => _showFullMediaViewer(context, mediaList, initialIndex: idx, questionIndex: questionIndex, answerIndex: answerIndex, reportState: reportState),
-            onLongPress: () => _showMediaOptions(context, questionIndex, answerIndex, idx, reportState),
+            onLongPress: () => _showFullMediaViewer(context, mediaList, initialIndex: idx, questionIndex: questionIndex, answerIndex: answerIndex, reportState: reportState, startInSelectionMode: true),
             onDelete: () {
               reportState.removeMedia(questionIndex, answerIndex, idx);
               _scheduleSave();
@@ -2309,12 +2303,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
     int? questionIndex,
     int? answerIndex,
     ReportState? reportState,
+    bool startInSelectionMode = false,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (ctx) => _FullMediaViewerScreen(
           mediaList: mediaList,
           initialIndex: initialIndex,
+          reportPath: reportState?.currentReportPath,
           onDelete: (indices) {
             if (questionIndex != null && answerIndex != null && reportState != null) {
               for (final index in indices.toList()..sort((a, b) => b.compareTo(a))) {
@@ -2323,6 +2319,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               _scheduleSave();
             }
           },
+          startInSelectionMode: startInSelectionMode,
         ),
       ),
     );
@@ -2417,13 +2414,23 @@ class _MediaItemWidget extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onDelete;
+  final String? reportPath;
 
   const _MediaItemWidget({
     required this.media,
     required this.onTap,
     required this.onLongPress,
     required this.onDelete,
+    this.reportPath,
   });
+
+  String? _getAbsolutePath(String? relativePath) {
+    if (relativePath == null || reportPath == null) return relativePath;
+    if (relativePath.startsWith('/') || relativePath.contains(':\\')) {
+      return relativePath;
+    }
+    return '$reportPath/$relativePath';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2450,7 +2457,7 @@ class _MediaItemWidget extends StatelessWidget {
               child: (media['type'] as String? ?? '').startsWith('image')
                   ? (!kIsWeb && media['localPath'] != null
                       ? Image.file(
-                          File(media['localPath']),
+                          File(_getAbsolutePath(media['localPath']) ?? media['localPath']),
                           width: 70,
                           height: 70,
                           fit: BoxFit.cover,
@@ -2463,7 +2470,7 @@ class _MediaItemWidget extends StatelessWidget {
                           ),
                         ))
                   : _VideoThumbnailWidget(
-                      localPath: media['localPath'] as String?,
+                      localPath: _getAbsolutePath(media['localPath'] as String?),
                       size: 70,
                     ),
             ),
@@ -2478,11 +2485,15 @@ class _FullMediaViewerScreen extends StatefulWidget {
   final List mediaList;
   final int initialIndex;
   final Function(List<int>)? onDelete;
+  final String? reportPath;
+  final bool startInSelectionMode;
 
   const _FullMediaViewerScreen({
     required this.mediaList,
     this.initialIndex = 0,
     this.onDelete,
+    this.reportPath,
+    this.startInSelectionMode = false,
   });
 
   @override
@@ -2497,12 +2508,28 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
   VideoPlayerController? _videoController;
   bool _isPlaying = false;
 
+  String? _getAbsolutePath(String? relativePath) {
+    if (relativePath == null || widget.reportPath == null) return null;
+    if (relativePath.startsWith('/') || relativePath.contains(':\\')) {
+      return relativePath;
+    }
+    return '${widget.reportPath}/$relativePath';
+  }
+
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
-    _initializeVideo(widget.initialIndex);
+    
+    if (widget.startInSelectionMode) {
+      _showGrid = true;
+      _selectedIndices.add(widget.initialIndex);
+    } else {
+      _initializeVideo(widget.initialIndex);
+    }
+    
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   void _initializeVideo(int index) {
@@ -2513,10 +2540,11 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
 
     if (index >= 0 && index < widget.mediaList.length) {
       final media = widget.mediaList[index] as Map<String, dynamic>;
+      final localPath = _getAbsolutePath(media['localPath'] as String?);
       if ((media['type'] as String? ?? '').startsWith('video') &&
           !kIsWeb &&
-          media['localPath'] != null) {
-        _videoController = VideoPlayerController.file(File(media['localPath']))
+          localPath != null) {
+        _videoController = VideoPlayerController.file(File(localPath))
           ..initialize().then((_) {
             setState(() {});
           });
@@ -2528,6 +2556,7 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
   void dispose() {
     _pageController.dispose();
     _videoController?.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -2566,7 +2595,7 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
         foregroundColor: Colors.white,
         title: Text('${_currentIndex + 1}/${widget.mediaList.length}'),
         actions: [
-          if (_selectedIndices.isNotEmpty)
+          if (_showGrid && _selectedIndices.isNotEmpty)
             TextButton(
               onPressed: _deleteSelected,
               child: Text(
@@ -2574,18 +2603,20 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
                 style: const TextStyle(color: Colors.red),
               ),
             ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _deleteCurrent,
-          ),
-          IconButton(
-            icon: Icon(_showGrid ? Icons.close : Icons.grid_view),
-            onPressed: () {
-              setState(() {
-                _showGrid = !_showGrid;
-              });
-            },
-          ),
+          if (!_showGrid)
+            IconButton(
+              icon: const Icon(Icons.grid_view),
+              onPressed: () {
+                setState(() {
+                  _showGrid = true;
+                });
+              },
+            ),
+          if (!_showGrid)
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: _deleteCurrent,
+            ),
         ],
       ),
       body: _showGrid ? _buildGrid() : _buildViewer(),
@@ -2610,28 +2641,28 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
           children: [
             GestureDetector(
               onTap: () {
-                if (_selectedIndices.isNotEmpty) {
-                  _toggleSelect(index);
-                } else {
-                  setState(() {
-                    _showGrid = false;
-                    _currentIndex = index;
+                setState(() {
+                  _currentIndex = index;
+                  _showGrid = false;
+                });
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_pageController.hasClients) {
                     _pageController.jumpToPage(index);
-                    _initializeVideo(index);
-                  });
-                }
+                  }
+                });
+                _initializeVideo(index);
               },
               onLongPress: () => _toggleSelect(index),
               child: isVideo
                   ? (!kIsWeb && media['localPath'] != null
                       ? _VideoThumbnailWidget(
-                          localPath: media['localPath'],
+                          localPath: _getAbsolutePath(media['localPath']),
                           size: 100,
                         )
                       : const Icon(Icons.videocam, color: Colors.grey))
                   : (!kIsWeb && media['localPath'] != null
                       ? Image.file(
-                          File(media['localPath']),
+                          File(_getAbsolutePath(media['localPath']) ?? media['localPath']),
                           fit: BoxFit.cover,
                         )
                       : const Icon(Icons.image, color: Colors.grey)),
@@ -2682,10 +2713,11 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
               if (isVideo) {
                 return _buildVideoPlayer(index);
               } else {
+                final localPath = _getAbsolutePath(media['localPath'] as String?);
                 return Center(
-                  child: (!kIsWeb && media['localPath'] != null)
+                  child: (!kIsWeb && localPath != null)
                       ? Image.file(
-                          File(media['localPath']),
+                          File(localPath),
                           fit: BoxFit.contain,
                         )
                       : const Icon(
@@ -2707,11 +2739,14 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
 
   Widget _buildVideoPlayer(int index) {
     final media = widget.mediaList[index] as Map<String, dynamic>;
-    if (!kIsWeb && media['localPath'] != null && _videoController != null) {
+    if (!kIsWeb && media['localPath'] != null && _videoController != null && _videoController!.value.isInitialized) {
       return Center(
         child: Stack(
           children: [
-            VideoPlayer(_videoController!),
+            AspectRatio(
+              aspectRatio: _videoController!.value.aspectRatio,
+              child: VideoPlayer(_videoController!),
+            ),
             if (!_isPlaying)
               Center(
                 child: IconButton(

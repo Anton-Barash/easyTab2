@@ -492,4 +492,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get unlockAnswerTooltip => 'Unlock answer';
+
+  @override
+  String get saved => 'Saved';
 }

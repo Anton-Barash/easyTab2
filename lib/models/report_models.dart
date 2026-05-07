@@ -23,13 +23,19 @@ class MediaItem {
         'localPath': localPath,
       };
 
-  factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
-        name: json['name'] ?? '',
-        type: json['type'] ?? 'image/jpeg',
-        attention: json['attention'] ?? false,
-        originalName: json['originalName'] ?? '',
-        localPath: json['localPath'],
-      );
+  factory MediaItem.fromJson(Map<String, dynamic> json, {String? folderPath}) {
+    final localPath = json['localPath'] as String?;
+    final absolutePath = localPath != null && folderPath != null
+        ? '$folderPath/$localPath'
+        : localPath;
+    return MediaItem(
+      name: json['name'] ?? '',
+      type: json['type'] ?? 'image/jpeg',
+      attention: json['attention'] ?? false,
+      originalName: json['originalName'] ?? '',
+      localPath: absolutePath,
+    );
+  }
 }
 
 class AnswerMarkers {
@@ -49,10 +55,10 @@ class AnswerMarkers {
         'needsWork': needsWork,
       };
 
-  factory AnswerMarkers.fromJson(Map<String, dynamic> json) => AnswerMarkers(
+  factory AnswerMarkers.fromJson(Map<String, dynamic> json, {String? folderPath}) => AnswerMarkers(
         attention: json['attention'] ?? false,
         media: (json['media'] as List<dynamic>?)
-                ?.map((m) => MediaItem.fromJson(m))
+                ?.map((m) => MediaItem.fromJson(m, folderPath: folderPath))
                 .toList() ??
             [],
         needsWork: json['needsWork'] ?? false,
@@ -293,7 +299,7 @@ class Report {
     if (markersJson != null) {
       markersJson.forEach((qid, markersList) {
         if (markersList is List) {
-          markers[qid] = markersList.map((m) => AnswerMarkers.fromJson(m)).toList();
+          markers[qid] = markersList.map((m) => AnswerMarkers.fromJson(m, folderPath: folderPath)).toList();
         }
       });
     }

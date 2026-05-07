@@ -219,5 +219,6 @@
   "zipSaved": "ZIP已保存到 {path}",
   "saveZipError": "保存ZIP错误：{error}",
   "lockAnswerTooltip": "锁定答案",
-  "unlockAnswerTooltip": "解锁答案"
+  "unlockAnswerTooltip": "解锁答案",
+  "saved": "已保存"
 }
