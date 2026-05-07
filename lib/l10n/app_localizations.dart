@@ -142,6 +142,12 @@ abstract class AppLocalizations {
   /// **'Confirm'**
   String get confirm;
 
+  /// No description provided for @ok.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get ok;
+
   /// No description provided for @add.
   ///
   /// In en, this message translates to:
@@ -358,6 +364,18 @@ abstract class AppLocalizations {
   /// **'Are you sure you want to delete this report?'**
   String get deleteReportConfirm;
 
+  /// No description provided for @cannotUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'This action cannot be undone'**
+  String get cannotUndo;
+
+  /// No description provided for @reportDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Report deleted'**
+  String get reportDeleted;
+
   /// No description provided for @createNewReport.
   ///
   /// In en, this message translates to:
@@ -388,12 +406,6 @@ abstract class AppLocalizations {
   /// **'HTML copied to clipboard'**
   String get htmlCopied;
 
-  /// No description provided for @copyError.
-  ///
-  /// In en, this message translates to:
-  /// **'Copy error: '**
-  String get copyError;
-
   /// No description provided for @excelHtmlCopied.
   ///
   /// In en, this message translates to:
@@ -405,18 +417,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saving ZIP is not available on web'**
   String get saveZipWeb;
-
-  /// No description provided for @zipSaved.
-  ///
-  /// In en, this message translates to:
-  /// **'ZIP saved: '**
-  String get zipSaved;
-
-  /// No description provided for @saveZipError.
-  ///
-  /// In en, this message translates to:
-  /// **'Error saving ZIP: '**
-  String get saveZipError;
 
   /// No description provided for @shareWeb.
   ///
@@ -483,6 +483,510 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Exit without saving?'**
   String get confirmExit;
+
+  /// No description provided for @createReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Report'**
+  String get createReportTitle;
+
+  /// No description provided for @deleteAnswerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete answer?'**
+  String get deleteAnswerTitle;
+
+  /// No description provided for @changeAnswerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Answer'**
+  String get changeAnswerTitle;
+
+  /// No description provided for @enterNewAnswerText.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter new answer text'**
+  String get enterNewAnswerText;
+
+  /// No description provided for @enterNewAnswerPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter text for new answer'**
+  String get enterNewAnswerPlaceholder;
+
+  /// No description provided for @deleteQuestionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete question?'**
+  String get deleteQuestionTitle;
+
+  /// No description provided for @addMediaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Media'**
+  String get addMediaTitle;
+
+  /// No description provided for @addMediaWebSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding media on web — coming soon!'**
+  String get addMediaWebSoon;
+
+  /// No description provided for @addAnswerTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Add answer'**
+  String get addAnswerTooltip;
+
+  /// No description provided for @deleteAnswerTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete answer'**
+  String get deleteAnswerTooltip;
+
+  /// No description provided for @jsonCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON copied to clipboard'**
+  String get jsonCopiedToClipboard;
+
+  /// No description provided for @pasteTranslatedJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste translated JSON'**
+  String get pasteTranslatedJson;
+
+  /// No description provided for @syncComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync complete'**
+  String get syncComplete;
+
+  /// No description provided for @syncAnswersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Answers ({lang})'**
+  String syncAnswersTitle(Object lang);
+
+  /// No description provided for @copyButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copyButton;
+
+  /// No description provided for @downloadButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get downloadButton;
+
+  /// No description provided for @loadFromFileButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Load from file'**
+  String get loadFromFileButton;
+
+  /// No description provided for @syncButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync'**
+  String get syncButton;
+
+  /// No description provided for @copyJsonButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy JSON'**
+  String get copyJsonButton;
+
+  /// No description provided for @syncMenuTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Translations'**
+  String get syncMenuTitle;
+
+  /// No description provided for @syncStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Copy or download JSON with current answers'**
+  String get syncStep1;
+
+  /// No description provided for @syncStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'2. Send to AI for translating empty fields'**
+  String get syncStep2;
+
+  /// No description provided for @syncStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'3. Paste the result or upload the file'**
+  String get syncStep3;
+
+  /// No description provided for @syncStep4.
+  ///
+  /// In en, this message translates to:
+  /// **'4. Press \"Sync\"'**
+  String get syncStep4;
+
+  /// No description provided for @pasteJsonHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste JSON here...'**
+  String get pasteJsonHere;
+
+  /// No description provided for @copyError.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy error: {error}'**
+  String copyError(String error);
+
+  /// No description provided for @fileSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'File saved: {path}'**
+  String fileSaved(String path);
+
+  /// No description provided for @saveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Save error: {error}'**
+  String saveError(String error);
+
+  /// No description provided for @readError.
+  ///
+  /// In en, this message translates to:
+  /// **'Read error: {error}'**
+  String readError(String error);
+
+  /// No description provided for @invalidJsonError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: invalid JSON format - {error}'**
+  String invalidJsonError(String error);
+
+  /// No description provided for @loadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Load error: {error}'**
+  String loadError(String error);
+
+  /// No description provided for @templateLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading template'**
+  String get templateLoadError;
+
+  /// No description provided for @templateCopiedClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Template copied to clipboard'**
+  String get templateCopiedClipboard;
+
+  /// No description provided for @templateSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Template saved to {path}'**
+  String templateSaved(String path);
+
+  /// No description provided for @pasteTranslatedTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste translated template'**
+  String get pasteTranslatedTemplate;
+
+  /// No description provided for @translationAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation for {lang} successfully added!'**
+  String translationAdded(String lang);
+
+  /// No description provided for @templateError.
+  ///
+  /// In en, this message translates to:
+  /// **'Template error: {error}'**
+  String templateError(String error);
+
+  /// No description provided for @copyTemplateButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Template'**
+  String get copyTemplateButton;
+
+  /// No description provided for @addTranslationButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Translation'**
+  String get addTranslationButton;
+
+  /// No description provided for @addTranslationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Translation'**
+  String get addTranslationTitle;
+
+  /// No description provided for @deleteAnswerConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this answer?\n\nThis action cannot be undone.'**
+  String get deleteAnswerConfirm;
+
+  /// No description provided for @deleteQuestionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this question?'**
+  String get deleteQuestionConfirm;
+
+  /// No description provided for @lockWarningText.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning! Changing this answer will delete the text in other localizations.'**
+  String get lockWarningText;
+
+  /// No description provided for @replaceExistingAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace existing answer:'**
+  String get replaceExistingAnswer;
+
+  /// No description provided for @orAddNewAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Or add a new answer:'**
+  String get orAddNewAnswer;
+
+  /// No description provided for @deleteThisQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this question'**
+  String get deleteThisQuestion;
+
+  /// No description provided for @useAnyAi.
+  ///
+  /// In en, this message translates to:
+  /// **'Use any available AI.'**
+  String get useAnyAi;
+
+  /// No description provided for @aiPromptExample.
+  ///
+  /// In en, this message translates to:
+  /// **'Prompt example: Study the json, if some localization has no answer but it exists in another localization, translate and insert the translation; if no answers exist anywhere, leave the field empty.'**
+  String get aiPromptExample;
+
+  /// No description provided for @aiPromptExample2.
+  ///
+  /// In en, this message translates to:
+  /// **'AI prompt example: \"This json contains answers in different languages. Fill in empty answers with translations of existing answers.\"'**
+  String get aiPromptExample2;
+
+  /// No description provided for @unsyncedQuestionsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsynced questions: {count}'**
+  String unsyncedQuestionsCount(int count);
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @aiPromptLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'AI prompt example:'**
+  String get aiPromptLabel;
+
+  /// No description provided for @aiPromptContent.
+  ///
+  /// In en, this message translates to:
+  /// **'\"This json contains answers in different languages. Fill in empty answers with translations of existing answers.\"'**
+  String get aiPromptContent;
+
+  /// No description provided for @enterDecryption.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter description...'**
+  String get enterDecryption;
+
+  /// No description provided for @questions.
+  ///
+  /// In en, this message translates to:
+  /// **'Questions'**
+  String get questions;
+
+  /// No description provided for @reportNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Report name'**
+  String get reportNameLabel;
+
+  /// No description provided for @selectTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select template'**
+  String get selectTemplate;
+
+  /// No description provided for @builtInTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in template'**
+  String get builtInTemplate;
+
+  /// No description provided for @builtInTemplateDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'4 questions, RU+EN'**
+  String get builtInTemplateDesc;
+
+  /// No description provided for @preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get preview;
+
+  /// No description provided for @noName.
+  ///
+  /// In en, this message translates to:
+  /// **'No name'**
+  String get noName;
+
+  /// No description provided for @useTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Use template'**
+  String get useTemplate;
+
+  /// No description provided for @uploadYourTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload your template (.xlsx)'**
+  String get uploadYourTemplate;
+
+  /// No description provided for @selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get selected;
+
+  /// No description provided for @enterTranslatedTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter translated template'**
+  String get enterTranslatedTemplate;
+
+  /// No description provided for @noAppToOpenHtml.
+  ///
+  /// In en, this message translates to:
+  /// **'Install a browser or app to view HTML'**
+  String get noAppToOpenHtml;
+
+  /// No description provided for @needsWorkTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Question needs work...'**
+  String get needsWorkTooltip;
+
+  /// No description provided for @removeAttentionMark.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove \"Attention\" mark'**
+  String get removeAttentionMark;
+
+  /// No description provided for @addAttentionMark.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark \"Attention\"'**
+  String get addAttentionMark;
+
+  /// No description provided for @searchReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Search reports...'**
+  String get searchReports;
+
+  /// No description provided for @noReportsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'You have no reports yet'**
+  String get noReportsYet;
+
+  /// No description provided for @reportsNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports not found'**
+  String get reportsNotFound;
+
+  /// No description provided for @allAnswersSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'All answers synced!'**
+  String get allAnswersSynced;
+
+  /// No description provided for @instructionsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Instructions:'**
+  String get instructionsLabel;
+
+  /// No description provided for @copyTemplateInstructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the template, translate it using any AI and paste the result.'**
+  String get copyTemplateInstructions;
+
+  /// No description provided for @selectSourceLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Select source language:'**
+  String get selectSourceLanguage;
+
+  /// No description provided for @pasteTranslatedTemplateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'2. Paste translated template:'**
+  String get pasteTranslatedTemplateLabel;
+
+  /// No description provided for @uploadTranslatedJsonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload translated JSON:'**
+  String get uploadTranslatedJsonLabel;
+
+  /// No description provided for @pasteTranslatedTemplateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste translated template here...'**
+  String get pasteTranslatedTemplateHint;
+
+  /// No description provided for @switchLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch language'**
+  String get switchLanguage;
+
+  /// No description provided for @editName.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit name'**
+  String get editName;
+
+  /// No description provided for @editDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit description'**
+  String get editDescription;
+
+  /// No description provided for @zipSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'ZIP saved to {path}'**
+  String zipSaved(Object path);
+
+  /// No description provided for @saveZipError.
+  ///
+  /// In en, this message translates to:
+  /// **'Save ZIP error: {error}'**
+  String saveZipError(Object error);
 }
 
 class _AppLocalizationsDelegate

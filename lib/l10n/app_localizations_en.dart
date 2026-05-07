@@ -30,6 +30,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirm => 'Confirm';
 
   @override
+  String get ok => 'OK';
+
+  @override
   String get add => 'Add';
 
   @override
@@ -139,6 +142,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Are you sure you want to delete this report?';
 
   @override
+  String get cannotUndo => 'This action cannot be undone';
+
+  @override
+  String get reportDeleted => 'Report deleted';
+
+  @override
   String get createNewReport => '+ Create New Report';
 
   @override
@@ -155,19 +164,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get htmlCopied => 'HTML copied to clipboard';
 
   @override
-  String get copyError => 'Copy error: ';
-
-  @override
   String get excelHtmlCopied => 'Excel HTML copied to clipboard';
 
   @override
   String get saveZipWeb => 'Saving ZIP is not available on web';
-
-  @override
-  String get zipSaved => 'ZIP saved: ';
-
-  @override
-  String get saveZipError => 'Error saving ZIP: ';
 
   @override
   String get shareWeb => 'Share is not available on web';
@@ -201,4 +201,289 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmExit => 'Exit without saving?';
+
+  @override
+  String get createReportTitle => 'Create Report';
+
+  @override
+  String get deleteAnswerTitle => 'Delete answer?';
+
+  @override
+  String get changeAnswerTitle => 'Edit Answer';
+
+  @override
+  String get enterNewAnswerText => 'Enter new answer text';
+
+  @override
+  String get enterNewAnswerPlaceholder => 'Enter text for new answer';
+
+  @override
+  String get deleteQuestionTitle => 'Delete question?';
+
+  @override
+  String get addMediaTitle => 'Add Media';
+
+  @override
+  String get addMediaWebSoon => 'Adding media on web — coming soon!';
+
+  @override
+  String get addAnswerTooltip => 'Add answer';
+
+  @override
+  String get deleteAnswerTooltip => 'Delete answer';
+
+  @override
+  String get jsonCopiedToClipboard => 'JSON copied to clipboard';
+
+  @override
+  String get pasteTranslatedJson => 'Paste translated JSON';
+
+  @override
+  String get syncComplete => 'Sync complete';
+
+  @override
+  String syncAnswersTitle(Object lang) {
+    return 'Sync Answers ($lang)';
+  }
+
+  @override
+  String get copyButton => 'Copy';
+
+  @override
+  String get downloadButton => 'Download';
+
+  @override
+  String get loadFromFileButton => 'Load from file';
+
+  @override
+  String get syncButton => 'Sync';
+
+  @override
+  String get copyJsonButton => 'Copy JSON';
+
+  @override
+  String get syncMenuTitle => 'Sync Translations';
+
+  @override
+  String get syncStep1 => '1. Copy or download JSON with current answers';
+
+  @override
+  String get syncStep2 => '2. Send to AI for translating empty fields';
+
+  @override
+  String get syncStep3 => '3. Paste the result or upload the file';
+
+  @override
+  String get syncStep4 => '4. Press \"Sync\"';
+
+  @override
+  String get pasteJsonHere => 'Paste JSON here...';
+
+  @override
+  String copyError(String error) {
+    return 'Copy error: $error';
+  }
+
+  @override
+  String fileSaved(String path) {
+    return 'File saved: $path';
+  }
+
+  @override
+  String saveError(String error) {
+    return 'Save error: $error';
+  }
+
+  @override
+  String readError(String error) {
+    return 'Read error: $error';
+  }
+
+  @override
+  String invalidJsonError(String error) {
+    return 'Error: invalid JSON format - $error';
+  }
+
+  @override
+  String loadError(String error) {
+    return 'Load error: $error';
+  }
+
+  @override
+  String get templateLoadError => 'Error loading template';
+
+  @override
+  String get templateCopiedClipboard => 'Template copied to clipboard';
+
+  @override
+  String templateSaved(String path) {
+    return 'Template saved to $path';
+  }
+
+  @override
+  String get pasteTranslatedTemplate => 'Paste translated template';
+
+  @override
+  String translationAdded(String lang) {
+    return 'Translation for $lang successfully added!';
+  }
+
+  @override
+  String templateError(String error) {
+    return 'Template error: $error';
+  }
+
+  @override
+  String get copyTemplateButton => 'Copy Template';
+
+  @override
+  String get addTranslationButton => 'Add Translation';
+
+  @override
+  String get addTranslationTitle => 'Add Translation';
+
+  @override
+  String get deleteAnswerConfirm =>
+      'Are you sure you want to delete this answer?\n\nThis action cannot be undone.';
+
+  @override
+  String get deleteQuestionConfirm =>
+      'Are you sure you want to delete this question?';
+
+  @override
+  String get lockWarningText =>
+      'Warning! Changing this answer will delete the text in other localizations.';
+
+  @override
+  String get replaceExistingAnswer => 'Replace existing answer:';
+
+  @override
+  String get orAddNewAnswer => 'Or add a new answer:';
+
+  @override
+  String get deleteThisQuestion => 'Delete this question';
+
+  @override
+  String get useAnyAi => 'Use any available AI.';
+
+  @override
+  String get aiPromptExample =>
+      'Prompt example: Study the json, if some localization has no answer but it exists in another localization, translate and insert the translation; if no answers exist anywhere, leave the field empty.';
+
+  @override
+  String get aiPromptExample2 =>
+      'AI prompt example: \"This json contains answers in different languages. Fill in empty answers with translations of existing answers.\"';
+
+  @override
+  String unsyncedQuestionsCount(int count) {
+    return 'Unsynced questions: $count';
+  }
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get aiPromptLabel => 'AI prompt example:';
+
+  @override
+  String get aiPromptContent =>
+      '\"This json contains answers in different languages. Fill in empty answers with translations of existing answers.\"';
+
+  @override
+  String get enterDecryption => 'Enter description...';
+
+  @override
+  String get questions => 'Questions';
+
+  @override
+  String get reportNameLabel => 'Report name';
+
+  @override
+  String get selectTemplate => 'Select template';
+
+  @override
+  String get builtInTemplate => 'Built-in template';
+
+  @override
+  String get builtInTemplateDesc => '4 questions, RU+EN';
+
+  @override
+  String get preview => 'Preview';
+
+  @override
+  String get noName => 'No name';
+
+  @override
+  String get useTemplate => 'Use template';
+
+  @override
+  String get uploadYourTemplate => 'Upload your template (.xlsx)';
+
+  @override
+  String get selected => 'Selected';
+
+  @override
+  String get enterTranslatedTemplate => 'Enter translated template';
+
+  @override
+  String get noAppToOpenHtml => 'Install a browser or app to view HTML';
+
+  @override
+  String get needsWorkTooltip => 'Question needs work...';
+
+  @override
+  String get removeAttentionMark => 'Remove \"Attention\" mark';
+
+  @override
+  String get addAttentionMark => 'Mark \"Attention\"';
+
+  @override
+  String get searchReports => 'Search reports...';
+
+  @override
+  String get noReportsYet => 'You have no reports yet';
+
+  @override
+  String get reportsNotFound => 'Reports not found';
+
+  @override
+  String get allAnswersSynced => 'All answers synced!';
+
+  @override
+  String get instructionsLabel => 'Instructions:';
+
+  @override
+  String get copyTemplateInstructions =>
+      'Copy the template, translate it using any AI and paste the result.';
+
+  @override
+  String get selectSourceLanguage => '1. Select source language:';
+
+  @override
+  String get pasteTranslatedTemplateLabel => '2. Paste translated template:';
+
+  @override
+  String get uploadTranslatedJsonLabel => 'Upload translated JSON:';
+
+  @override
+  String get pasteTranslatedTemplateHint => 'Paste translated template here...';
+
+  @override
+  String get switchLanguage => 'Switch language';
+
+  @override
+  String get editName => 'Edit name';
+
+  @override
+  String get editDescription => 'Edit description';
+
+  @override
+  String zipSaved(Object path) {
+    return 'ZIP saved to $path';
+  }
+
+  @override
+  String saveZipError(Object error) {
+    return 'Save ZIP error: $error';
+  }
 }

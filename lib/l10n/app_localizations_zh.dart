@@ -30,6 +30,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get confirm => '确认';
 
   @override
+  String get ok => '确定';
+
+  @override
   String get add => '添加';
 
   @override
@@ -138,6 +141,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deleteReportConfirm => '您确定要删除此报告吗?';
 
   @override
+  String get cannotUndo => '此操作无法撤消';
+
+  @override
+  String get reportDeleted => '报告已删除';
+
+  @override
   String get createNewReport => '+ 创建新报告';
 
   @override
@@ -153,19 +162,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get htmlCopied => 'HTML已复制到剪贴板';
 
   @override
-  String get copyError => '复制错误：';
-
-  @override
   String get excelHtmlCopied => 'Excel HTML已复制到剪贴板';
 
   @override
   String get saveZipWeb => '在Web上无法保存ZIP';
-
-  @override
-  String get zipSaved => 'ZIP已保存：';
-
-  @override
-  String get saveZipError => '保存ZIP时出错：';
 
   @override
   String get shareWeb => '在Web上无法分享';
@@ -199,4 +199,283 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get confirmExit => '不保存就退出？';
+
+  @override
+  String get createReportTitle => '创建报告';
+
+  @override
+  String get deleteAnswerTitle => '删除答案?';
+
+  @override
+  String get changeAnswerTitle => '编辑答案';
+
+  @override
+  String get enterNewAnswerText => '输入新的答案文本';
+
+  @override
+  String get enterNewAnswerPlaceholder => '输入新答案文本';
+
+  @override
+  String get deleteQuestionTitle => '删除问题?';
+
+  @override
+  String get addMediaTitle => '添加媒体';
+
+  @override
+  String get addMediaWebSoon => '网页添加媒体 — 即将推出！';
+
+  @override
+  String get addAnswerTooltip => '添加答案';
+
+  @override
+  String get deleteAnswerTooltip => '删除答案';
+
+  @override
+  String get jsonCopiedToClipboard => 'JSON已复制到剪贴板';
+
+  @override
+  String get pasteTranslatedJson => '请粘贴翻译后的JSON';
+
+  @override
+  String get syncComplete => '同步完成';
+
+  @override
+  String syncAnswersTitle(Object lang) {
+    return '同步答案 ($lang)';
+  }
+
+  @override
+  String get copyButton => '复制';
+
+  @override
+  String get downloadButton => '下载';
+
+  @override
+  String get loadFromFileButton => '从文件加载';
+
+  @override
+  String get syncButton => '同步';
+
+  @override
+  String get copyJsonButton => '复制JSON';
+
+  @override
+  String get syncMenuTitle => '同步翻译';
+
+  @override
+  String get syncStep1 => '1. 复制或下载包含当前答案的JSON';
+
+  @override
+  String get syncStep2 => '2. 发送给AI翻译空白字段';
+
+  @override
+  String get syncStep3 => '3. 粘贴结果或上传文件';
+
+  @override
+  String get syncStep4 => '4. 点击\"同步\"';
+
+  @override
+  String get pasteJsonHere => '在此粘贴JSON...';
+
+  @override
+  String copyError(String error) {
+    return '复制错误：$error';
+  }
+
+  @override
+  String fileSaved(String path) {
+    return '文件已保存：$path';
+  }
+
+  @override
+  String saveError(String error) {
+    return '保存错误：$error';
+  }
+
+  @override
+  String readError(String error) {
+    return '读取文件错误：$error';
+  }
+
+  @override
+  String invalidJsonError(String error) {
+    return '错误：JSON格式无效 - $error';
+  }
+
+  @override
+  String loadError(String error) {
+    return '加载错误：$error';
+  }
+
+  @override
+  String get templateLoadError => '加载模板错误';
+
+  @override
+  String get templateCopiedClipboard => '模板已复制到剪贴板';
+
+  @override
+  String templateSaved(String path) {
+    return '模板已保存到 $path';
+  }
+
+  @override
+  String get pasteTranslatedTemplate => '请粘贴翻译后的模板';
+
+  @override
+  String translationAdded(String lang) {
+    return '$lang翻译已成功添加！';
+  }
+
+  @override
+  String templateError(String error) {
+    return '模板错误：$error';
+  }
+
+  @override
+  String get copyTemplateButton => '复制模板';
+
+  @override
+  String get addTranslationButton => '添加翻译';
+
+  @override
+  String get addTranslationTitle => '添加翻译';
+
+  @override
+  String get deleteAnswerConfirm => '您确定要删除此答案吗？\n\n此操作无法撤消。';
+
+  @override
+  String get deleteQuestionConfirm => '您确定要删除此问题吗？';
+
+  @override
+  String get lockWarningText => '警告！更改此答案将删除其他语言版本中的文本。';
+
+  @override
+  String get replaceExistingAnswer => '替换现有答案：';
+
+  @override
+  String get orAddNewAnswer => '或添加新答案：';
+
+  @override
+  String get deleteThisQuestion => '删除此问题';
+
+  @override
+  String get useAnyAi => '使用任何可用的AI。';
+
+  @override
+  String get aiPromptExample =>
+      '提示示例：研究json，如果某个语言版本没有答案但其他语言版本有，请翻译并插入译文；如果所有地方都没有答案，请留空。';
+
+  @override
+  String get aiPromptExample2 => 'AI提示示例：\"此json包含不同语言的答案。用现有答案的翻译填写空白答案。\"';
+
+  @override
+  String unsyncedQuestionsCount(int count) {
+    return '未同步的问题：$count';
+  }
+
+  @override
+  String get close => '关闭';
+
+  @override
+  String get aiPromptLabel => 'AI提示示例：';
+
+  @override
+  String get aiPromptContent => '\"此json包含不同语言的答案。用现有答案的翻译填写空白答案。\"';
+
+  @override
+  String get enterDecryption => '输入描述...';
+
+  @override
+  String get questions => '问题';
+
+  @override
+  String get reportNameLabel => '报告名称';
+
+  @override
+  String get selectTemplate => '选择模板';
+
+  @override
+  String get builtInTemplate => '内置模板';
+
+  @override
+  String get builtInTemplateDesc => '4个问题，RU+EN';
+
+  @override
+  String get preview => '预览';
+
+  @override
+  String get noName => '无名称';
+
+  @override
+  String get useTemplate => '使用模板';
+
+  @override
+  String get uploadYourTemplate => '上传您的模板 (.xlsx)';
+
+  @override
+  String get selected => '已选择';
+
+  @override
+  String get enterTranslatedTemplate => '输入翻译后的模板';
+
+  @override
+  String get noAppToOpenHtml => '请安装浏览器或应用程序查看HTML';
+
+  @override
+  String get needsWorkTooltip => '问题需要修改...';
+
+  @override
+  String get removeAttentionMark => '取消\"注意\"标记';
+
+  @override
+  String get addAttentionMark => '标记\"注意\"';
+
+  @override
+  String get searchReports => '搜索报告...';
+
+  @override
+  String get noReportsYet => '您还没有报告';
+
+  @override
+  String get reportsNotFound => '未找到报告';
+
+  @override
+  String get allAnswersSynced => '所有答案已同步！';
+
+  @override
+  String get instructionsLabel => '说明：';
+
+  @override
+  String get copyTemplateInstructions => '复制模板，使用AI翻译成所需语言，然后粘贴结果。';
+
+  @override
+  String get selectSourceLanguage => '1. 选择源语言：';
+
+  @override
+  String get pasteTranslatedTemplateLabel => '2. 粘贴翻译后的模板：';
+
+  @override
+  String get uploadTranslatedJsonLabel => '上传翻译后的JSON：';
+
+  @override
+  String get pasteTranslatedTemplateHint => '在此粘贴翻译后的模板...';
+
+  @override
+  String get switchLanguage => '切换语言';
+
+  @override
+  String get editName => '编辑名称';
+
+  @override
+  String get editDescription => '编辑描述';
+
+  @override
+  String zipSaved(Object path) {
+    return 'ZIP已保存到 $path';
+  }
+
+  @override
+  String saveZipError(Object error) {
+    return '保存ZIP错误：$error';
+  }
 }

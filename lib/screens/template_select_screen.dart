@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/report_provider.dart';
 import '../models/report_models.dart';
+import '../l10n/app_localizations.dart';
 
 class TemplateSelectScreen extends StatefulWidget {
   const TemplateSelectScreen({super.key});
@@ -89,9 +90,10 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Создать отчёт'),
+        title: Text(loc.createReportTitle),
         backgroundColor: const Color(0xFFe0e0e0),
         foregroundColor: const Color(0xFF424242),
         elevation: 0,
@@ -113,9 +115,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Название отчёта',
-                        style: TextStyle(
+                      Text(
+                        loc.reportNameLabel,
+                        style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF424242),
                           fontSize: 16,
@@ -125,7 +127,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                       TextField(
                         controller: _reportNameController,
                         decoration: InputDecoration(
-                          hintText: 'Введите название...',
+                          hintText: loc.enterName,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
@@ -156,9 +158,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Выберите шаблон',
-                  style: TextStyle(
+                Text(
+                  loc.selectTemplate,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF424242),
@@ -166,23 +168,24 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                 ),
                 const SizedBox(height: 15),
                 _buildTemplateItem(
+                  context,
                   '📊',
-                  'Встроенный шаблон',
-                  '4 вопроса, RU+EN',
+                  loc.builtInTemplate,
+                  loc.builtInTemplateDesc,
                   isBuiltIn: true,
                   onTap: _loadBuiltInTemplate,
                 ),
                 const SizedBox(height: 15),
-                _buildUploadTemplate(),
+                _buildUploadTemplate(context),
                 const SizedBox(height: 20),
                 if (_selectedReport != null)
                   _buildCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Предпросмотр',
-                          style: TextStyle(
+                        Text(
+                          loc.preview,
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF424242),
                             fontSize: 16,
@@ -223,11 +226,11 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                       ),
                                     ),
                                   ),
-                                  const DropdownMenuItem(
+                                  DropdownMenuItem(
                                     value: '_add_translation',
                                     child: Text(
-                                      '➕ Добавить перевод',
-                                      style: TextStyle(
+                                      loc.addTranslationButton,
+                                      style: const TextStyle(
                                         color: Color(0xFF2563eb),
                                       ),
                                     ),
@@ -252,18 +255,18 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           entry,
                         ) {
                           final lang = _selectedReport!.currentLanguage;
-                          final loc = entry.value.getLocalization(lang);
+                          final questionLoc = entry.value.getLocalization(lang);
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             child: Text(
-                              '${entry.key + 1}. ${loc?.name ?? entry.value.getDisplayName(lang) ?? 'Без названия'}',
+                              '${entry.key + 1}. ${questionLoc?.name ?? entry.value.getDisplayName(lang) ?? loc.noName}',
                               style: const TextStyle(color: Color(0xFF424242)),
                             ),
                           );
                         }),
                         const SizedBox(height: 18),
                         _buildButton(
-                          label: 'Использовать шаблон',
+                          label: loc.useTemplate,
                           onTap: _reportNameController.text.trim().isEmpty
                               ? null
                               : () => _useTemplate(context),
@@ -367,12 +370,14 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   }
 
   Widget _buildTemplateItem(
+    BuildContext context,
     String icon,
     String title,
     String subtitle, {
     bool isBuiltIn = false,
     VoidCallback? onTap,
   }) {
+    final loc = AppLocalizations.of(context)!;
     final isSelected = _selectedReport != null && isBuiltIn;
     return Container(
       decoration: BoxDecoration(
@@ -427,9 +432,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         color: const Color(0xFF333333),
                       ),
                     ),
-                    child: const Text(
-                      'Выбран',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    child: Text(
+                      loc.selected,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ),
               ],
@@ -440,7 +445,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     );
   }
 
-  Widget _buildUploadTemplate() {
+  Widget _buildUploadTemplate(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -453,17 +459,17 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
         child: InkWell(
           onTap: _pickFile,
           borderRadius: BorderRadius.circular(12),
-          child: const Padding(
-            padding: EdgeInsets.all(30),
+          child: Padding(
+            padding: const EdgeInsets.all(30),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('📁', style: TextStyle(fontSize: 40)),
-                SizedBox(width: 15),
+                const Text('📁', style: TextStyle(fontSize: 40)),
+                const SizedBox(width: 15),
                 Expanded(
                   child: Text(
-                    'Загрузить свой шаблон (.xlsx)',
-                    style: TextStyle(color: Color(0xFF64748b)),
+                    loc.uploadYourTemplate,
+                    style: const TextStyle(color: Color(0xFF64748b)),
                   ),
                 ),
               ],
@@ -486,8 +492,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     final report = await state.parseTemplate(path);
 
     if (report == null && mounted) {
+      final loc = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ошибка при загрузке шаблона')),
+        SnackBar(content: Text(loc.templateLoadError)),
       );
       return;
     }
@@ -593,8 +600,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
     final template = _exportTemplate();
     await Clipboard.setData(ClipboardData(text: template));
     if (mounted) {
+      final loc = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Шаблон скопирован в буфер обмена')),
+        SnackBar(content: Text(loc.templateCopiedClipboard)),
       );
     }
   }
@@ -609,15 +617,17 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       await file.writeAsString(template);
 
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Шаблон сохранен в ${file.path}')),
+          SnackBar(content: Text(loc.templateSaved(file.path))),
         );
       }
     } catch (e) {
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.saveError(e.toString()))));
       }
     }
   }
@@ -637,9 +647,10 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       });
     } catch (e) {
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка чтения файла: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.readError(e.toString()))));
       }
     }
   }
@@ -694,10 +705,11 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
   }
 
   void _importTemplate() {
+    final loc = AppLocalizations.of(context)!;
     final jsonText = _jsonController.text.trim();
     if (jsonText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите переведенный шаблон')),
+        SnackBar(content: Text(loc.enterTranslatedTemplate)),
       );
       return;
     }
@@ -723,31 +735,31 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Перевод на $langCode успешно добавлен!')),
+        SnackBar(content: Text(loc.translationAdded(langCode))),
       );
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка в шаблоне: $e')));
+      ).showSnackBar(SnackBar(content: Text(loc.templateError(e.toString()))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final isMobile = MediaQuery.of(context).size.width <= 800;
 
-    // Общий контент для обеих версий
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Скопируйте шаблон, переведите его на нужный язык с использованием любого ИИ и вставьте результат.',
-          style: TextStyle(color: Color(0xFF64748b)),
+        Text(
+          loc.copyTemplateInstructions,
+          style: const TextStyle(color: Color(0xFF64748b)),
         ),
         const SizedBox(height: 16),
-        const Text(
-          '1. Выберите исходный язык:',
-          style: TextStyle(fontWeight: FontWeight.w500),
+        Text(
+          loc.selectSourceLanguage,
+          style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
@@ -789,7 +801,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
               child: ElevatedButton.icon(
                 onPressed: _copyTemplate,
                 icon: const Icon(Icons.copy),
-                label: const Text('Копировать шаблон'),
+                label: Text(loc.copyTemplateButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
@@ -806,7 +818,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
               child: ElevatedButton.icon(
                 onPressed: _saveTemplateToFile,
                 icon: const Icon(Icons.download),
-                label: const Text('Сохранить'),
+                label: Text(loc.downloadButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
@@ -823,16 +835,16 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
         const SizedBox(height: 20),
         const Divider(),
         const SizedBox(height: 20),
-        const Text(
-          '2. Вставьте переведенный шаблон:',
-          style: TextStyle(fontWeight: FontWeight.w500),
+        Text(
+          loc.pasteTranslatedTemplateLabel,
+          style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _jsonController,
           maxLines: 10,
           decoration: InputDecoration(
-            hintText: 'Вставьте JSON сюда...',
+            hintText: loc.pasteTranslatedTemplateHint,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(
@@ -851,7 +863,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
               child: ElevatedButton.icon(
                 onPressed: _loadFromFile,
                 icon: const Icon(Icons.upload_file),
-                label: const Text('Загрузить из файла'),
+                label: Text(loc.loadFromFileButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
@@ -880,9 +892,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Добавить перевод',
-                    style: TextStyle(
+                  Text(
+                    loc.addTranslationTitle,
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -906,9 +918,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                   Expanded(
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        'Отмена',
-                        style: TextStyle(color: Color(0xFF64748b)),
+                      child: Text(
+                        loc.cancel,
+                        style: const TextStyle(color: Color(0xFF64748b)),
                       ),
                     ),
                   ),
@@ -921,7 +933,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                         foregroundColor: Colors.white,
                         side: const BorderSide(color: Color(0xFF333333), width: 2),
                       ),
-                      child: const Text('Добавить перевод'),
+                      child: Text(loc.addTranslationButton),
                     ),
                   ),
                 ],
@@ -932,7 +944,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       );
     } else {
       return AlertDialog(
-        title: const Text('Добавить перевод'),
+        title: Text(loc.addTranslationTitle),
         content: SizedBox(
           width: 500,
           child: SingleChildScrollView(
@@ -942,9 +954,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Отмена',
-              style: TextStyle(color: Color(0xFF64748b)),
+            child: Text(
+              loc.cancel,
+              style: const TextStyle(color: Color(0xFF64748b)),
             ),
           ),
           ElevatedButton(
@@ -954,7 +966,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
               foregroundColor: Colors.white,
               side: const BorderSide(color: Color(0xFF333333), width: 2),
             ),
-            child: const Text('Добавить перевод'),
+            child: Text(loc.addTranslationButton),
           ),
         ],
       );

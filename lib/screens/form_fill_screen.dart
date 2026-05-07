@@ -110,17 +110,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
     int j,
     ReportState reportState,
   ) {
+    final loc = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Удалить ответ?'),
-        content: const Text(
-          'Вы уверены, что хотите удалить этот ответ?\n\nЭто действие невозможно отменить.',
-        ),
+        title: Text(loc.deleteAnswerTitle),
+        content: Text(loc.deleteAnswerConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена'),
+            child: Text(loc.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -131,7 +130,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               reportState.removeAnswer(i, j);
               Navigator.pop(ctx);
             },
-            child: const Text('Удалить'),
+            child: Text(loc.delete),
           ),
         ],
       ),
@@ -145,6 +144,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     String qid,
     ReportState reportState,
   ) {
+    final loc = AppLocalizations.of(context)!;
     final currentAnswer = reportState.currentReport?.getAnswersForQuestion(
       i,
       reportState.currentReport!.currentLanguage,
@@ -159,27 +159,27 @@ class _FormFillScreenState extends State<FormFillScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Изменение ответа'),
+        title: Text(loc.changeAnswerTitle),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Внимание! Изменение этого ответа приведет к удалению текста в других локализациях.',
-                style: TextStyle(color: Color(0xFFef4444)),
+              Text(
+                loc.lockWarningText,
+                style: const TextStyle(color: Color(0xFFef4444)),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Заменить существующий ответ:',
-                style: TextStyle(fontWeight: FontWeight.w500),
+              Text(
+                loc.replaceExistingAnswer,
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: replaceController,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: 'Введите новый текст ответа',
+                  hintText: loc.enterNewAnswerText,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
@@ -191,16 +191,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Или добавить новый ответ:',
-                style: TextStyle(fontWeight: FontWeight.w500),
+              Text(
+                loc.orAddNewAnswer,
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: newController,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: 'Введите текст нового ответа',
+                  hintText: loc.enterNewAnswerPlaceholder,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
@@ -217,38 +217,38 @@ class _FormFillScreenState extends State<FormFillScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена'),
+            child: Text(loc.cancel),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2563eb),
+            foregroundColor: Colors.white,
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563eb),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              setState(() {
-                _enabledAnswers[qid]![j] = true;
-              });
+          onPressed: () {
+            setState(() {
+              _enabledAnswers[qid]![j] = true;
+            });
 
-              if (newController.text.isNotEmpty) {
-                reportState.addAnswer(i);
-                final newJ =
-                    (reportState.currentReport
-                            ?.getAnswersForQuestion(
-                              i,
-                              reportState.currentReport!.currentLanguage,
-                            )
-                            .length ??
-                        1) -
-                    1;
-                reportState.updateAnswerText(i, newJ, newController.text);
-              } else if (replaceController.text.isNotEmpty &&
-                  replaceController.text != currentText) {
-                reportState.updateAnswerText(i, j, replaceController.text);
-              }
+            if (newController.text.isNotEmpty) {
+              reportState.addAnswer(i);
+              final newJ =
+                  (reportState.currentReport
+                          ?.getAnswersForQuestion(
+                            i,
+                            reportState.currentReport!.currentLanguage,
+                          )
+                          .length ??
+                      1) -
+                  1;
+              reportState.updateAnswerText(i, newJ, newController.text);
+            } else if (replaceController.text.isNotEmpty &&
+                replaceController.text != currentText) {
+              reportState.updateAnswerText(i, j, replaceController.text);
+            }
 
-              Navigator.pop(ctx);
-            },
-            child: const Text('OK'),
+            Navigator.pop(ctx);
+          },
+          child: Text(loc.ok),
           ),
         ],
       ),
@@ -260,16 +260,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final file = File('${tempDir.path}/easy_report.html');
     await file.writeAsString(htmlContent);
 
-    // Открывает системный диалог выбора приложения
+      // Открывает системный диалог выбора приложения
     final result = await OpenFile.open(file.path);
 
     if (result.type == ResultType.noAppToOpen) {
-      // Нет приложения для открытия HTML
+      //
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Установите браузер или приложение для просмотра HTML',
+              loc.noAppToOpenHtml,
             ),
           ),
         );
@@ -683,7 +684,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     RotatedBox(
                                       quarterTurns: 3,
                                       child: Text(
-                                        'Вопросы',
+                                        loc.questions,
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
@@ -712,9 +713,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     padding: const EdgeInsets.all(16),
                                     child: Row(
                                       children: [
-                                        const Text(
-                                          'Вопросы',
-                                          style: TextStyle(
+                                        Text(
+                                          loc.questions,
+                                          style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16,
                                             color: Color(0xFF424242),
@@ -754,7 +755,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                             .length;
 
                                         final q = report.questions[i];
-                                        final loc = q.getLocalization(lang);
+                                        final questionLoc = q.getLocalization(lang);
                                         final hasTranslation = q.hasTranslation(
                                           lang,
                                         );
@@ -846,11 +847,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                         ),
                                                         Expanded(
                                                           child: Text(
-                                                            loc?.name ??
+                                                            questionLoc?.name ??
                                                                 q.getDisplayName(
                                                                   lang,
                                                                 ) ??
-                                                                'Без названия',
+                                                                loc.noName,
                                                             style:
                                                                 const TextStyle(
                                                                   fontSize: 14,
@@ -897,9 +898,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                                 4,
                                                               ),
                                                         ),
-                                                        child: const Text(
-                                                          'Переключите язык',
-                                                          style: TextStyle(
+                                                        child: Text(
+                                                          loc.switchLanguage,
+                                                          style: const TextStyle(
                                                             fontSize: 11,
                                                             color: Color(
                                                               0xFF856404,
@@ -1088,9 +1089,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
-                              const Text(
-                                'Вопросы',
-                                style: TextStyle(
+                              Text(
+                                loc.questions,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                   color: Color(0xFF424242),
@@ -1126,7 +1127,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   .length;
 
                               final q = report.questions[i];
-                              final loc = q.getLocalization(lang);
+                              final questionLoc = q.getLocalization(lang);
                               final hasTranslation = q.hasTranslation(lang);
 
                               return Padding(
@@ -1199,9 +1200,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  loc?.name ??
+                                                  questionLoc?.name ??
                                                       q.getDisplayName(lang) ??
-                                                      'Без названия',
+                                                      loc.noName,
                                                   style: const TextStyle(
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w500,
@@ -1237,9 +1238,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                 borderRadius:
                                                     BorderRadius.circular(4),
                                               ),
-                                              child: const Text(
-                                                'Переключите язык',
-                                                style: TextStyle(
+                                              child: Text(
+                                                loc.switchLanguage,
+                                                style: const TextStyle(
                                                   fontSize: 11,
                                                   color: Color(0xFF856404),
                                                 ),
@@ -1398,11 +1399,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   Widget _buildCardView(ReportState reportState, Report report) {
-    if (report.questions.isEmpty) {
-      return const Center(child: Text('Нет вопросов'));
-    }
     return LayoutBuilder(
       builder: (context, constraints) {
+        final loc = AppLocalizations.of(context)!;
+        if (report.questions.isEmpty) {
+          return Center(child: Text(loc.noQuestions));
+        }
         final isMobile = constraints.maxWidth <= 800;
         return Stack(
           children: [
@@ -1516,10 +1518,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
     ReportState reportState,
     bool isCardView,
   ) {
+    final loc = AppLocalizations.of(context)!;
     final report = reportState.currentReport!;
     final q = report.questions[index];
     final lang = report.currentLanguage;
-    final loc = q.getLocalization(lang);
+    final questionLoc = q.getLocalization(lang);
     final answers = report.getAnswersForQuestion(index, lang);
 
     final isMobile = MediaQuery.of(context).size.width <= 800;
@@ -1600,7 +1603,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             'name',
                           ),
                           child: Text(
-                            loc?.name ?? q.getDisplayName(lang) ?? 'Без названия',
+                            questionLoc?.name ?? q.getDisplayName(lang) ?? loc.noName,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -1610,7 +1613,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           ),
                         ),
                       ),
-                      if (loc?.description?.isNotEmpty ?? false)
+                      if (questionLoc?.description?.isNotEmpty ?? false)
                         IconButton(
                           icon: const Icon(Icons.help_outline, size: 20),
                           color: const Color(0xFF6b7280),
@@ -1626,39 +1629,39 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         color: Colors.white,
                         elevation: 4,
                         itemBuilder: (ctx) => [
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'add_above',
                             child: Row(
                               children: [
-                                Icon(Icons.add, size: 18),
-                                SizedBox(width: 8),
-                                Text('Новый вопрос сверху'),
+                                const Icon(Icons.add, size: 18),
+                                const SizedBox(width: 8),
+                                Text(loc.newQuestionAbove),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'add_below',
                             child: Row(
                               children: [
-                                Icon(Icons.add, size: 18),
-                                SizedBox(width: 8),
-                                Text('Новый вопрос снизу'),
+                                const Icon(Icons.add, size: 18),
+                                const SizedBox(width: 8),
+                                Text(loc.newQuestionBelow),
                               ],
                             ),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.delete,
                                   size: 18,
                                   color: Color(0xFFdc2626),
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
-                                  'Удалить этот вопрос',
-                                  style: TextStyle(color: Color(0xFFdc2626)),
+                                  loc.deleteThisQuestion,
+                                  style: const TextStyle(color: Color(0xFFdc2626)),
                                 ),
                               ],
                             ),
@@ -1685,18 +1688,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                title: const Text('Удалить вопрос?'),
-                                content: const Text(
-                                  'Вы уверены, что хотите удалить вопрос?',
-                                ),
+                                title: Text(loc.deleteQuestionTitle),
+                                content: Text(loc.deleteQuestionConfirm),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(ctx, false),
-                                    child: const Text('Отмена'),
+                                    child: Text(loc.cancel),
                                   ),
                                   TextButton(
                                     onPressed: () => Navigator.pop(ctx, true),
-                                    child: const Text('Удалить'),
+                                    child: Text(loc.delete),
                                   ),
                                 ],
                               ),
@@ -1748,9 +1749,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       'name',
                                     ),
                                     child: Text(
-                                      loc?.name ??
+                                      questionLoc?.name ??
                                           q.getDisplayName(lang) ??
-                                          'Без названия',
+                                          loc.noName,
                                       style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -1760,7 +1761,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     ),
                                   ),
                                 ),
-                                if (loc?.description?.isNotEmpty ?? false)
+                                if (questionLoc?.description?.isNotEmpty ?? false)
                                   IconButton(
                                     icon: const Icon(
                                       Icons.help_outline,
@@ -1779,39 +1780,39 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   color: Colors.white,
                                   elevation: 4,
                                   itemBuilder: (ctx) => [
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'add_above',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.add, size: 18),
-                                          SizedBox(width: 8),
-                                          Text('Новый вопрос сверху'),
+                                          const Icon(Icons.add, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(loc.newQuestionAbove),
                                         ],
                                       ),
                                     ),
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'add_below',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.add, size: 18),
-                                          SizedBox(width: 8),
-                                          Text('Новый вопрос снизу'),
+                                          const Icon(Icons.add, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(loc.newQuestionBelow),
                                         ],
                                       ),
                                     ),
-                                    const PopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'delete',
                                       child: Row(
                                         children: [
-                                          Icon(
+                                          const Icon(
                                             Icons.delete,
                                             size: 18,
                                             color: Color(0xFFdc2626),
                                           ),
-                                          SizedBox(width: 8),
+                                          const SizedBox(width: 8),
                                           Text(
-                                            'Удалить этот вопрос',
-                                            style: TextStyle(
+                                            loc.deleteThisQuestion,
+                                            style: const TextStyle(
                                               color: Color(0xFFdc2626),
                                             ),
                                           ),
@@ -1844,20 +1845,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       final confirm = await showDialog<bool>(
                                         context: context,
                                         builder: (ctx) => AlertDialog(
-                                          title: const Text('Удалить вопрос?'),
-                                          content: const Text(
-                                            'Вы уверены, что хотите удалить вопрос?',
-                                          ),
+                                          title: Text(loc.deleteQuestionTitle),
+                                          content: Text(loc.deleteQuestionConfirm),
                                           actions: [
                                             TextButton(
                                               onPressed: () =>
                                                   Navigator.pop(ctx, false),
-                                              child: const Text('Отмена'),
+                                              child: Text(loc.cancel),
                                             ),
                                             TextButton(
                                               onPressed: () =>
                                                   Navigator.pop(ctx, true),
-                                              child: const Text('Удалить'),
+                                              child: Text(loc.delete),
                                             ),
                                           ],
                                         ),
@@ -1871,11 +1870,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 ),
                               ],
                             ),
-                            if (loc?.example?.isNotEmpty ?? false)
+                            if (questionLoc?.example?.isNotEmpty ?? false)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                  '${loc?.example}',
+                                  '${questionLoc?.example}',
                                   style: const TextStyle(
                                     fontSize: 13,
                                     color: Color(0xFF0369a1),
@@ -1919,7 +1918,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ),
                       ),
                       onPressed: () => reportState.addAnswer(index),
-                      tooltip: 'Добавить ответ',
+                      tooltip: loc.addAnswerTooltip,
                     ),
                   ],
                 ),
@@ -1939,6 +1938,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     String qid,
     Map<String, dynamic> answer,
   ) {
+    final loc = AppLocalizations.of(context)!;
     final attention = answer['attention'] == true;
     final isMobile = MediaQuery.of(context).size.width <= 800;
     return Container(
@@ -1965,7 +1965,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   : Color(0xFF6b7280),
             ),
             decoration: InputDecoration(
-              hintText: 'Введите ответ...',
+              hintText: loc.enterAnswer,
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -1998,7 +1998,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   onPressed: () => _showMediaPicker(context, i, j, false),
                 ),
                 Tooltip(
-                  message: 'Вопрос требует доработки...',
+                  message: loc.needsWorkTooltip,
                   child: IconButton(
                     icon: const Icon(Icons.edit_note),
                     color: _needsWorkMap[i] == true
@@ -2013,8 +2013,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 ),
                 Tooltip(
                   message: attention
-                      ? 'Снять отметку "Внимание"'
-                      : 'Отметить "Внимание"',
+                      ? loc.removeAttentionMark
+                      : loc.addAttentionMark,
                   child: IconButton(
                     icon: Icon(
                       Icons.warning_amber,
@@ -2041,7 +2041,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           1
                       ? () => _showDeleteAnswerDialog(context, i, j, reportState)
                       : null,
-                  tooltip: 'Удалить ответ',
+                  tooltip: loc.deleteAnswerTooltip,
                 ),
               ],
             ),
@@ -2061,26 +2061,27 @@ class _FormFillScreenState extends State<FormFillScreen> {
     List<XFile>? files;
 
     // Спрашиваем, что хочет пользователь
+    final loc = AppLocalizations.of(context)!;
     final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Добавить медиа'),
+        title: Text(loc.addMediaTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.camera),
-              title: const Text('Сделать фото'),
+              title: Text(loc.takePhoto),
               onTap: () => Navigator.pop(ctx, 'camera-photo'),
             ),
             ListTile(
               leading: const Icon(Icons.videocam),
-              title: const Text('Сделать видео'),
+              title: Text(loc.takeVideo),
               onTap: () => Navigator.pop(ctx, 'camera-video'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Выбрать из галереи'),
+              title: Text(loc.chooseFromGallery),
               onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
           ],
@@ -2109,7 +2110,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     if (kIsWeb) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Добавление медиа на вебе — скоро!')),
+          SnackBar(content: Text(loc.addMediaWebSoon)),
         );
       }
       return;
@@ -2212,6 +2213,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     int mediaIndex,
     ReportState reportState,
   ) {
+    final loc = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -2219,7 +2221,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.delete_outline),
-              title: const Text('Удалить'),
+              title: Text(loc.delete),
               onTap: () {
                 reportState.removeMedia(questionIndex, answerIndex, mediaIndex);
                 Navigator.pop(ctx);
@@ -2433,19 +2435,20 @@ void _showEditQuestionDialog(
   final report = reportState.currentReport;
   if (report == null) return;
 
+  final loc = AppLocalizations.of(context)!;
   final q = report.questions[questionIndex];
   final lang = report.currentLanguage;
-  final loc = q.getLocalization(lang);
+  final questionLoc = q.getLocalization(lang);
 
   String currentValue = '';
   String title = '';
 
   if (fieldType == 'name') {
-    title = 'Редактировать название';
-    currentValue = loc?.name ?? q.getDisplayName(lang) ?? '';
+    title = loc.editName;
+    currentValue = questionLoc?.name ?? q.getDisplayName(lang) ?? '';
   } else if (fieldType == 'description') {
-    title = 'Редактировать расшифровку';
-    currentValue = loc?.description ?? '';
+    title = loc.editDescription;
+    currentValue = questionLoc?.description ?? '';
   }
 
   final controller = TextEditingController(text: currentValue);
@@ -2460,15 +2463,15 @@ void _showEditQuestionDialog(
         autofocus: true,
         decoration: InputDecoration(
           hintText: fieldType == 'name'
-              ? 'Введите название...'
-              : 'Введите расшифровку...',
+              ? loc.enterName
+              : loc.enterDecryption,
           border: const OutlineInputBorder(),
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Отмена'),
+          child: Text(loc.cancel),
         ),
         TextButton(
           onPressed: () {
@@ -2478,21 +2481,21 @@ void _showEditQuestionDialog(
                 questionIndex,
                 lang,
                 newValue,
-                loc?.description,
-                loc?.example,
+                questionLoc?.description,
+                questionLoc?.example,
               );
             } else if (fieldType == 'description') {
               reportState.updateQuestionLocalization(
                 questionIndex,
                 lang,
-                loc?.name,
+                questionLoc?.name,
                 newValue,
-                loc?.example,
+                questionLoc?.example,
               );
             }
             Navigator.pop(ctx);
           },
-          child: const Text('Сохранить'),
+          child: Text(loc.save),
         ),
       ],
     ),
@@ -2530,23 +2533,25 @@ class _SyncDialogState extends State<_SyncDialog> {
   }
 
   Future<void> _copyToClipboard() async {
+    final loc = AppLocalizations.of(context)!;
     try {
       await Clipboard.setData(ClipboardData(text: _syncJson));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('JSON скопирован в буфер обмена')),
+          SnackBar(content: Text(loc.jsonCopiedToClipboard)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка копирования: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.copyError(e.toString()))));
       }
     }
   }
 
   Future<void> _saveToFile() async {
+    final loc = AppLocalizations.of(context)!;
     try {
       final directory = await FilePicker.platform.getDirectoryPath();
       if (directory == null) return;
@@ -2557,18 +2562,19 @@ class _SyncDialogState extends State<_SyncDialog> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Файл сохранён: ${file.path}')));
+        ).showSnackBar(SnackBar(content: Text(loc.fileSaved(file.path))));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.saveError(e.toString()))));
       }
     }
   }
 
   Future<void> _loadFromFile() async {
+    final loc = AppLocalizations.of(context)!;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json', 'txt'],
@@ -2585,16 +2591,17 @@ class _SyncDialogState extends State<_SyncDialog> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка чтения файла: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.readError(e.toString()))));
       }
     }
   }
 
   void _applySync() {
+    final loc = AppLocalizations.of(context)!;
     final jsonText = _jsonController.text.trim();
     if (jsonText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Вставьте переведённый JSON')),
+        SnackBar(content: Text(loc.pasteTranslatedJson)),
       );
       return;
     }
@@ -2605,20 +2612,21 @@ class _SyncDialogState extends State<_SyncDialog> {
       widget.onSyncApplied();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Синхронизация завершена')));
+      ).showSnackBar(SnackBar(content: Text(loc.syncComplete)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: неверный формат JSON - $e')),
+        SnackBar(content: Text(loc.invalidJsonError(e.toString()))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final isMobile = MediaQuery.of(context).size.width <= 800;
 
     return AlertDialog(
-      title: Text('Синхронизация ответов (${widget.targetLang})'),
+      title: Text(loc.syncAnswersTitle(widget.targetLang)),
       content: SizedBox(
         width: isMobile ? double.infinity : 550,
         child: SingleChildScrollView(
@@ -2633,22 +2641,22 @@ class _SyncDialogState extends State<_SyncDialog> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFFFC107)),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Воспользуйтесь любым доступным ИИ.',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      loc.useAnyAi,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Пример промта: Изучи json, если в какой-то локализации нет ответа, но он есть в другой локализации, то переведи и вставь перевод; если ответов нет нигде, то оставь пустое поле.',
-                      style: TextStyle(fontSize: 13),
+                      loc.aiPromptExample,
+                      style: const TextStyle(fontSize: 13),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      'Пример промта для ИИ: "В этом json есть ответы на разных языках. Заполни пустые ответы переводами ответов, которые уже есть."',
-                      style: TextStyle(
+                      loc.aiPromptExample2,
+                      style: const TextStyle(
                         fontSize: 13,
                         fontStyle: FontStyle.italic,
                       ),
@@ -2658,7 +2666,7 @@ class _SyncDialogState extends State<_SyncDialog> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Несинхронизированных вопросов: ${widget.unsyncIndices.length}',
+                loc.unsyncedQuestionsCount(widget.unsyncIndices.length),
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 12),
@@ -2668,7 +2676,7 @@ class _SyncDialogState extends State<_SyncDialog> {
                     child: ElevatedButton.icon(
                       onPressed: _copyToClipboard,
                       icon: const Icon(Icons.copy),
-                      label: const Text('Копировать'),
+                      label: Text(loc.copyButton),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFe0e0e0),
                         foregroundColor: const Color(0xFF424242),
@@ -2685,7 +2693,7 @@ class _SyncDialogState extends State<_SyncDialog> {
                     child: ElevatedButton.icon(
                       onPressed: _saveToFile,
                       icon: const Icon(Icons.download),
-                      label: const Text('Скачать'),
+                      label: Text(loc.downloadButton),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFe0e0e0),
                         foregroundColor: const Color(0xFF424242),
@@ -2700,16 +2708,16 @@ class _SyncDialogState extends State<_SyncDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Вставьте переведённый JSON:',
-                style: TextStyle(fontWeight: FontWeight.w500),
+              Text(
+                loc.pasteTranslatedJson,
+                style: const TextStyle(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _jsonController,
                 maxLines: 8,
                 decoration: InputDecoration(
-                  hintText: 'Вставьте JSON сюда...',
+                  hintText: loc.pasteJsonHere,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(
@@ -2725,7 +2733,7 @@ class _SyncDialogState extends State<_SyncDialog> {
               ElevatedButton.icon(
                 onPressed: _loadFromFile,
                 icon: const Icon(Icons.upload_file),
-                label: const Text('Загрузить из файла'),
+                label: Text(loc.loadFromFileButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
@@ -2743,9 +2751,9 @@ class _SyncDialogState extends State<_SyncDialog> {
             Navigator.pop(context);
             widget.onSkipSync();
           },
-          child: const Text(
-            'Отказаться',
-            style: TextStyle(color: Color(0xFF64748b)),
+          child: Text(
+            loc.cancel,
+            style: const TextStyle(color: Color(0xFF64748b)),
           ),
         ),
         ElevatedButton(
@@ -2755,7 +2763,7 @@ class _SyncDialogState extends State<_SyncDialog> {
             foregroundColor: Colors.white,
             side: const BorderSide(color: Color(0xFF333333), width: 2),
           ),
-          child: const Text('Синхронизировать'),
+          child: Text(loc.syncButton),
         ),
         if (isMobile) const SizedBox(height: 100),
       ],
@@ -2793,15 +2801,17 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
     try {
       await Clipboard.setData(ClipboardData(text: _syncJson));
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('JSON скопирован в буфер обмена')),
+          SnackBar(content: Text(loc.jsonCopiedToClipboard)),
         );
       }
     } catch (e) {
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка копирования: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.copyError(e.toString()))));
       }
     }
   }
@@ -2815,15 +2825,17 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
       await file.writeAsString(_syncJson);
 
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Файл сохранён: ${file.path}')));
+        ).showSnackBar(SnackBar(content: Text(loc.fileSaved(file.path))));
       }
     } catch (e) {
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.saveError(e.toString()))));
       }
     }
   }
@@ -2843,18 +2855,20 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
       });
     } catch (e) {
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка чтения файла: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.readError(e.toString()))));
       }
     }
   }
 
   void _applySync() {
+    final loc = AppLocalizations.of(context)!;
     final jsonText = _jsonController.text.trim();
     if (jsonText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Вставьте переведённый JSON')),
+        SnackBar(content: Text(loc.pasteTranslatedJson)),
       );
       return;
     }
@@ -2865,20 +2879,20 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
       widget.onApplied();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Синхронизация завершена')));
+      ).showSnackBar(SnackBar(content: Text(loc.syncComplete)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: неверный формат JSON - $e')),
+        SnackBar(content: Text(loc.invalidJsonError(e.toString()))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final unsyncCount = widget.reportState.getUnsyncQuestionIndices().length;
     final isMobile = MediaQuery.of(context).size.width <= 800;
 
-    // Общий контент для обеих версий
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2891,7 +2905,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
               border: Border.all(color: const Color(0xFFFFC107)),
             ),
             child: Text(
-              'Несинхронизированных вопросов: $unsyncCount',
+              loc.unsyncedQuestionsCount(unsyncCount),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -2904,9 +2918,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF28A745)),
             ),
-            child: const Text(
-              'Все ответы синхронизированы!',
-              style: TextStyle(
+            child: Text(
+              loc.allAnswersSynced,
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF155724),
               ),
@@ -2921,25 +2935,25 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFDEE2E6)),
           ),
-          child: const Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Инструкция:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                loc.instructionsLabel,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 4),
-              Text('1. Скопируйте или скачайте JSON с текущими ответами'),
-              Text('2. Отправьте в ИИ для перевода пустых полей'),
-              Text('3. Вставьте результат или загрузите файл'),
-              Text('4. Нажмите "Синхронизировать"'),
+              const SizedBox(height: 4),
+              Text(loc.syncStep1),
+              Text(loc.syncStep2),
+              Text(loc.syncStep3),
+              Text(loc.syncStep4),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Пример промта для ИИ:',
-          style: TextStyle(fontWeight: FontWeight.w500),
+        Text(
+          loc.aiPromptLabel,
+          style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 4),
         Container(
@@ -2949,9 +2963,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: const Color(0xFFDEE2E6)),
           ),
-          child: const Text(
-            '"В этом json есть ответы на разных языках. Заполни пустые ответы переводами ответов, которые уже есть."',
-            style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
+          child: Text(
+            loc.aiPromptContent,
+            style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
           ),
         ),
         const SizedBox(height: 16),
@@ -2961,7 +2975,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
               child: ElevatedButton.icon(
                 onPressed: _copyToClipboard,
                 icon: const Icon(Icons.copy),
-                label: const Text('Копировать JSON'),
+                label: Text(loc.copyJsonButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
@@ -2978,7 +2992,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
               child: ElevatedButton.icon(
                 onPressed: _saveToFile,
                 icon: const Icon(Icons.download),
-                label: const Text('Скачать'),
+                label: Text(loc.downloadButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
@@ -2993,16 +3007,16 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
           ],
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Загрузите переведённый JSON:',
-          style: TextStyle(fontWeight: FontWeight.w500),
+        Text(
+          loc.uploadTranslatedJsonLabel,
+          style: const TextStyle(fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _jsonController,
           maxLines: 6,
           decoration: InputDecoration(
-            hintText: 'Вставьте JSON сюда...',
+            hintText: loc.pasteJsonHere,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(
@@ -3018,7 +3032,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
         ElevatedButton.icon(
           onPressed: _loadFromFile,
           icon: const Icon(Icons.upload_file),
-          label: const Text('Загрузить из файла'),
+          label: Text(loc.loadFromFileButton),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFe0e0e0),
             foregroundColor: const Color(0xFF424242),
@@ -3041,9 +3055,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Синхронизация переводов',
-                    style: TextStyle(
+                  Text(
+                    loc.syncMenuTitle,
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -3067,9 +3081,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                   Expanded(
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        'Закрыть',
-                        style: TextStyle(color: Color(0xFF64748b)),
+                      child: Text(
+                        loc.close,
+                        style: const TextStyle(color: Color(0xFF64748b)),
                       ),
                     ),
                   ),
@@ -3082,7 +3096,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                         foregroundColor: Colors.white,
                         side: const BorderSide(color: Color(0xFF333333), width: 2),
                       ),
-                      child: const Text('Синхронизировать'),
+                      child: Text(loc.syncButton),
                     ),
                   ),
                 ],
@@ -3093,7 +3107,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
       );
     } else {
       return AlertDialog(
-        title: const Text('Синхронизация переводов'),
+        title: Text(loc.syncMenuTitle),
         content: SizedBox(
           width: 550,
           child: SingleChildScrollView(
@@ -3103,9 +3117,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Закрыть',
-              style: TextStyle(color: Color(0xFF64748b)),
+            child: Text(
+              loc.close,
+              style: const TextStyle(color: Color(0xFF64748b)),
             ),
           ),
           ElevatedButton(
@@ -3115,7 +3129,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
               foregroundColor: Colors.white,
               side: const BorderSide(color: Color(0xFF333333), width: 2),
             ),
-            child: const Text('Синхронизировать'),
+            child: Text(loc.syncButton),
           ),
         ],
       );

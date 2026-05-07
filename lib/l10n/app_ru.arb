@@ -7,6 +7,7 @@
   "delete": "Удалить",
   "cancel": "Отмена",
   "confirm": "Подтвердить",
+  "ok": "OK",
   "add": "Добавить",
   "addAbove": "Добавить выше",
   "addBelow": "Добавить ниже",
@@ -43,16 +44,15 @@
   "importTemplate": "Импортировать шаблон",
   "deleteReport": "Удалить этот отчёт?",
   "deleteReportConfirm": "Вы уверены, что хотите удалить этот отчёт?",
+  "cannotUndo": "Это действие нельзя отменить",
+  "reportDeleted": "Отчёт удалён",
   "createNewReport": "+ Создать новый отчёт",
   "openExistingReport": "Открыть существующий отчёт",
   "yourReports": "Ваши отчёты",
   "instructionsText": "Инструкция: создайте отчёт, выберите шаблон,\nзаполните данные и экспортируйте!",
   "htmlCopied": "HTML скопирован в буфер обмена",
-  "copyError": "Ошибка копирования: ",
   "excelHtmlCopied": "Excel HTML скопирован в буфер обмена",
   "saveZipWeb": "Сохранение ZIP недоступно на вебе",
-  "zipSaved": "ZIP сохранён: ",
-  "saveZipError": "Ошибка сохранения ZIP: ",
   "shareWeb": "Поделиться недоступно на вебе",
   "comingSoon": "Загрузка существующих отчётов — скоро!",
   "toggleView": "Переключить вид",
@@ -63,5 +63,159 @@
   "chinese": "中文",
   "noDescription": "Нет описания",
   "unsavedChanges": "Несохранённые изменения",
-  "confirmExit": "Выйти без сохранения?"
+  "confirmExit": "Выйти без сохранения?",
+  "createReportTitle": "Создать отчёт",
+  "deleteAnswerTitle": "Удалить ответ?",
+  "changeAnswerTitle": "Изменение ответа",
+  "enterNewAnswerText": "Введите новый текст ответа",
+  "enterNewAnswerPlaceholder": "Введите текст нового ответа",
+  "deleteQuestionTitle": "Удалить вопрос?",
+  "addMediaTitle": "Добавить медиа",
+  "addMediaWebSoon": "Добавление медиа на вебе — скоро!",
+  "addAnswerTooltip": "Добавить ответ",
+  "deleteAnswerTooltip": "Удалить ответ",
+  "jsonCopiedToClipboard": "JSON скопирован в буфер обмена",
+  "pasteTranslatedJson": "Вставьте переведённый JSON",
+  "syncComplete": "Синхронизация завершена",
+  "syncAnswersTitle": "Синхронизация ответов ({lang})",
+  "copyButton": "Копировать",
+  "downloadButton": "Скачать",
+  "loadFromFileButton": "Загрузить из файла",
+  "syncButton": "Синхронизировать",
+  "copyJsonButton": "Копировать JSON",
+  "syncMenuTitle": "Синхронизация переводов",
+  "syncStep1": "1. Скопируйте или скачайте JSON с текущими ответами",
+  "syncStep2": "2. Отправьте в ИИ для перевода пустых полей",
+  "syncStep3": "3. Вставьте результат или загрузите файл",
+  "syncStep4": "4. Нажмите \"Синхронизировать\"",
+  "pasteJsonHere": "Вставьте JSON сюда...",
+  "@copyError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "copyError": "Ошибка копирования: {error}",
+  "@fileSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "fileSaved": "Файл сохранён: {path}",
+  "@saveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "saveError": "Ошибка сохранения: {error}",
+  "@readError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readError": "Ошибка чтения файла: {error}",
+  "@invalidJsonError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidJsonError": "Ошибка: неверный формат JSON - {error}",
+  "@loadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loadError": "Ошибка загрузки: {error}",
+  "templateLoadError": "Ошибка при загрузке шаблона",
+  "templateCopiedClipboard": "Шаблон скопирован в буфер обмена",
+  "@templateSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "templateSaved": "Шаблон сохранён в {path}",
+  "pasteTranslatedTemplate": "Вставьте переведённый шаблон",
+  "@translationAdded": {
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
+  },
+  "translationAdded": "Перевод на {lang} успешно добавлен!",
+  "@templateError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "templateError": "Ошибка в шаблоне: {error}",
+  "copyTemplateButton": "Копировать шаблон",
+  "addTranslationButton": "Добавить перевод",
+  "addTranslationTitle": "Добавить перевод",
+  "deleteAnswerConfirm": "Вы уверены, что хотите удалить этот ответ?\n\nЭто действие невозможно отменить.",
+  "deleteQuestionConfirm": "Вы уверены, что хотите удалить вопрос?",
+  "lockWarningText": "Внимание! Изменение этого ответа приведет к удалению текста в других локализациях.",
+  "replaceExistingAnswer": "Заменить существующий ответ:",
+  "orAddNewAnswer": "Или добавить новый ответ:",
+  "deleteThisQuestion": "Удалить этот вопрос",
+  "useAnyAi": "Воспользуйтесь любым доступным ИИ.",
+  "aiPromptExample": "Пример промта: Изучи json, если в какой-то локализации нет ответа, но он есть в другой локализации, то переведи и вставь перевод; если ответов нет нигде, то оставь пустое поле.",
+  "aiPromptExample2": "Пример промта для ИИ: \"В этом json есть ответы на разных языках. Заполни пустые ответы переводами ответов, которые уже есть.\"",
+  "@unsyncedQuestionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unsyncedQuestionsCount": "Несинхронизированных вопросов: {count}",
+  "close": "Закрыть",
+  "aiPromptLabel": "Пример промта для ИИ:",
+  "aiPromptContent": "\"В этом json есть ответы на разных языках. Заполни пустые ответы переводами ответов, которые уже есть.\"",
+  "enterDecryption": "Введите расшифровку...",
+  "questions": "Вопросы",
+  "reportNameLabel": "Название отчёта",
+  "selectTemplate": "Выберите шаблон",
+  "builtInTemplate": "Встроенный шаблон",
+  "builtInTemplateDesc": "4 вопроса, RU+EN",
+  "preview": "Предпросмотр",
+  "noName": "Без названия",
+  "useTemplate": "Использовать шаблон",
+  "uploadYourTemplate": "Загрузить свой шаблон (.xlsx)",
+  "selected": "Выбран",
+  "enterTranslatedTemplate": "Введите переведённый шаблон",
+  "noAppToOpenHtml": "Установите браузер или приложение для просмотра HTML",
+  "needsWorkTooltip": "Вопрос требует доработки...",
+  "removeAttentionMark": "Снять отметку \"Внимание\"",
+  "addAttentionMark": "Отметить \"Внимание\"",
+  "searchReports": "Поиск отчётов...",
+  "noReportsYet": "У вас пока нет отчётов",
+  "reportsNotFound": "Отчёты не найдены",
+  "allAnswersSynced": "Все ответы синхронизированы!",
+  "instructionsLabel": "Инструкция:",
+  "copyTemplateInstructions": "Скопируйте шаблон, переведите его на нужный язык с использованием любого ИИ и вставьте результат.",
+  "selectSourceLanguage": "1. Выберите исходный язык:",
+  "pasteTranslatedTemplateLabel": "2. Вставьте переведённый шаблон:",
+  "uploadTranslatedJsonLabel": "Загрузите переведённый JSON:",
+  "pasteTranslatedTemplateHint": "Вставьте переведённый шаблон сюда...",
+  "switchLanguage": "Переключите язык",
+  "editName": "Редактировать название",
+  "editDescription": "Редактировать расшифровку",
+  "zipSaved": "ZIP сохранён в {path}",
+  "saveZipError": "Ошибка сохранения ZIP: {error}"
 }

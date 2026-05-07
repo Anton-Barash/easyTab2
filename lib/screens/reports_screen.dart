@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/report_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class ReportsScreen extends StatefulWidget {
   ReportsScreen({super.key});
@@ -35,9 +36,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Мои отчёты'),
+        title: Text(loc.myReports),
         backgroundColor: const Color(0xFFe0e0e0),
         foregroundColor: const Color(0xFF424242),
         elevation: 0,
@@ -62,7 +64,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     });
                   },
                   decoration: InputDecoration(
-                    hintText: 'Поиск отчётов...',
+                    hintText: loc.searchReports,
                     prefixIcon: const Icon(Icons.search, color: Color(0xFF666666)),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
@@ -102,7 +104,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     }
                     if (snapshot.hasError) {
                       return Center(
-                        child: Text('Ошибка загрузки: ${snapshot.error}'),
+                        child: Text(loc.loadError(snapshot.error.toString())),
                       );
                     }
                     final reports = snapshot.data ?? [];
@@ -113,7 +115,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     if (filteredReports.isEmpty) {
                       return Center(
                         child: Text(
-                          _searchQuery.isEmpty ? 'У вас пока нет отчётов' : 'Отчёты не найдены',
+                          _searchQuery.isEmpty ? loc.noReportsYet : loc.reportsNotFound,
                           style: const TextStyle(color: Color(0xFF666666), fontSize: 16),
                         ),
                       );
@@ -199,19 +201,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
               IconButton(
                 icon: const Icon(Icons.delete, color: Color(0xFFdc2626)),
                 onPressed: () async {
+                  final loc = AppLocalizations.of(context)!;
                   final confirm = await showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Удалить отчёт?'),
-                      content: const Text('Это действие нельзя отменить'),
+                      title: Text(loc.deleteReport),
+                      content: Text(loc.cannotUndo),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Отмена'),
+                          child: Text(loc.cancel),
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Удалить'),
+                          child: Text(loc.delete),
                         ),
                       ],
                     ),
@@ -223,7 +226,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     });
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Отчёт удалён')),
+                        SnackBar(content: Text(loc.reportDeleted)),
                       );
                     }
                   }

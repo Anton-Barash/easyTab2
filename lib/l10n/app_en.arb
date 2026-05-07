@@ -7,6 +7,7 @@
   "delete": "Delete",
   "cancel": "Cancel",
   "confirm": "Confirm",
+  "ok": "OK",
   "add": "Add",
   "addAbove": "Add Above",
   "addBelow": "Add Below",
@@ -43,16 +44,15 @@
   "importTemplate": "Import Template",
   "deleteReport": "Delete this report?",
   "deleteReportConfirm": "Are you sure you want to delete this report?",
+  "cannotUndo": "This action cannot be undone",
+  "reportDeleted": "Report deleted",
   "createNewReport": "+ Create New Report",
   "openExistingReport": "Open Existing Report",
   "yourReports": "Your Reports",
   "instructionsText": "Instructions: create a report, select a template,\nfill in the data and export!",
   "htmlCopied": "HTML copied to clipboard",
-  "copyError": "Copy error: ",
   "excelHtmlCopied": "Excel HTML copied to clipboard",
   "saveZipWeb": "Saving ZIP is not available on web",
-  "zipSaved": "ZIP saved: ",
-  "saveZipError": "Error saving ZIP: ",
   "shareWeb": "Share is not available on web",
   "comingSoon": "Loading existing reports — coming soon!",
   "toggleView": "Toggle View",
@@ -63,5 +63,159 @@
   "chinese": "中文",
   "noDescription": "No description",
   "unsavedChanges": "Unsaved changes",
-  "confirmExit": "Exit without saving?"
+  "confirmExit": "Exit without saving?",
+  "createReportTitle": "Create Report",
+  "deleteAnswerTitle": "Delete answer?",
+  "changeAnswerTitle": "Edit Answer",
+  "enterNewAnswerText": "Enter new answer text",
+  "enterNewAnswerPlaceholder": "Enter text for new answer",
+  "deleteQuestionTitle": "Delete question?",
+  "addMediaTitle": "Add Media",
+  "addMediaWebSoon": "Adding media on web — coming soon!",
+  "addAnswerTooltip": "Add answer",
+  "deleteAnswerTooltip": "Delete answer",
+  "jsonCopiedToClipboard": "JSON copied to clipboard",
+  "pasteTranslatedJson": "Paste translated JSON",
+  "syncComplete": "Sync complete",
+  "syncAnswersTitle": "Sync Answers ({lang})",
+  "copyButton": "Copy",
+  "downloadButton": "Download",
+  "loadFromFileButton": "Load from file",
+  "syncButton": "Sync",
+  "copyJsonButton": "Copy JSON",
+  "syncMenuTitle": "Sync Translations",
+  "syncStep1": "1. Copy or download JSON with current answers",
+  "syncStep2": "2. Send to AI for translating empty fields",
+  "syncStep3": "3. Paste the result or upload the file",
+  "syncStep4": "4. Press \"Sync\"",
+  "pasteJsonHere": "Paste JSON here...",
+  "@copyError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "copyError": "Copy error: {error}",
+  "@fileSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "fileSaved": "File saved: {path}",
+  "@saveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "saveError": "Save error: {error}",
+  "@readError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readError": "Read error: {error}",
+  "@invalidJsonError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidJsonError": "Error: invalid JSON format - {error}",
+  "@loadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loadError": "Load error: {error}",
+  "templateLoadError": "Error loading template",
+  "templateCopiedClipboard": "Template copied to clipboard",
+  "@templateSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "templateSaved": "Template saved to {path}",
+  "pasteTranslatedTemplate": "Paste translated template",
+  "@translationAdded": {
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
+  },
+  "translationAdded": "Translation for {lang} successfully added!",
+  "@templateError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "templateError": "Template error: {error}",
+  "copyTemplateButton": "Copy Template",
+  "addTranslationButton": "Add Translation",
+  "addTranslationTitle": "Add Translation",
+  "deleteAnswerConfirm": "Are you sure you want to delete this answer?\n\nThis action cannot be undone.",
+  "deleteQuestionConfirm": "Are you sure you want to delete this question?",
+  "lockWarningText": "Warning! Changing this answer will delete the text in other localizations.",
+  "replaceExistingAnswer": "Replace existing answer:",
+  "orAddNewAnswer": "Or add a new answer:",
+  "deleteThisQuestion": "Delete this question",
+  "useAnyAi": "Use any available AI.",
+  "aiPromptExample": "Prompt example: Study the json, if some localization has no answer but it exists in another localization, translate and insert the translation; if no answers exist anywhere, leave the field empty.",
+  "aiPromptExample2": "AI prompt example: \"This json contains answers in different languages. Fill in empty answers with translations of existing answers.\"",
+  "@unsyncedQuestionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unsyncedQuestionsCount": "Unsynced questions: {count}",
+  "close": "Close",
+  "aiPromptLabel": "AI prompt example:",
+  "aiPromptContent": "\"This json contains answers in different languages. Fill in empty answers with translations of existing answers.\"",
+  "enterDecryption": "Enter description...",
+  "questions": "Questions",
+  "reportNameLabel": "Report name",
+  "selectTemplate": "Select template",
+  "builtInTemplate": "Built-in template",
+  "builtInTemplateDesc": "4 questions, RU+EN",
+  "preview": "Preview",
+  "noName": "No name",
+  "useTemplate": "Use template",
+  "uploadYourTemplate": "Upload your template (.xlsx)",
+  "selected": "Selected",
+  "enterTranslatedTemplate": "Enter translated template",
+  "noAppToOpenHtml": "Install a browser or app to view HTML",
+  "needsWorkTooltip": "Question needs work...",
+  "removeAttentionMark": "Remove \"Attention\" mark",
+  "addAttentionMark": "Mark \"Attention\"",
+  "searchReports": "Search reports...",
+  "noReportsYet": "You have no reports yet",
+  "reportsNotFound": "Reports not found",
+  "allAnswersSynced": "All answers synced!",
+  "instructionsLabel": "Instructions:",
+  "copyTemplateInstructions": "Copy the template, translate it using any AI and paste the result.",
+  "selectSourceLanguage": "1. Select source language:",
+  "pasteTranslatedTemplateLabel": "2. Paste translated template:",
+  "uploadTranslatedJsonLabel": "Upload translated JSON:",
+  "pasteTranslatedTemplateHint": "Paste translated template here...",
+  "switchLanguage": "Switch language",
+  "editName": "Edit name",
+  "editDescription": "Edit description",
+  "zipSaved": "ZIP saved to {path}",
+  "saveZipError": "Save ZIP error: {error}"
 }

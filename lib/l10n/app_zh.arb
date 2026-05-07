@@ -7,6 +7,7 @@
   "delete": "删除",
   "cancel": "取消",
   "confirm": "确认",
+  "ok": "确定",
   "add": "添加",
   "addAbove": "在上方添加",
   "addBelow": "在下方添加",
@@ -43,16 +44,15 @@
   "importTemplate": "导入模板",
   "deleteReport": "删除此报告?",
   "deleteReportConfirm": "您确定要删除此报告吗?",
+  "cannotUndo": "此操作无法撤消",
+  "reportDeleted": "报告已删除",
   "createNewReport": "+ 创建新报告",
   "openExistingReport": "打开现有报告",
   "yourReports": "您的报告",
   "instructionsText": "说明：创建报告，选择模板，\n填写数据并导出！",
   "htmlCopied": "HTML已复制到剪贴板",
-  "copyError": "复制错误：",
   "excelHtmlCopied": "Excel HTML已复制到剪贴板",
   "saveZipWeb": "在Web上无法保存ZIP",
-  "zipSaved": "ZIP已保存：",
-  "saveZipError": "保存ZIP时出错：",
   "shareWeb": "在Web上无法分享",
   "comingSoon": "加载现有报告 — 即将推出！",
   "toggleView": "切换视图",
@@ -63,5 +63,159 @@
   "chinese": "中文",
   "noDescription": "没有描述",
   "unsavedChanges": "未保存的更改",
-  "confirmExit": "不保存就退出？"
+  "confirmExit": "不保存就退出？",
+  "createReportTitle": "创建报告",
+  "deleteAnswerTitle": "删除答案?",
+  "changeAnswerTitle": "编辑答案",
+  "enterNewAnswerText": "输入新的答案文本",
+  "enterNewAnswerPlaceholder": "输入新答案文本",
+  "deleteQuestionTitle": "删除问题?",
+  "addMediaTitle": "添加媒体",
+  "addMediaWebSoon": "网页添加媒体 — 即将推出！",
+  "addAnswerTooltip": "添加答案",
+  "deleteAnswerTooltip": "删除答案",
+  "jsonCopiedToClipboard": "JSON已复制到剪贴板",
+  "pasteTranslatedJson": "请粘贴翻译后的JSON",
+  "syncComplete": "同步完成",
+  "syncAnswersTitle": "同步答案 ({lang})",
+  "copyButton": "复制",
+  "downloadButton": "下载",
+  "loadFromFileButton": "从文件加载",
+  "syncButton": "同步",
+  "copyJsonButton": "复制JSON",
+  "syncMenuTitle": "同步翻译",
+  "syncStep1": "1. 复制或下载包含当前答案的JSON",
+  "syncStep2": "2. 发送给AI翻译空白字段",
+  "syncStep3": "3. 粘贴结果或上传文件",
+  "syncStep4": "4. 点击\"同步\"",
+  "pasteJsonHere": "在此粘贴JSON...",
+  "@copyError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "copyError": "复制错误：{error}",
+  "@fileSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "fileSaved": "文件已保存：{path}",
+  "@saveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "saveError": "保存错误：{error}",
+  "@readError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "readError": "读取文件错误：{error}",
+  "@invalidJsonError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidJsonError": "错误：JSON格式无效 - {error}",
+  "@loadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loadError": "加载错误：{error}",
+  "templateLoadError": "加载模板错误",
+  "templateCopiedClipboard": "模板已复制到剪贴板",
+  "@templateSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "templateSaved": "模板已保存到 {path}",
+  "pasteTranslatedTemplate": "请粘贴翻译后的模板",
+  "@translationAdded": {
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
+  },
+  "translationAdded": "{lang}翻译已成功添加！",
+  "@templateError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "templateError": "模板错误：{error}",
+  "copyTemplateButton": "复制模板",
+  "addTranslationButton": "添加翻译",
+  "addTranslationTitle": "添加翻译",
+  "deleteAnswerConfirm": "您确定要删除此答案吗？\n\n此操作无法撤消。",
+  "deleteQuestionConfirm": "您确定要删除此问题吗？",
+  "lockWarningText": "警告！更改此答案将删除其他语言版本中的文本。",
+  "replaceExistingAnswer": "替换现有答案：",
+  "orAddNewAnswer": "或添加新答案：",
+  "deleteThisQuestion": "删除此问题",
+  "useAnyAi": "使用任何可用的AI。",
+  "aiPromptExample": "提示示例：研究json，如果某个语言版本没有答案但其他语言版本有，请翻译并插入译文；如果所有地方都没有答案，请留空。",
+  "aiPromptExample2": "AI提示示例：\"此json包含不同语言的答案。用现有答案的翻译填写空白答案。\"",
+  "@unsyncedQuestionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unsyncedQuestionsCount": "未同步的问题：{count}",
+  "close": "关闭",
+  "aiPromptLabel": "AI提示示例：",
+  "aiPromptContent": "\"此json包含不同语言的答案。用现有答案的翻译填写空白答案。\"",
+  "enterDecryption": "输入描述...",
+  "questions": "问题",
+  "reportNameLabel": "报告名称",
+  "selectTemplate": "选择模板",
+  "builtInTemplate": "内置模板",
+  "builtInTemplateDesc": "4个问题，RU+EN",
+  "preview": "预览",
+  "noName": "无名称",
+  "useTemplate": "使用模板",
+  "uploadYourTemplate": "上传您的模板 (.xlsx)",
+  "selected": "已选择",
+  "enterTranslatedTemplate": "输入翻译后的模板",
+  "noAppToOpenHtml": "请安装浏览器或应用程序查看HTML",
+  "needsWorkTooltip": "问题需要修改...",
+  "removeAttentionMark": "取消\"注意\"标记",
+  "addAttentionMark": "标记\"注意\"",
+  "searchReports": "搜索报告...",
+  "noReportsYet": "您还没有报告",
+  "reportsNotFound": "未找到报告",
+  "allAnswersSynced": "所有答案已同步！",
+  "instructionsLabel": "说明：",
+  "copyTemplateInstructions": "复制模板，使用AI翻译成所需语言，然后粘贴结果。",
+  "selectSourceLanguage": "1. 选择源语言：",
+  "pasteTranslatedTemplateLabel": "2. 粘贴翻译后的模板：",
+  "uploadTranslatedJsonLabel": "上传翻译后的JSON：",
+  "pasteTranslatedTemplateHint": "在此粘贴翻译后的模板...",
+  "switchLanguage": "切换语言",
+  "editName": "编辑名称",
+  "editDescription": "编辑描述",
+  "zipSaved": "ZIP已保存到 {path}",
+  "saveZipError": "保存ZIP错误：{error}"
 }
