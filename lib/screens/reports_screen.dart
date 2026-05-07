@@ -202,21 +202,62 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 icon: const Icon(Icons.delete, color: Color(0xFFdc2626)),
                 onPressed: () async {
                   final loc = AppLocalizations.of(context)!;
+                  final isMobile = MediaQuery.of(context).size.width <= 800;
                   final confirm = await showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: Text(loc.deleteReport),
-                      content: Text(loc.cannotUndo),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: Text(loc.cancel),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: Text(loc.delete),
-                        ),
-                      ],
+                      insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+                      contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+                      shape: isMobile
+                          ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+                          : null,
+                      title: isMobile ? null : Text(loc.deleteReport),
+                      content: isMobile
+                          ? Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(loc.cannotUndo),
+                                const SizedBox(height: 24),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: Text(loc.cancel),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: Text(loc.delete),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            )
+                          : Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(loc.cannotUndo),
+                                const SizedBox(height: 24),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: Text(loc.cancel),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: Text(loc.delete),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                     ),
                   );
                   if (confirm == true) {

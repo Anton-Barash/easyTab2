@@ -944,6 +944,8 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       );
     } else {
       return AlertDialog(
+        insetPadding: const EdgeInsets.all(40),
+        contentPadding: const EdgeInsets.all(24),
         title: Text(loc.addTranslationTitle),
         content: SizedBox(
           width: 500,

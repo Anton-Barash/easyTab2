@@ -36,6 +36,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   Set<int> _blockedQuestionIndices = {};
   bool _isUpdatingControllers = false;
   final Map<String, Map<int, bool>> _enabledAnswers = {};
+  Timer? _saveTimer;
 
   @override
   void dispose() {
@@ -45,9 +46,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
     _debounceTimers.values
         .expand((map) => map.values)
         .forEach((timer) => timer?.cancel());
+    _saveTimer?.cancel();
     _pageController.dispose();
     _listScrollController.dispose();
     super.dispose();
+  }
+
+  void _scheduleSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(seconds: 1), () async {
+      final reportState = context.read<ReportState>();
+      await reportState.saveReport();
+    });
   }
 
   void _handleLanguageChange(String lang) {
@@ -111,28 +121,85 @@ class _FormFillScreenState extends State<FormFillScreen> {
     ReportState reportState,
   ) {
     final loc = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(loc.deleteAnswerTitle),
-        content: Text(loc.deleteAnswerConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(loc.cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFdc2626),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              reportState.removeAnswer(i, j);
-              Navigator.pop(ctx);
-            },
-            child: Text(loc.delete),
-          ),
-        ],
+        insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+        contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+        shape: isMobile
+            ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+            : null,
+        content: isMobile
+            ? SizedBox(
+                width: double.infinity,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      loc.deleteAnswerConfirm,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: Text(loc.cancel),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFdc2626),
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () {
+                              reportState.removeAnswer(i, j);
+                              _scheduleSave();
+                              Navigator.pop(ctx);
+                            },
+                            child: Text(loc.delete),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(loc.deleteAnswerConfirm),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(loc.cancel),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFdc2626),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          reportState.removeAnswer(i, j);
+                          _scheduleSave();
+                          Navigator.pop(ctx);
+                        },
+                        child: Text(loc.delete),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+        title: isMobile ? null : Text(loc.deleteAnswerTitle),
       ),
     );
   }
@@ -158,100 +225,108 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(loc.changeAnswerTitle),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                loc.lockWarningText,
-                style: const TextStyle(color: Color(0xFFef4444)),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                loc.replaceExistingAnswer,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: replaceController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: loc.enterNewAnswerText,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+      builder: (ctx) {
+        final isMobile = MediaQuery.of(context).size.width <= 800;
+        return AlertDialog(
+          insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+          contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+          shape: isMobile
+              ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+              : null,
+          title: Text(loc.changeAnswerTitle),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.lockWarningText,
+                  style: const TextStyle(color: Color(0xFFef4444)),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  loc.replaceExistingAnswer,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: replaceController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: loc.enterNewAnswerText,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                loc.orAddNewAnswer,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: newController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: loc.enterNewAnswerPlaceholder,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                const SizedBox(height: 16),
+                Text(
+                  loc.orAddNewAnswer,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: newController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: loc.enterNewAnswerPlaceholder,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                 ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(loc.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563eb),
+                foregroundColor: Colors.white,
               ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(loc.cancel),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563eb),
-            foregroundColor: Colors.white,
-          ),
-          onPressed: () {
-            setState(() {
-              _enabledAnswers[qid]![j] = true;
-            });
+              onPressed: () {
+                setState(() {
+                  _enabledAnswers[qid]![j] = true;
+                });
 
-            if (newController.text.isNotEmpty) {
-              reportState.addAnswer(i);
-              final newJ =
-                  (reportState.currentReport
-                          ?.getAnswersForQuestion(
-                            i,
-                            reportState.currentReport!.currentLanguage,
-                          )
-                          .length ??
-                      1) -
-                  1;
-              reportState.updateAnswerText(i, newJ, newController.text);
-            } else if (replaceController.text.isNotEmpty &&
-                replaceController.text != currentText) {
-              reportState.updateAnswerText(i, j, replaceController.text);
-            }
+                if (newController.text.isNotEmpty) {
+                  reportState.addAnswer(i);
+                  final newJ =
+                      (reportState.currentReport
+                              ?.getAnswersForQuestion(
+                                i,
+                                reportState.currentReport!.currentLanguage,
+                              )
+                              .length ??
+                          1) -
+                      1;
+                  reportState.updateAnswerText(i, newJ, newController.text);
+                } else if (replaceController.text.isNotEmpty &&
+                    replaceController.text != currentText) {
+                  reportState.updateAnswerText(i, j, replaceController.text);
+                }
 
-            Navigator.pop(ctx);
-          },
-          child: Text(loc.ok),
-          ),
-        ],
-      ),
+                Navigator.pop(ctx);
+              },
+              child: Text(loc.ok),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -338,6 +413,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     j,
                     _answerControllers[qid]![j]!.text,
                   );
+                  _scheduleSave();
                 },
               );
             }
@@ -1917,7 +1993,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           width: 1.5,
                         ),
                       ),
-                      onPressed: () => reportState.addAnswer(index),
+                      onPressed: () {
+                        reportState.addAnswer(index);
+                        _scheduleSave();
+                      },
                       tooltip: loc.addAnswerTooltip,
                     ),
                   ],
@@ -2005,9 +2084,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ? const Color(0xFFf59e0b)
                         : const Color(0xFF9ca3af),
                     onPressed: () {
+                      final newValue = !(_needsWorkMap[i] ?? false);
                       setState(() {
-                        _needsWorkMap[i] = !(_needsWorkMap[i] ?? false);
+                        _needsWorkMap[i] = newValue;
                       });
+                      reportState.updateAnswerNeedsWork(i, j, newValue);
+                      _scheduleSave();
                     },
                   ),
                 ),
@@ -2024,6 +2106,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ),
                     onPressed: () {
                       reportState.updateAnswerAttention(i, j, !attention);
+                      _scheduleSave();
                     },
                   ),
                 ),
@@ -2131,6 +2214,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         isAttention,
       );
     }
+    _scheduleSave();
   }
 
   Widget _buildMediaGrid(
@@ -2184,7 +2268,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
             media: media,
             onTap: () => _showFullMediaViewer(context, mediaList, initialIndex: idx),
             onLongPress: () => _showMediaOptions(context, questionIndex, answerIndex, idx, reportState),
-            onDelete: () => reportState.removeMedia(questionIndex, answerIndex, idx),
+            onDelete: () {
+              reportState.removeMedia(questionIndex, answerIndex, idx);
+              _scheduleSave();
+            },
           ),
         );
       }
@@ -2230,6 +2317,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               title: Text(loc.delete),
               onTap: () {
                 reportState.removeMedia(questionIndex, answerIndex, mediaIndex);
+                _scheduleSave();
                 Navigator.pop(ctx);
               },
             ),
@@ -2461,50 +2549,58 @@ void _showEditQuestionDialog(
 
   showDialog(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        maxLines: fieldType == 'description' ? 3 : 1,
-        autofocus: true,
-        decoration: InputDecoration(
-          hintText: fieldType == 'name'
-              ? loc.enterName
-              : loc.enterDecryption,
-          border: const OutlineInputBorder(),
+    builder: (ctx) {
+      final isMobile = MediaQuery.of(context).size.width <= 800;
+      return AlertDialog(
+        insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+        contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+        shape: isMobile
+            ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+            : null,
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          maxLines: fieldType == 'description' ? 3 : 1,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: fieldType == 'name'
+                ? loc.enterName
+                : loc.enterDecryption,
+            border: const OutlineInputBorder(),
+          ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: Text(loc.cancel),
-        ),
-        TextButton(
-          onPressed: () {
-            final newValue = controller.text.trim();
-            if (fieldType == 'name') {
-              reportState.updateQuestionLocalization(
-                questionIndex,
-                lang,
-                newValue,
-                questionLoc?.description,
-                questionLoc?.example,
-              );
-            } else if (fieldType == 'description') {
-              reportState.updateQuestionLocalization(
-                questionIndex,
-                lang,
-                questionLoc?.name,
-                newValue,
-                questionLoc?.example,
-              );
-            }
-            Navigator.pop(ctx);
-          },
-          child: Text(loc.save),
-        ),
-      ],
-    ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(loc.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              final newValue = controller.text.trim();
+              if (fieldType == 'name') {
+                reportState.updateQuestionLocalization(
+                  questionIndex,
+                  lang,
+                  newValue,
+                  questionLoc?.description,
+                  questionLoc?.example,
+                );
+              } else if (fieldType == 'description') {
+                reportState.updateQuestionLocalization(
+                  questionIndex,
+                  lang,
+                  questionLoc?.name,
+                  newValue,
+                  questionLoc?.example,
+                );
+              }
+              Navigator.pop(ctx);
+            },
+            child: Text(loc.save),
+          ),
+        ],
+      );
+    },
   );
 }
 
@@ -2632,6 +2728,11 @@ class _SyncDialogState extends State<_SyncDialog> {
     final isMobile = MediaQuery.of(context).size.width <= 800;
 
     return AlertDialog(
+      insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+      contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+      shape: isMobile
+          ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+          : null,
       title: Text(loc.syncAnswersTitle(widget.targetLang)),
       content: SizedBox(
         width: isMobile ? double.infinity : 550,
