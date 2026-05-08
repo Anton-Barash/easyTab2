@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -42,13 +40,11 @@ class EasyTabApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            supportedLocales: const [
-              Locale('en'),
-              Locale('ru'),
-              Locale('zh'),
-            ],
+            supportedLocales: const [Locale('en'), Locale('ru'), Locale('zh')],
             theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563eb)),
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF2563eb),
+              ),
               useMaterial3: true,
             ),
             initialRoute: '/',
@@ -78,9 +74,7 @@ class StartScreen extends StatelessWidget {
           Positioned.fill(
             child: Container(
               color: const Color(0xFFf8f7f2),
-              child: CustomPaint(
-                painter: DottedPatternPainter(),
-              ),
+              child: CustomPaint(painter: DottedPatternPainter()),
             ),
           ),
           Center(
@@ -104,10 +98,7 @@ class StartScreen extends StatelessWidget {
                   const SizedBox(height: 15),
                   const Text(
                     'Excel Report Builder',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF424242),
-                    ),
+                    style: TextStyle(fontSize: 16, color: Color(0xFF424242)),
                   ),
                   const SizedBox(height: 30),
                   _buildButton(
@@ -127,7 +118,10 @@ class StartScreen extends StatelessWidget {
                   const SizedBox(height: 30),
                   Text(
                     loc.instructionsText,
-                    style: const TextStyle(color: Color(0xFF424242), fontSize: 12),
+                    style: const TextStyle(
+                      color: Color(0xFF424242),
+                      fontSize: 12,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
@@ -145,7 +139,11 @@ class StartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLanguageSwitcher(BuildContext context, LocaleProvider localeProvider, AppLocalizations loc) {
+  Widget _buildLanguageSwitcher(
+    BuildContext context,
+    LocaleProvider localeProvider,
+    AppLocalizations loc,
+  ) {
     return PopupMenuButton<Locale>(
       icon: const Icon(Icons.language, size: 24),
       onSelected: (locale) {
@@ -262,10 +260,13 @@ class StartScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _openExistingReport(BuildContext context, AppLocalizations loc) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.comingSoon)),
-    );
+  Future<void> _openExistingReport(
+    BuildContext context,
+    AppLocalizations loc,
+  ) async {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.comingSoon)));
   }
 }
 

@@ -96,6 +96,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get share => '分享';
 
   @override
+  String get compressVideo => '压缩视频';
+
+  @override
   String get syncTranslations => '同步翻译';
 
   @override
@@ -487,4 +490,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get saved => '已保存';
+
+  @override
+  String get processingZip => '正在处理ZIP...';
+
+  @override
+  String get importingProject => '正在导入项目...';
+
+  @override
+  String get projectImported => '项目导入成功！';
+
+  @override
+  String get importError => '导入错误';
 }

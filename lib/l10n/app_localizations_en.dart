@@ -96,6 +96,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get share => 'Share';
 
   @override
+  String get compressVideo => 'Compress Video';
+
+  @override
   String get syncTranslations => 'Sync Translations';
 
   @override
@@ -495,4 +498,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get saved => 'Saved';
+
+  @override
+  String get processingZip => 'Processing ZIP...';
+
+  @override
+  String get importingProject => 'Importing project...';
+
+  @override
+  String get projectImported => 'Project imported!';
+
+  @override
+  String get importError => 'Import error';
 }

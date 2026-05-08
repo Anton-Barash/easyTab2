@@ -29,6 +29,7 @@
   "viewHtml": "View HTML",
   "saveZip": "Save ZIP",
   "share": "Share",
+  "compressVideo": "Compress Video",
   "syncTranslations": "Sync Translations",
   "exportExcel": "Export Excel",
   "exit": "Exit",
@@ -220,5 +221,9 @@
   "saveZipError": "Save ZIP error: {error}",
   "lockAnswerTooltip": "Lock answer",
   "unlockAnswerTooltip": "Unlock answer",
-  "saved": "Saved"
+  "saved": "Saved",
+  "processingZip": "Processing ZIP...",
+  "importingProject": "Importing project...",
+  "projectImported": "Project imported!",
+  "importError": "Import error"
 }

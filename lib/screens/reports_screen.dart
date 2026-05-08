@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../providers/report_provider.dart';
 import '../l10n/app_localizations.dart';
 
 class ReportsScreen extends StatefulWidget {
-  ReportsScreen({super.key});
+  const ReportsScreen({super.key});
 
   @override
-  _ReportsScreenState createState() => _ReportsScreenState();
+  State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
@@ -65,7 +66,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   },
                   decoration: InputDecoration(
                     hintText: loc.searchReports,
-                    prefixIcon: const Icon(Icons.search, color: Color(0xFF666666)),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: Color(0xFF666666),
+                    ),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear),
@@ -89,9 +93,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF333333),
+                        width: 2,
+                      ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ),
@@ -115,8 +125,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     if (filteredReports.isEmpty) {
                       return Center(
                         child: Text(
-                          _searchQuery.isEmpty ? loc.noReportsYet : loc.reportsNotFound,
-                          style: const TextStyle(color: Color(0xFF666666), fontSize: 16),
+                          _searchQuery.isEmpty
+                              ? loc.noReportsYet
+                              : loc.reportsNotFound,
+                          style: const TextStyle(
+                            color: Color(0xFF666666),
+                            fontSize: 16,
+                          ),
                         ),
                       );
                     }
@@ -135,7 +150,81 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ],
       ),
+      floatingActionButton: _buildActionButtons(),
     );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        FloatingActionButton(
+          onPressed: _importProject,
+          tooltip: 'Импорт проекта',
+          child: const Icon(Icons.upload_file),
+        ),
+        const SizedBox(width: 10),
+        FloatingActionButton(
+          onPressed: () => Navigator.of(context).pushReplacementNamed('/template'),
+          tooltip: 'Новый отчет',
+          child: const Icon(Icons.add),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _importProject() async {
+    final loc = AppLocalizations.of(context)!;
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final zipPath = result.files.single.path;
+        if (zipPath != null) {
+          final reportState = Provider.of<ReportState>(context, listen: false);
+          
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(loc.importingProject),
+                ],
+              ),
+            ),
+          );
+
+          final importedPath = await reportState.importProjectFromZip(zipPath);
+
+          if (!mounted) return;
+          Navigator.pop(context);
+
+          if (importedPath != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.projectImported)),
+            );
+            setState(() {
+              _loadReports();
+            });
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.importError)),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.importError)),
+      );
+    }
   }
 
   Widget _buildReportCard(BuildContext context, dynamic report) {
@@ -150,10 +239,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
       child: InkWell(
         onTap: () async {
+          final navigator = Navigator.of(context);
           await reportState.loadReport(report.folderName);
-          if (mounted) {
-            Navigator.pushNamed(context, '/fill');
-          }
+          if (!mounted) return;
+          navigator.pushNamed('/fill');
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -202,14 +291,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 icon: const Icon(Icons.delete, color: Color(0xFFdc2626)),
                 onPressed: () async {
                   final loc = AppLocalizations.of(context)!;
+                  final scaffoldMessenger = ScaffoldMessenger.of(context);
                   final isMobile = MediaQuery.of(context).size.width <= 800;
                   final confirm = await showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
-                      contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+                      insetPadding: isMobile
+                          ? EdgeInsets.zero
+                          : const EdgeInsets.all(40),
+                      contentPadding: isMobile
+                          ? const EdgeInsets.all(16)
+                          : const EdgeInsets.all(24),
                       shape: isMobile
-                          ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+                          ? const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.zero,
+                            )
                           : null,
                       title: isMobile ? null : Text(loc.deleteReport),
                       content: isMobile
@@ -222,14 +318,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   children: [
                                     Expanded(
                                       child: TextButton(
-                                        onPressed: () => Navigator.pop(ctx, false),
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
                                         child: Text(loc.cancel),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: TextButton(
-                                        onPressed: () => Navigator.pop(ctx, true),
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
                                         child: Text(loc.delete),
                                       ),
                                     ),
@@ -246,7 +344,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
                                       child: Text(loc.cancel),
                                     ),
                                     const SizedBox(width: 12),
@@ -265,11 +364,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     setState(() {
                       _loadReports();
                     });
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(loc.reportDeleted)),
-                      );
-                    }
+                    if (!mounted) return;
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(content: Text(loc.reportDeleted)),
+                    );
                   }
                 },
               ),

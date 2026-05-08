@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:video_player/video_player.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import '../providers/report_provider.dart';
 import '../providers/locale_provider.dart';
@@ -19,16 +18,21 @@ import 'dart:async';
 enum ViewMode { list, card }
 
 class FormFillScreen extends StatefulWidget {
-  FormFillScreen({super.key});
+  const FormFillScreen({super.key});
 
   @override
-  _FormFillScreenState createState() => _FormFillScreenState();
+  State<FormFillScreen> createState() => _FormFillScreenState();
 }
 
 class _FormFillScreenState extends State<FormFillScreen> {
   final Map<String, Map<int, TextEditingController>> _answerControllers = {};
   final Map<String, Map<int, Timer?>> _debounceTimers = {};
   ViewMode _viewMode = ViewMode.list;
+
+  TextEditingController? _getSafeController(String qid, int j) {
+    return _answerControllers[qid]?[j];
+  }
+
   bool _isSidePanelCollapsed = false;
   final PageController _pageController = PageController();
   final ScrollController _listScrollController = ScrollController();
@@ -40,6 +44,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   Timer? _saveTimer;
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
+  String _processingMessage = '';
 
   @override
   void dispose() {
@@ -73,6 +78,33 @@ class _FormFillScreenState extends State<FormFillScreen> {
         _hasUnsavedChanges = false;
       });
     }
+  }
+
+  void _showProcessingDialog(String message) {
+    setState(() {
+      _processingMessage = message;
+    });
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(_processingMessage),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _hideProcessingDialog() {
+    setState(() {
+      _processingMessage = '';
+    });
+    Navigator.of(context, rootNavigator: true).pop();
   }
 
   void _handleLanguageChange(String lang) {
@@ -129,6 +161,173 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
+  void _showCompressVideoDialog() {
+    final loc = AppLocalizations.of(context)!;
+    int selectedQuality = 2;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Сжать видео'),
+        content: StatefulBuilder(
+          builder: (dialogCtx, setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                const Text('Сжать видео'),
+                const SizedBox(height: 16),
+                RadioListTile<int>(
+                  title: const Text('Высокое качество'),
+                  subtitle: const Text('Меньшее сжатие, лучше качество'),
+                  value: 1,
+                  groupValue: selectedQuality,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedQuality = value!;
+                    });
+                  },
+                ),
+                RadioListTile<int>(
+                  title: const Text('Среднее качество'),
+                  subtitle: const Text('Сбалансированное сжатие'),
+                  value: 2,
+                  groupValue: selectedQuality,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedQuality = value!;
+                    });
+                  },
+                ),
+                RadioListTile<int>(
+                  title: const Text('Низкое качество'),
+                  subtitle: const Text('Максимальное сжатие'),
+                  value: 3,
+                  groupValue: selectedQuality,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedQuality = value!;
+                    });
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(loc.cancel),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _compressVideosWithQuality(selectedQuality);
+            },
+            child: Text(loc.ok),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _compressVideosWithQuality(int quality) async {
+    final reportState = context.read<ReportState>();
+    int currentProgress = 0;
+    int totalVideos = 0;
+    List<String> compressedVideos = [];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setState) {
+          return AlertDialog(
+            title: const Text('Сжать видео'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Сжимаем видео...'),
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: totalVideos > 0 ? currentProgress / totalVideos : 0,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  totalVideos > 0 ? '$currentProgress / $totalVideos' : '',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    try {
+      compressedVideos = await reportState.compressVideosWithSettings(
+        qualityLevel: quality,
+        onProgress: (current, total) {
+          currentProgress = current;
+          totalVideos = total;
+        },
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop();
+
+        if (compressedVideos.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Нет видео для сжатия или все уже сжаты'),
+            ),
+          );
+        } else {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Сжатие завершено'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Сжато видео: ${compressedVideos.length}'),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 200,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: compressedVideos.length,
+                      itemBuilder: (_, index) {
+                        return Text(
+                          compressedVideos[index].split('/').last,
+                          style: const TextStyle(fontSize: 12),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка сжатия: $e')));
+      }
+    }
+  }
+
   void _showDeleteAnswerDialog(
     BuildContext context,
     int i,
@@ -142,7 +341,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
-        contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+        contentPadding: isMobile
+            ? const EdgeInsets.all(16)
+            : const EdgeInsets.all(24),
         shape: isMobile
             ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
             : null,
@@ -173,6 +374,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               foregroundColor: Colors.white,
                             ),
                             onPressed: () {
+                              final qid = i.toString();
+                              _debounceTimers[qid]?[j]?.cancel();
+                              _debounceTimers[qid]?.remove(j);
+                              _answerControllers[qid]?[j]?.dispose();
+                              _answerControllers[qid]?.remove(j);
+                              _enabledAnswers[qid]?.remove(j);
                               reportState.removeAnswer(i, j);
                               _scheduleSave();
                               Navigator.pop(ctx);
@@ -204,6 +411,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () {
+                          final qid = i.toString();
+                          _debounceTimers[qid]?[j]?.cancel();
+                          _debounceTimers[qid]?.remove(j);
+                          _answerControllers[qid]?[j]?.dispose();
+                          _answerControllers[qid]?.remove(j);
+                          _enabledAnswers[qid]?.remove(j);
                           reportState.removeAnswer(i, j);
                           _scheduleSave();
                           Navigator.pop(ctx);
@@ -244,7 +457,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
         final isMobile = MediaQuery.of(context).size.width <= 800;
         return AlertDialog(
           insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
-          contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+          contentPadding: isMobile
+              ? const EdgeInsets.all(16)
+              : const EdgeInsets.all(24),
           shape: isMobile
               ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
               : null,
@@ -347,11 +562,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   Future<void> viewHtmlWithChooser(String htmlContent) async {
     final reportState = context.read<ReportState>();
-    
+
     if (reportState.currentReportPath == null) {
       await reportState.saveReport();
     }
-    
+
     final folderPath = reportState.currentReportPath!;
     final file = File('$folderPath/easy_report.html');
     await file.writeAsString(htmlContent);
@@ -361,13 +576,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
     if (result.type == ResultType.noAppToOpen) {
       if (mounted) {
         final loc = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              loc.noAppToOpenHtml,
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.noAppToOpenHtml)));
       }
     }
   }
@@ -403,14 +614,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
       final answers = report.getAnswersForQuestion(i, report.currentLanguage);
 
-      final existingIndices = _answerControllers[qid]!.keys.toList();
+      final existingIndices = _answerControllers[qid]?.keys.toList() ?? [];
       for (final j in existingIndices) {
         if (j >= answers.length) {
-          _answerControllers[qid]![j]?.dispose();
-          _answerControllers[qid]!.remove(j);
-          _enabledAnswers[qid]!.remove(j);
-          _debounceTimers[qid]![j]?.cancel();
-          _debounceTimers[qid]!.remove(j);
+          _getSafeController(qid, j)?.dispose();
+          _answerControllers[qid]?.remove(j);
+          _enabledAnswers[qid]?.remove(j);
+          _debounceTimers[qid]?[j]?.cancel();
+          _debounceTimers[qid]?.remove(j);
         }
       }
 
@@ -419,18 +630,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
           _answerControllers[qid]![j] = TextEditingController(
             text: answers[j]['text'] ?? '',
           );
-          _answerControllers[qid]![j]!.addListener(() {
+          _getSafeController(qid, j)?.addListener(() {
             if (!_isUpdatingControllers) {
               // Cancel previous timer
               _debounceTimers[qid]?[j]?.cancel();
               // Create new timer to update after 300ms of inactivity
+              _debounceTimers[qid] ??= {};
               _debounceTimers[qid]![j] = Timer(
                 const Duration(milliseconds: 300),
                 () {
                   reportState.updateAnswerText(
                     i,
                     j,
-                    _answerControllers[qid]![j]!.text,
+                    _getSafeController(qid, j)?.text ?? '',
                   );
                   _scheduleSave();
                 },
@@ -438,8 +650,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
             }
           });
         } else {
-          final controller = _answerControllers[qid]![j]!;
-          if (controller.text != (answers[j]['text'] ?? '')) {
+          final controller = _getSafeController(qid, j);
+          if (controller != null &&
+              controller.text != (answers[j]['text'] ?? '')) {
             _isUpdatingControllers = true;
             controller.text = answers[j]['text'] ?? '';
             _isUpdatingControllers = false;
@@ -528,9 +741,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Icon(
                     Icons.save,
@@ -578,6 +789,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ),
                   ),
                   PopupMenuItem(
+                    value: 6,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.video_call),
+                        const SizedBox(width: 8),
+                        const Text('Сжать видео'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
                     value: 3,
                     child: Row(
                       children: [
@@ -601,7 +822,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   // App language switcher
                   PopupMenuItem(
                     enabled: false,
-                    child: Text(loc.appLanguage, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      loc.appLanguage,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                   PopupMenuItem(
                     value: const Locale('en'),
@@ -662,12 +886,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     if (kIsWeb) {
                       // На вебе копируем в буфер
                       try {
-                        await Clipboard.setData(ClipboardData(text: htmlContent));
+                        await Clipboard.setData(
+                          ClipboardData(text: htmlContent),
+                        );
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(loc.htmlCopied),
-                            ),
+                            SnackBar(content: Text(loc.htmlCopied)),
                           );
                         }
                       } catch (e) {
@@ -687,9 +911,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       await Clipboard.setData(ClipboardData(text: excelHtml));
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(loc.excelHtmlCopied),
-                          ),
+                          SnackBar(content: Text(loc.excelHtmlCopied)),
                         );
                       }
                     } catch (e) {
@@ -702,11 +924,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   } else if (value == 1) {
                     if (kIsWeb) {
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(loc.saveZipWeb),
-                          ),
-                        );
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(loc.saveZipWeb)));
                       }
                       return;
                     }
@@ -715,9 +935,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       final directory = await FilePicker.platform
                           .getDirectoryPath();
                       if (directory != null) {
+                        _showProcessingDialog(loc.processingZip);
                         final zipPath = await reportState.exportZip(
                           customSavePath: directory,
                         );
+                        _hideProcessingDialog();
                         if (zipPath != null && mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('${loc.zipSaved}$zipPath')),
@@ -725,6 +947,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         }
                       }
                     } catch (e) {
+                      _hideProcessingDialog();
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('${loc.saveZipError}$e')),
@@ -734,16 +957,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   } else if (value == 2) {
                     if (kIsWeb) {
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(loc.shareWeb),
-                          ),
-                        );
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(loc.shareWeb)));
                       }
                       return;
                     }
                     await reportState.saveReport();
+                    _showProcessingDialog(loc.processingZip);
                     final zipPath = await reportState.exportZip();
+                    _hideProcessingDialog();
                     if (zipPath != null && mounted) {
                       await reportState.shareZip(zipPath);
                     }
@@ -751,6 +974,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     _showSyncMenuDialog();
                   } else if (value == 5) {
                     Navigator.pushReplacementNamed(context, '/');
+                  } else if (value == 6) {
+                    _showCompressVideoDialog();
                   }
                 },
               );
@@ -875,7 +1100,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                             .length;
 
                                         final q = report.questions[i];
-                                        final questionLoc = q.getLocalization(lang);
+                                        final questionLoc = q.getLocalization(
+                                          lang,
+                                        );
                                         final hasTranslation = q.hasTranslation(
                                           lang,
                                         );
@@ -1020,12 +1247,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                         ),
                                                         child: Text(
                                                           loc.switchLanguage,
-                                                          style: const TextStyle(
-                                                            fontSize: 11,
-                                                            color: Color(
-                                                              0xFF856404,
-                                                            ),
-                                                          ),
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 11,
+                                                                color: Color(
+                                                                  0xFF856404,
+                                                                ),
+                                                              ),
                                                         ),
                                                       ),
                                                     Row(
@@ -1576,29 +1804,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  Widget _buildNavButton(IconData icon, VoidCallback? onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: onTap != null
-              ? const Color(0xFF333333)
-              : const Color(0xFFcccccc),
-          borderRadius: BorderRadius.circular(22),
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            color: onTap != null ? Colors.white : const Color(0xFF999999),
-            size: 28,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildQuestionCard(
     BuildContext context,
     int index,
@@ -1690,7 +1895,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             'name',
                           ),
                           child: Text(
-                            questionLoc?.name ?? q.getDisplayName(lang) ?? loc.noName,
+                            questionLoc?.name ??
+                                q.getDisplayName(lang) ??
+                                loc.noName,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -1748,7 +1955,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 const SizedBox(width: 8),
                                 Text(
                                   loc.deleteThisQuestion,
-                                  style: const TextStyle(color: Color(0xFFdc2626)),
+                                  style: const TextStyle(
+                                    color: Color(0xFFdc2626),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1791,7 +2000,27 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             );
                             if (confirm == true &&
                                 report.questions.length > 1) {
-                              // TODO: implement delete question
+                              final qid = index.toString();
+                              _answerControllers[qid]?.forEach(
+                                (_, c) => c.dispose(),
+                              );
+                              _answerControllers.remove(qid);
+                              _debounceTimers[qid]?.forEach(
+                                (_, t) => t?.cancel(),
+                              );
+                              _debounceTimers.remove(qid);
+                              _enabledAnswers.remove(qid);
+                              reportState.removeQuestion(index);
+                              if (_currentPage >= report.questions.length) {
+                                _currentPage = report.questions.length > 0
+                                    ? report.questions.length - 1
+                                    : 0;
+                              }
+                              _pageController.jumpToPage(_currentPage);
+                              _scheduleSave();
+                              if (mounted) {
+                                setState(() {});
+                              }
                             }
                           }
                         },
@@ -1848,7 +2077,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     ),
                                   ),
                                 ),
-                                if (questionLoc?.description?.isNotEmpty ?? false)
+                                if (questionLoc?.description?.isNotEmpty ??
+                                    false)
                                   IconButton(
                                     icon: const Icon(
                                       Icons.help_outline,
@@ -1933,7 +2163,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         context: context,
                                         builder: (ctx) => AlertDialog(
                                           title: Text(loc.deleteQuestionTitle),
-                                          content: Text(loc.deleteQuestionConfirm),
+                                          content: Text(
+                                            loc.deleteQuestionConfirm,
+                                          ),
                                           actions: [
                                             TextButton(
                                               onPressed: () =>
@@ -1950,7 +2182,31 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       );
                                       if (confirm == true &&
                                           report.questions.length > 1) {
-                                        // TODO: implement delete question
+                                        final qid = index.toString();
+                                        _answerControllers[qid]?.forEach(
+                                          (_, c) => c.dispose(),
+                                        );
+                                        _answerControllers.remove(qid);
+                                        _debounceTimers[qid]?.forEach(
+                                          (_, t) => t?.cancel(),
+                                        );
+                                        _debounceTimers.remove(qid);
+                                        _enabledAnswers.remove(qid);
+                                        reportState.removeQuestion(index);
+                                        if (_currentPage >=
+                                            report.questions.length) {
+                                          _currentPage =
+                                              report.questions.length > 0
+                                              ? report.questions.length - 1
+                                              : 0;
+                                        }
+                                        _pageController.jumpToPage(
+                                          _currentPage,
+                                        );
+                                        _scheduleSave();
+                                        if (mounted) {
+                                          setState(() {});
+                                        }
                                       }
                                     }
                                   },
@@ -1978,7 +2234,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
             ),
           ),
           Padding(
-            padding: isMobile ? const EdgeInsets.all(8) : const EdgeInsets.all(16),
+            padding: isMobile
+                ? const EdgeInsets.all(8)
+                : const EdgeInsets.all(16),
             child: Column(
               children: [
                 for (int j = 0; j < answers.length; j++)
@@ -2046,7 +2304,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           TextField(
-            controller: _answerControllers[qid]![j],
+            controller: _getSafeController(qid, j),
             maxLines: null,
             enabled: _enabledAnswers[qid]?[j] ?? true,
             style: TextStyle(
@@ -2124,7 +2382,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 if (reportState.hasAnswersInOtherLanguages(i, j))
                   IconButton(
                     icon: const Icon(Icons.lock, color: Color(0xFF6b7280)),
-                    onPressed: () => _showLockDialog(context, i, j, qid, reportState),
+                    onPressed: () =>
+                        _showLockDialog(context, i, j, qid, reportState),
                     tooltip: loc.lockAnswerTooltip,
                   ),
                 const Spacer(),
@@ -2139,7 +2398,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   ?.length ??
                               1) >
                           1
-                      ? () => _showDeleteAnswerDialog(context, i, j, reportState)
+                      ? () =>
+                            _showDeleteAnswerDialog(context, i, j, reportState)
                       : null,
                   tooltip: loc.deleteAnswerTooltip,
                 ),
@@ -2189,6 +2449,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
       ),
     );
 
+    if (!mounted) return;
+
     if (action == null) return;
 
     if (action == 'camera-photo') {
@@ -2209,15 +2471,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     if (kIsWeb) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.addMediaWebSoon)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.addMediaWebSoon)));
       }
       return;
     }
 
     final reportState = context.read<ReportState>();
-    for (final file in files!) {
+    for (final file in files) {
       await reportState.addMedia(
         questionIndex,
         answerIndex,
@@ -2237,27 +2499,33 @@ class _FormFillScreenState extends State<FormFillScreen> {
   ) {
     final List<Widget> items = [];
     const maxVisible = 8;
-    final visibleCount = mediaList.length > maxVisible ? maxVisible : mediaList.length;
+    final visibleCount = mediaList.length > maxVisible
+        ? maxVisible
+        : mediaList.length;
 
     for (int idx = 0; idx < visibleCount; idx++) {
       final media = mediaList[idx] as Map<String, dynamic>;
-      final isLastExtra = idx == maxVisible - 1 && mediaList.length > maxVisible;
+      final isLastExtra =
+          idx == maxVisible - 1 && mediaList.length > maxVisible;
 
       if (isLastExtra) {
         // Показываем "+N"
         items.add(
           GestureDetector(
-            onTap: () => _showFullMediaViewer(context, mediaList, questionIndex: questionIndex, answerIndex: answerIndex, reportState: reportState),
+            onTap: () => _showFullMediaViewer(
+              context,
+              mediaList,
+              questionIndex: questionIndex,
+              answerIndex: answerIndex,
+              reportState: reportState,
+            ),
             child: Container(
               width: 70,
               height: 70,
               decoration: BoxDecoration(
                 color: const Color(0xFFf3f4f6),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  width: 2,
-                  color: const Color(0xFFe5e7eb),
-                ),
+                border: Border.all(width: 2, color: const Color(0xFFe5e7eb)),
               ),
               child: Center(
                 child: Text(
@@ -2278,8 +2546,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
           _MediaItemWidget(
             media: media,
             reportPath: reportState.currentReportPath,
-            onTap: () => _showFullMediaViewer(context, mediaList, initialIndex: idx, questionIndex: questionIndex, answerIndex: answerIndex, reportState: reportState),
-            onLongPress: () => _showFullMediaViewer(context, mediaList, initialIndex: idx, questionIndex: questionIndex, answerIndex: answerIndex, reportState: reportState, startInSelectionMode: true),
+            onTap: () => _showFullMediaViewer(
+              context,
+              mediaList,
+              initialIndex: idx,
+              questionIndex: questionIndex,
+              answerIndex: answerIndex,
+              reportState: reportState,
+            ),
+            onLongPress: () => _showFullMediaViewer(
+              context,
+              mediaList,
+              initialIndex: idx,
+              questionIndex: questionIndex,
+              answerIndex: answerIndex,
+              reportState: reportState,
+              startInSelectionMode: true,
+            ),
             onDelete: () {
               reportState.removeMedia(questionIndex, answerIndex, idx);
               _scheduleSave();
@@ -2289,11 +2572,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
     }
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: items,
-    );
+    return Wrap(spacing: 8, runSpacing: 8, children: items);
   }
 
   void _showFullMediaViewer(
@@ -2312,8 +2591,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
           initialIndex: initialIndex,
           reportPath: reportState?.currentReportPath,
           onDelete: (indices) {
-            if (questionIndex != null && answerIndex != null && reportState != null) {
-              for (final index in indices.toList()..sort((a, b) => b.compareTo(a))) {
+            if (questionIndex != null &&
+                answerIndex != null &&
+                reportState != null) {
+              for (final index
+                  in indices.toList()..sort((a, b) => b.compareTo(a))) {
                 reportState.removeMedia(questionIndex, answerIndex, index);
               }
               _scheduleSave();
@@ -2324,41 +2606,20 @@ class _FormFillScreenState extends State<FormFillScreen> {
       ),
     );
   }
-
-  void _showMediaOptions(
-    BuildContext context,
-    int questionIndex,
-    int answerIndex,
-    int mediaIndex,
-    ReportState reportState,
-  ) {
-    final loc = AppLocalizations.of(context)!;
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: Text(loc.delete),
-              onTap: () {
-                reportState.removeMedia(questionIndex, answerIndex, mediaIndex);
-                _scheduleSave();
-                Navigator.pop(ctx);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _VideoThumbnailWidget extends StatefulWidget {
   final String? localPath;
   final int size;
+  final int? fileSize;
+  final int? compressedSize;
 
-  const _VideoThumbnailWidget({this.localPath, this.size = 80});
+  const _VideoThumbnailWidget({
+    this.localPath,
+    this.size = 80,
+    this.fileSize,
+    this.compressedSize,
+  });
 
   @override
   State<_VideoThumbnailWidget> createState() => _VideoThumbnailWidgetState();
@@ -2396,16 +2657,73 @@ class _VideoThumbnailWidgetState extends State<_VideoThumbnailWidget> {
   @override
   Widget build(BuildContext context) {
     if (_thumbnailBytes != null) {
-      return Image.memory(
-        _thumbnailBytes!,
-        width: widget.size.toDouble(),
-        height: widget.size.toDouble(),
-        fit: BoxFit.cover,
+      final sizeToShow = widget.compressedSize ?? widget.fileSize;
+      final isCompressed = widget.compressedSize != null;
+      final needsCompression =
+          widget.fileSize != null && widget.fileSize! > 5 * 1024 * 1024;
+
+      Color dotColor;
+      if (isCompressed) {
+        dotColor = Colors.green;
+      } else if (needsCompression) {
+        dotColor = Colors.red;
+      } else {
+        dotColor = Colors.grey;
+      }
+
+      return Stack(
+        children: [
+          Image.memory(
+            _thumbnailBytes!,
+            width: widget.size.toDouble(),
+            height: widget.size.toDouble(),
+            fit: BoxFit.cover,
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: dotColor,
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 2)],
+              ),
+            ),
+          ),
+          if (sizeToShow != null)
+            Positioned(
+              bottom: 2,
+              right: 2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  _formatFileSize(sizeToShow),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
       );
     }
     return const Center(
       child: Icon(Icons.videocam, size: 30, color: Color(0xFF999999)),
     );
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
 
@@ -2425,7 +2743,8 @@ class _MediaItemWidget extends StatelessWidget {
   });
 
   String? _getAbsolutePath(String? relativePath) {
-    if (relativePath == null || reportPath == null) return relativePath;
+    if (relativePath == null || relativePath.isEmpty) return null;
+    if (reportPath == null) return relativePath;
     if (relativePath.startsWith('/') || relativePath.contains(':\\')) {
       return relativePath;
     }
@@ -2454,25 +2773,42 @@ class _MediaItemWidget extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(6),
-              child: (media['type'] as String? ?? '').startsWith('image')
-                  ? (!kIsWeb && media['localPath'] != null
-                      ? Image.file(
-                          File(_getAbsolutePath(media['localPath']) ?? media['localPath']),
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.cover,
-                        )
-                      : const Center(
-                          child: Icon(
-                            Icons.image,
-                            size: 30,
-                            color: Color(0xFF999999),
-                          ),
-                        ))
-                  : _VideoThumbnailWidget(
-                      localPath: _getAbsolutePath(media['localPath'] as String?),
-                      size: 70,
-                    ),
+              child: Builder(
+                builder: (context) {
+                  final localPath = _getAbsolutePath(
+                    media['localPath'] as String?,
+                  );
+                  if ((media['type'] as String? ?? '').startsWith('image')) {
+                    if (!kIsWeb && localPath != null) {
+                      if (!File(localPath).existsSync()) {
+                        return const Icon(
+                          Icons.broken_image,
+                          color: Colors.red,
+                        );
+                      }
+                      return Image.file(
+                        File(localPath),
+                        width: 70,
+                        height: 70,
+                        fit: BoxFit.cover,
+                      );
+                    }
+                    return const Center(
+                      child: Icon(
+                        Icons.image,
+                        size: 30,
+                        color: Color(0xFF999999),
+                      ),
+                    );
+                  }
+                  return _VideoThumbnailWidget(
+                    localPath: localPath,
+                    size: 70,
+                    fileSize: media['fileSize'] as int?,
+                    compressedSize: media['compressedSize'] as int?,
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -2509,7 +2845,8 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
   bool _isPlaying = false;
 
   String? _getAbsolutePath(String? relativePath) {
-    if (relativePath == null || widget.reportPath == null) return null;
+    if (relativePath == null || relativePath.isEmpty) return null;
+    if (widget.reportPath == null) return relativePath;
     if (relativePath.startsWith('/') || relativePath.contains(':\\')) {
       return relativePath;
     }
@@ -2521,14 +2858,14 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
-    
+
     if (widget.startInSelectionMode) {
       _showGrid = true;
       _selectedIndices.add(widget.initialIndex);
     } else {
       _initializeVideo(widget.initialIndex);
     }
-    
+
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -2655,37 +2992,34 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
               onLongPress: () => _toggleSelect(index),
               child: isVideo
                   ? (!kIsWeb && media['localPath'] != null
-                      ? _VideoThumbnailWidget(
-                          localPath: _getAbsolutePath(media['localPath']),
-                          size: 100,
-                        )
-                      : const Icon(Icons.videocam, color: Colors.grey))
+                        ? _VideoThumbnailWidget(
+                            localPath: _getAbsolutePath(media['localPath']),
+                            size: 100,
+                            fileSize: media['fileSize'] as int?,
+                            compressedSize: media['compressedSize'] as int?,
+                          )
+                        : const Icon(Icons.videocam, color: Colors.grey))
                   : (!kIsWeb && media['localPath'] != null
-                      ? Image.file(
-                          File(_getAbsolutePath(media['localPath']) ?? media['localPath']),
-                          fit: BoxFit.cover,
-                        )
-                      : const Icon(Icons.image, color: Colors.grey)),
+                        ? Image.file(
+                            File(
+                              _getAbsolutePath(media['localPath']) ??
+                                  media['localPath'],
+                            ),
+                            fit: BoxFit.cover,
+                          )
+                        : const Icon(Icons.image, color: Colors.grey)),
             ),
             if (isSelected)
               const Positioned(
                 top: 4,
                 right: 4,
-                child: Icon(
-                  Icons.check_circle,
-                  color: Colors.blue,
-                  size: 20,
-                ),
+                child: Icon(Icons.check_circle, color: Colors.blue, size: 20),
               ),
             if (isVideo)
               const Positioned(
                 bottom: 4,
                 right: 4,
-                child: Icon(
-                  Icons.play_circle,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: Icon(Icons.play_circle, color: Colors.white, size: 20),
               ),
           ],
         );
@@ -2708,23 +3042,20 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
             },
             itemBuilder: (ctx, index) {
               final media = widget.mediaList[index] as Map<String, dynamic>;
-              final isVideo = (media['type'] as String? ?? '').startsWith('video');
+              final isVideo = (media['type'] as String? ?? '').startsWith(
+                'video',
+              );
 
               if (isVideo) {
                 return _buildVideoPlayer(index);
               } else {
-                final localPath = _getAbsolutePath(media['localPath'] as String?);
+                final localPath = _getAbsolutePath(
+                  media['localPath'] as String?,
+                );
                 return Center(
                   child: (!kIsWeb && localPath != null)
-                      ? Image.file(
-                          File(localPath),
-                          fit: BoxFit.contain,
-                        )
-                      : const Icon(
-                          Icons.image,
-                          size: 60,
-                          color: Colors.white,
-                        ),
+                      ? Image.file(File(localPath), fit: BoxFit.contain)
+                      : const Icon(Icons.image, size: 60, color: Colors.white),
                 );
               }
             },
@@ -2739,7 +3070,10 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
 
   Widget _buildVideoPlayer(int index) {
     final media = widget.mediaList[index] as Map<String, dynamic>;
-    if (!kIsWeb && media['localPath'] != null && _videoController != null && _videoController!.value.isInitialized) {
+    if (!kIsWeb &&
+        media['localPath'] != null &&
+        _videoController != null &&
+        _videoController!.value.isInitialized) {
       return Center(
         child: Stack(
           children: [
@@ -2765,11 +3099,7 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
       );
     }
     return const Center(
-      child: Icon(
-        Icons.videocam,
-        size: 60,
-        color: Colors.white,
-      ),
+      child: Icon(Icons.videocam, size: 60, color: Colors.white),
     );
   }
 
@@ -2848,7 +3178,9 @@ void _showEditQuestionDialog(
       final isMobile = MediaQuery.of(context).size.width <= 800;
       return AlertDialog(
         insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
-        contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+        contentPadding: isMobile
+            ? const EdgeInsets.all(16)
+            : const EdgeInsets.all(24),
         shape: isMobile
             ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
             : null,
@@ -2858,9 +3190,7 @@ void _showEditQuestionDialog(
           maxLines: fieldType == 'description' ? 3 : 1,
           autofocus: true,
           decoration: InputDecoration(
-            hintText: fieldType == 'name'
-                ? loc.enterName
-                : loc.enterDecryption,
+            hintText: fieldType == 'name' ? loc.enterName : loc.enterDecryption,
             border: const OutlineInputBorder(),
           ),
         ),
@@ -2934,9 +3264,9 @@ class _SyncDialogState extends State<_SyncDialog> {
     try {
       await Clipboard.setData(ClipboardData(text: _syncJson));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.jsonCopiedToClipboard)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.jsonCopiedToClipboard)));
       }
     } catch (e) {
       if (mounted) {
@@ -2997,9 +3327,9 @@ class _SyncDialogState extends State<_SyncDialog> {
     final loc = AppLocalizations.of(context)!;
     final jsonText = _jsonController.text.trim();
     if (jsonText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.pasteTranslatedJson)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.pasteTranslatedJson)));
       return;
     }
 
@@ -3024,7 +3354,9 @@ class _SyncDialogState extends State<_SyncDialog> {
 
     return AlertDialog(
       insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
-      contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+      contentPadding: isMobile
+          ? const EdgeInsets.all(16)
+          : const EdgeInsets.all(24),
       shape: isMobile
           ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
           : null,
@@ -3204,9 +3536,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
       await Clipboard.setData(ClipboardData(text: _syncJson));
       if (mounted) {
         final loc = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.jsonCopiedToClipboard)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.jsonCopiedToClipboard)));
       }
     } catch (e) {
       if (mounted) {
@@ -3269,9 +3601,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
     final loc = AppLocalizations.of(context)!;
     final jsonText = _jsonController.text.trim();
     if (jsonText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.pasteTranslatedJson)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.pasteTranslatedJson)));
       return;
     }
 
@@ -3381,10 +3713,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(
-                    color: Color(0xFF333333),
-                    width: 2,
-                  ),
+                  side: const BorderSide(color: Color(0xFF333333), width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -3398,10 +3727,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(
-                    color: Color(0xFF333333),
-                    width: 2,
-                  ),
+                  side: const BorderSide(color: Color(0xFF333333), width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -3421,10 +3747,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
             hintText: loc.pasteJsonHere,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF333333),
-                width: 2,
-              ),
+              borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -3496,7 +3819,10 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2563eb),
                         foregroundColor: Colors.white,
-                        side: const BorderSide(color: Color(0xFF333333), width: 2),
+                        side: const BorderSide(
+                          color: Color(0xFF333333),
+                          width: 2,
+                        ),
                       ),
                       child: Text(loc.syncButton),
                     ),
@@ -3512,9 +3838,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
         title: Text(loc.syncMenuTitle),
         content: SizedBox(
           width: 550,
-          child: SingleChildScrollView(
-            child: content,
-          ),
+          child: SingleChildScrollView(child: content),
         ),
         actions: [
           TextButton(

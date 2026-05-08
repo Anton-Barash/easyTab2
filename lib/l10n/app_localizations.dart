@@ -274,6 +274,12 @@ abstract class AppLocalizations {
   /// **'Share'**
   String get share;
 
+  /// No description provided for @compressVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Compress Video'**
+  String get compressVideo;
+
   /// No description provided for @syncTranslations.
   ///
   /// In en, this message translates to:
@@ -1005,6 +1011,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saved'**
   String get saved;
+
+  /// No description provided for @processingZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing ZIP...'**
+  String get processingZip;
+
+  /// No description provided for @importingProject.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing project...'**
+  String get importingProject;
+
+  /// No description provided for @projectImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Project imported!'**
+  String get projectImported;
+
+  /// No description provided for @importError.
+  ///
+  /// In en, this message translates to:
+  /// **'Import error'**
+  String get importError;
 }
 
 class _AppLocalizationsDelegate

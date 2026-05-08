@@ -316,10 +316,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
             blurRadius: 0,
             spreadRadius: 1.5,
           ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.13),
-            offset: const Offset(2, 2),
-          ),
+          BoxShadow(color: const Color(0x21000000), offset: const Offset(2, 2)),
         ],
       ),
       child: Material(
@@ -346,7 +343,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: onTap == null
-                    ? const Color(0xFF999)
+                    ? const Color(0xFF999999)
                     : const Color(0xFF424242),
               ),
               textAlign: TextAlign.center,
@@ -481,6 +478,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   }
 
   Future<void> _pickFile() async {
+    final state = Provider.of<ReportState>(context, listen: false);
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
@@ -488,14 +486,15 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     if (result == null || result.files.single.path == null) return;
 
     final path = result.files.single.path!;
-    final state = context.read<ReportState>();
     final report = await state.parseTemplate(path);
 
-    if (report == null && mounted) {
+    if (!mounted) return;
+
+    if (report == null) {
       final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.templateLoadError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.templateLoadError)));
       return;
     }
 
@@ -505,7 +504,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   }
 
   Future<void> _useTemplate(BuildContext context) async {
-    final state = context.read<ReportState>();
+    final state = Provider.of<ReportState>(context, listen: false);
+    final navigator = Navigator.of(context);
     final name = _reportNameController.text.trim();
     if (name.isEmpty || _selectedReport == null) return;
 
@@ -515,9 +515,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       _selectedReport!.availableLanguages,
     );
     await state.saveReport();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/fill');
-    }
+    if (!mounted) return;
+    navigator.pushReplacementNamed('/fill');
   }
 
   void _showAddTranslationDialog() {
@@ -601,9 +600,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
     await Clipboard.setData(ClipboardData(text: template));
     if (mounted) {
       final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.templateCopiedClipboard)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.templateCopiedClipboard)));
     }
   }
 
@@ -618,9 +617,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
 
       if (mounted) {
         final loc = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.templateSaved(file.path))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.templateSaved(file.path))));
       }
     } catch (e) {
       if (mounted) {
@@ -708,9 +707,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
     final loc = AppLocalizations.of(context)!;
     final jsonText = _jsonController.text.trim();
     if (jsonText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.enterTranslatedTemplate)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.enterTranslatedTemplate)));
       return;
     }
 
@@ -734,9 +733,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       widget.onTranslationAdded(langCode, translations);
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.translationAdded(langCode))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.translationAdded(langCode))));
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -767,10 +766,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
           decoration: InputDecoration(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF333333),
-                width: 2,
-              ),
+              borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -805,10 +801,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(
-                    color: Color(0xFF333333),
-                    width: 2,
-                  ),
+                  side: const BorderSide(color: Color(0xFF333333), width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -822,10 +815,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(
-                    color: Color(0xFF333333),
-                    width: 2,
-                  ),
+                  side: const BorderSide(color: Color(0xFF333333), width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -847,10 +837,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
             hintText: loc.pasteTranslatedTemplateHint,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: Color(0xFF333333),
-                width: 2,
-              ),
+              borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -867,10 +854,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFe0e0e0),
                   foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(
-                    color: Color(0xFF333333),
-                    width: 2,
-                  ),
+                  side: const BorderSide(color: Color(0xFF333333), width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -931,7 +915,10 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2563eb),
                         foregroundColor: Colors.white,
-                        side: const BorderSide(color: Color(0xFF333333), width: 2),
+                        side: const BorderSide(
+                          color: Color(0xFF333333),
+                          width: 2,
+                        ),
                       ),
                       child: Text(loc.addTranslationButton),
                     ),
@@ -949,9 +936,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
         title: Text(loc.addTranslationTitle),
         content: SizedBox(
           width: 500,
-          child: SingleChildScrollView(
-            child: content,
-          ),
+          child: SingleChildScrollView(child: content),
         ),
         actions: [
           TextButton(

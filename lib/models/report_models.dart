@@ -6,6 +6,8 @@ class MediaItem {
   bool attention;
   String originalName;
   String? localPath;
+  int? fileSize;
+  int? compressedSize;
 
   MediaItem({
     required this.name,
@@ -13,6 +15,8 @@ class MediaItem {
     this.attention = false,
     this.originalName = '',
     this.localPath,
+    this.fileSize,
+    this.compressedSize,
   });
 
   Map<String, dynamic> toJson() => {
@@ -21,6 +25,8 @@ class MediaItem {
         'attention': attention,
         'originalName': originalName,
         'localPath': localPath,
+        'fileSize': fileSize,
+        'compressedSize': compressedSize,
       };
 
   factory MediaItem.fromJson(Map<String, dynamic> json, {String? folderPath}) {
@@ -34,6 +40,8 @@ class MediaItem {
       attention: json['attention'] ?? false,
       originalName: json['originalName'] ?? '',
       localPath: absolutePath,
+      fileSize: json['fileSize'] as int?,
+      compressedSize: json['compressedSize'] as int?,
     );
   }
 }
@@ -216,6 +224,8 @@ class Report {
         'attention': m.attention,
         'originalName': m.originalName,
         'localPath': m.localPath,
+        'fileSize': m.fileSize,
+        'compressedSize': m.compressedSize,
       }).toList();
       
       result.add({

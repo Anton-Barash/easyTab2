@@ -24,6 +24,8 @@ dependencies:
   open_file: ^3.3.2
   video_thumbnail: ^0.5.3
   video_player: ^2.8.2
+  v_video_compressor: ^1.2.0
+  image: ^4.2.0
 
 dev_dependencies:
   flutter_test:

@@ -5,12 +5,37 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:image/image.dart' as img;
+import 'package:v_video_compressor/v_video_compressor.dart';
 import '../models/report_models.dart';
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
 
 const int maxLanguages = 5;
+
+Uint8List _compressImage(Uint8List bytes, int maxSize) {
+  try {
+    final image = img.decodeImage(bytes);
+    if (image == null) return bytes;
+    
+    int width = image.width;
+    int height = image.height;
+    
+    if (width <= maxSize && height <= maxSize) {
+      return bytes;
+    }
+    
+    double scale = maxSize / (width > height ? width : height);
+    width = (width * scale).toInt();
+    height = (height * scale).toInt();
+    
+    final resized = img.copyResize(image, width: width, height: height);
+    return img.encodeJpg(resized, quality: 85);
+  } catch (e) {
+    return bytes;
+  }
+}
 
 const Map<String, int> languagePriority = {'RU': 0, 'EN': 1, 'ZH': 2};
 
@@ -57,6 +82,7 @@ class ReportInfo {
 class ReportState extends ChangeNotifier {
   Report? _currentReport;
   String? _currentReportPath;
+  final Set<String> _compressedVideoPaths = {};
 
   Report? get currentReport => _currentReport;
   String? get currentReportPath => _currentReportPath;
@@ -136,6 +162,41 @@ class ReportState extends ChangeNotifier {
       newTranslations[newIndex.toString()]![lang] = [TranslationAnswer()];
     }
     newMarkers[newIndex.toString()] = [AnswerMarkers()];
+
+    _currentReport!.translations = newTranslations;
+    _currentReport!.markers = newMarkers;
+    notifyListeners();
+  }
+
+  void removeQuestion(int index) {
+    if (_currentReport == null) return;
+    if (index < 0 || index >= _currentReport!.questions.length) return;
+
+    _currentReport!.questions.removeAt(index);
+
+    final newTranslations = <String, Map<String, List<TranslationAnswer>>>{};
+    _currentReport!.translations.forEach((key, langMap) {
+      final k = int.parse(key);
+      if (k == index) {
+        return;
+      } else if (k > index) {
+        newTranslations[(k - 1).toString()] = langMap;
+      } else {
+        newTranslations[key] = langMap;
+      }
+    });
+
+    final newMarkers = <String, List<AnswerMarkers>>{};
+    _currentReport!.markers.forEach((key, markersList) {
+      final k = int.parse(key);
+      if (k == index) {
+        return;
+      } else if (k > index) {
+        newMarkers[(k - 1).toString()] = markersList;
+      } else {
+        newMarkers[key] = markersList;
+      }
+    });
 
     _currentReport!.translations = newTranslations;
     _currentReport!.markers = newMarkers;
@@ -306,7 +367,15 @@ class ReportState extends ChangeNotifier {
     }
 
     final destPath = File('${destFolder.path}/$fileName');
-    await file.copy(destPath.path);
+    
+    final mimeType = _getMimeType(file.path);
+    if (mimeType.startsWith('image/')) {
+      final bytes = await file.readAsBytes();
+      final compressed = _compressImage(bytes, 1024);
+      await destPath.writeAsBytes(compressed);
+    } else {
+      await file.copy(destPath.path);
+    }
 
     final relativePath = '$folderName/$fileName';
 
@@ -316,6 +385,7 @@ class ReportState extends ChangeNotifier {
       attention: isAttention,
       originalName: file.path.split(Platform.pathSeparator).last,
       localPath: relativePath,
+      fileSize: await file.length(),
     );
 
     _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
@@ -345,7 +415,8 @@ class ReportState extends ChangeNotifier {
 
     final media = _currentReport!.markers[qid]![answerIndex].media[mediaIndex];
     if (_currentReportPath != null && media.localPath != null) {
-      final file = File(media.localPath!);
+      final absolutePath = '$_currentReportPath/${media.localPath}';
+      final file = File(absolutePath);
       if (await file.exists()) {
         await file.delete();
       }
@@ -408,6 +479,163 @@ class ReportState extends ChangeNotifier {
     return '$reportsDir/$baseName';
   }
 
+  Future<void> compressAllVideos({
+    required Function(int current, int total) onProgress,
+  }) async {
+    if (_currentReport == null || _currentReportPath == null) return;
+
+    final List<String> videoPaths = [];
+
+    // Collect all video paths
+    for (final markerEntry in _currentReport!.markers.entries) {
+      for (final answerMarker in markerEntry.value) {
+        for (final media in answerMarker.media) {
+          if (media.type.startsWith('video/') && media.localPath != null) {
+            if (!videoPaths.contains(media.localPath)) {
+              videoPaths.add(media.localPath!);
+            }
+          }
+        }
+      }
+    }
+
+    if (videoPaths.isEmpty) return;
+
+    final compressor = VVideoCompressor();
+
+    // Compress each video
+    for (int i = 0; i < videoPaths.length; i++) {
+      onProgress(i + 1, videoPaths.length);
+
+      try {
+        final videoPath = videoPaths[i];
+        final file = File(videoPath);
+
+        if (!await file.exists()) continue;
+
+        final fileStat = await file.stat();
+        // Skip if video is smaller than 5 MB
+        if (fileStat.size < 5 * 1024 * 1024) continue;
+
+        // Compress the video with stronger compression
+        final result = await compressor.compressVideo(
+          videoPath,
+          const VVideoCompressionConfig.low(),
+          onProgress: (progress) {
+            // We'll handle progress in the UI
+          },
+        );
+
+        if (result != null) {
+          // Replace original with compressed video
+          final compressedFile = File(result.compressedFilePath);
+          if (await compressedFile.exists()) {
+            await compressedFile.copy(videoPath);
+            await compressedFile.delete();
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) print('Error compressing video: $e');
+      }
+    }
+  }
+
+  Future<List<String>> compressVideosWithSettings({
+    required int qualityLevel,
+    required Function(int current, int total) onProgress,
+  }) async {
+    if (_currentReport == null || _currentReportPath == null) return [];
+
+    final List<String> compressedVideos = [];
+    final List<String> videoPaths = [];
+
+    for (final markerEntry in _currentReport!.markers.entries) {
+      for (final answerMarker in markerEntry.value) {
+        for (final media in answerMarker.media) {
+          if (media.type.startsWith('video/') && media.localPath != null) {
+            if (!videoPaths.contains(media.localPath)) {
+              videoPaths.add(media.localPath!);
+            }
+          }
+        }
+      }
+    }
+
+    if (videoPaths.isEmpty) return [];
+
+    final compressor = VVideoCompressor();
+    VVideoCompressionConfig config;
+
+    switch (qualityLevel) {
+      case 1:
+        config = const VVideoCompressionConfig.high();
+        break;
+      case 2:
+        config = const VVideoCompressionConfig.medium();
+        break;
+      case 3:
+      default:
+        config = const VVideoCompressionConfig.low();
+        break;
+    }
+
+    for (int i = 0; i < videoPaths.length; i++) {
+      onProgress(i + 1, videoPaths.length);
+
+      try {
+        final relativePath = videoPaths[i];
+        final absolutePath = '$_currentReportPath/$relativePath';
+        
+        if (_compressedVideoPaths.contains(relativePath)) {
+          continue;
+        }
+
+        final file = File(absolutePath);
+        if (!await file.exists()) continue;
+        
+        final fileSize = await file.length();
+        if (fileSize <= 5 * 1024 * 1024) {
+          continue;
+        }
+
+        final result = await compressor.compressVideo(
+          absolutePath,
+          config,
+          onProgress: (progress) {},
+        );
+
+        if (result != null) {
+          final compressedFile = File(result.compressedFilePath);
+          if (await compressedFile.exists()) {
+            final compressedSize = await compressedFile.length();
+            await compressedFile.copy(absolutePath);
+            await compressedFile.delete();
+            _compressedVideoPaths.add(relativePath);
+            compressedVideos.add(relativePath);
+            
+            for (final markerEntry in _currentReport!.markers.entries) {
+              for (final answerMarker in markerEntry.value) {
+                for (final media in answerMarker.media) {
+                  if (media.localPath == relativePath) {
+                    media.compressedSize = compressedSize;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) print('Error compressing video: $e');
+      }
+    }
+
+    return compressedVideos;
+  }
+
+  void resetCompressedVideos() {
+    _compressedVideoPaths.clear();
+  }
+
   Future<bool> saveReport() async {
     if (_currentReport == null) return false;
     try {
@@ -447,11 +675,58 @@ class ReportState extends ChangeNotifier {
       final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
       _currentReport = Report.fromJson(jsonData, folderPath: folderName);
       _currentReportPath = folderName;
+      resetCompressedVideos();
       notifyListeners();
       return true;
     } catch (e) {
       if (kDebugMode) print('Error loading report: $e');
       return false;
+    }
+  }
+
+  Future<String?> importProjectFromZip(String zipPath) async {
+    try {
+      final zipFile = File(zipPath);
+      if (!await zipFile.exists()) {
+        if (kDebugMode) print('ZIP file not found: $zipPath');
+        return null;
+      }
+
+      final reportsDir = await _getReportsDir();
+      final folderName = 'imported_${DateTime.now().millisecondsSinceEpoch}';
+      final targetPath = '$reportsDir/$folderName';
+      
+      if (await Directory(targetPath).exists()) {
+        await Directory(targetPath).delete(recursive: true);
+      }
+      await Directory(targetPath).create(recursive: true);
+
+      final bytes = await zipFile.readAsBytes();
+      final archive = ZipDecoder().decodeBytes(bytes);
+
+      for (final file in archive) {
+        if (file.isFile) {
+          final filePath = '$targetPath/${file.name}';
+          final fileDir = Directory(filePath.substring(0, filePath.lastIndexOf('/')));
+          if (!await fileDir.exists()) {
+            await fileDir.create(recursive: true);
+          }
+          await File(filePath).writeAsBytes(file.content);
+        }
+      }
+
+      final jsonFile = File('$targetPath/report.json');
+      if (!await jsonFile.exists()) {
+        await Directory(targetPath).delete(recursive: true);
+        if (kDebugMode) print('report.json not found in ZIP');
+        return null;
+      }
+
+      if (kDebugMode) print('Project imported successfully: $targetPath');
+      return targetPath;
+    } catch (e) {
+      if (kDebugMode) print('Error importing project: $e');
+      return null;
     }
   }
 
@@ -542,8 +817,6 @@ class ReportState extends ChangeNotifier {
     final List<String> allMediaData = [];
     final List<List<List<Map<String, dynamic>>>> allMediaByQandAandLang = [];
 
-    final basePath = _currentReportPath;
-
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final List<List<Map<String, dynamic>>> questionMedia = [];
 
@@ -559,21 +832,10 @@ class ReportState extends ChangeNotifier {
                 ? 'X/${media['name']}'
                 : 'photos/${media['name']}';
             
-            String contentPath = relativePath;
-            if (basePath != null) {
-              final fullPath = '$basePath/$relativePath';
-              final file = File(fullPath);
-              if (file.existsSync()) {
-                final bytes = file.readAsBytesSync();
-                final base64 = base64Encode(bytes);
-                contentPath = 'data:${media['type']};base64,$base64';
-              }
-            }
-            
             final mediaData = {
               'name': media['name'],
               'type': media['type'],
-              'localPath': contentPath,
+              'localPath': relativePath,
             };
             langMedia.add(mediaData);
             allMediaData.add(jsonEncode(mediaData));
@@ -591,7 +853,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln(
       '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
     );
-    buffer.writeln('  <title>${reportName} - Excel таблица</title>');
+    buffer.writeln('  <title>$reportName - Excel таблица</title>');
     buffer.writeln('  <style>');
     buffer.writeln('    * {');
     buffer.writeln('      margin: 0;');
@@ -788,7 +1050,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('<div class="excel-wrapper">');
     buffer.writeln('  <table>');
     buffer.writeln('    <tr>');
-    buffer.writeln('      <th colspan="5">${reportName} | ${dateTime}</th>');
+    buffer.writeln('      <th colspan="5">$reportName | $dateTime</th>');
     buffer.writeln('    </tr>');
 
     for (int i = 0; i < _currentReport!.questions.length; i++) {
@@ -852,7 +1114,7 @@ class ReportState extends ChangeNotifier {
 
         for (int mi = 0; mi < visibleCount; mi++) {
           final media = mediaList[mi];
-          final onClick = "openModal(${qIndex}, ${li}, ${mi})";
+          final onClick = "openModal($qIndex, $li, $mi)";
           final isImage = media['type'].startsWith('image');
           if (isImage) {
             parts.add(
@@ -868,7 +1130,7 @@ class ReportState extends ChangeNotifier {
         if (mediaList.length > maxVisible) {
           final remaining = mediaList.length - maxVisible;
           parts.add(
-            '<div class="media-more" onclick="openThumbnailGrid(${qIndex}, ${li})">+${remaining}</div>',
+            '<div class="media-more" onclick="openThumbnailGrid($qIndex, $li)">+$remaining</div>',
           );
         }
 
@@ -1233,7 +1495,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln(
       '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
     );
-    buffer.writeln('<title>${reportName} - Excel таблица</title>');
+    buffer.writeln('<title>$reportName - Excel таблица</title>');
     buffer.writeln(
       '<style>table{border-collapse:collapse;font-size:13px;}th,td{padding:6px 10px;vertical-align:top;border-bottom:1px solid #d0d0d0;}th{background:#f3f3f3;font-weight:600;text-align:center;color:#2c2c2c;}</style>',
     );
@@ -1242,7 +1504,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('<table>');
     buffer.writeln('<thead>');
     buffer.writeln(
-      '<tr><th colspan="5">${reportName} | Язык: ${langDisplay} | ${dateTime}</th></tr>',
+      '<tr><th colspan="5">$reportName | Язык: $langDisplay | $dateTime</th></tr>',
     );
     buffer.writeln('</thead>');
     buffer.writeln('<tbody>');
@@ -1574,15 +1836,28 @@ class ReportState extends ChangeNotifier {
       final encoder = ZipFileEncoder();
       encoder.create(zipFile.path);
 
-      final dir = Directory(folderPath);
+      final Set<String> neededFiles = {};
+      
+      neededFiles.add('report.json');
+      neededFiles.add('report.html');
 
-      await for (final entity in dir.list(recursive: true)) {
-        if (entity is File) {
-          final relativePath = entity.path.replaceFirst(
-            RegExp('^${RegExp.escape(folderPath)}[/\\\\]?'),
-            '',
-          );
-          encoder.addFile(entity, relativePath);
+      if (_currentReport != null) {
+        for (final markerEntry in _currentReport!.markers.entries) {
+          for (final answerMarker in markerEntry.value) {
+            for (final media in answerMarker.media) {
+              if (media.localPath != null) {
+                neededFiles.add(media.localPath!);
+              }
+            }
+          }
+        }
+      }
+
+      for (final relativePath in neededFiles) {
+        final filePath = '$folderPath/$relativePath';
+        final file = File(filePath);
+        if (await file.exists()) {
+          encoder.addFile(file, relativePath);
         }
       }
 
