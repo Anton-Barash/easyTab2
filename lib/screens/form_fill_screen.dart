@@ -2036,141 +2036,360 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final factoryController = TextEditingController(text: report.factory);
     final modelController = TextEditingController(text: report.model);
 
+    Widget _buildCard({required Widget child}) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(width: 2, color: const Color(0xFF333333)),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: child,
+      );
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFe5e7eb)),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    loc.editHeader,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF111827),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final currentHeaderImagePath = reportState.currentReport?.headerImagePath;
+          final hasImage = currentHeaderImagePath != null && currentHeaderImagePath.isNotEmpty;
+          
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            decoration: const BoxDecoration(
+              color: Color(0xFFf5f5f5),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: productTypeController,
-                      decoration: InputDecoration(
-                        labelText: loc.productType,
-                        border: const OutlineInputBorder(),
-                      ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFe5e7eb)),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: factoryController,
-                      decoration: InputDecoration(
-                        labelText: loc.factory,
-                        border: const OutlineInputBorder(),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        loc.editHeader,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF111827),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: modelController,
-                      decoration: InputDecoration(
-                        labelText: loc.model,
-                        border: const OutlineInputBorder(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              final ImagePicker picker = ImagePicker();
-                              final XFile? image = await picker.pickImage(
-                                source: ImageSource.gallery,
-                              );
-                              if (image != null && context.mounted) {
-                                await reportState.addHeaderImage(File(image.path));
-                              }
-                            },
-                            icon: const Icon(Icons.photo_library),
-                            label: Text(loc.changePhoto),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF424242),
-                              side: const BorderSide(color: Color(0xFF333333)),
-                            ),
+                        _buildCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                loc.productType,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF424242),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: productTypeController,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2.5,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                style: const TextStyle(color: Color(0xFF424242)),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        if (report.headerImagePath != null && report.headerImagePath!.isNotEmpty)
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () async {
-                                await reportState.removeHeaderImage();
-                              },
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              label: Text(
-                                loc.deletePhoto,
-                                style: const TextStyle(color: Colors.red),
+                        const SizedBox(height: 16),
+                        _buildCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                loc.factory,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF424242),
+                                  fontSize: 16,
+                                ),
                               ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Colors.red),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: factoryController,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2.5,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                style: const TextStyle(color: Color(0xFF424242)),
                               ),
-                            ),
+                            ],
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                loc.model,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF424242),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: modelController,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF333333),
+                                      width: 2.5,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                style: const TextStyle(color: Color(0xFF424242)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Фото',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF424242),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              if (hasImage) ...[
+                                Stack(
+                                  children: [
+                                    Container(
+                                      width: double.infinity,
+                                      height: 200,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFF333333),
+                                          width: 2,
+                                        ),
+                                        image: DecorationImage(
+                                          image: FileImage(
+                                            File('${reportState.currentReportPath}/$currentHeaderImagePath'),
+                                          ),
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          await reportState.removeHeaderImage();
+                                          setDialogState(() {});
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final ImagePicker picker = ImagePicker();
+                                    final XFile? image = await picker.pickImage(
+                                      source: ImageSource.gallery,
+                                    );
+                                    if (image != null && context.mounted) {
+                                      await reportState.addHeaderImage(File(image.path));
+                                      setDialogState(() {});
+                                    }
+                                  },
+                                  icon: const Icon(Icons.photo_library),
+                                  label: Text(loc.changePhoto),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF424242),
+                                    side: const BorderSide(color: Color(0xFF333333)),
+                                  ),
+                                ),
+                              ] else ...[
+                                InkWell(
+                                  onTap: () async {
+                                    final ImagePicker picker = ImagePicker();
+                                    final XFile? image = await picker.pickImage(
+                                      source: ImageSource.gallery,
+                                    );
+                                    if (image != null && context.mounted) {
+                                      await reportState.addHeaderImage(File(image.path));
+                                      setDialogState(() {});
+                                    }
+                                  },
+                                  child: Container(
+                                    width: double.infinity,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFe0e0e0),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: const Color(0xFF333333),
+                                        width: 2,
+                                        style: BorderStyle.solid,
+                                      ),
+                                    ),
+                                    child: const Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.add_a_photo,
+                                          size: 40,
+                                          color: Color(0xFF666666),
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Добавить фото',
+                                          style: TextStyle(
+                                            color: Color(0xFF666666),
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              reportState.updateHeaderInfo(
+                                productType: productTypeController.text.trim(),
+                                factory: factoryController.text.trim(),
+                                model: modelController.text.trim(),
+                              );
+                              reportState.updateReportName();
+                              reportState.saveReport();
+                              Navigator.pop(ctx);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF333333),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: Text(loc.save),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          reportState.updateHeaderInfo(
-                            productType: productTypeController.text.trim(),
-                            factory: factoryController.text.trim(),
-                            model: modelController.text.trim(),
-                          );
-                          reportState.updateReportName();
-                          reportState.saveReport();
-                          Navigator.pop(ctx);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF333333),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: Text(loc.save),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -2294,10 +2513,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
     Report report,
     ReportState reportState,
   ) {
-    final loc = AppLocalizations.of(context)!;
-    final headerImagePath = report.headerImagePath;
-    final hasImage = headerImagePath != null && headerImagePath.isNotEmpty;
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Material(
@@ -2385,20 +2600,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ],
                 ),
               ),
-              if (hasImage)
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    image: DecorationImage(
-                      image: FileImage(
-                        File('${reportState.currentReportPath}/${report.headerImagePath}'),
-                      ),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
