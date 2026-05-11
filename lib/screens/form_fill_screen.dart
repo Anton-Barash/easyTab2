@@ -36,7 +36,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   bool _isSidePanelCollapsed = false;
   final PageController _pageController = PageController();
   final ScrollController _listScrollController = ScrollController();
-  int _currentPage = 0;
+  int _currentPage = -1;
   final Map<int, bool> _needsWorkMap = {};
   Set<int> _blockedQuestionIndices = {};
   bool _isUpdatingControllers = false;
@@ -729,7 +729,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               });
               if (_viewMode == ViewMode.card) {
                 Future.delayed(Duration.zero, () {
-                  _pageController.jumpToPage(_currentPage);
+                  _pageController.jumpToPage(_currentPage == -1 ? 0 : _currentPage + 1);
                 });
               }
             },
@@ -1465,8 +1465,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         Expanded(
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
-                            itemCount: report.questions.length,
-                            itemBuilder: (ctx, i) {
+                            itemCount: report.questions.length + 1,
+                            itemBuilder: (ctx, index) {
+                              if (index == 0) {
+                                return _buildHeaderCard0SidePanel(context, report, reportState);
+                              }
+                              final i = index - 1;
                               final lang = report.currentLanguage;
                               final answers = report.getAnswersForQuestion(
                                 i,
@@ -2052,13 +2056,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      enableDrag: true,
+      isDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           final currentHeaderImagePath = reportState.currentReport?.headerImagePath;
           final hasImage = currentHeaderImagePath != null && currentHeaderImagePath.isNotEmpty;
+          final bottomInset = MediaQuery.of(context).viewInsets.bottom;
           
           return Container(
-            height: MediaQuery.of(context).size.height * 0.85,
+            height: MediaQuery.of(context).size.height - bottomInset * 0.3,
+            padding: EdgeInsets.only(bottom: bottomInset),
             decoration: const BoxDecoration(
               color: Color(0xFFf5f5f5),
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -2094,7 +2102,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -2817,9 +2825,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               if (_currentPage >= report.questions.length) {
                                 _currentPage = report.questions.length > 0
                                     ? report.questions.length - 1
-                                    : 0;
+                                    : -1;
                               }
-                              _pageController.jumpToPage(_currentPage);
+                              _pageController.jumpToPage(_currentPage == -1 ? 0 : _currentPage + 1);
                               _scheduleSave();
                               if (mounted) {
                                 setState(() {});
@@ -3001,10 +3009,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                           _currentPage =
                                               report.questions.length > 0
                                               ? report.questions.length - 1
-                                              : 0;
+                                              : -1;
                                         }
                                         _pageController.jumpToPage(
-                                          _currentPage,
+                                          _currentPage == -1 ? 0 : _currentPage + 1,
                                         );
                                         _scheduleSave();
                                         if (mounted) {

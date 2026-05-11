@@ -135,7 +135,6 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                       TextField(
                         controller: _productTypeController,
                         decoration: InputDecoration(
-                          hintText: 'Аэрогриль',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
@@ -183,7 +182,6 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                       TextField(
                         controller: _factoryController,
                         decoration: InputDecoration(
-                          hintText: 'Evershine',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
@@ -231,7 +229,6 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                       TextField(
                         controller: _modelController,
                         decoration: InputDecoration(
-                          hintText: '3806DW',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(

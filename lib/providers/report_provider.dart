@@ -223,6 +223,13 @@ class ReportState extends ChangeNotifier {
     final fileName = 'header.$ext';
     final destPath = File('$_currentReportPath/$fileName');
 
+    if (_currentReport!.headerImagePath != null) {
+      final oldFilePath = File('$_currentReportPath/${_currentReport!.headerImagePath}');
+      if (await oldFilePath.exists()) {
+        await oldFilePath.delete();
+      }
+    }
+
     final mimeType = _getMimeType(file.path);
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
