@@ -81,6 +81,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get chooseFromGallery => 'Выбрать из галереи';
 
   @override
+  String get chooseVideoFromGallery => 'Выбрать видео из галереи';
+
+  @override
   String get attention => 'Внимание';
 
   @override
@@ -514,4 +517,31 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get importError => 'Ошибка импорта';
+
+  @override
+  String get headerInfo => 'Информация об отчете';
+
+  @override
+  String get productType => 'Тип изделия';
+
+  @override
+  String get factory => 'Фабрика';
+
+  @override
+  String get model => 'Модель';
+
+  @override
+  String get date => 'Дата';
+
+  @override
+  String get editHeader => 'Редактировать заголовок';
+
+  @override
+  String get changePhoto => 'Изменить фото';
+
+  @override
+  String get deletePhoto => 'Удалить фото';
+
+  @override
+  String get noPhoto => 'Нет фото';
 }

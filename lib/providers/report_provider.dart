@@ -112,11 +112,13 @@ class ReportInfo {
   final String folderName;
   final String name;
   final DateTime dateTime;
+  final String? thumbnailPath;
 
   ReportInfo({
     required this.folderName,
     required this.name,
     required this.dateTime,
+    this.thumbnailPath,
   });
 }
 
@@ -131,8 +133,13 @@ class ReportState extends ChangeNotifier {
   void newReport(
     String name,
     List<Question> questions,
-    List<String> languages,
-  ) {
+    List<String> languages, {
+    String productType = 'Аэрогриль',
+    String factory = '',
+    String model = '',
+    String? headerImagePath,
+  }) {
+    final now = DateTime.now();
     _currentReport = Report(
       reportName: name,
       availableLanguages: languages,
@@ -141,7 +148,12 @@ class ReportState extends ChangeNotifier {
       translations: {},
       markers: {},
       mediaCounter: {'photos': 1, 'X': 1},
-      timestamp: DateTime.now().millisecondsSinceEpoch,
+      timestamp: now.millisecondsSinceEpoch,
+      productType: productType,
+      factory: factory,
+      model: model,
+      dateTimestamp: now.millisecondsSinceEpoch,
+      headerImagePath: headerImagePath,
     );
     for (int i = 0; i < questions.length; i++) {
       _currentReport!.translations[i.toString()] = {};
@@ -162,6 +174,79 @@ class ReportState extends ChangeNotifier {
       _currentReport!.currentLanguage = langCode;
       notifyListeners();
     }
+  }
+
+  void updateHeaderInfo({
+    String? productType,
+    String? factory,
+    String? model,
+    int? dateTimestamp,
+  }) {
+    if (_currentReport == null) return;
+    if (productType != null) _currentReport!.productType = productType;
+    if (factory != null) _currentReport!.factory = factory;
+    if (model != null) _currentReport!.model = model;
+    if (dateTimestamp != null) _currentReport!.dateTimestamp = dateTimestamp;
+    notifyListeners();
+  }
+
+  void updateReportName() {
+    if (_currentReport == null) return;
+    final productType = _currentReport!.productType.isNotEmpty 
+        ? '(${_currentReport!.productType})' 
+        : '';
+    final factory = _currentReport!.factory.isNotEmpty 
+        ? '${_currentReport!.factory} ' 
+        : '';
+    final model = _currentReport!.model.isNotEmpty 
+        ? _currentReport!.model 
+        : '';
+    _currentReport!.reportName = '$factory$productType $model'.trim();
+    notifyListeners();
+  }
+
+  Future<void> addHeaderImage(File file) async {
+    if (_currentReport == null) return;
+
+    if (_currentReportPath == null) {
+      final folderPath = await _generateFolderName();
+      _currentReportPath = folderPath;
+      final folder = Directory(folderPath);
+      if (!await folder.exists()) {
+        await folder.create(recursive: true);
+      }
+      await Directory('$folderPath/photos').create(recursive: true);
+      await Directory('$folderPath/X').create(recursive: true);
+    }
+
+    final ext = file.path.split('.').last;
+    final fileName = 'header.$ext';
+    final destPath = File('$_currentReportPath/$fileName');
+
+    final mimeType = _getMimeType(file.path);
+    if (mimeType.startsWith('image/')) {
+      final bytes = await file.readAsBytes();
+      final compressed = _compressImage(bytes, 1024);
+      await destPath.writeAsBytes(compressed);
+    } else {
+      await file.copy(destPath.path);
+    }
+
+    _currentReport!.headerImagePath = fileName;
+    notifyListeners();
+  }
+
+  Future<void> removeHeaderImage() async {
+    if (_currentReport == null) return;
+    if (_currentReportPath != null && _currentReport!.headerImagePath != null) {
+      final absolutePath = '$_currentReportPath/${_currentReport!.headerImagePath}';
+      final file = File(absolutePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+    _currentReport!.headerImagePath = null;
+    notifyListeners();
   }
 
   void addQuestion([int? index]) {
@@ -790,11 +875,13 @@ class ReportState extends ChangeNotifier {
               final dateTime = timestamp != null
                   ? DateTime.fromMillisecondsSinceEpoch(timestamp)
                   : DateTime.now();
+              final headerImagePath = jsonData['headerImagePath'] as String?;
               reports.add(
                 ReportInfo(
                   folderName: entity.path,
                   name: name,
                   dateTime: dateTime,
+                  thumbnailPath: headerImagePath,
                 ),
               );
             } catch (e) {
@@ -1114,18 +1201,21 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    <!-- 1 строка + жирная линия снизу ПО ВСЕЙ ШИРИНЕ -->');
     buffer.writeln('    <tr class="header-row">');
     buffer.writeln('      <td class="border-bold"></td>');
-    buffer.writeln('      <td class="title border-bold">Аэрогриль</td>');
+    buffer.writeln('      <td class="title border-bold">${_currentReport!.productType}</td>');
     buffer.writeln('      <td class="border-bold"></td>');
     buffer.writeln('      <td class="border-bold">Фабрика</td>');
     buffer.writeln('      <td class="border-bold">Модель</td>');
     buffer.writeln('    </tr>');
     buffer.writeln('    <!-- 2 строка + НЕТ линии снизу -->');
+    final displayDate = _currentReport!.dateTimestamp != null 
+        ? DateTime.fromMillisecondsSinceEpoch(_currentReport!.dateTimestamp!).toLocal().toString().substring(0, 10).split('-').reversed.join('.')
+        : currentDate;
     buffer.writeln('    <tr class="header-row">');
     buffer.writeln('      <td class="no-border"></td>');
-    buffer.writeln('      <td class="no-border">$currentDate</td>');
+    buffer.writeln('      <td class="no-border">$displayDate</td>');
     buffer.writeln('      <td class="no-border"></td>');
-    buffer.writeln('      <td class="no-border">Evershine</td>');
-    buffer.writeln('      <td class="no-border">3806DW</td>');
+    buffer.writeln('      <td class="no-border">${_currentReport!.factory}</td>');
+    buffer.writeln('      <td class="no-border">${_currentReport!.model}</td>');
     buffer.writeln('    </tr>');
     buffer.writeln('    <!-- 3 строка: ОБЪЕДИНЕНА + ФОТО по центру -->');
     buffer.writeln('    <tr class="header-row">');
@@ -1756,7 +1846,7 @@ class ReportState extends ChangeNotifier {
       fontFamily: 'Courier New',
       bottomBorder: Border(borderStyle: BorderStyle.Thin, borderColorHex: ExcelColor.black),
     );
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('Аэрогриль');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(_currentReport!.productType);
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = headerStyle1Bold;
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue('Фабрика');
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = headerStyle1Normal;
@@ -1769,19 +1859,21 @@ class ReportState extends ChangeNotifier {
     );
     row++;
 
-    // 2-я строка шапки (значения: дата, Evershine, 3806DW)
+    // 2-я строка шапки (значения: дата, factory, model)
     final headerStyle2 = CellStyle(
       backgroundColorHex: ExcelColor.white,
       fontColorHex: ExcelColor.fromHexString('#6c757d'),
       fontSize: 10,
       fontFamily: 'Courier New',
     );
-    final currentDate = DateTime.now().toLocal().toString().substring(0, 10).split('-').reversed.join('.');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(currentDate);
+    final excelDate = _currentReport!.dateTimestamp != null 
+        ? DateTime.fromMillisecondsSinceEpoch(_currentReport!.dateTimestamp!).toLocal().toString().substring(0, 10).split('-').reversed.join('.')
+        : DateTime.now().toLocal().toString().substring(0, 10).split('-').reversed.join('.');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(excelDate);
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = headerStyle2;
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue('Evershine');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue(_currentReport!.factory);
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = headerStyle2;
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue('3806DW');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue(_currentReport!.model);
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = headerStyle2;
     row++;
 
@@ -2211,6 +2303,9 @@ class ReportState extends ChangeNotifier {
       neededFiles.add('report.xlsx');
 
       if (_currentReport != null) {
+        if (_currentReport!.headerImagePath != null) {
+          neededFiles.add(_currentReport!.headerImagePath!);
+        }
         for (final markerEntry in _currentReport!.markers.entries) {
           for (final answerMarker in markerEntry.value) {
             for (final media in answerMarker.media) {

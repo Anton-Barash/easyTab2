@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -165,7 +166,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         const SizedBox(width: 10),
         FloatingActionButton(
-          onPressed: () => Navigator.of(context).pushReplacementNamed('/template'),
+          onPressed: () =>
+              Navigator.of(context).pushReplacementNamed('/template'),
           tooltip: 'Новый отчет',
           child: const Icon(Icons.add),
         ),
@@ -185,7 +187,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         final zipPath = result.files.single.path;
         if (zipPath != null) {
           final reportState = Provider.of<ReportState>(context, listen: false);
-          
+
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -207,28 +209,31 @@ class _ReportsScreenState extends State<ReportsScreen> {
           Navigator.pop(context);
 
           if (importedPath != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(loc.projectImported)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(loc.projectImported)));
             setState(() {
               _loadReports();
             });
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(loc.importError)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(loc.importError)));
           }
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.importError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.importError)));
     }
   }
 
   Widget _buildReportCard(BuildContext context, dynamic report) {
     final reportState = Provider.of<ReportState>(context, listen: false);
+    final hasThumbnail =
+        report.thumbnailPath != null && report.thumbnailPath!.isNotEmpty;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       constraints: const BoxConstraints(maxWidth: 500),
@@ -257,9 +262,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(width: 2, color: const Color(0xFF333333)),
                 ),
-                child: const Center(
-                  child: Icon(Icons.note, size: 32, color: Color(0xFF424242)),
-                ),
+                child: hasThumbnail
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.file(
+                          File('${report.folderName}/${report.thumbnailPath}'),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(
+                              child: Icon(
+                                Icons.note,
+                                size: 32,
+                                color: Color(0xFF424242),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          Icons.note,
+                          size: 32,
+                          color: Color(0xFF424242),
+                        ),
+                      ),
               ),
               const SizedBox(width: 16),
               Expanded(

@@ -219,6 +219,11 @@ class Report {
   Map<String, int> mediaCounter;
   int timestamp;
   String? folderPath;
+  String productType;
+  String factory;
+  String model;
+  int? dateTimestamp;
+  String? headerImagePath;
 
   Report({
     this.reportName = '',
@@ -230,6 +235,11 @@ class Report {
     this.mediaCounter = const {'photos': 1, 'X': 1},
     int? timestamp,
     this.folderPath,
+    this.productType = 'Аэрогриль',
+    this.factory = '',
+    this.model = '',
+    this.dateTimestamp,
+    this.headerImagePath,
   }) : timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch;
 
   List<Map<String, dynamic>> getAnswersForQuestion(int questionIndex, String langCode) {
@@ -313,6 +323,11 @@ class Report {
         'markers': markers.map((k, v) => MapEntry(k, v.map((m) => m.toJsonWithRelativePaths(folderPath)).toList())),
         'mediaCounter': mediaCounter,
         'timestamp': timestamp,
+        'productType': productType,
+        'factory': factory,
+        'model': model,
+        'dateTimestamp': dateTimestamp,
+        'headerImagePath': headerImagePath,
       };
 
   factory Report.fromJson(Map<String, dynamic> json, {String? folderPath}) {
@@ -378,6 +393,11 @@ class Report {
       mediaCounter: Map<String, int>.from(json['mediaCounter'] ?? {'photos': 1, 'X': 1}),
       timestamp: json['timestamp'],
       folderPath: folderPath,
+      productType: json['productType'] ?? 'Аэрогриль',
+      factory: json['factory'] ?? '',
+      model: json['model'] ?? '',
+      dateTimestamp: json['dateTimestamp'] as int?,
+      headerImagePath: json['headerImagePath'] as String?,
     );
   }
 
@@ -391,6 +411,11 @@ class Report {
     Map<String, int>? mediaCounter,
     int? timestamp,
     String? folderPath,
+    String? productType,
+    String? factory,
+    String? model,
+    int? dateTimestamp,
+    String? headerImagePath,
   }) {
     return Report(
       reportName: reportName ?? this.reportName,
@@ -402,6 +427,11 @@ class Report {
       mediaCounter: mediaCounter ?? this.mediaCounter,
       timestamp: timestamp ?? this.timestamp,
       folderPath: folderPath ?? this.folderPath,
+      productType: productType ?? this.productType,
+      factory: factory ?? this.factory,
+      model: model ?? this.model,
+      dateTimestamp: dateTimestamp ?? this.dateTimestamp,
+      headerImagePath: headerImagePath ?? this.headerImagePath,
     );
   }
 

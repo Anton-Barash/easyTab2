@@ -24,6 +24,7 @@
   "takePhoto": "Take Photo",
   "takeVideo": "Take Video",
   "chooseFromGallery": "Choose from Gallery",
+  "chooseVideoFromGallery": "Choose video from gallery",
   "attention": "Attention",
   "needsWork": "Needs Work",
   "viewHtml": "View HTML",
@@ -226,5 +227,14 @@
   "processingZip": "Processing ZIP...",
   "importingProject": "Importing project...",
   "projectImported": "Project imported!",
-  "importError": "Import error"
+  "importError": "Import error",
+  "headerInfo": "Report information",
+  "productType": "Product type",
+  "factory": "Factory",
+  "model": "Model",
+  "date": "Date",
+  "editHeader": "Edit header",
+  "changePhoto": "Change photo",
+  "deletePhoto": "Delete photo",
+  "noPhoto": "No photo"
 }

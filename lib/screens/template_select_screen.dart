@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../providers/report_provider.dart';
 import '../models/report_models.dart';
 import '../l10n/app_localizations.dart';
@@ -17,7 +18,11 @@ class TemplateSelectScreen extends StatefulWidget {
 
 class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   final _reportNameController = TextEditingController();
+  final _productTypeController = TextEditingController();
+  final _factoryController = TextEditingController();
+  final _modelController = TextEditingController();
   Report? _selectedReport;
+  String? _headerImagePath;
 
   final List<Question> _defaultTemplate = [
     Question(
@@ -85,6 +90,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   @override
   void dispose() {
     _reportNameController.dispose();
+    _productTypeController.dispose();
+    _factoryController.dispose();
+    _modelController.dispose();
     super.dispose();
   }
 
@@ -116,7 +124,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        loc.reportNameLabel,
+                        'Тип изделия',
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF424242),
@@ -125,9 +133,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                       ),
                       const SizedBox(height: 12),
                       TextField(
-                        controller: _reportNameController,
+                        controller: _productTypeController,
                         decoration: InputDecoration(
-                          hintText: loc.enterName,
+                          hintText: 'Аэрогриль',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
@@ -153,7 +161,210 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           fillColor: Colors.white,
                         ),
                         style: const TextStyle(color: Color(0xFF424242)),
+                        onChanged: (_) => _updateReportName(),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Фабрика',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF424242),
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _factoryController,
+                        decoration: InputDecoration(
+                          hintText: 'Evershine',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF333333),
+                              width: 2,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF333333),
+                              width: 2,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF333333),
+                              width: 2.5,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        style: const TextStyle(color: Color(0xFF424242)),
+                        onChanged: (_) => _updateReportName(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Модель',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF424242),
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _modelController,
+                        decoration: InputDecoration(
+                          hintText: '3806DW',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF333333),
+                              width: 2,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF333333),
+                              width: 2,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF333333),
+                              width: 2.5,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        style: const TextStyle(color: Color(0xFF424242)),
+                        onChanged: (_) => _updateReportName(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Фото',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF424242),
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_headerImagePath != null) ...[
+                        Stack(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFF333333),
+                                  width: 2,
+                                ),
+                                image: DecorationImage(
+                                  image: FileImage(File(_headerImagePath!)),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _headerImagePath = null;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _pickHeaderImage,
+                          icon: const Icon(Icons.photo_library),
+                          label: const Text('Изменить фото'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF424242),
+                            side: const BorderSide(color: Color(0xFF333333)),
+                          ),
+                        ),
+                      ] else ...[
+                        InkWell(
+                          onTap: _pickHeaderImage,
+                          child: Container(
+                            width: double.infinity,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFe0e0e0),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFF333333),
+                                width: 2,
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_a_photo,
+                                  size: 40,
+                                  color: Color(0xFF666666),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Добавить фото',
+                                  style: TextStyle(
+                                    color: Color(0xFF666666),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -506,17 +717,53 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   Future<void> _useTemplate(BuildContext context) async {
     final state = Provider.of<ReportState>(context, listen: false);
     final navigator = Navigator.of(context);
-    final name = _reportNameController.text.trim();
-    if (name.isEmpty || _selectedReport == null) return;
+    final productType = _productTypeController.text.trim();
+    final factory = _factoryController.text.trim();
+    final model = _modelController.text.trim();
+    
+    if (productType.isEmpty || factory.isEmpty || model.isEmpty || _selectedReport == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Пожалуйста, заполните все поля')),
+      );
+      return;
+    }
+
+    final reportName = '$factory ($productType) $model';
 
     state.newReport(
-      name,
+      reportName,
       _selectedReport!.questions,
       _selectedReport!.availableLanguages,
+      productType: productType,
+      factory: factory,
+      model: model,
+      headerImagePath: _headerImagePath,
     );
+
+    if (_headerImagePath != null) {
+      await state.addHeaderImage(File(_headerImagePath!));
+    }
+
     await state.saveReport();
     if (!mounted) return;
     navigator.pushReplacementNamed('/fill');
+  }
+
+  void _updateReportName() {
+    final productType = _productTypeController.text.trim();
+    final factory = _factoryController.text.trim();
+    final model = _modelController.text.trim();
+    _reportNameController.text = '$factory ($productType) $model';
+  }
+
+  Future<void> _pickHeaderImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _headerImagePath = image.path;
+      });
+    }
   }
 
   void _showAddTranslationDialog() {

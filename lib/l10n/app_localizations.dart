@@ -244,6 +244,12 @@ abstract class AppLocalizations {
   /// **'Choose from Gallery'**
   String get chooseFromGallery;
 
+  /// No description provided for @chooseVideoFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose video from gallery'**
+  String get chooseVideoFromGallery;
+
   /// No description provided for @attention.
   ///
   /// In en, this message translates to:
@@ -1041,6 +1047,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import error'**
   String get importError;
+
+  /// No description provided for @headerInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Report information'**
+  String get headerInfo;
+
+  /// No description provided for @productType.
+  ///
+  /// In en, this message translates to:
+  /// **'Product type'**
+  String get productType;
+
+  /// No description provided for @factory.
+  ///
+  /// In en, this message translates to:
+  /// **'Factory'**
+  String get factory;
+
+  /// No description provided for @model.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get model;
+
+  /// No description provided for @date.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get date;
+
+  /// No description provided for @editHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit header'**
+  String get editHeader;
+
+  /// No description provided for @changePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Change photo'**
+  String get changePhoto;
+
+  /// No description provided for @deletePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete photo'**
+  String get deletePhoto;
+
+  /// No description provided for @noPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'No photo'**
+  String get noPhoto;
 }
 
 class _AppLocalizationsDelegate

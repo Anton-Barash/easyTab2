@@ -24,6 +24,7 @@
   "takePhoto": "Сделать фото",
   "takeVideo": "Сделать видео",
   "chooseFromGallery": "Выбрать из галереи",
+  "chooseVideoFromGallery": "Выбрать видео из галереи",
   "attention": "Внимание",
   "needsWork": "Требует доработки",
   "viewHtml": "Просмотр HTML",
@@ -226,5 +227,14 @@
   "processingZip": "Обработка ZIP...",
   "importingProject": "Импорт проекта...",
   "projectImported": "Проект импортирован!",
-  "importError": "Ошибка импорта"
+  "importError": "Ошибка импорта",
+  "headerInfo": "Информация об отчете",
+  "productType": "Тип изделия",
+  "factory": "Фабрика",
+  "model": "Модель",
+  "date": "Дата",
+  "editHeader": "Редактировать заголовок",
+  "changePhoto": "Изменить фото",
+  "deletePhoto": "Удалить фото",
+  "noPhoto": "Нет фото"
 }

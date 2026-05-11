@@ -1083,8 +1083,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
                                       ),
-                                      itemCount: report.questions.length,
-                                      itemBuilder: (ctx, i) {
+                                      itemCount: report.questions.length + 1,
+                                      itemBuilder: (ctx, index) {
+                                        if (index == 0) {
+                                          return _buildHeaderCard0SidePanel(context, report, reportState);
+                                        }
+                                        final i = index - 1;
                                         final lang = report.currentLanguage;
                                         final answers = report
                                             .getAnswersForQuestion(i, lang);
@@ -1120,11 +1124,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               onTap: () {
                                                 setState(() {
                                                   _currentPage = i;
+                                                  _isSidePanelCollapsed = true;
                                                 });
                                                 if (_viewMode ==
                                                     ViewMode.card) {
                                                   _pageController.animateToPage(
-                                                    i,
+                                                    i + 1,
                                                     duration: const Duration(
                                                       milliseconds: 300,
                                                     ),
@@ -1493,7 +1498,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       });
                                       if (_viewMode == ViewMode.card) {
                                         _pageController.animateToPage(
-                                          i,
+                                          i + 1,
                                           duration: const Duration(
                                             milliseconds: 300,
                                           ),
@@ -1732,13 +1737,21 @@ class _FormFillScreenState extends State<FormFillScreen> {
         return ListView.builder(
           controller: _listScrollController,
           padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(16),
-          itemCount: report.questions.length,
-          itemBuilder: (ctx, i) {
+          itemCount: report.questions.length + 1,
+          itemBuilder: (ctx, index) {
+            if (index == 0) {
+              return Padding(
+                padding: isMobile
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.symmetric(vertical: 8),
+                child: _buildHeaderCard0ListItem(ctx, report, reportState, isMobile),
+              );
+            }
             return Padding(
               padding: isMobile
                   ? EdgeInsets.zero
                   : const EdgeInsets.symmetric(vertical: 8),
-              child: _buildQuestionCard(ctx, i, reportState, false),
+              child: _buildQuestionCard(ctx, index - 1, reportState, false),
             );
           },
         );
@@ -1760,19 +1773,31 @@ class _FormFillScreenState extends State<FormFillScreen> {
               controller: _pageController,
               onPageChanged: (page) {
                 setState(() {
-                  _currentPage = page;
+                  _currentPage = page == 0 ? -1 : page - 1;
                 });
               },
               physics: const BouncingScrollPhysics(),
-              itemCount: report.questions.length,
-              itemBuilder: (context, index) => SingleChildScrollView(
-                padding: isMobile
-                    ? const EdgeInsets.only(bottom: 100)
-                    : const EdgeInsets.all(20),
-                child: Center(
-                  child: _buildQuestionCard(context, index, reportState, true),
-                ),
-              ),
+              itemCount: report.questions.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return SingleChildScrollView(
+                    padding: isMobile
+                        ? const EdgeInsets.only(bottom: 100)
+                        : const EdgeInsets.all(20),
+                    child: Center(
+                      child: _buildHeaderCard0(context, report, reportState),
+                    ),
+                  );
+                }
+                return SingleChildScrollView(
+                  padding: isMobile
+                      ? const EdgeInsets.only(bottom: 100)
+                      : const EdgeInsets.all(20),
+                  child: Center(
+                    child: _buildQuestionCard(context, index - 1, reportState, true),
+                  ),
+                );
+              },
             ),
             Positioned(
               bottom: 16,
@@ -1789,7 +1814,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
-                    '${_currentPage + 1} / ${report.questions.length}',
+                    _currentPage == -1
+                        ? '0 / ${report.questions.length}'
+                        : '${_currentPage + 1} / ${report.questions.length}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -1801,6 +1828,581 @@ class _FormFillScreenState extends State<FormFillScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildHeaderCard0(
+    BuildContext context,
+    Report report,
+    ReportState reportState,
+  ) {
+    final loc = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+    final width = !isMobile ? 600.0 : double.infinity;
+
+    final headerImagePath = report.headerImagePath;
+    final hasImage = headerImagePath != null && headerImagePath.isNotEmpty;
+
+    return Container(
+      constraints: BoxConstraints(maxWidth: width),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: isMobile
+            ? Border(
+                top: BorderSide(width: 2, color: const Color(0xFF333333)),
+                bottom: BorderSide(width: 2, color: const Color(0xFF333333)),
+              )
+            : Border.all(width: 2, color: const Color(0xFF333333)),
+        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFf3f4f6),
+              border: Border(
+                bottom: BorderSide(width: 1.5, color: const Color(0xFFe5e7eb)),
+              ),
+              borderRadius: isMobile
+                  ? BorderRadius.zero
+                  : const BorderRadius.only(
+                      topLeft: Radius.circular(10),
+                      topRight: Radius.circular(10),
+                    ),
+            ),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isSidePanelCollapsed = false;
+                    });
+                  },
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF333333),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        '0',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    loc.headerInfo,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () {
+                    setState(() {
+                      _isSidePanelCollapsed = false;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          if (hasImage)
+            Container(
+              width: double.infinity,
+              height: 250,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: FileImage(
+                    File('${reportState.currentReportPath}/$headerImagePath'),
+                  ),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              height: 150,
+              color: const Color(0xFFe0e0e0),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.image,
+                      size: 48,
+                      color: Color(0xFF666666),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      loc.noPhoto,
+                      style: const TextStyle(
+                        color: Color(0xFF666666),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInfoRow(loc.productType, report.productType),
+                const SizedBox(height: 12),
+                _buildInfoRow(loc.factory, report.factory),
+                const SizedBox(height: 12),
+                _buildInfoRow(loc.model, report.model),
+                const SizedBox(height: 12),
+                if (report.dateTimestamp != null)
+                  _buildInfoRow(
+                    loc.date,
+                    DateTime.fromMillisecondsSinceEpoch(report.dateTimestamp!)
+                        .toLocal()
+                        .toString()
+                        .substring(0, 10),
+                  ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => _showEditHeaderDialog(context, reportState),
+                  icon: const Icon(Icons.edit),
+                  label: Text(loc.editHeader),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF424242),
+                    side: const BorderSide(color: Color(0xFF333333)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF666666),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value.isEmpty ? '-' : value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF424242),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showEditHeaderDialog(BuildContext context, ReportState reportState) {
+    final report = reportState.currentReport;
+    if (report == null) return;
+    final loc = AppLocalizations.of(context)!;
+
+    final productTypeController = TextEditingController(text: report.productType);
+    final factoryController = TextEditingController(text: report.factory);
+    final modelController = TextEditingController(text: report.model);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFe5e7eb)),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    loc.editHeader,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: productTypeController,
+                      decoration: InputDecoration(
+                        labelText: loc.productType,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: factoryController,
+                      decoration: InputDecoration(
+                        labelText: loc.factory,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: modelController,
+                      decoration: InputDecoration(
+                        labelText: loc.model,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final ImagePicker picker = ImagePicker();
+                              final XFile? image = await picker.pickImage(
+                                source: ImageSource.gallery,
+                              );
+                              if (image != null && context.mounted) {
+                                await reportState.addHeaderImage(File(image.path));
+                              }
+                            },
+                            icon: const Icon(Icons.photo_library),
+                            label: Text(loc.changePhoto),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF424242),
+                              side: const BorderSide(color: Color(0xFF333333)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (report.headerImagePath != null && report.headerImagePath!.isNotEmpty)
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                await reportState.removeHeaderImage();
+                              },
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              label: Text(
+                                loc.deletePhoto,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          reportState.updateHeaderInfo(
+                            productType: productTypeController.text.trim(),
+                            factory: factoryController.text.trim(),
+                            model: modelController.text.trim(),
+                          );
+                          reportState.updateReportName();
+                          reportState.saveReport();
+                          Navigator.pop(ctx);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF333333),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: Text(loc.save),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderCard0ListItem(BuildContext context, Report report, ReportState reportState, bool isMobile) {
+    final loc = AppLocalizations.of(context)!;
+    final headerImagePath = report.headerImagePath;
+    final hasImage = headerImagePath != null && headerImagePath.isNotEmpty;
+
+    return Material(
+      color: Colors.white,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(width: 2, color: const Color(0xFF333333)),
+            top: BorderSide(width: 2, color: const Color(0xFF333333)),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _currentPage = -1;
+                        if (isMobile) {
+                          _isSidePanelCollapsed = false;
+                        }
+                      });
+                    },
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF333333),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '0',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _showEditHeaderDialog(context, reportState),
+                      child: Text(
+                        loc.headerInfo,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF424242),
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    onPressed: () => _showEditHeaderDialog(context, reportState),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            if (hasImage)
+              Container(
+                width: double.infinity,
+                height: 150,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: FileImage(
+                      File('${reportState.currentReportPath}/$headerImagePath'),
+                    ),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoRow(loc.productType, report.productType),
+                  const SizedBox(height: 4),
+                  _buildInfoRow(loc.factory, report.factory),
+                  const SizedBox(height: 4),
+                  _buildInfoRow(loc.model, report.model),
+                  if (report.dateTimestamp != null) ...[
+                    const SizedBox(height: 4),
+                    _buildInfoRow(
+                      loc.date,
+                      DateTime.fromMillisecondsSinceEpoch(report.dateTimestamp!)
+                          .toLocal()
+                          .toString()
+                          .substring(0, 10),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderCard0SidePanel(
+    BuildContext context,
+    Report report,
+    ReportState reportState,
+  ) {
+    final loc = AppLocalizations.of(context)!;
+    final headerImagePath = report.headerImagePath;
+    final hasImage = headerImagePath != null && headerImagePath.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            border: Border.all(
+              width: 1.5,
+              color: _currentPage == -1
+                  ? const Color(0xFF3b82f6)
+                  : const Color(0xFFe5e7eb),
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _currentPage = -1;
+                    _isSidePanelCollapsed = true;
+                  });
+                  if (_viewMode == ViewMode.card) {
+                    _pageController.animateToPage(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.ease,
+                    );
+                  } else {
+                    _listScrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.ease,
+                    );
+                  }
+                },
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF333333),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '0',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${report.productType} | ${report.factory} | ${report.model}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF424242),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    if (report.dateTimestamp != null)
+                      Text(
+                        DateTime.fromMillisecondsSinceEpoch(report.dateTimestamp!)
+                            .toLocal()
+                            .toString()
+                            .substring(0, 10),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF666666),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (hasImage)
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    image: DecorationImage(
+                      image: FileImage(
+                        File('${reportState.currentReportPath}/${report.headerImagePath}'),
+                      ),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -2466,6 +3068,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
               title: Text(loc.chooseFromGallery),
               onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
+            ListTile(
+              leading: const Icon(Icons.video_library),
+              title: Text(loc.chooseVideoFromGallery),
+              onTap: () => Navigator.pop(ctx, 'gallery-video'),
+            ),
           ],
         ),
       ),
@@ -2486,7 +3093,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
         files = [file];
       }
     } else if (action == 'gallery') {
-      files = await picker.pickMultipleMedia();
+      final imageFile = await picker.pickImage(source: ImageSource.gallery);
+      if (imageFile != null) {
+        files = [imageFile];
+      }
+    } else if (action == 'gallery-video') {
+      final videoFile = await picker.pickVideo(source: ImageSource.gallery);
+      if (videoFile != null) {
+        files = [videoFile];
+      }
     }
 
     if (files == null || files.isEmpty) return;
