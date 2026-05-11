@@ -2289,6 +2289,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final loc = AppLocalizations.of(context)!;
     final attention = answer['attention'] == true;
     final isMobile = MediaQuery.of(context).size.width <= 800;
+
+    final report = reportState.currentReport;
+    String? exampleText;
+    if (report != null && i < report.questions.length) {
+      final question = report.questions[i];
+      final questionLoc = question.getLocalization(report.currentLanguage);
+      exampleText = questionLoc?.example;
+    }
+
     return Container(
       margin: EdgeInsets.only(bottom: isMobile ? 6 : 12),
       padding: EdgeInsets.all(isMobile ? 8 : 12),
@@ -2303,6 +2312,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (exampleText?.isNotEmpty ?? false)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Text(
+                exampleText!,
+                style: TextStyle(
+                  fontSize: isMobile ? 12 : 13,
+                  color: const Color(0xFF6b7280),
+                  fontStyle: FontStyle.italic,
+                ),
+                softWrap: true,
+              ),
+            ),
           TextField(
             controller: _getSafeController(qid, j),
             maxLines: null,

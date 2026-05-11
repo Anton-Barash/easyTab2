@@ -154,6 +154,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get createNewReport => '+ Создать новый отчёт';
 
   @override
+  String get continueReport => 'Продолжить';
+
+  @override
   String get openExistingReport => 'Открыть существующий отчёт';
 
   @override

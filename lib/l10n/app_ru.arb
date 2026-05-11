@@ -48,6 +48,7 @@
   "cannotUndo": "Это действие нельзя отменить",
   "reportDeleted": "Отчёт удалён",
   "createNewReport": "+ Создать новый отчёт",
+  "continueReport": "Продолжить",
   "openExistingReport": "Открыть существующий отчёт",
   "yourReports": "Ваши отчёты",
   "instructionsText": "Инструкция: создайте отчёт, выберите шаблон,\nзаполните данные и экспортируйте!",

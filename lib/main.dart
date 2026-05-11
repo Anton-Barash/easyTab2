@@ -97,7 +97,7 @@ class StartScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 15),
                   const Text(
-                    'Excel Report Builder',
+                    'easyTab',
                     style: TextStyle(fontSize: 16, color: Color(0xFF424242)),
                   ),
                   const SizedBox(height: 30),
@@ -107,8 +107,8 @@ class StartScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 15),
                   _buildButton(
-                    label: loc.openExistingReport,
-                    onTap: () => _openExistingReport(context, loc),
+                    label: loc.continueReport,
+                    onTap: () => _continueLastReport(context),
                   ),
                   const SizedBox(height: 15),
                   _buildButton(
@@ -260,13 +260,22 @@ class StartScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _openExistingReport(
-    BuildContext context,
-    AppLocalizations loc,
-  ) async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(loc.comingSoon)));
+  Future<void> _continueLastReport(BuildContext context) async {
+    final reportState = Provider.of<ReportState>(context, listen: false);
+    final reports = await reportState.loadReportList();
+    
+    if (reports.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нет сохраненных отчетов')),
+      );
+      return;
+    }
+    
+    reports.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    final lastReport = reports.first;
+    
+    await reportState.loadReport(lastReport.folderName);
+    Navigator.of(context).pushNamed('/fill');
   }
 }
 

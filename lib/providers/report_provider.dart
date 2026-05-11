@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:excel/excel.dart' hide Border;
+import 'package:excel_community/excel_community.dart';
+import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 import 'package:share_plus/share_plus.dart';
@@ -65,6 +66,46 @@ List<String> sortLanguages(List<String> languages) {
 String getLanguageColor(int index) {
   if (index == 0) return '#888888';
   return languageColors[index] ?? '#888888';
+}
+
+List<String> _groupMediaNames(List<String> mediaNames) {
+  if (mediaNames.isEmpty) return [];
+  
+  final Map<String, List<int>> grouped = {};
+  
+  for (final name in mediaNames) {
+    final prefix = name.substring(0, 1);
+    final numStr = name.substring(1);
+    if (int.tryParse(numStr) != null) {
+      if (!grouped.containsKey(prefix)) {
+        grouped[prefix] = [];
+      }
+      grouped[prefix]!.add(int.parse(numStr));
+    } else {
+      if (!grouped.containsKey('other')) {
+        grouped['other'] = [];
+      }
+      grouped['other']!.add(mediaNames.indexOf(name));
+    }
+  }
+  
+  final result = <String>[];
+  for (final entry in grouped.entries) {
+    if (entry.key == 'other') {
+      for (final idx in entry.value) {
+        result.add(mediaNames[idx]);
+      }
+    } else {
+      final nums = entry.value..sort();
+      if (nums.length == 1) {
+        result.add('${entry.key}${nums[0].toString().padLeft(3, '0')}');
+      } else {
+        result.add('${entry.key}${nums.first.toString().padLeft(3, '0')}-${nums.last.toString().padLeft(3, '0')}');
+      }
+    }
+  }
+  
+  return result;
 }
 
 class ReportInfo {
@@ -508,8 +549,9 @@ class ReportState extends ChangeNotifier {
       onProgress(i + 1, videoPaths.length);
 
       try {
-        final videoPath = videoPaths[i];
-        final file = File(videoPath);
+        final relativePath = videoPaths[i];
+        final absolutePath = '$_currentReportPath/$relativePath';
+        final file = File(absolutePath);
 
         if (!await file.exists()) continue;
 
@@ -519,7 +561,7 @@ class ReportState extends ChangeNotifier {
 
         // Compress the video with stronger compression
         final result = await compressor.compressVideo(
-          videoPath,
+          absolutePath,
           const VVideoCompressionConfig.low(),
           onProgress: (progress) {
             // We'll handle progress in the UI
@@ -530,7 +572,7 @@ class ReportState extends ChangeNotifier {
           // Replace original with compressed video
           final compressedFile = File(result.compressedFilePath);
           if (await compressedFile.exists()) {
-            await compressedFile.copy(videoPath);
+            await compressedFile.copy(absolutePath);
             await compressedFile.delete();
           }
         }
@@ -1034,6 +1076,24 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .control-btn:hover {');
     buffer.writeln('      background: rgba(0,0,0,0.7);');
     buffer.writeln('    }');
+    buffer.writeln('    /* Header styles */');
+    buffer.writeln('    .header-row {');
+    buffer.writeln('      background: #ffffff !important;');
+    buffer.writeln('      color: #6c757d;');
+    buffer.writeln('      text-align: center;');
+    buffer.writeln('    }');
+    buffer.writeln('    .title {');
+    buffer.writeln('      font-weight: bold;');
+    buffer.writeln('      font-size: 18px;');
+    buffer.writeln('    }');
+    buffer.writeln('    .border-bold {');
+    buffer.writeln('      border-bottom: 2px solid #6c757d !important;');
+    buffer.writeln('      font-size: 18px;');
+    buffer.writeln('    }');
+    buffer.writeln('    .no-border {');
+    buffer.writeln('      border-bottom: none !important;');
+    buffer.writeln('      font-size: 14px;');
+    buffer.writeln('    }');
     buffer.writeln('  </style>');
     buffer.writeln('</head>');
     buffer.writeln('<body>');
@@ -1047,8 +1107,31 @@ class ReportState extends ChangeNotifier {
     }
     buffer.writeln('</div>');
 
+    final currentDate = DateTime.now().toLocal().toString().substring(0, 10).split('-').reversed.join('.');
+
     buffer.writeln('<div class="excel-wrapper">');
     buffer.writeln('  <table>');
+    buffer.writeln('    <!-- 1 строка + жирная линия снизу ПО ВСЕЙ ШИРИНЕ -->');
+    buffer.writeln('    <tr class="header-row">');
+    buffer.writeln('      <td class="border-bold"></td>');
+    buffer.writeln('      <td class="title border-bold">Аэрогриль</td>');
+    buffer.writeln('      <td class="border-bold"></td>');
+    buffer.writeln('      <td class="border-bold">Фабрика</td>');
+    buffer.writeln('      <td class="border-bold">Модель</td>');
+    buffer.writeln('    </tr>');
+    buffer.writeln('    <!-- 2 строка + НЕТ линии снизу -->');
+    buffer.writeln('    <tr class="header-row">');
+    buffer.writeln('      <td class="no-border"></td>');
+    buffer.writeln('      <td class="no-border">$currentDate</td>');
+    buffer.writeln('      <td class="no-border"></td>');
+    buffer.writeln('      <td class="no-border">Evershine</td>');
+    buffer.writeln('      <td class="no-border">3806DW</td>');
+    buffer.writeln('    </tr>');
+    buffer.writeln('    <!-- 3 строка: ОБЪЕДИНЕНА + ФОТО по центру -->');
+    buffer.writeln('    <tr class="header-row">');
+    buffer.writeln('      <td colspan="5" style="text-align:center; font-weight:bold; padding:8px; color:#6c757d; border-bottom:none;">ФОТО</td>');
+    buffer.writeln('    </tr>');
+    buffer.writeln('    <!-- Исходная шапка -->');
     buffer.writeln('    <tr>');
     buffer.writeln('      <th colspan="5">$reportName | $dateTime</th>');
     buffer.writeln('    </tr>');
@@ -1506,6 +1589,9 @@ class ReportState extends ChangeNotifier {
     buffer.writeln(
       '<tr><th colspan="5">$reportName | Язык: $langDisplay | $dateTime</th></tr>',
     );
+    buffer.writeln(
+      '<tr><td colspan="5" style="border-bottom:2px solid #6c757d;"></td></tr>',
+    );
     buffer.writeln('</thead>');
     buffer.writeln('<tbody>');
 
@@ -1565,9 +1651,8 @@ class ReportState extends ChangeNotifier {
           if (li == 0) {
             parts.add(questionNames[li]);
           } else {
-            final color = getLanguageColor(li);
             parts.add(
-              '<span style="font-size:10px;color:$color;">${questionNames[li]}</span>',
+              '<span style="font-size:10px;color:#888888;">${questionNames[li]}</span>',
             );
           }
         }
@@ -1582,9 +1667,8 @@ class ReportState extends ChangeNotifier {
             if (li == 0) {
               parts.add('<div>$text</div>');
             } else {
-              final color = getLanguageColor(li);
               parts.add(
-                '<div style="font-size:10px;color:$color;">$text</div>',
+                '<div style="font-size:10px;color:#888888;">$text</div>',
               );
             }
           }
@@ -1600,44 +1684,34 @@ class ReportState extends ChangeNotifier {
         buffer.writeln(
           '<td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>',
         );
-        buffer.writeln('<td style="text-align:center;width:30px;"></td>');
-        buffer.writeln('<td style="background:white;width:300px;"></td>');
-        buffer.writeln('<td style="background:#fafafa;width:200px;"></td>');
+        buffer.writeln('<td style="text-align:center;vertical-align:middle;width:30px;"></td>');
+        buffer.writeln('<td style="background:white;width:300px;">${answerCellContent(0)}</td>');
+        buffer.writeln('<td style="background:#fafafa;width:200px;">$photoCellContent</td>');
         buffer.writeln('</tr>');
       } else {
         for (int ai = 0; ai < maxAnswers; ai++) {
           buffer.writeln('<tr>');
-
-          if (ai == 0) {
-            buffer.writeln(
-              '<td rowspan="$maxAnswers" style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
-            );
-          }
-
-          if (ai == 0) {
-            buffer.writeln(
-              '<td rowspan="$maxAnswers" style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>',
-            );
-          }
+          buffer.writeln(
+            '<td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
+          );
+          buffer.writeln(
+            '<td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>',
+          );
 
           if (answerHasAttention[ai]) {
             buffer.writeln(
               '<td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>',
             );
           } else {
-            buffer.writeln(
-              '<td style="text-align:center;vertical-align:middle;width:30px;"></td>',
-            );
+            buffer.writeln('<td style="text-align:center;vertical-align:middle;width:30px;"></td>');
           }
 
+          final answerBgColor = answerHasAttention[ai] ? '#fff3cd' : 'white';
           buffer.writeln(
-            '<td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${answerCellContent(ai)}</td>',
+            '<td style="background:$answerBgColor;width:300px;">${answerCellContent(ai)}</td>',
           );
 
-          buffer.writeln(
-            '<td style="background:#fafafa;width:200px;">${ai == 0 ? photoCellContent : ''}</td>',
-          );
-
+          buffer.writeln('<td style="background:#fafafa;width:200px;">$photoCellContent</td>');
           buffer.writeln('</tr>');
         }
       }
@@ -1653,60 +1727,336 @@ class ReportState extends ChangeNotifier {
   Uint8List _generateExcel() {
     if (_currentReport == null) return Uint8List(0);
     final excel = Excel.createExcel();
-    final sheet = excel['Report'];
+    final sheet = excel['Sheet1'];
 
-    int row = 1;
-    final lang = _currentReport!.currentLanguage;
-    sheet.cell(CellIndex.indexByString('A$row')).value = TextCellValue(
-      'Вопрос ($lang)',
+    final allLanguages = _currentReport!.availableLanguages;
+    final languages = sortLanguages(allLanguages);
+
+    final rowNumColor = ExcelColor.fromHexString('#00B0F0');
+    final questionBgColor = ExcelColor.fromHexString('#fafafa');
+    final attentionBgColor = ExcelColor.fromHexString('#fff3cd');
+    final borderColor = ExcelColor.fromHexString('#6c757d');
+
+    int row = 0;
+
+    // 1-я строка шапки (заголовки: Аэрогриль, Фабрика, Модель)
+    final headerStyle1Bold = CellStyle(
+      backgroundColorHex: ExcelColor.white,
+      fontColorHex: ExcelColor.fromHexString('#6c757d'),
+      bold: true,
+      fontSize: 12,
+      fontFamily: 'Courier New',
+      bottomBorder: Border(borderStyle: BorderStyle.Thin, borderColorHex: ExcelColor.black),
     );
-    sheet.cell(CellIndex.indexByString('B$row')).value = TextCellValue(
-      'Расшифровка ($lang)',
+    final headerStyle1Normal = CellStyle(
+      backgroundColorHex: ExcelColor.white,
+      fontColorHex: ExcelColor.fromHexString('#6c757d'),
+      bold: false,
+      fontSize: 12,
+      fontFamily: 'Courier New',
+      bottomBorder: Border(borderStyle: BorderStyle.Thin, borderColorHex: ExcelColor.black),
     );
-    sheet.cell(CellIndex.indexByString('C$row')).value = TextCellValue('Ответ');
-    sheet.cell(CellIndex.indexByString('D$row')).value = TextCellValue(
-      'Внимание',
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('Аэрогриль');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = headerStyle1Bold;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue('Фабрика');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = headerStyle1Normal;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue('Модель');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = headerStyle1Normal;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).cellStyle = CellStyle(
+      backgroundColorHex: ExcelColor.white,
+      fontFamily: 'Courier New',
+      bottomBorder: Border(borderStyle: BorderStyle.Thin, borderColorHex: ExcelColor.black),
     );
-    sheet.cell(CellIndex.indexByString('E$row')).value = TextCellValue('Медиа');
     row++;
 
+    // 2-я строка шапки (значения: дата, Evershine, 3806DW)
+    final headerStyle2 = CellStyle(
+      backgroundColorHex: ExcelColor.white,
+      fontColorHex: ExcelColor.fromHexString('#6c757d'),
+      fontSize: 10,
+      fontFamily: 'Courier New',
+    );
+    final currentDate = DateTime.now().toLocal().toString().substring(0, 10).split('-').reversed.join('.');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(currentDate);
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = headerStyle2;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue('Evershine');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = headerStyle2;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue('3806DW');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = headerStyle2;
+    row++;
+
+    // 3-я строка шапки (ФОТО - объединенная ячейка)
+    final totalColumns = 5; // A-E
+    sheet.merge(
+      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+      CellIndex.indexByColumnRow(columnIndex: totalColumns - 1, rowIndex: row),
+    );
+    final photoHeaderStyle = CellStyle(
+      backgroundColorHex: ExcelColor.white,
+      fontColorHex: ExcelColor.fromHexString('#6c757d'),
+      bold: true,
+      fontSize: 10,
+      fontFamily: 'Courier New',
+      horizontalAlign: HorizontalAlign.Center,
+    );
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('ФОТО');
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).cellStyle = photoHeaderStyle;
+    row++;
+
+    // 4-я строка - пустая строка
+    for (int col = 0; col < totalColumns; col++) {
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 3)).cellStyle = CellStyle(
+        backgroundColorHex: ExcelColor.white,
+        fontFamily: 'Courier New',
+      );
+    }
+    row++;
+
+    // Таблица с данными
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final q = _currentReport!.questions[i];
-      final loc = q.getLocalization(lang);
-      final answers = _currentReport!.getAnswersForQuestion(i, lang);
 
-      for (int j = 0; j < answers.length; j++) {
-        final a = answers[j];
-        final mediaList = a['media'] as List? ?? [];
-        final mediaNames = mediaList
-            .map((m) {
-              final media = m as Map<String, dynamic>;
-              return '${(media['attention'] == true) ? 'X' : 'photos'}/${media['name']}';
-            })
-            .join('; ');
+      final questionNames = <String>[];
+      for (int li = 0; li < languages.length; li++) {
+        final lang = languages[li];
+        final loc = q.getLocalization(lang);
+        questionNames.add(
+          loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
+        );
+      }
 
-        if (j == 0) {
-          sheet.cell(CellIndex.indexByString('A$row')).value = TextCellValue(
-            loc?.name ?? q.getDisplayName(lang) ?? '',
-          );
-          sheet.cell(CellIndex.indexByString('B$row')).value = TextCellValue(
-            loc?.description ?? '',
-          );
+      final List<List<String>> mediaByAnswer = [];
+      final List<List<Map<String, dynamic>>> answersByLang = List.generate(
+        languages.length,
+        (_) => [],
+      );
+
+      for (int li = 0; li < languages.length; li++) {
+        final lang = languages[li];
+        final answers = _currentReport!.getAnswersForQuestion(i, lang);
+        answersByLang[li] = answers;
+
+        for (int ai = 0; ai < answers.length; ai++) {
+          final a = answers[ai];
+          if (mediaByAnswer.length <= ai) {
+            mediaByAnswer.add([]);
+          }
+          final media = a['media'] as List? ?? [];
+          for (final m in media) {
+            final name = m['name'] as String? ?? '';
+            final attention = m['attention'] as bool? ?? false;
+            if (name.isNotEmpty) {
+              final prefix = attention ? 'x' : '';
+              final ext = name.split('.').last.toLowerCase();
+              final typePrefix = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(ext) ? 'f' : 'v';
+              final num = name.split('.').first;
+              mediaByAnswer[ai].add('$prefix$typePrefix$num');
+            }
+          }
         }
-        sheet.cell(CellIndex.indexByString('C$row')).value = TextCellValue(
-          a['text'] ?? '',
-        );
-        sheet.cell(CellIndex.indexByString('D$row')).value = TextCellValue(
-          (a['attention'] == true) ? 'Да' : 'Нет',
-        );
-        sheet.cell(CellIndex.indexByString('E$row')).value = TextCellValue(
-          mediaNames,
-        );
-        row++;
+      }
+
+      final maxAnswers = answersByLang
+          .map((l) => l.length)
+          .reduce((a, b) => a > b ? a : b);
+
+      final List<String> photoCellContents = [];
+      for (final mediaList in mediaByAnswer) {
+        final grouped = _groupMediaNames(mediaList);
+        photoCellContents.add(grouped.join(', '));
+      }
+      while (photoCellContents.length < maxAnswers) {
+        photoCellContents.add('');
+      }
+
+      final answerHasAttention = <bool>[];
+      for (int ai = 0; ai < maxAnswers; ai++) {
+        bool hasAtt = false;
+        for (int li = 0; li < languages.length; li++) {
+          if (ai < answersByLang[li].length &&
+              answersByLang[li][ai]['attention'] == true) {
+            hasAtt = true;
+          }
+        }
+        answerHasAttention.add(hasAtt);
+      }
+
+      final totalRows = maxAnswers * languages.length;
+
+      if (maxAnswers == 0) {
+        for (int li = 0; li < languages.length; li++) {
+          final isLast = li == languages.length - 1;
+
+          if (li == 0) {
+            sheet.merge(
+              CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+              CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row + languages.length - 1),
+            );
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = IntCellValue(i + 1);
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).cellStyle = CellStyle(
+              backgroundColorHex: questionBgColor,
+              fontColorHex: rowNumColor,
+              bold: true,
+              fontFamily: 'Courier New',
+              verticalAlign: VerticalAlign.Top,
+              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+            );
+          }
+
+          final qColor = li == 0 ? ExcelColor.black : ExcelColor.fromHexString(getLanguageColor(li));
+          final qFontSize = li == 0 ? 12 : 10;
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(questionNames[li]);
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = CellStyle(
+            backgroundColorHex: questionBgColor,
+            fontColorHex: qColor,
+            fontSize: qFontSize,
+            fontFamily: 'Courier New',
+            verticalAlign: VerticalAlign.Top,
+            bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+          );
+
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = TextCellValue('');
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).cellStyle = CellStyle(
+            backgroundColorHex: questionBgColor,
+            fontFamily: 'Courier New',
+            verticalAlign: VerticalAlign.Top,
+            bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+          );
+
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue('');
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = CellStyle(
+            backgroundColorHex: ExcelColor.white,
+            fontFamily: 'Courier New',
+            verticalAlign: VerticalAlign.Top,
+            bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+          );
+
+          if (li == 0) {
+            sheet.merge(
+              CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
+              CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row + languages.length - 1),
+            );
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue('');
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = CellStyle(
+              backgroundColorHex: questionBgColor,
+              fontFamily: 'Courier New',
+              verticalAlign: VerticalAlign.Top,
+              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+            );
+          }
+
+          row++;
+        }
+      } else {
+        for (int ai = 0; ai < maxAnswers; ai++) {
+          for (int li = 0; li < languages.length; li++) {
+            final isLast = ai == maxAnswers - 1 && li == languages.length - 1;
+
+            if (li == 0 && ai == 0) {
+              sheet.merge(
+                CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+                CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row + totalRows - 1),
+              );
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = IntCellValue(i + 1);
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).cellStyle = CellStyle(
+                backgroundColorHex: questionBgColor,
+                fontColorHex: rowNumColor,
+                bold: true,
+                fontFamily: 'Courier New',
+                verticalAlign: VerticalAlign.Top,
+                bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+              );
+            }
+
+            if (ai == 0) {
+              final qColor = li == 0 ? ExcelColor.black : ExcelColor.fromHexString(getLanguageColor(li));
+              final qFontSize = li == 0 ? 12 : 10;
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(questionNames[li]);
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = CellStyle(
+                backgroundColorHex: questionBgColor,
+                fontColorHex: qColor,
+                fontSize: qFontSize,
+                fontFamily: 'Courier New',
+                verticalAlign: VerticalAlign.Top,
+                bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+              );
+            } else {
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('');
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = CellStyle(
+                backgroundColorHex: questionBgColor,
+                fontFamily: 'Courier New',
+                verticalAlign: VerticalAlign.Top,
+                bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+              );
+            }
+
+            final hasAttentionMark = answerHasAttention[ai];
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = hasAttentionMark ? TextCellValue('!') : TextCellValue('');
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).cellStyle = CellStyle(
+              backgroundColorHex: hasAttentionMark ? attentionBgColor : ExcelColor.white,
+              fontColorHex: hasAttentionMark ? ExcelColor.fromHexString('#ef4444') : ExcelColor.black,
+              bold: hasAttentionMark,
+              fontFamily: 'Courier New',
+              horizontalAlign: HorizontalAlign.Center,
+              verticalAlign: VerticalAlign.Top,
+              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+            );
+
+            final text = ai < answersByLang[li].length
+                ? (answersByLang[li][ai]['text'] ?? '') as String
+                : '';
+            final hasAttention = answerHasAttention[ai];
+            final answerBgColor = hasAttention ? attentionBgColor : ExcelColor.white;
+            final aColor = li == 0 ? ExcelColor.black : ExcelColor.fromHexString(getLanguageColor(li));
+            final aFontSize = li == 0 ? 12 : 10;
+            
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue(text);
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = CellStyle(
+              backgroundColorHex: answerBgColor,
+              fontColorHex: aColor,
+              fontSize: aFontSize,
+              fontFamily: 'Courier New',
+              verticalAlign: VerticalAlign.Top,
+              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+            );
+
+            final photoBgColor = hasAttention ? attentionBgColor : questionBgColor;
+            if (li == 0) {
+              sheet.merge(
+                CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
+                CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row + languages.length - 1),
+              );
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue(photoCellContents[ai]);
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = CellStyle(
+                backgroundColorHex: photoBgColor,
+                fontColorHex: ExcelColor.fromHexString('#6c757d'),
+                bold: true,
+                fontSize: 10,
+                fontFamily: 'Courier New',
+                verticalAlign: VerticalAlign.Top,
+              );
+            }
+
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = CellStyle(
+              backgroundColorHex: photoBgColor,
+              fontColorHex: ExcelColor.fromHexString('#6c757d'),
+              bold: true,
+              fontSize: 10,
+              fontFamily: 'Courier New',
+              verticalAlign: VerticalAlign.Top,
+              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+            );
+
+            row++;
+          }
+        }
       }
     }
 
-    return Uint8List.fromList(excel.encode()!);
+    sheet.setColumnWidth(0, 10);
+
+    final bytes = excel.encode();
+    return Uint8List.fromList(bytes!);
   }
 
   Future<Report?> parseTemplate(String filePath) async {
@@ -1755,11 +2105,11 @@ class ReportState extends ChangeNotifier {
           final name = (startCol < row.length && row[startCol]?.value != null)
               ? row[startCol]!.value.toString().trim()
               : '';
-          final desc =
+          final example =
               (startCol + 1 < row.length && row[startCol + 1]?.value != null)
               ? row[startCol + 1]!.value.toString().trim()
               : '';
-          final example =
+          final desc =
               (startCol + 2 < row.length && row[startCol + 2]?.value != null)
               ? row[startCol + 2]!.value.toString().trim()
               : '';
@@ -1811,9 +2161,21 @@ class ReportState extends ChangeNotifier {
     try {
       await saveReport();
 
+      // Сохраняем Excel
       final excelBytes = _generateExcel();
       final excelFile = File('$_currentReportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
+      if (kDebugMode) {
+        print('Excel saved to: ${excelFile.path}, bytes: ${excelBytes.length}');
+      }
+
+      // Сохраняем HTML
+      final htmlContent = _generateHtml();
+      final htmlFile = File('$_currentReportPath/report.html');
+      await htmlFile.writeAsString(htmlContent);
+      if (kDebugMode) {
+        print('HTML saved to: ${htmlFile.path}');
+      }
 
       final folderPath = _currentReportPath!;
       final safeName = _currentReport!.reportName
@@ -1828,6 +2190,12 @@ class ReportState extends ChangeNotifier {
         zipPath = '$reportsDir/$safeName.zip';
       }
 
+      // Создаем директорию для ZIP файла если не существует
+      final zipDir = Directory(path.dirname(zipPath));
+      if (!await zipDir.exists()) {
+        await zipDir.create(recursive: true);
+      }
+
       final zipFile = File(zipPath);
       if (await zipFile.exists()) {
         await zipFile.delete();
@@ -1840,6 +2208,7 @@ class ReportState extends ChangeNotifier {
       
       neededFiles.add('report.json');
       neededFiles.add('report.html');
+      neededFiles.add('report.xlsx');
 
       if (_currentReport != null) {
         for (final markerEntry in _currentReport!.markers.entries) {
@@ -1853,11 +2222,18 @@ class ReportState extends ChangeNotifier {
         }
       }
 
+      if (kDebugMode) {
+        print('Files to add to zip: $neededFiles');
+      }
+
       for (final relativePath in neededFiles) {
         final filePath = '$folderPath/$relativePath';
         final file = File(filePath);
         if (await file.exists()) {
+          if (kDebugMode) print('Adding file to zip: $filePath');
           encoder.addFile(file, relativePath);
+        } else {
+          if (kDebugMode) print('File not found: $filePath');
         }
       }
 
@@ -1871,8 +2247,11 @@ class ReportState extends ChangeNotifier {
       }
 
       return zipPath;
-    } catch (e) {
-      if (kDebugMode) print('Error exporting zip: $e');
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Error exporting zip: $e');
+        print('Stack trace: $stackTrace');
+      }
       return null;
     }
   }

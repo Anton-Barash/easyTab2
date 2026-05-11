@@ -29,17 +29,40 @@ class MediaItem {
         'compressedSize': compressedSize,
       };
 
+  String? _toRelativePath(String? path, String? folderPath) {
+    if (path == null || folderPath == null) return path;
+    if (path.startsWith(folderPath)) {
+      return path.substring(folderPath.length + 1);
+    }
+    return path;
+  }
+
+  Map<String, dynamic> toJsonWithRelativePaths(String? folderPath) => {
+        'name': name,
+        'type': type,
+        'attention': attention,
+        'originalName': originalName,
+        'localPath': _toRelativePath(localPath, folderPath),
+        'fileSize': fileSize,
+        'compressedSize': compressedSize,
+      };
+
   factory MediaItem.fromJson(Map<String, dynamic> json, {String? folderPath}) {
-    final localPath = json['localPath'] as String?;
-    final absolutePath = localPath != null && folderPath != null
-        ? '$folderPath/$localPath'
-        : localPath;
+    String? localPath = json['localPath'] as String?;
+    // Если путь абсолютный и есть folderPath, преобразуем в относительный
+    if (localPath != null && folderPath != null) {
+      if (localPath.startsWith(folderPath)) {
+        localPath = localPath.substring(folderPath.length + 1);
+      } else if (localPath.startsWith('/') || localPath.contains(':\\')) {
+        // Оставляем как есть, если это абсолютный путь из другого места
+      }
+    }
     return MediaItem(
       name: json['name'] ?? '',
       type: json['type'] ?? 'image/jpeg',
       attention: json['attention'] ?? false,
       originalName: json['originalName'] ?? '',
-      localPath: absolutePath,
+      localPath: localPath,
       fileSize: json['fileSize'] as int?,
       compressedSize: json['compressedSize'] as int?,
     );
@@ -60,6 +83,12 @@ class AnswerMarkers {
   Map<String, dynamic> toJson() => {
         'attention': attention,
         'media': media.map((m) => m.toJson()).toList(),
+        'needsWork': needsWork,
+      };
+
+  Map<String, dynamic> toJsonWithRelativePaths(String? folderPath) => {
+        'attention': attention,
+        'media': media.map((m) => m.toJsonWithRelativePaths(folderPath)).toList(),
         'needsWork': needsWork,
       };
 
@@ -281,7 +310,7 @@ class Report {
         'currentLanguage': currentLanguage,
         'questions': questions.map((q) => q.toJson()).toList(),
         'translations': translations.map((k, v) => MapEntry(k, v.map((lk, lva) => MapEntry(lk, lva.map((a) => a.toJson()).toList())))),
-        'markers': markers.map((k, v) => MapEntry(k, v.map((m) => m.toJson()).toList())),
+        'markers': markers.map((k, v) => MapEntry(k, v.map((m) => m.toJsonWithRelativePaths(folderPath)).toList())),
         'mediaCounter': mediaCounter,
         'timestamp': timestamp,
       };

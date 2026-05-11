@@ -388,6 +388,12 @@ abstract class AppLocalizations {
   /// **'+ Create New Report'**
   String get createNewReport;
 
+  /// No description provided for @continueReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueReport;
+
   /// No description provided for @openExistingReport.
   ///
   /// In en, this message translates to:

@@ -154,6 +154,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createNewReport => '+ Create New Report';
 
   @override
+  String get continueReport => 'Continue';
+
+  @override
   String get openExistingReport => 'Open Existing Report';
 
   @override

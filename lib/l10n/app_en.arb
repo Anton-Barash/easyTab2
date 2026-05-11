@@ -48,6 +48,7 @@
   "cannotUndo": "This action cannot be undone",
   "reportDeleted": "Report deleted",
   "createNewReport": "+ Create New Report",
+  "continueReport": "Continue",
   "openExistingReport": "Open Existing Report",
   "yourReports": "Your Reports",
   "instructionsText": "Instructions: create a report, select a template,\nfill in the data and export!",

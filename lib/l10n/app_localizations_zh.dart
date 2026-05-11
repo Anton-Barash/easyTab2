@@ -153,6 +153,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get createNewReport => '+ 创建新报告';
 
   @override
+  String get continueReport => '继续';
+
+  @override
   String get openExistingReport => '打开现有报告';
 
   @override
