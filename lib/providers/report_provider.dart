@@ -220,7 +220,7 @@ class ReportState extends ChangeNotifier {
     }
 
     final ext = file.path.split('.').last;
-    final fileName = 'header.$ext';
+    final fileName = 'header_${DateTime.now().millisecondsSinceEpoch}.$ext';
     final destPath = File('$_currentReportPath/$fileName');
 
     if (_currentReport!.headerImagePath != null) {

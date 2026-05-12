@@ -729,7 +729,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
               });
               if (_viewMode == ViewMode.card) {
                 Future.delayed(Duration.zero, () {
-                  _pageController.jumpToPage(_currentPage == -1 ? 0 : _currentPage + 1);
+                  _pageController.jumpToPage(
+                    _currentPage == -1 ? 0 : _currentPage + 1,
+                  );
                 });
               }
             },
@@ -1086,7 +1088,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       itemCount: report.questions.length + 1,
                                       itemBuilder: (ctx, index) {
                                         if (index == 0) {
-                                          return _buildHeaderCard0SidePanel(context, report, reportState);
+                                          return _buildHeaderCard0SidePanel(
+                                            context,
+                                            report,
+                                            reportState,
+                                          );
                                         }
                                         final i = index - 1;
                                         final lang = report.currentLanguage;
@@ -1468,7 +1474,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             itemCount: report.questions.length + 1,
                             itemBuilder: (ctx, index) {
                               if (index == 0) {
-                                return _buildHeaderCard0SidePanel(context, report, reportState);
+                                return _buildHeaderCard0SidePanel(
+                                  context,
+                                  report,
+                                  reportState,
+                                );
                               }
                               final i = index - 1;
                               final lang = report.currentLanguage;
@@ -1748,7 +1758,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 padding: isMobile
                     ? EdgeInsets.zero
                     : const EdgeInsets.symmetric(vertical: 8),
-                child: _buildHeaderCard0ListItem(ctx, report, reportState, isMobile),
+                child: _buildHeaderCard0ListItem(
+                  ctx,
+                  report,
+                  reportState,
+                  isMobile,
+                ),
               );
             }
             return Padding(
@@ -1798,7 +1813,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       ? const EdgeInsets.only(bottom: 100)
                       : const EdgeInsets.all(20),
                   child: Center(
-                    child: _buildQuestionCard(context, index - 1, reportState, true),
+                    child: _buildQuestionCard(
+                      context,
+                      index - 1,
+                      reportState,
+                      true,
+                    ),
                   ),
                 );
               },
@@ -1948,11 +1968,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.image,
-                      size: 48,
-                      color: Color(0xFF666666),
-                    ),
+                    const Icon(Icons.image, size: 48, color: Color(0xFF666666)),
                     const SizedBox(height: 8),
                     Text(
                       loc.noPhoto,
@@ -1979,10 +1995,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 if (report.dateTimestamp != null)
                   _buildInfoRow(
                     loc.date,
-                    DateTime.fromMillisecondsSinceEpoch(report.dateTimestamp!)
-                        .toLocal()
-                        .toString()
-                        .substring(0, 10),
+                    DateTime.fromMillisecondsSinceEpoch(
+                      report.dateTimestamp!,
+                    ).toLocal().toString().substring(0, 10),
                   ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
@@ -2036,11 +2051,31 @@ class _FormFillScreenState extends State<FormFillScreen> {
     if (report == null) return;
     final loc = AppLocalizations.of(context)!;
 
-    final productTypeController = TextEditingController(text: report.productType);
+    final productTypeController = TextEditingController(
+      text: report.productType,
+    );
     final factoryController = TextEditingController(text: report.factory);
     final modelController = TextEditingController(text: report.model);
 
-    Widget _buildCard({required Widget child}) {
+    final hadHeaderImageBefore =
+        report.headerImagePath != null && report.headerImagePath!.isNotEmpty;
+
+    String? tempPhotoPath;
+    if (hadHeaderImageBefore && reportState.currentReportPath != null) {
+      final sourceFile = File(
+        '${reportState.currentReportPath}/${report.headerImagePath}',
+      );
+      if (sourceFile.existsSync()) {
+        final tempDir = Directory.systemTemp;
+        final tempFile = File(
+          '${tempDir.path}/header_edit_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
+        sourceFile.copySync(tempFile.path);
+        tempPhotoPath = tempFile.path;
+      }
+    }
+
+    Widget buildCard({required Widget child}) {
       return Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -2060,10 +2095,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       isDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final currentHeaderImagePath = reportState.currentReport?.headerImagePath;
-          final hasImage = currentHeaderImagePath != null && currentHeaderImagePath.isNotEmpty;
+          final hasImage = tempPhotoPath != null;
           final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-          
+
           return Container(
             height: MediaQuery.of(context).size.height - bottomInset * 0.3,
             padding: EdgeInsets.only(bottom: bottomInset),
@@ -2080,7 +2114,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     border: Border(
                       bottom: BorderSide(color: Color(0xFFe5e7eb)),
                     ),
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2106,7 +2142,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildCard(
+                        buildCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -2146,13 +2182,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   filled: true,
                                   fillColor: Colors.white,
                                 ),
-                                style: const TextStyle(color: Color(0xFF424242)),
+                                style: const TextStyle(
+                                  color: Color(0xFF424242),
+                                ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildCard(
+                        buildCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -2192,13 +2230,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   filled: true,
                                   fillColor: Colors.white,
                                 ),
-                                style: const TextStyle(color: Color(0xFF424242)),
+                                style: const TextStyle(
+                                  color: Color(0xFF424242),
+                                ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildCard(
+                        buildCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -2238,13 +2278,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   filled: true,
                                   fillColor: Colors.white,
                                 ),
-                                style: const TextStyle(color: Color(0xFF424242)),
+                                style: const TextStyle(
+                                  color: Color(0xFF424242),
+                                ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildCard(
+                        buildCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -2271,7 +2313,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         ),
                                         image: DecorationImage(
                                           image: FileImage(
-                                            File('${reportState.currentReportPath}/$currentHeaderImagePath'),
+                                            File(tempPhotoPath!),
                                           ),
                                           fit: BoxFit.cover,
                                         ),
@@ -2281,8 +2323,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       top: 8,
                                       right: 8,
                                       child: GestureDetector(
-                                        onTap: () async {
-                                          await reportState.removeHeaderImage();
+                                        onTap: () {
+                                          tempPhotoPath = null;
                                           setDialogState(() {});
                                         },
                                         child: Container(
@@ -2308,8 +2350,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     final XFile? image = await picker.pickImage(
                                       source: ImageSource.gallery,
                                     );
-                                    if (image != null && context.mounted) {
-                                      await reportState.addHeaderImage(File(image.path));
+                                    if (image != null) {
+                                      tempPhotoPath = image.path;
                                       setDialogState(() {});
                                     }
                                   },
@@ -2317,7 +2359,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   label: Text(loc.changePhoto),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF424242),
-                                    side: const BorderSide(color: Color(0xFF333333)),
+                                    side: const BorderSide(
+                                      color: Color(0xFF333333),
+                                    ),
                                   ),
                                 ),
                               ] else ...[
@@ -2327,8 +2371,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     final XFile? image = await picker.pickImage(
                                       source: ImageSource.gallery,
                                     );
-                                    if (image != null && context.mounted) {
-                                      await reportState.addHeaderImage(File(image.path));
+                                    if (image != null) {
+                                      tempPhotoPath = image.path;
                                       setDialogState(() {});
                                     }
                                   },
@@ -2345,7 +2389,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       ),
                                     ),
                                     child: const Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.add_a_photo,
@@ -2372,12 +2417,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               reportState.updateHeaderInfo(
                                 productType: productTypeController.text.trim(),
                                 factory: factoryController.text.trim(),
                                 model: modelController.text.trim(),
                               );
+                              if (tempPhotoPath != null) {
+                                await reportState.addHeaderImage(
+                                  File(tempPhotoPath!),
+                                );
+                              } else if (hadHeaderImageBefore) {
+                                await reportState.removeHeaderImage();
+                              }
                               reportState.updateReportName();
                               reportState.saveReport();
                               Navigator.pop(ctx);
@@ -2402,7 +2454,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  Widget _buildHeaderCard0ListItem(BuildContext context, Report report, ReportState reportState, bool isMobile) {
+  Widget _buildHeaderCard0ListItem(
+    BuildContext context,
+    Report report,
+    ReportState reportState,
+    bool isMobile,
+  ) {
     final loc = AppLocalizations.of(context)!;
     final headerImagePath = report.headerImagePath;
     final hasImage = headerImagePath != null && headerImagePath.isNotEmpty;
@@ -2467,7 +2524,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.edit, size: 18),
-                    onPressed: () => _showEditHeaderDialog(context, reportState),
+                    onPressed: () =>
+                        _showEditHeaderDialog(context, reportState),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -2501,10 +2559,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     const SizedBox(height: 4),
                     _buildInfoRow(
                       loc.date,
-                      DateTime.fromMillisecondsSinceEpoch(report.dateTimestamp!)
-                          .toLocal()
-                          .toString()
-                          .substring(0, 10),
+                      DateTime.fromMillisecondsSinceEpoch(
+                        report.dateTimestamp!,
+                      ).toLocal().toString().substring(0, 10),
                     ),
                   ],
                 ],
@@ -2596,10 +2653,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     const SizedBox(height: 2),
                     if (report.dateTimestamp != null)
                       Text(
-                        DateTime.fromMillisecondsSinceEpoch(report.dateTimestamp!)
-                            .toLocal()
-                            .toString()
-                            .substring(0, 10),
+                        DateTime.fromMillisecondsSinceEpoch(
+                          report.dateTimestamp!,
+                        ).toLocal().toString().substring(0, 10),
                         style: const TextStyle(
                           fontSize: 10,
                           color: Color(0xFF666666),
@@ -2827,7 +2883,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     ? report.questions.length - 1
                                     : -1;
                               }
-                              _pageController.jumpToPage(_currentPage == -1 ? 0 : _currentPage + 1);
+                              _pageController.jumpToPage(
+                                _currentPage == -1 ? 0 : _currentPage + 1,
+                              );
                               _scheduleSave();
                               if (mounted) {
                                 setState(() {});
@@ -3012,7 +3070,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               : -1;
                                         }
                                         _pageController.jumpToPage(
-                                          _currentPage == -1 ? 0 : _currentPage + 1,
+                                          _currentPage == -1
+                                              ? 0
+                                              : _currentPage + 1,
                                         );
                                         _scheduleSave();
                                         if (mounted) {
