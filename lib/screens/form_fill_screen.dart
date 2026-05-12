@@ -2112,32 +2112,27 @@ class _FormFillScreenState extends State<FormFillScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       enableDrag: true,
       isDismissible: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           final hasImage = tempPhotoPath != null;
           final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-          return Container(
-            height: MediaQuery.of(context).size.height - bottomInset * 0.3,
+          return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
-            decoration: const BoxDecoration(
-              color: Color(0xFFf5f5f5),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
                   decoration: const BoxDecoration(
-                    color: Colors.white,
                     border: Border(
-                      bottom: BorderSide(color: Color(0xFFe5e7eb)),
-                    ),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(16),
+                      bottom: BorderSide(color: Color(0xFFe5e7eb), width: 1),
                     ),
                   ),
                   child: Row(
@@ -2146,296 +2141,37 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       Text(
                         loc.editHeader,
                         style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFF111827),
                         ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Icons.close, size: 20),
+                        padding: const EdgeInsets.all(8),
                       ),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        buildCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                loc.productType,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF424242),
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: productTypeController,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2.5,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                ),
-                                style: const TextStyle(
-                                  color: Color(0xFF424242),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: Column(
+                    children: [
+                        _buildHeaderField(loc.productType, productTypeController),
+                        const SizedBox(height: 12),
+                        _buildHeaderField(loc.factory, factoryController),
+                        const SizedBox(height: 12),
+                        _buildHeaderField(loc.model, modelController),
                         const SizedBox(height: 16),
-                        buildCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                loc.factory,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF424242),
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: factoryController,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2.5,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                ),
-                                style: const TextStyle(
-                                  color: Color(0xFF424242),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        buildCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                loc.model,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF424242),
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: modelController,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
-                                      width: 2.5,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                ),
-                                style: const TextStyle(
-                                  color: Color(0xFF424242),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        buildCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                loc.photo,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF424242),
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              if (hasImage) ...[
-                                Stack(
-                                  children: [
-                                    Container(
-                                      width: double.infinity,
-                                      height: 200,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: const Color(0xFF333333),
-                                          width: 2,
-                                        ),
-                                        image: DecorationImage(
-                                          image: FileImage(
-                                            File(tempPhotoPath!),
-                                          ),
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 8,
-                                      right: 8,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          tempPhotoPath = null;
-                                          setDialogState(() {});
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.red,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.close,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                OutlinedButton.icon(
-                                  onPressed: () async {
-                                    final ImagePicker picker = ImagePicker();
-                                    final XFile? image = await picker.pickImage(
-                                      source: ImageSource.gallery,
-                                    );
-                                    if (image != null) {
-                                      tempPhotoPath = image.path;
-                                      setDialogState(() {});
-                                    }
-                                  },
-                                  icon: const Icon(Icons.photo_library),
-                                  label: Text(loc.changePhoto),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF424242),
-                                    side: const BorderSide(
-                                      color: Color(0xFF333333),
-                                    ),
-                                  ),
-                                ),
-                              ] else ...[
-                                InkWell(
-                                  onTap: () async {
-                                    final ImagePicker picker = ImagePicker();
-                                    final XFile? image = await picker.pickImage(
-                                      source: ImageSource.gallery,
-                                    );
-                                    if (image != null) {
-                                      tempPhotoPath = image.path;
-                                      setDialogState(() {});
-                                    }
-                                  },
-                                  child: Container(
-                                    width: double.infinity,
-                                    height: 120,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFe0e0e0),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: const Color(0xFF333333),
-                                        width: 2,
-                                        style: BorderStyle.solid,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          Icons.add_a_photo,
-                                          size: 40,
-                                          color: Color(0xFF666666),
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          loc.addPhoto,
-                                          style: TextStyle(
-                                            color: Color(0xFF666666),
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                        _buildPhotoSection(
+                              context,
+                              hasImage,
+                              tempPhotoPath,
+                              loc,
+                              setDialogState,
+                            ),
+                        const SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -2463,13 +2199,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF333333),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              elevation: 0,
                             ),
-                            child: Text(loc.save),
+                            child: Text(
+                              loc.save,
+                              style: const TextStyle(fontSize: 15),
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -2477,6 +2219,173 @@ class _FormFillScreenState extends State<FormFillScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildHeaderField(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF374151),
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            border: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFd1d5db)),
+            ),
+            enabledBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFd1d5db)),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF333333), width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            isDense: true,
+          ),
+          style: const TextStyle(
+            color: Color(0xFF111827),
+            fontSize: 15,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotoSection(
+    BuildContext context,
+    bool hasImage,
+    String? tempPhotoPath,
+    AppLocalizations loc,
+    void Function(void Function()) setDialogState,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          loc.photo,
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF374151),
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (hasImage) ...[
+          Stack(
+            children: [
+              Container(
+                width: double.infinity,
+                height: 120,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  image: DecorationImage(
+                    image: FileImage(File(tempPhotoPath!)),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 6,
+                right: 6,
+                child: GestureDetector(
+                  onTap: () {
+                    tempPhotoPath = null;
+                    setDialogState(() {});
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1f2937),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () async {
+                final ImagePicker picker = ImagePicker();
+                final XFile? image = await picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                if (image != null) {
+                  tempPhotoPath = image.path;
+                  setDialogState(() {});
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF374151),
+                side: const BorderSide(color: Color(0xFFd1d5db)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: Text(loc.changePhoto),
+            ),
+          ),
+        ] else ...[
+          InkWell(
+            onTap: () async {
+              final ImagePicker picker = ImagePicker();
+              final XFile? image = await picker.pickImage(
+                source: ImageSource.gallery,
+              );
+              if (image != null) {
+                tempPhotoPath = image.path;
+                setDialogState(() {});
+              }
+            },
+            child: Container(
+              width: double.infinity,
+              height: 100,
+              decoration: BoxDecoration(
+                color: const Color(0xFFf9fafb),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: const Color(0xFFd1d5db),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.add_a_photo,
+                    size: 32,
+                    color: Color(0xFF9ca3af),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    loc.addPhoto,
+                    style: const TextStyle(
+                      color: Color(0xFF6b7280),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -2535,54 +2444,106 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _showEditHeaderDialog(context, reportState),
-                      child: Text(
-                        loc.headerInfo,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF424242),
-                        ),
-                      ),
+                  Text(
+                    loc.headerInfo,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF424242),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 18),
-                    onPressed: () =>
-                        _showEditHeaderDialog(context, reportState),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
             ),
             if (hasImage)
-              Container(
-                width: double.infinity,
-                height: 150,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: FileImage(
-                      File('${reportState.currentReportPath}/$headerImagePath'),
+              GestureDetector(
+                onTap: () async {
+                  final ImagePicker picker = ImagePicker();
+                  final XFile? image = await picker.pickImage(
+                    source: ImageSource.gallery,
+                  );
+                  if (image != null) {
+                    await reportState.addHeaderImage(File(image.path));
+                    setState(() {});
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: FileImage(
+                        File('${reportState.currentReportPath}/$headerImagePath'),
+                      ),
+                      fit: BoxFit.cover,
                     ),
-                    fit: BoxFit.cover,
+                  ),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Container(
+                      margin: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.edit,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              GestureDetector(
+                onTap: () async {
+                  final ImagePicker picker = ImagePicker();
+                  final XFile? image = await picker.pickImage(
+                    source: ImageSource.gallery,
+                  );
+                  if (image != null) {
+                    await reportState.addHeaderImage(File(image.path));
+                    setState(() {});
+                  }
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 100,
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFf5f5f5),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFd1d5db)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add_a_photo, size: 28, color: Color(0xFF9ca3af)),
+                      const SizedBox(height: 4),
+                      Text(loc.addPhoto, style: const TextStyle(fontSize: 12, color: Color(0xFF6b7280))),
+                    ],
                   ),
                 ),
               ),
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildInfoRow(loc.productType, report.productType),
-                  const SizedBox(height: 4),
-                  _buildInfoRow(loc.factory, report.factory),
-                  const SizedBox(height: 4),
-                  _buildInfoRow(loc.model, report.model),
+                  _buildEditableRow(loc.productType, report.productType, (val) {
+                    reportState.updateHeaderInfo(productType: val);
+                  }),
+                  const SizedBox(height: 6),
+                  _buildEditableRow(loc.factory, report.factory, (val) {
+                    reportState.updateHeaderInfo(factory: val);
+                  }),
+                  const SizedBox(height: 6),
+                  _buildEditableRow(loc.model, report.model, (val) {
+                    reportState.updateHeaderInfo(model: val);
+                  }),
                   if (report.dateTimestamp != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     _buildInfoRow(
                       loc.date,
                       DateTime.fromMillisecondsSinceEpoch(
@@ -2596,6 +2557,45 @@ class _FormFillScreenState extends State<FormFillScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEditableRow(String label, String value, Function(String) onChanged) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 90,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF666666),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFf9fafb),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: const Color(0xFFd1d5db)),
+            ),
+            child: TextFormField(
+              initialValue: value,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onFieldSubmitted: onChanged,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

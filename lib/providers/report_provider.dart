@@ -238,7 +238,8 @@ class ReportState extends ChangeNotifier {
     }
 
     final ext = file.path.split('.').last;
-    final fileName = 'header.$ext';
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'header_$timestamp.$ext';
     final destPath = File('$_currentReportPath/$fileName');
 
     if (_currentReport!.headerImagePath != null) {
@@ -505,11 +506,15 @@ class ReportState extends ChangeNotifier {
       _currentReport!.markers[qid]!.add(AnswerMarkers());
     }
 
-    final counter = isAttention
-        ? _currentReport!.mediaCounter['X']!
-        : _currentReport!.mediaCounter['photos']!;
+    final counterKey = '${questionIndex}_${answerIndex}_${isAttention ? 'X' : 'photos'}';
+    if (!_currentReport!.mediaCounter.containsKey(counterKey)) {
+      _currentReport!.mediaCounter[counterKey] = 1;
+    }
+    final counter = _currentReport!.mediaCounter[counterKey]!;
     final ext = file.path.split('.').last;
-    final fileName = '${counter.toString().padLeft(3, '0')}.$ext';
+    final mimeType = _getMimeType(file.path);
+    final typePrefix = mimeType.startsWith('video/') ? 'v' : 'f';
+    final fileName = '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
 
     final folderName = isAttention ? 'X' : 'photos';
     final destFolder = Directory('$_currentReportPath/$folderName');
@@ -519,7 +524,6 @@ class ReportState extends ChangeNotifier {
 
     final destPath = File('${destFolder.path}/$fileName');
     
-    final mimeType = _getMimeType(file.path);
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
       final compressed = _compressImage(bytes, 1024);
@@ -532,7 +536,7 @@ class ReportState extends ChangeNotifier {
 
     final mediaItem = MediaItem(
       name: fileName,
-      type: _getMimeType(file.path),
+      type: mimeType,
       attention: isAttention,
       originalName: file.path.split(Platform.pathSeparator).last,
       localPath: relativePath,
@@ -541,11 +545,7 @@ class ReportState extends ChangeNotifier {
 
     _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
 
-    if (isAttention) {
-      _currentReport!.mediaCounter['X'] = counter + 1;
-    } else {
-      _currentReport!.mediaCounter['photos'] = counter + 1;
-    }
+    _currentReport!.mediaCounter[counterKey] = counter + 1;
 
     notifyListeners();
   }
@@ -1964,10 +1964,8 @@ class ReportState extends ChangeNotifier {
             final attention = m['attention'] as bool? ?? false;
             if (name.isNotEmpty) {
               final prefix = attention ? 'x' : '';
-              final ext = name.split('.').last.toLowerCase();
-              final typePrefix = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(ext) ? 'f' : 'v';
               final num = name.split('.').first;
-              mediaByAnswer[ai].add('$prefix$typePrefix$num');
+              mediaByAnswer[ai].add('$prefix$num');
             }
           }
         }

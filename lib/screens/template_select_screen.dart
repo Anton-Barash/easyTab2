@@ -278,7 +278,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           children: [
                             Container(
                               width: double.infinity,
-                              height: 200,
+                              height: 150,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
