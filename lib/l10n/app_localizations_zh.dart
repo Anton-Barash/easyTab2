@@ -84,6 +84,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chooseVideoFromGallery => 'Choose video from gallery';
 
   @override
+  String get chooseFromFiles => '从文件选择';
+
+  @override
   String get attention => '注意';
 
   @override
@@ -510,29 +513,38 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importError => '导入错误';
 
   @override
-  String get headerInfo => 'Report information';
+  String get headerInfo => '报告信息';
 
   @override
-  String get productType => 'Product type';
+  String get productType => '产品类型';
 
   @override
-  String get factory => 'Factory';
+  String get factory => '工厂';
 
   @override
-  String get model => 'Model';
+  String get model => '型号';
 
   @override
-  String get date => 'Date';
+  String get date => '日期';
 
   @override
-  String get editHeader => 'Edit header';
+  String get editHeader => '编辑标题';
 
   @override
-  String get changePhoto => 'Change photo';
+  String get changePhoto => '更改照片';
 
   @override
-  String get deletePhoto => 'Delete photo';
+  String get deletePhoto => '删除照片';
 
   @override
-  String get noPhoto => 'No photo';
+  String get noPhoto => '无照片';
+
+  @override
+  String get photo => '照片';
+
+  @override
+  String get addPhoto => '添加照片';
+
+  @override
+  String get fillAllFields => '请填写所有字段';
 }

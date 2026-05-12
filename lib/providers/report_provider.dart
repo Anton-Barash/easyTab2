@@ -74,13 +74,30 @@ List<String> _groupMediaNames(List<String> mediaNames) {
   final Map<String, List<int>> grouped = {};
   
   for (final name in mediaNames) {
-    final prefix = name.substring(0, 1);
-    final numStr = name.substring(1);
-    if (int.tryParse(numStr) != null) {
-      if (!grouped.containsKey(prefix)) {
-        grouped[prefix] = [];
+    final attentionPrefix = name.startsWith('x') ? 'x' : '';
+    final cleanName = name.startsWith('x') ? name.substring(1) : name;
+    
+    final typePrefix = cleanName.substring(0, 1);
+    final rest = cleanName.substring(1);
+    final parts = rest.split('_');
+    
+    if (parts.length >= 3) {
+      final questionNum = parts[0];
+      final answerNum = parts[1];
+      final numStr = parts[2];
+      
+      if (int.tryParse(numStr) != null) {
+        final key = '${attentionPrefix}${typePrefix}${questionNum}_${answerNum}';
+        if (!grouped.containsKey(key)) {
+          grouped[key] = [];
+        }
+        grouped[key]!.add(int.parse(numStr));
+      } else {
+        if (!grouped.containsKey('other')) {
+          grouped['other'] = [];
+        }
+        grouped['other']!.add(mediaNames.indexOf(name));
       }
-      grouped[prefix]!.add(int.parse(numStr));
     } else {
       if (!grouped.containsKey('other')) {
         grouped['other'] = [];
@@ -97,10 +114,11 @@ List<String> _groupMediaNames(List<String> mediaNames) {
       }
     } else {
       final nums = entry.value..sort();
-      if (nums.length == 1) {
-        result.add('${entry.key}${nums[0].toString().padLeft(3, '0')}');
+      final uniqueNums = nums.toSet().toList()..sort();
+      if (uniqueNums.length == 1) {
+        result.add('${entry.key}_${uniqueNums[0].toString().padLeft(3, '0')}');
       } else {
-        result.add('${entry.key}${nums.first.toString().padLeft(3, '0')}-${nums.last.toString().padLeft(3, '0')}');
+        result.add('${entry.key}_${uniqueNums.first.toString().padLeft(3, '0')}-${uniqueNums.last.toString().padLeft(3, '0')}');
       }
     }
   }
@@ -220,7 +238,7 @@ class ReportState extends ChangeNotifier {
     }
 
     final ext = file.path.split('.').last;
-    final fileName = 'header_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final fileName = 'header.$ext';
     final destPath = File('$_currentReportPath/$fileName');
 
     if (_currentReport!.headerImagePath != null) {
@@ -2334,11 +2352,13 @@ class ReportState extends ChangeNotifier {
         if (await file.exists()) {
           if (kDebugMode) print('Adding file to zip: $filePath');
           encoder.addFile(file, relativePath);
+          await Future.delayed(const Duration(milliseconds: 20));
         } else {
           if (kDebugMode) print('File not found: $filePath');
         }
       }
 
+      await Future.delayed(const Duration(milliseconds: 200));
       encoder.close();
 
       if (kDebugMode) {

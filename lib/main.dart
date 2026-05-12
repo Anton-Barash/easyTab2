@@ -126,7 +126,7 @@ class StartScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'v1.0.6',
+                    'v1.0.14',
                     style: TextStyle(color: Color(0xFF999999), fontSize: 10),
                     textAlign: TextAlign.center,
                   ),

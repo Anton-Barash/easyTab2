@@ -25,6 +25,7 @@
   "takeVideo": "Take Video",
   "chooseFromGallery": "Choose from Gallery",
   "chooseVideoFromGallery": "Choose video from gallery",
+  "chooseFromFiles": "Choose from files",
   "attention": "Attention",
   "needsWork": "Needs Work",
   "viewHtml": "View HTML",
@@ -236,5 +237,8 @@
   "editHeader": "Edit header",
   "changePhoto": "Change photo",
   "deletePhoto": "Delete photo",
-  "noPhoto": "No photo"
+  "noPhoto": "No photo",
+  "photo": "Photo",
+  "addPhoto": "Add photo",
+  "fillAllFields": "Please fill in all fields"
 }

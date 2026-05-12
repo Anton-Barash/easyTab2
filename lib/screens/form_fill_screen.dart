@@ -70,8 +70,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   Future<void> _doSave() async {
     setState(() => _isSaving = true);
-    final reportState = context.read<ReportState>();
-    await reportState.saveReport();
+    try {
+      final reportState = context.read<ReportState>();
+      await reportState.saveReport();
+    } catch (e) {
+      debugPrint('Save error: $e');
+    }
     if (mounted) {
       setState(() {
         _isSaving = false;
@@ -632,9 +636,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
           );
           _getSafeController(qid, j)?.addListener(() {
             if (!_isUpdatingControllers) {
-              // Cancel previous timer
-              _debounceTimers[qid]?[j]?.cancel();
-              // Create new timer to update after 300ms of inactivity
               _debounceTimers[qid] ??= {};
               _debounceTimers[qid]![j] = Timer(
                 const Duration(milliseconds: 300),
@@ -644,7 +645,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     j,
                     _getSafeController(qid, j)?.text ?? '',
                   );
-                  _scheduleSave();
+                  setState(() => _hasUnsavedChanges = true);
                 },
               );
             }
@@ -1791,8 +1792,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
             PageView.builder(
               controller: _pageController,
               onPageChanged: (page) {
+                final newPage = page == 0 ? -1 : page - 1;
+                if (_currentPage != newPage && _hasUnsavedChanges) {
+                  _doSave();
+                }
                 setState(() {
-                  _currentPage = page == 0 ? -1 : page - 1;
+                  _currentPage = newPage;
                 });
               },
               physics: const BouncingScrollPhysics(),
@@ -1849,6 +1854,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 ),
               ),
             ),
+            if (_isSaving)
+              Container(
+                color: Colors.black26,
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFF2563eb)),
+                      SizedBox(height: 16),
+                      Text(
+                        '⏳',
+                        style: TextStyle(fontSize: 32),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -2290,8 +2312,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Фото',
+                              Text(
+                                loc.photo,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF424242),
@@ -2388,18 +2410,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         style: BorderStyle.solid,
                                       ),
                                     ),
-                                    child: const Column(
+                                    child: Column(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.add_a_photo,
                                           size: 40,
                                           color: Color(0xFF666666),
                                         ),
                                         SizedBox(height: 8),
                                         Text(
-                                          'Добавить фото',
+                                          loc.addPhoto,
                                           style: TextStyle(
                                             color: Color(0xFF666666),
                                             fontSize: 14,
@@ -2423,12 +2445,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 factory: factoryController.text.trim(),
                                 model: modelController.text.trim(),
                               );
-                              if (tempPhotoPath != null) {
-                                await reportState.addHeaderImage(
-                                  File(tempPhotoPath!),
-                                );
-                              } else if (hadHeaderImageBefore) {
-                                await reportState.removeHeaderImage();
+                              try {
+                                if (tempPhotoPath != null) {
+                                  await reportState.addHeaderImage(
+                                    File(tempPhotoPath!),
+                                  );
+                                } else if (hadHeaderImageBefore) {
+                                  await reportState.removeHeaderImage();
+                                }
+                              } catch (e) {
+                                debugPrint('Header image error: $e');
                               }
                               reportState.updateReportName();
                               reportState.saveReport();
@@ -3310,10 +3336,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
     int answerIndex,
     bool isAttention,
   ) async {
-    final picker = ImagePicker();
-    List<XFile>? files;
-
-    // Спрашиваем, что хочет пользователь
     final loc = AppLocalizations.of(context)!;
     final action = await showDialog<String>(
       context: context,
@@ -3323,7 +3345,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera),
+              leading: const Icon(Icons.camera_alt),
               title: Text(loc.takePhoto),
               onTap: () => Navigator.pop(ctx, 'camera-photo'),
             ),
@@ -3335,7 +3357,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: Text(loc.chooseFromGallery),
-              onTap: () => Navigator.pop(ctx, 'gallery'),
+              onTap: () => Navigator.pop(ctx, 'gallery-photo'),
             ),
             ListTile(
               leading: const Icon(Icons.video_library),
@@ -3347,33 +3369,45 @@ class _FormFillScreenState extends State<FormFillScreen> {
       ),
     );
 
-    if (!mounted) return;
+    if (!mounted || action == null) return;
 
-    if (action == null) return;
+    final List<File> selectedFiles = [];
 
     if (action == 'camera-photo') {
+      final picker = ImagePicker();
       final file = await picker.pickImage(source: ImageSource.camera);
       if (file != null) {
-        files = [file];
+        selectedFiles.add(File(file.path));
       }
     } else if (action == 'camera-video') {
+      final picker = ImagePicker();
       final file = await picker.pickVideo(source: ImageSource.camera);
       if (file != null) {
-        files = [file];
+        selectedFiles.add(File(file.path));
       }
-    } else if (action == 'gallery') {
-      final imageFile = await picker.pickImage(source: ImageSource.gallery);
-      if (imageFile != null) {
-        files = [imageFile];
+    } else if (action == 'gallery-photo') {
+      final picker = ImagePicker();
+      final files = await picker.pickMultiImage();
+      if (files.isNotEmpty) {
+        for (final file in files) {
+          selectedFiles.add(File(file.path));
+        }
       }
     } else if (action == 'gallery-video') {
-      final videoFile = await picker.pickVideo(source: ImageSource.gallery);
-      if (videoFile != null) {
-        files = [videoFile];
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.video,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        for (final file in result.files) {
+          if (file.path != null) {
+            selectedFiles.add(File(file.path!));
+          }
+        }
       }
     }
 
-    if (files == null || files.isEmpty) return;
+    if (selectedFiles.isEmpty) return;
 
     if (kIsWeb) {
       if (mounted) {
@@ -3384,14 +3418,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
-    final reportState = context.read<ReportState>();
-    for (final file in files) {
-      await reportState.addMedia(
-        questionIndex,
-        answerIndex,
-        File(file.path),
-        isAttention,
-      );
+    try {
+      final reportState = context.read<ReportState>();
+      for (final file in selectedFiles) {
+        await reportState.addMedia(
+          questionIndex,
+          answerIndex,
+          file,
+          isAttention,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${loc.saveError}$e')),
+        );
+      }
+      return;
     }
     _scheduleSave();
   }

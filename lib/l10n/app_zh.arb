@@ -24,6 +24,7 @@
   "takePhoto": "拍照",
   "takeVideo": "拍视频",
   "chooseFromGallery": "从图库选择",
+  "chooseFromFiles": "从文件选择",
   "attention": "注意",
   "needsWork": "需要修改",
   "viewHtml": "查看HTML",
@@ -226,5 +227,17 @@
   "processingZip": "正在处理ZIP...",
   "importingProject": "正在导入项目...",
   "projectImported": "项目导入成功！",
-  "importError": "导入错误"
+  "importError": "导入错误",
+  "headerInfo": "报告信息",
+  "productType": "产品类型",
+  "factory": "工厂",
+  "model": "型号",
+  "date": "日期",
+  "editHeader": "编辑标题",
+  "changePhoto": "更改照片",
+  "deletePhoto": "删除照片",
+  "noPhoto": "无照片",
+  "photo": "照片",
+  "addPhoto": "添加照片",
+  "fillAllFields": "请填写所有字段"
 }

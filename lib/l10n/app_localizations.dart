@@ -250,6 +250,12 @@ abstract class AppLocalizations {
   /// **'Choose video from gallery'**
   String get chooseVideoFromGallery;
 
+  /// No description provided for @chooseFromFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from files'**
+  String get chooseFromFiles;
+
   /// No description provided for @attention.
   ///
   /// In en, this message translates to:
@@ -1101,6 +1107,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No photo'**
   String get noPhoto;
+
+  /// No description provided for @photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get photo;
+
+  /// No description provided for @addPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Add photo'**
+  String get addPhoto;
+
+  /// No description provided for @fillAllFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Please fill in all fields'**
+  String get fillAllFields;
 }
 
 class _AppLocalizationsDelegate

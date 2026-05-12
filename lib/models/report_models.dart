@@ -240,7 +240,9 @@ class Report {
     this.model = '',
     this.dateTimestamp,
     this.headerImagePath,
-  }) : timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch;
+  }) : timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch {
+    mediaCounter = Map<String, int>.from(mediaCounter);
+  }
 
   List<Map<String, dynamic>> getAnswersForQuestion(int questionIndex, String langCode) {
     final qid = questionIndex.toString();

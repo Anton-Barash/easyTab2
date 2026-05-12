@@ -84,6 +84,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get chooseVideoFromGallery => 'Выбрать видео из галереи';
 
   @override
+  String get chooseFromFiles => 'Выбрать из файлов';
+
+  @override
   String get attention => 'Внимание';
 
   @override
@@ -544,4 +547,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get noPhoto => 'Нет фото';
+
+  @override
+  String get photo => 'Фото';
+
+  @override
+  String get addPhoto => 'Добавить фото';
+
+  @override
+  String get fillAllFields => 'Пожалуйста, заполните все поля';
 }

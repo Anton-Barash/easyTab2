@@ -124,7 +124,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Тип изделия',
+                        loc.productType,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF424242),
@@ -171,7 +171,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Фабрика',
+                        loc.factory,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF424242),
@@ -218,7 +218,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Модель',
+                        loc.model,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF424242),
@@ -264,8 +264,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Фото',
+                      Text(
+                        loc.photo,
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF424242),
@@ -320,7 +320,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         OutlinedButton.icon(
                           onPressed: _pickHeaderImage,
                           icon: const Icon(Icons.photo_library),
-                          label: const Text('Изменить фото'),
+                          label: Text(loc.changePhoto),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF424242),
                             side: const BorderSide(color: Color(0xFF333333)),
@@ -341,17 +341,17 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                 style: BorderStyle.solid,
                               ),
                             ),
-                            child: const Column(
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.add_a_photo,
                                   size: 40,
                                   color: Color(0xFF666666),
                                 ),
-                                SizedBox(height: 8),
+                                const SizedBox(height: 8),
                                 Text(
-                                  'Добавить фото',
+                                  loc.addPhoto,
                                   style: TextStyle(
                                     color: Color(0xFF666666),
                                     fontSize: 14,
@@ -714,13 +714,14 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   Future<void> _useTemplate(BuildContext context) async {
     final state = Provider.of<ReportState>(context, listen: false);
     final navigator = Navigator.of(context);
+    final loc = AppLocalizations.of(context)!;
     final productType = _productTypeController.text.trim();
     final factory = _factoryController.text.trim();
     final model = _modelController.text.trim();
     
     if (productType.isEmpty || factory.isEmpty || model.isEmpty || _selectedReport == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Пожалуйста, заполните все поля')),
+        SnackBar(content: Text(loc.fillAllFields)),
       );
       return;
     }

@@ -84,6 +84,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseVideoFromGallery => 'Choose video from gallery';
 
   @override
+  String get chooseFromFiles => 'Choose from files';
+
+  @override
   String get attention => 'Attention';
 
   @override
@@ -543,4 +546,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noPhoto => 'No photo';
+
+  @override
+  String get photo => 'Photo';
+
+  @override
+  String get addPhoto => 'Add photo';
+
+  @override
+  String get fillAllFields => 'Please fill in all fields';
 }

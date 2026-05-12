@@ -25,6 +25,7 @@
   "takeVideo": "Сделать видео",
   "chooseFromGallery": "Выбрать из галереи",
   "chooseVideoFromGallery": "Выбрать видео из галереи",
+  "chooseFromFiles": "Выбрать из файлов",
   "attention": "Внимание",
   "needsWork": "Требует доработки",
   "viewHtml": "Просмотр HTML",
@@ -236,5 +237,8 @@
   "editHeader": "Редактировать заголовок",
   "changePhoto": "Изменить фото",
   "deletePhoto": "Удалить фото",
-  "noPhoto": "Нет фото"
+  "noPhoto": "Нет фото",
+  "photo": "Фото",
+  "addPhoto": "Добавить фото",
+  "fillAllFields": "Пожалуйста, заполните все поля"
 }
