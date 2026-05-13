@@ -574,6 +574,32 @@ class ReportState extends ChangeNotifier {
     }
 
     _currentReport!.markers[qid]![answerIndex].media.removeAt(mediaIndex);
+
+    final remainingMedia = _currentReport!.markers[qid]![answerIndex].media;
+    for (int i = 0; i < remainingMedia.length; i++) {
+      final item = remainingMedia[i];
+      final ext = item.name.split('.').last;
+      final typePrefix = item.name.startsWith('v') ? 'v' : 'f';
+      final newName = '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${(i + 1).toString().padLeft(3, '0')}.$ext';
+
+      if (item.name != newName) {
+        final oldName = item.name;
+        if (_currentReportPath != null && item.localPath != null) {
+          final oldPath = '$_currentReportPath/${item.localPath}';
+          final newPath = '$_currentReportPath/${item.localPath!.replaceFirst(oldName, newName)}';
+          final oldFile = File(oldPath);
+          if (await oldFile.exists()) {
+            await oldFile.rename(newPath);
+          }
+          item.localPath = item.localPath!.replaceFirst(oldName, newName);
+        }
+        item.name = newName;
+      }
+    }
+
+    final counterKey = '${questionIndex}_${answerIndex}_${media.attention ? 'X' : 'photos'}';
+    _currentReport!.mediaCounter[counterKey] = remainingMedia.length + 1;
+
     notifyListeners();
   }
 

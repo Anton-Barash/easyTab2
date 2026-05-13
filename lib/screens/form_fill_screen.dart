@@ -1863,10 +1863,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     children: [
                       CircularProgressIndicator(color: Color(0xFF2563eb)),
                       SizedBox(height: 16),
-                      Text(
-                        '⏳',
-                        style: TextStyle(fontSize: 32),
-                      ),
+                      Text('⏳', style: TextStyle(fontSize: 32)),
                     ],
                   ),
                 ),
@@ -2158,59 +2155,59 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   child: Column(
                     children: [
-                        _buildHeaderField(loc.productType, productTypeController),
-                        const SizedBox(height: 12),
-                        _buildHeaderField(loc.factory, factoryController),
-                        const SizedBox(height: 12),
-                        _buildHeaderField(loc.model, modelController),
-                        const SizedBox(height: 16),
-                        _buildPhotoSection(
-                              context,
-                              hasImage,
-                              tempPhotoPath,
-                              loc,
-                              setDialogState,
-                            ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              reportState.updateHeaderInfo(
-                                productType: productTypeController.text.trim(),
-                                factory: factoryController.text.trim(),
-                                model: modelController.text.trim(),
-                              );
-                              try {
-                                if (tempPhotoPath != null) {
-                                  await reportState.addHeaderImage(
-                                    File(tempPhotoPath!),
-                                  );
-                                } else if (hadHeaderImageBefore) {
-                                  await reportState.removeHeaderImage();
-                                }
-                              } catch (e) {
-                                debugPrint('Header image error: $e');
+                      _buildHeaderField(loc.productType, productTypeController),
+                      const SizedBox(height: 12),
+                      _buildHeaderField(loc.factory, factoryController),
+                      const SizedBox(height: 12),
+                      _buildHeaderField(loc.model, modelController),
+                      const SizedBox(height: 16),
+                      _buildPhotoSection(
+                        context,
+                        hasImage,
+                        tempPhotoPath,
+                        loc,
+                        setDialogState,
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            reportState.updateHeaderInfo(
+                              productType: productTypeController.text.trim(),
+                              factory: factoryController.text.trim(),
+                              model: modelController.text.trim(),
+                            );
+                            try {
+                              if (tempPhotoPath != null) {
+                                await reportState.addHeaderImage(
+                                  File(tempPhotoPath!),
+                                );
+                              } else if (hadHeaderImageBefore) {
+                                await reportState.removeHeaderImage();
                               }
-                              reportState.updateReportName();
-                              reportState.saveReport();
-                              Navigator.pop(ctx);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF333333),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              elevation: 0,
+                            } catch (e) {
+                              debugPrint('Header image error: $e');
+                            }
+                            reportState.updateReportName();
+                            await reportState.saveReport();
+                            if (mounted) Navigator.pop(ctx);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF333333),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text(
-                              loc.save,
-                              style: const TextStyle(fontSize: 15),
-                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            loc.save,
+                            style: const TextStyle(fontSize: 15),
                           ),
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -2250,10 +2247,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             contentPadding: const EdgeInsets.symmetric(vertical: 8),
             isDense: true,
           ),
-          style: const TextStyle(
-            color: Color(0xFF111827),
-            fontSize: 15,
-          ),
+          style: const TextStyle(color: Color(0xFF111827), fontSize: 15),
         ),
       ],
     );
@@ -2359,10 +2353,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFf9fafb),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: const Color(0xFFd1d5db),
-                  width: 1,
-                ),
+                border: Border.all(color: const Color(0xFFd1d5db), width: 1),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2473,7 +2464,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   decoration: BoxDecoration(
                     image: DecorationImage(
                       image: FileImage(
-                        File('${reportState.currentReportPath}/$headerImagePath'),
+                        File(
+                          '${reportState.currentReportPath}/$headerImagePath',
+                        ),
                       ),
                       fit: BoxFit.cover,
                     ),
@@ -2520,9 +2513,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.add_a_photo, size: 28, color: Color(0xFF9ca3af)),
+                      const Icon(
+                        Icons.add_a_photo,
+                        size: 28,
+                        color: Color(0xFF9ca3af),
+                      ),
                       const SizedBox(height: 4),
-                      Text(loc.addPhoto, style: const TextStyle(fontSize: 12, color: Color(0xFF6b7280))),
+                      Text(
+                        loc.addPhoto,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6b7280),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2560,7 +2563,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  Widget _buildEditableRow(String label, String value, Function(String) onChanged) {
+  Widget _buildEditableRow(
+    String label,
+    String value,
+    Function(String) onChanged,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -2609,40 +2616,41 @@ class _FormFillScreenState extends State<FormFillScreen> {
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(
-              width: 1.5,
-              color: _currentPage == -1
-                  ? const Color(0xFF3b82f6)
-                  : const Color(0xFFe5e7eb),
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _currentPage = -1;
+              _isSidePanelCollapsed = true;
+            });
+            if (_viewMode == ViewMode.card) {
+              _pageController.animateToPage(
+                0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.ease,
+              );
+            } else {
+              _listScrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.ease,
+              );
+            }
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(
+                width: 1.5,
+                color: _currentPage == -1
+                    ? const Color(0xFF3b82f6)
+                    : const Color(0xFFe5e7eb),
+              ),
+              borderRadius: BorderRadius.circular(8),
             ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _currentPage = -1;
-                    _isSidePanelCollapsed = true;
-                  });
-                  if (_viewMode == ViewMode.card) {
-                    _pageController.animateToPage(
-                      0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.ease,
-                    );
-                  } else {
-                    _listScrollController.animateTo(
-                      0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.ease,
-                    );
-                  }
-                },
-                child: Container(
+            child: Row(
+              children: [
+                Container(
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
@@ -2660,37 +2668,37 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${report.productType} | ${report.factory} | ${report.model}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF424242),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    if (report.dateTimestamp != null)
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        DateTime.fromMillisecondsSinceEpoch(
-                          report.dateTimestamp!,
-                        ).toLocal().toString().substring(0, 10),
+                        '${report.productType} | ${report.factory} | ${report.model}',
                         style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF666666),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF424242),
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                  ],
+                      const SizedBox(height: 2),
+                      if (report.dateTimestamp != null)
+                        Text(
+                          DateTime.fromMillisecondsSinceEpoch(
+                            report.dateTimestamp!,
+                          ).toLocal().toString().substring(0, 10),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF666666),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -3430,9 +3438,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loc.saveError}$e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${loc.saveError}$e')));
       }
       return;
     }
@@ -3512,9 +3520,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
               reportState: reportState,
               startInSelectionMode: true,
             ),
-            onDelete: () {
-              reportState.removeMedia(questionIndex, answerIndex, idx);
-              _scheduleSave();
+            onDelete: () async {
+              await reportState.removeMedia(questionIndex, answerIndex, idx);
+              await reportState.saveReport();
             },
           ),
         );
@@ -3539,15 +3547,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
           mediaList: mediaList,
           initialIndex: initialIndex,
           reportPath: reportState?.currentReportPath,
-          onDelete: (indices) {
+          onDelete: (indices) async {
             if (questionIndex != null &&
                 answerIndex != null &&
                 reportState != null) {
               for (final index
                   in indices.toList()..sort((a, b) => b.compareTo(a))) {
-                reportState.removeMedia(questionIndex, answerIndex, index);
+                await reportState.removeMedia(
+                  questionIndex,
+                  answerIndex,
+                  index,
+                );
               }
-              _scheduleSave();
+              await reportState.saveReport();
             }
           },
           startInSelectionMode: startInSelectionMode,
