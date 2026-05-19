@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background-color: #94a3b8; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    h1 { color: #1e293b; margin-bottom: 30px; text-align: center; }
+    .question { margin-bottom: 15px; }
+    .question-text { font-size: 18px; font-weight: 600; color: #1e293b; margin-bottom: 15px; }
+    .answers-table { border-collapse: collapse; }
+    .answers-table td { padding: 6px 8px; border: 1px solid #d0d0d0; vertical-align: middle; font-size: 12px; }
+    .answers-table tr.attention .attention-col { border-color: #f59e0b; background-color: #fffbeb; font-weight: 700; }
+    .answers-table tr.attention .answer-text { border-color: #f59e0b; background-color: #fffbeb; }
+    .answers-table tr.attention .media-cell { border-color: #f59e0b; background-color: #fffbeb; }
+    .num-col { width: 20px; text-align: center; font-size: 11px; font-weight: 700; color: #64748b; }
+    .attention-col { width: 20px; text-align: center; font-size: 12px; font-weight: 700; color: #d97706; }
+    .answer-text { font-size: 12px; color: #1e293b; line-height: 1.4; width: 100%; }
+    .media-cell { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; width: 200px; min-width: 200px; min-height: 50px; }
+    .media-cell-empty { width: 200px; min-width: 200px; }
+    .media-item { width: 50px; height: 50px; border-radius: 2px; overflow: hidden; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); flex-shrink: 0; }
+    .media-item:hover { opacity: 0.8; }
+    .media-item img { width: 100%; height: 100%; object-fit: cover; }
+    .media-item video { width: 100%; height: 100%; object-fit: cover; }
+    .date { text-align: center; color: #94a3b8; margin-top: 30px; font-size: 14px; }
+    .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+    .lightbox.active { display: flex; }
+    .lightbox-controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10000; }
+    .lightbox-controls button { background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; transition: background 0.2s; }
+    .lightbox-controls button:hover { background: rgba(255,255,255,0.3); }
+    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 15px 20px; border-radius: 4px; cursor: pointer; font-size: 20px; transition: background 0.2s; }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }
+    .lightbox-nav.prev { left: 20px; }
+    .lightbox-nav.next { right: 20px; }
+    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; }
+    .lightbox-image-container { position: relative; max-width: 90%; max-height: 90%; overflow: hidden; cursor: grab; }
+    .lightbox-image-container.dragging { cursor: grabbing; }
+    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Report</h1>
+
+    <div class="question">
+      <div class="question-text">1. Object Name</div>
+      <table class="answers-table">
+        <tbody>
+
+          <tr class="">
+            <td class="num-col">1</td>
+            <td class="attention-col"></td>
+            <td class="answer-text">чайник</td>
+            <td>
+              <div class="media-cell">
+<div class="media-item"><img src="./photos/007.jpg" alt="007.jpg" onclick="openLightbox(this.src, 0)" /></div>
+              </div>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="question">
+      <div class="question-text">2. Inspection Date</div>
+      <table class="answers-table">
+        <tbody>
+
+          <tr class="">
+            <td class="num-col">1</td>
+            <td class="attention-col"></td>
+            <td class="answer-text">а тут нужно ответ дать какой-то</td>
+            <td>
+              <div class="media-cell-empty">
+
+              </div>
+            </td>
+          </tr>
+
+          <tr class="attention">
+            <td class="num-col">2</td>
+            <td class="attention-col">!</td>
+            <td class="answer-text">какашка какая-то</td>
+            <td>
+              <div class="media-cell-empty">
+
+              </div>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="question">
+      <div class="question-text">3. Вопрост про залупку</div>
+      <table class="answers-table">
+        <tbody>
+
+          <tr class="attention">
+            <td class="num-col">1</td>
+            <td class="attention-col">!</td>
+            <td class="answer-text">Залупка классная!!! Не очень.</td>
+            <td>
+              <div class="media-cell">
+<div class="media-item"><img src="./X/003.jpg" alt="003.jpg" onclick="openLightbox(this.src, 1)" /></div>
+              </div>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="question">
+      <div class="question-text">4. Equipment Status</div>
+      <table class="answers-table">
+        <tbody>
+
+          <tr class="">
+            <td class="num-col">1</td>
+            <td class="attention-col"></td>
+            <td class="answer-text">-</td>
+            <td>
+              <div class="media-cell-empty">
+
+              </div>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="question">
+      <div class="question-text">5. Comments</div>
+      <table class="answers-table">
+        <tbody>
+
+          <tr class="">
+            <td class="num-col">1</td>
+            <td class="attention-col"></td>
+            <td class="answer-text">-</td>
+            <td>
+              <div class="media-cell-empty">
+
+              </div>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="question">
+      <div class="question-text">6. Photo/Video Materials</div>
+      <table class="answers-table">
+        <tbody>
+
+          <tr class="">
+            <td class="num-col">1</td>
+            <td class="attention-col"></td>
+            <td class="answer-text">-</td>
+            <td>
+              <div class="media-cell-empty">
+
+              </div>
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="date">Created: 5/2/2026, 11:25:04 PM</div>
+  </div>
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" onclick="closeLightbox()">×</button>
+    <div class="lightbox-controls">
+      <button onclick="zoomIn()">+</button>
+      <button onclick="zoomOut()">-</button>
+      <button onclick="resetZoom()">100%</button>
+    </div>
+    <button class="lightbox-nav prev" onclick="prevImage()">←</button>
+    <div class="lightbox-image-container" id="lightbox-container">
+      <img id="lightbox-img" src="" alt="" />
+    </div>
+    <button class="lightbox-nav next" onclick="nextImage()">→</button>
+  </div>
+  <script>
+    let currentIndex = 0;
+    let images = [];
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const imgElements = document.querySelectorAll('.media-item img');
+      images = Array.from(imgElements).map(img => img.src);
+    });
+
+    function openLightbox(src, index) {
+      currentIndex = index;
+      document.getElementById('lightbox-img').src = src;
+      document.getElementById('lightbox').classList.add('active');
+      resetZoom();
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('active');
+    }
+
+    function nextImage() {
+      if (images.length > 1) {
+        currentIndex = (currentIndex + 1) % images.length;
+        document.getElementById('lightbox-img').src = images[currentIndex];
+        resetZoom();
+      }
+    }
+
+    function prevImage() {
+      if (images.length > 1) {
+        currentIndex = (currentIndex - 1 + images.length) % images.length;
+        document.getElementById('lightbox-img').src = images[currentIndex];
+        resetZoom();
+      }
+    }
+
+    function zoomIn() { scale = Math.min(scale * 1.2, 5); applyTransform(); }
+    function zoomOut() { scale = Math.max(scale / 1.2, 0.5); applyTransform(); }
+    function resetZoom() { scale = 1; panX = 0; panY = 0; applyTransform(); }
+
+    function applyTransform() {
+      document.getElementById('lightbox-img').style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+
+    const container = document.getElementById('lightbox-container');
+    container.addEventListener('mousedown', function(e) {
+      if (scale > 1) { isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; container.classList.add('dragging'); e.preventDefault(); }
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (isDragging && scale > 1) { panX = e.clientX - startX; panY = e.clientY - startY; applyTransform(); }
+    });
+    document.addEventListener('mouseup', function() { isDragging = false; container.classList.remove('dragging'); });
+    container.addEventListener('wheel', function(e) { e.preventDefault(); if (e.deltaY < 0) zoomIn(); else zoomOut(); });
+    document.addEventListener('keydown', function(e) {
+      if (document.getElementById('lightbox').classList.contains('active')) {
+        if (e.key === 'ArrowRight') nextImage();
+        if (e.key === 'ArrowLeft') prevImage();
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === '+' || e.key === '=') zoomIn();
+        if (e.key === '-') zoomOut();
+        if (e.key === '0') resetZoom();
+      }
+    });
+  </script>
+</body>
+</html>

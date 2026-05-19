@@ -994,18 +994,19 @@ class ReportState extends ChangeNotifier {
     final languages = sortLanguages(allLanguages);
     final buffer = StringBuffer();
 
-    final List<String> allMediaData = [];
-    final List<List<List<Map<String, dynamic>>>> allMediaByQandAandLang = [];
+    final List<String> allImagePaths = [];
+    final List<List<List<List<Map<String, dynamic>>>>> allMediaByQandAandLang = [];
 
     for (int i = 0; i < _currentReport!.questions.length; i++) {
-      final List<List<Map<String, dynamic>>> questionMedia = [];
+      final List<List<List<Map<String, dynamic>>>> questionMedia = [];
 
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        final List<Map<String, dynamic>> langMedia = [];
+        final List<List<Map<String, dynamic>>> langMedia = [];
 
         for (final a in answers) {
+          final List<Map<String, dynamic>> answerMedia = [];
           final mediaList = a['media'] as List? ?? [];
           for (final media in mediaList) {
             final relativePath = (media['attention'] == true)
@@ -1017,9 +1018,12 @@ class ReportState extends ChangeNotifier {
               'type': media['type'],
               'localPath': relativePath,
             };
-            langMedia.add(mediaData);
-            allMediaData.add(jsonEncode(mediaData));
+            answerMedia.add(mediaData);
+            if (media['type'].startsWith('image') && !allImagePaths.contains(relativePath)) {
+              allImagePaths.add(relativePath);
+            }
           }
+          langMedia.add(answerMedia);
         }
         questionMedia.add(langMedia);
       }
@@ -1114,106 +1118,20 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      font-weight: bold;');
     buffer.writeln('      cursor: pointer;');
     buffer.writeln('    }');
-    buffer.writeln('    /* Thumbnail grid modal */');
-    buffer.writeln('    .thumbnail-grid-modal {');
-    buffer.writeln('      display: none;');
-    buffer.writeln('      position: fixed;');
-    buffer.writeln('      z-index: 1000;');
-    buffer.writeln('      left: 0;');
-    buffer.writeln('      top: 0;');
-    buffer.writeln('      width: 100%;');
-    buffer.writeln('      height: 100%;');
-    buffer.writeln('      background-color: rgba(0,0,0,0.9);');
-    buffer.writeln('      overflow: auto;');
-    buffer.writeln('    }');
-    buffer.writeln('    .thumbnail-grid {');
-    buffer.writeln('      display: grid;');
-    buffer.writeln('      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));');
-    buffer.writeln('      gap: 10px;');
-    buffer.writeln('      padding: 20px;');
-    buffer.writeln('      max-width: 1000px;');
-    buffer.writeln('      margin: 50px auto;');
-    buffer.writeln('    }');
-    buffer.writeln('    .thumbnail-grid-item {');
-    buffer.writeln('      width: 100%;');
-    buffer.writeln('      aspect-ratio: 1;');
-    buffer.writeln('      object-fit: cover;');
-    buffer.writeln('      border-radius: 4px;');
-    buffer.writeln('      cursor: pointer;');
-    buffer.writeln('    }');
-    buffer.writeln('    /* Modal styles */');
-    buffer.writeln('    .modal {');
-    buffer.writeln('      display: none;');
-    buffer.writeln('      position: fixed;');
-    buffer.writeln('      z-index: 1000;');
-    buffer.writeln('      left: 0;');
-    buffer.writeln('      top: 0;');
-    buffer.writeln('      width: 100%;');
-    buffer.writeln('      height: 100%;');
-    buffer.writeln('      background-color: rgba(0,0,0,0.9);');
-    buffer.writeln('      overflow: auto;');
-    buffer.writeln('    }');
-    buffer.writeln('    .modal.white-bg {');
-    buffer.writeln('      background-color: rgba(255,255,255,0.95);');
-    buffer.writeln('    }');
-    buffer.writeln('    .modal-content {');
-    buffer.writeln('      position: relative;');
-    buffer.writeln('      margin: auto;');
-    buffer.writeln('      top: 50%;');
-    buffer.writeln('      transform: translateY(-50%);');
-    buffer.writeln('      max-width: 90%;');
-    buffer.writeln('      max-height: 90%;');
-    buffer.writeln('      text-align: center;');
-    buffer.writeln('    }');
-    buffer.writeln('    .modal-img, .modal-video {');
-    buffer.writeln('      max-width: 100%;');
-    buffer.writeln('      max-height: 90vh;');
-    buffer.writeln('      transition: transform 0.1s ease;');
-    buffer.writeln('    }');
-    buffer.writeln('    .close {');
-    buffer.writeln('      position: absolute;');
-    buffer.writeln('      top: 15px;');
-    buffer.writeln('      right: 35px;');
-    buffer.writeln('      color: #f1f1f1;');
-    buffer.writeln('      font-size: 40px;');
-    buffer.writeln('      font-weight: bold;');
-    buffer.writeln('      cursor: pointer;');
-    buffer.writeln('      z-index: 1001;');
-    buffer.writeln('    }');
-    buffer.writeln('    .white-bg .close {');
-    buffer.writeln('      color: #333;');
-    buffer.writeln('    }');
-    buffer.writeln('    .controls {');
-    buffer.writeln('      position: fixed;');
-    buffer.writeln('      bottom: 30px;');
-    buffer.writeln('      left: 50%;');
-    buffer.writeln('      transform: translateX(-50%);');
-    buffer.writeln('      display: flex;');
-    buffer.writeln('      gap: 15px;');
-    buffer.writeln('      z-index: 1001;');
-    buffer.writeln('    }');
-    buffer.writeln('    .control-btn {');
-    buffer.writeln('      padding: 12px 24px;');
-    buffer.writeln('      font-size: 24px;');
-    buffer.writeln('      background: rgba(0,0,0,0.6);');
-    buffer.writeln('      color: white;');
-    buffer.writeln('      border: 2px solid white;');
-    buffer.writeln('      border-radius: 50%;');
-    buffer.writeln('      cursor: pointer;');
-    buffer.writeln('      width: 60px;');
-    buffer.writeln('      height: 60px;');
-    buffer.writeln('      display: flex;');
-    buffer.writeln('      align-items: center;');
-    buffer.writeln('      justify-content: center;');
-    buffer.writeln('    }');
-    buffer.writeln('    .white-bg .control-btn {');
-    buffer.writeln('      background: rgba(0,0,0,0.6);');
-    buffer.writeln('      color: white;');
-    buffer.writeln('      border-color: white;');
-    buffer.writeln('    }');
-    buffer.writeln('    .control-btn:hover {');
-    buffer.writeln('      background: rgba(0,0,0,0.7);');
-    buffer.writeln('    }');
+    buffer.writeln('    /* Lightbox styles */');
+    buffer.writeln('    .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }');
+    buffer.writeln('    .lightbox.active { display: flex; }');
+    buffer.writeln('    .lightbox-controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10000; }');
+    buffer.writeln('    .lightbox-controls button { background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; transition: background 0.2s; }');
+    buffer.writeln('    .lightbox-controls button:hover { background: rgba(255,255,255,0.3); }');
+    buffer.writeln('    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 15px 20px; border-radius: 4px; cursor: pointer; font-size: 20px; transition: background 0.2s; }');
+    buffer.writeln('    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }');
+    buffer.writeln('    .lightbox-nav.prev { left: 20px; }');
+    buffer.writeln('    .lightbox-nav.next { right: 20px; }');
+    buffer.writeln('    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; }');
+    buffer.writeln('    .lightbox-image-container { position: relative; max-width: 90%; max-height: 90%; overflow: hidden; cursor: grab; }');
+    buffer.writeln('    .lightbox-image-container.dragging { cursor: grabbing; }');
+    buffer.writeln('    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }');
     buffer.writeln('    /* Header styles */');
     buffer.writeln('    .header-row {');
     buffer.writeln('      background: #ffffff !important;');
@@ -1327,10 +1245,12 @@ class ReportState extends ChangeNotifier {
       }
 
       String mediaCellContent(int ai, int li, int qIndex) {
-        if (ai != 0) return '';
+        if (ai >= allMediaByQandAandLang[qIndex][li].length) {
+          return '<div class="media-thumbnails"></div>';
+        }
 
         final List<Map<String, dynamic>> mediaList =
-            allMediaByQandAandLang[qIndex][li];
+            allMediaByQandAandLang[qIndex][li][ai];
         final parts = <String>[];
 
         const int maxVisible = 9;
@@ -1338,24 +1258,17 @@ class ReportState extends ChangeNotifier {
 
         for (int mi = 0; mi < visibleCount; mi++) {
           final media = mediaList[mi];
-          final onClick = "openModal($qIndex, $li, $mi)";
           final isImage = media['type'].startsWith('image');
           if (isImage) {
+            final imageIndex = allImagePaths.indexOf(media['localPath']);
             parts.add(
-              '<img class="media-thumbnail" src="${media['localPath']}" onclick="$onClick" alt="${media['name']}" />',
+              '<img class="media-thumbnail" src="${media['localPath']}" onclick="openLightbox(this.src, $imageIndex)" alt="${media['name']}" />',
             );
           } else {
             parts.add(
-              '<img class="media-thumbnail" src="${media['localPath']}" onclick="$onClick" alt="${media['name']}" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>\'" />',
+              '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>\'" />',
             );
           }
-        }
-
-        if (mediaList.length > maxVisible) {
-          final remaining = mediaList.length - maxVisible;
-          parts.add(
-            '<div class="media-more" onclick="openThumbnailGrid($qIndex, $li)">+$remaining</div>',
-          );
         }
 
         return '<div class="media-thumbnails">${parts.join('')}</div>';
@@ -1412,22 +1325,16 @@ class ReportState extends ChangeNotifier {
           '      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${aContentParts.join('')}</td>',
         );
 
-        if (ai == 0) {
-          final mContentParts = <String>[];
-          for (int li = 0; li < languages.length; li++) {
-            final style = li == 0 ? '' : 'display:none;';
-            mContentParts.add(
-              '<span class="media-lang-$li" style="$style">${mediaCellContent(ai, li, i)}</span>',
-            );
-          }
-          buffer.writeln(
-            '      <td style="background:#fafafa;width:200px;">${mContentParts.join('')}</td>',
-          );
-        } else {
-          buffer.writeln(
-            '      <td style="background:#fafafa;width:200px;"></td>',
+        final mContentParts = <String>[];
+        for (int li = 0; li < languages.length; li++) {
+          final style = li == 0 ? '' : 'display:none;';
+          mContentParts.add(
+            '<span class="media-lang-$li" style="$style">${mediaCellContent(ai, li, i)}</span>',
           );
         }
+        buffer.writeln(
+          '      <td style="background:#fafafa;width:200px;">${mContentParts.join('')}</td>',
+        );
 
         buffer.writeln('    </tr>');
       }
@@ -1435,267 +1342,104 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('  </table>');
     buffer.writeln('</div>');
 
-    // Modal
-    buffer.writeln('<div id="mediaModal" class="modal">');
-    buffer.writeln(
-      '  <span class="close" onclick="closeModal()">&times;</span>',
-    );
-    buffer.writeln('  <div class="modal-content">');
-    buffer.writeln(
-      '    <img id="modalImg" class="modal-img" style="display:none;" />',
-    );
-    buffer.writeln(
-      '    <video id="modalVideo" class="modal-video" controls style="display:none;"></video>',
-    );
+    // Lightbox
+    buffer.writeln('  <div class="lightbox" id="lightbox">');
+    buffer.writeln('    <button class="lightbox-close" onclick="closeLightbox()">×</button>');
+    buffer.writeln('    <div class="lightbox-controls">');
+    buffer.writeln('      <button onclick="zoomIn()">+</button>');
+    buffer.writeln('      <button onclick="zoomOut()">-</button>');
+    buffer.writeln('      <button onclick="resetZoom()">100%</button>');
+    buffer.writeln('    </div>');
+    buffer.writeln('    <button class="lightbox-nav prev" onclick="prevImage()">←</button>');
+    buffer.writeln('    <div class="lightbox-image-container" id="lightbox-container">');
+    buffer.writeln('      <img id="lightbox-img" src="" alt="" />');
+    buffer.writeln('    </div>');
+    buffer.writeln('    <button class="lightbox-nav next" onclick="nextImage()">→</button>');
     buffer.writeln('  </div>');
-    buffer.writeln('  <div class="controls">');
-    buffer.writeln(
-      '    <button class="control-btn" onclick="toggleBg()">⬜</button>',
-    );
-    buffer.writeln(
-      '    <button class="control-btn" onclick="zoomOut()">&minus;</button>',
-    );
-    buffer.writeln(
-      '    <button class="control-btn" onclick="fitToScreen()">⛶</button>',
-    );
-    buffer.writeln(
-      '    <button class="control-btn" onclick="zoomIn()">+</button>',
-    );
-    buffer.writeln('  </div>');
-    buffer.writeln('</div>');
-
-    // Thumbnail grid modal
-    buffer.writeln('<div id="thumbnailGridModal" class="thumbnail-grid-modal">');
-    buffer.writeln('  <span class="close" onclick="closeThumbnailGrid()">&times;</span>');
-    buffer.writeln('  <div id="thumbnailGrid" class="thumbnail-grid">');
-    buffer.writeln('  </div>');
-    buffer.writeln('</div>');
 
     // JavaScript
     buffer.writeln('<script>');
-    buffer.writeln('  let currentZoom = 1;');
-    buffer.writeln('  let currentMedia = null;');
-    buffer.writeln('  let currentElement = null;');
-    buffer.writeln('  let isDragging = false;');
-    buffer.writeln('  let startX = 0, startY = 0;');
-    buffer.writeln('  let translateX = 0, translateY = 0;');
-    buffer.writeln('  let isFitMode = false;');
-    buffer.writeln(
-      '  let lastZoom = 1, lastTranslateX = 0, lastTranslateY = 0;',
-    );
-    buffer.writeln('  let isWhiteBg = false;');
-    buffer.writeln('  const allLanguages = ${jsonEncode(languages)};');
+    buffer.writeln('    let currentIndex = 0;');
+    buffer.writeln('    let images = [];');
+    buffer.writeln('    let scale = 1;');
+    buffer.writeln('    let panX = 0;');
+    buffer.writeln('    let panY = 0;');
+    buffer.writeln('    let isDragging = false;');
+    buffer.writeln('    let startX = 0;');
+    buffer.writeln('    let startY = 0;');
+    buffer.writeln('    const allLanguages = ${jsonEncode(languages)};');
 
-    // Media data
-    buffer.writeln('  const mediaData = [');
-    for (int i = 0; i < _currentReport!.questions.length; i++) {
-      buffer.writeln('    [');
-      for (int li = 0; li < languages.length; li++) {
-        buffer.writeln('      [');
-        for (int mi = 0; mi < allMediaByQandAandLang[i][li].length; mi++) {
-          final media = allMediaByQandAandLang[i][li][mi];
-          buffer.writeln('        ${jsonEncode(media)},');
-        }
-        buffer.writeln('      ],');
-      }
-      buffer.writeln('    ],');
-    }
-    buffer.writeln('  ];');
-
-    buffer.writeln('  function switchLanguage(li) {');
-    buffer.writeln('    // Update buttons');
-    buffer.writeln(
-      '    document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));',
-    );
-    buffer.writeln(
-      '    document.querySelector(\'.lang-btn[data-lang="\' + li + \'"]\').classList.add("active");',
-    );
-
-    buffer.writeln('    // Update content');
-    buffer.writeln('    for (let l = 0; l < allLanguages.length; l++) {');
-    buffer.writeln('      const display = l === li ? "" : "none";');
-    buffer.writeln(
-      '      document.querySelectorAll(".question-lang-" + l).forEach(el => el.style.display = display);',
-    );
-    buffer.writeln(
-      '      document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);',
-    );
-    buffer.writeln(
-      '      document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);',
-    );
-    buffer.writeln('    }');
-    buffer.writeln('  }');
-
-    buffer.writeln('  function applyTransform(el) {');
-    buffer.writeln(
-      '    el.style.transform = "translate(" + translateX + "px, " + translateY + "px) scale(" + currentZoom + ")";',
-    );
-    buffer.writeln('  }');
-
-    buffer.writeln('  function openModal(qIndex, li, mi) {');
-    buffer.writeln('    const media = mediaData[qIndex][li][mi];');
-    buffer.writeln('    const modal = document.getElementById("mediaModal");');
-    buffer.writeln('    const modalImg = document.getElementById("modalImg");');
-    buffer.writeln(
-      '    const modalVideo = document.getElementById("modalVideo");',
-    );
-
-    buffer.writeln('    currentMedia = media;');
-    buffer.writeln('    currentZoom = 1;');
-    buffer.writeln('    translateX = 0;');
-    buffer.writeln('    translateY = 0;');
-    buffer.writeln('    isFitMode = false;');
-
-    buffer.writeln('    if (media.type.startsWith("image")) {');
-    buffer.writeln('      modalImg.style.display = "block";');
-    buffer.writeln('      modalVideo.style.display = "none";');
-    buffer.writeln('      modalImg.src = media.localPath;');
-    buffer.writeln('      currentElement = modalImg;');
-    buffer.writeln('    } else {');
-    buffer.writeln('      modalImg.style.display = "none";');
-    buffer.writeln('      modalVideo.style.display = "block";');
-    buffer.writeln('      modalVideo.src = media.localPath;');
-    buffer.writeln('      currentElement = modalVideo;');
-    buffer.writeln('    }');
-    buffer.writeln('    applyTransform(currentElement);');
-    buffer.writeln('    modal.style.display = "block";');
-    buffer.writeln('  }');
-
-    buffer.writeln('  function closeModal() {');
-    buffer.writeln(
-      '    document.getElementById("mediaModal").style.display = "none";',
-    );
-    buffer.writeln('  }');
-
-    buffer.writeln('  let currentGridQIndex = 0;');
-    buffer.writeln('  let currentGridLi = 0;');
-
-    buffer.writeln('  function openThumbnailGrid(qIndex, li) {');
-    buffer.writeln('    currentGridQIndex = qIndex;');
-    buffer.writeln('    currentGridLi = li;');
-    buffer.writeln('    const grid = document.getElementById("thumbnailGrid");');
-    buffer.writeln('    grid.innerHTML = "";');
-    buffer.writeln('    const media = mediaData[qIndex][li];');
-    buffer.writeln('    for (let mi = 0; mi < media.length; mi++) {');
-    buffer.writeln('      const item = media[mi];');
-    buffer.writeln('      const isImage = item.type.startsWith("image");');
-    buffer.writeln('      const img = document.createElement("img");');
-    buffer.writeln('      img.className = "thumbnail-grid-item";');
-    buffer.writeln('      img.src = item.localPath;');
-    buffer.writeln('      img.alt = item.name;');
-    buffer.writeln('      img.onclick = () => {');
-    buffer.writeln('        closeThumbnailGrid();');
-    buffer.writeln('        openModal(qIndex, li, mi);');
-    buffer.writeln('      };');
-    buffer.writeln('      if (!isImage) {');
-    buffer.writeln('        img.onerror = () => {');
-    buffer.writeln('          img.src = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 100 100%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2232%22>🎬</text></svg>";');
-    buffer.writeln('        };');
+    buffer.writeln('    function switchLanguage(li) {');
+    buffer.writeln('      document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));');
+    buffer.writeln('      document.querySelector(\'.lang-btn[data-lang="\' + li + \'"]\').classList.add("active");');
+    buffer.writeln('      for (let l = 0; l < allLanguages.length; l++) {');
+    buffer.writeln('        const display = l === li ? "" : "none";');
+    buffer.writeln('        document.querySelectorAll(".question-lang-" + l).forEach(el => el.style.display = display);');
+    buffer.writeln('        document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);');
+    buffer.writeln('        document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);');
     buffer.writeln('      }');
-    buffer.writeln('      grid.appendChild(img);');
     buffer.writeln('    }');
-    buffer.writeln('    document.getElementById("thumbnailGridModal").style.display = "block";');
-    buffer.writeln('  }');
 
-    buffer.writeln('  function closeThumbnailGrid() {');
-    buffer.writeln('    document.getElementById("thumbnailGridModal").style.display = "none";');
-    buffer.writeln('  }');
+    buffer.writeln('    document.addEventListener("DOMContentLoaded", function() {');
+    buffer.writeln('      const imgElements = document.querySelectorAll(".media-thumbnail");');
+    buffer.writeln('      images = Array.from(imgElements).map(img => img.src);');
+    buffer.writeln('    });');
 
-    buffer.writeln('  function zoomIn() {');
-    buffer.writeln('    if (currentZoom < 3) {');
-    buffer.writeln('      currentZoom += 0.2;');
-    buffer.writeln('      applyTransform(currentElement);');
+    buffer.writeln('    function openLightbox(src, index) {');
+    buffer.writeln('      currentIndex = index;');
+    buffer.writeln('      document.getElementById("lightbox-img").src = src;');
+    buffer.writeln('      document.getElementById("lightbox").classList.add("active");');
+    buffer.writeln('      resetZoom();');
     buffer.writeln('    }');
-    buffer.writeln('  }');
 
-    buffer.writeln('  function zoomOut() {');
-    buffer.writeln('    if (currentZoom > 0.3) {');
-    buffer.writeln('      currentZoom -= 0.2;');
-    buffer.writeln('      applyTransform(currentElement);');
+    buffer.writeln('    function closeLightbox() {');
+    buffer.writeln('      document.getElementById("lightbox").classList.remove("active");');
     buffer.writeln('    }');
-    buffer.writeln('  }');
 
-    buffer.writeln('  function fitToScreen() {');
-    buffer.writeln('    if (!isFitMode) {');
-    buffer.writeln('      lastZoom = currentZoom;');
-    buffer.writeln('      lastTranslateX = translateX;');
-    buffer.writeln('      lastTranslateY = translateY;');
-    buffer.writeln('      currentZoom = 1;');
-    buffer.writeln('      translateX = 0;');
-    buffer.writeln('      translateY = 0;');
-    buffer.writeln('      isFitMode = true;');
-    buffer.writeln('    } else {');
-    buffer.writeln('      currentZoom = lastZoom;');
-    buffer.writeln('      translateX = lastTranslateX;');
-    buffer.writeln('      translateY = lastTranslateY;');
-    buffer.writeln('      isFitMode = false;');
+    buffer.writeln('    function nextImage() {');
+    buffer.writeln('      if (images.length > 1) {');
+    buffer.writeln('        currentIndex = (currentIndex + 1) % images.length;');
+    buffer.writeln('        document.getElementById("lightbox-img").src = images[currentIndex];');
+    buffer.writeln('        resetZoom();');
+    buffer.writeln('      }');
     buffer.writeln('    }');
-    buffer.writeln('    applyTransform(currentElement);');
-    buffer.writeln('  }');
 
-    buffer.writeln('  function toggleBg() {');
-    buffer.writeln('    const modal = document.getElementById("mediaModal");');
-    buffer.writeln('    if (isWhiteBg) {');
-    buffer.writeln('      modal.classList.remove("white-bg");');
-    buffer.writeln('      isWhiteBg = false;');
-    buffer.writeln('    } else {');
-    buffer.writeln('      modal.classList.add("white-bg");');
-    buffer.writeln('      isWhiteBg = true;');
+    buffer.writeln('    function prevImage() {');
+    buffer.writeln('      if (images.length > 1) {');
+    buffer.writeln('        currentIndex = (currentIndex - 1 + images.length) % images.length;');
+    buffer.writeln('        document.getElementById("lightbox-img").src = images[currentIndex];');
+    buffer.writeln('        resetZoom();');
+    buffer.writeln('      }');
     buffer.writeln('    }');
-    buffer.writeln('  }');
 
-    // Drag
-    buffer.writeln('  document.addEventListener("mousedown", function(e) {');
-    buffer.writeln('    if (e.target === currentElement) {');
-    buffer.writeln('      e.preventDefault();');
-    buffer.writeln('      isDragging = true;');
-    buffer.writeln('      startX = e.clientX - translateX;');
-    buffer.writeln('      startY = e.clientY - translateY;');
+    buffer.writeln('    function zoomIn() { scale = Math.min(scale * 1.2, 5); applyTransform(); }');
+    buffer.writeln('    function zoomOut() { scale = Math.max(scale / 1.2, 0.5); applyTransform(); }');
+    buffer.writeln('    function resetZoom() { scale = 1; panX = 0; panY = 0; applyTransform(); }');
+
+    buffer.writeln('    function applyTransform() {');
+    buffer.writeln('      document.getElementById("lightbox-img").style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";');
     buffer.writeln('    }');
-    buffer.writeln('  });');
 
-    buffer.writeln('  document.addEventListener("mousemove", function(e) {');
-    buffer.writeln('    if (!isDragging || !currentElement) return;');
-    buffer.writeln('    translateX = e.clientX - startX;');
-    buffer.writeln('    translateY = e.clientY - startY;');
-    buffer.writeln('    applyTransform(currentElement);');
-    buffer.writeln('  });');
-
-    buffer.writeln('  document.addEventListener("mouseup", function() {');
-    buffer.writeln('    isDragging = false;');
-    buffer.writeln('  });');
-
-    // Wheel zoom
-    buffer.writeln('  document.addEventListener("wheel", function(e) {');
-    buffer.writeln(
-      '    if (currentElement && document.getElementById("mediaModal").style.display === "block") {',
-    );
-    buffer.writeln('      e.preventDefault();');
-    buffer.writeln('      const delta = e.deltaY > 0 ? -0.1 : 0.1;');
-    buffer.writeln('      let newZoom = currentZoom + delta;');
-    buffer.writeln('      if (newZoom > 3) newZoom = 3;');
-    buffer.writeln('      if (newZoom < 0.3) newZoom = 0.3;');
-    buffer.writeln('      currentZoom = newZoom;');
-    buffer.writeln('      applyTransform(currentElement);');
-    buffer.writeln('    }');
-    buffer.writeln('  }, { passive: false });');
-
-    // Close modal on background click
-    buffer.writeln(
-      '  document.getElementById("mediaModal").onclick = function(event) {',
-    );
-    buffer.writeln('    if (event.target === this) {');
-    buffer.writeln('      closeModal();');
-    buffer.writeln('    }');
-    buffer.writeln('  }');
-
-    // Close on escape key
-    buffer.writeln('  document.onkeydown = function(event) {');
-    buffer.writeln('    if (event.key === "Escape") {');
-    buffer.writeln('      closeModal();');
-    buffer.writeln('    }');
-    buffer.writeln('  }');
-    buffer.writeln('</script>');
+    buffer.writeln('    const container = document.getElementById("lightbox-container");');
+    buffer.writeln('    container.addEventListener("mousedown", function(e) {');
+    buffer.writeln('      if (scale > 1) { isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; container.classList.add("dragging"); e.preventDefault(); }');
+    buffer.writeln('    });');
+    buffer.writeln('    document.addEventListener("mousemove", function(e) {');
+    buffer.writeln('      if (isDragging && scale > 1) { panX = e.clientX - startX; panY = e.clientY - startY; applyTransform(); }');
+    buffer.writeln('    });');
+    buffer.writeln('    document.addEventListener("mouseup", function() { isDragging = false; container.classList.remove("dragging"); });');
+    buffer.writeln('    container.addEventListener("wheel", function(e) { e.preventDefault(); if (e.deltaY < 0) zoomIn(); else zoomOut(); });');
+    buffer.writeln('    document.addEventListener("keydown", function(e) {');
+    buffer.writeln('      if (document.getElementById("lightbox").classList.contains("active")) {');
+    buffer.writeln('        if (e.key === "ArrowRight") nextImage();');
+    buffer.writeln('        if (e.key === "ArrowLeft") prevImage();');
+    buffer.writeln('        if (e.key === "Escape") closeLightbox();');
+    buffer.writeln('        if (e.key === "+" || e.key === "=") zoomIn();');
+    buffer.writeln('        if (e.key === "-") zoomOut();');
+    buffer.writeln('        if (e.key === "0") resetZoom();');
+    buffer.writeln('      }');
+    buffer.writeln('    });');
+    buffer.writeln('  </script>');
 
     buffer.writeln('</body>');
     buffer.writeln('</html>');
