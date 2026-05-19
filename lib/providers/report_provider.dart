@@ -1152,7 +1152,8 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .lightbox-nav.prev { left: calc(50% - 500px); }');
     buffer.writeln('    .lightbox-nav.next { right: calc(50% - 500px); }');
     buffer.writeln('    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }');
-    buffer.writeln('    .lightbox-info { position: absolute; top: 60px; left: 20px; bottom: 120px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; z-index: 10001; }');
+    buffer.writeln('    .lightbox-info { position: absolute; top: 0px; left: 0px; bottom: 120px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; z-index: 10001; }');
+    buffer.writeln('    .attention-answer { color: #f69a15; }');
     buffer.writeln('    .lightbox-question { font-weight: bold; font-size: 16px; margin-bottom: 5px; }');
     buffer.writeln('    .lightbox-answer { font-size: 14px; }');
     buffer.writeln('    .lightbox-image-container { position: relative; width: 900px; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10000; }');
@@ -1178,6 +1179,20 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .lightbox-thumbnail { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s, border 0.2s; border: 2px solid transparent; }');
     buffer.writeln('    .lightbox-thumbnail:hover { opacity: 1; }');
     buffer.writeln('    .lightbox-thumbnail.active { opacity: 1; border-color: #00B0F0; }');
+    buffer.writeln('    .lightbox-grid-btn { position: absolute; top: 20px; right: 70px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; z-index: 10002; padding: 5px 12px; border-radius: 4px; transition: background 0.2s; }');
+    buffer.writeln('    .lightbox-grid-btn:hover { background: rgba(255,255,255,0.3); }');
+    buffer.writeln('    /* Gallery overlay styles */');
+    buffer.writeln('    .gallery-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; z-index: 9998; }');
+    buffer.writeln('    .gallery-overlay.active { display: flex; }');
+    buffer.writeln('    .gallery-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }');
+    buffer.writeln('    .gallery-container { flex: 1; overflow-y: auto; padding: 80px 20px 20px; }');
+    buffer.writeln('    .gallery-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; max-width: 1400px; margin: 0 auto; }');
+    buffer.writeln('    .gallery-item { aspect-ratio: 1; overflow: hidden; border-radius: 8px; cursor: pointer; transition: transform 0.2s; }');
+    buffer.writeln('    .gallery-item:hover { transform: scale(1.02); }');
+    buffer.writeln('    .gallery-item img { width: 100%; height: 100%; object-fit: cover; }');
+    buffer.writeln('    @media (max-width: 1200px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); } }');
+    buffer.writeln('    @media (max-width: 900px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }');
+    buffer.writeln('    @media (max-width: 600px) { .gallery-grid { grid-template-columns: 1fr; } }');
     buffer.writeln('    /* Header styles */');
     buffer.writeln('    .header-row {');
     buffer.writeln('      background: #ffffff !important;');
@@ -1397,6 +1412,7 @@ class ReportState extends ChangeNotifier {
     // Lightbox
     buffer.writeln('  <div class="lightbox" id="lightbox">');
     buffer.writeln('    <button class="lightbox-close" onclick="closeLightbox()">×</button>');
+    buffer.writeln('    <button class="lightbox-grid-btn" onclick="openGallery()" title="Просмотр всех фото">⊞</button>');
     buffer.writeln('    <div class="lightbox-info">');
     buffer.writeln('      <div class="lightbox-question" id="lightbox-question"></div>');
     buffer.writeln('      <div class="lightbox-answer" id="lightbox-answer"></div>');
@@ -1414,6 +1430,14 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    <button class="lightbox-nav next" onclick="nextMedia()">→</button>');
     buffer.writeln('    <div class="lightbox-thumbnails-bar" id="lightbox-thumbnails-bar">');
     buffer.writeln('      <div class="thumbnails-container" id="thumbnails-container"></div>');
+    buffer.writeln('    </div>');
+    buffer.writeln('  </div>');
+
+    // Gallery overlay
+    buffer.writeln('  <div class="gallery-overlay" id="gallery-overlay">');
+    buffer.writeln('    <button class="gallery-close" onclick="closeGallery()">×</button>');
+    buffer.writeln('    <div class="gallery-container" id="gallery-container">');
+    buffer.writeln('      <div class="gallery-grid" id="gallery-grid"></div>');
     buffer.writeln('    </div>');
     buffer.writeln('  </div>');
 
@@ -1574,6 +1598,37 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    window.addEventListener("resize", function() {');
     buffer.writeln('      if (document.getElementById("lightbox").classList.contains("active")) {');
     buffer.writeln('        scrollToActiveThumbnail();');
+    buffer.writeln('      }');
+    buffer.writeln('    });');
+
+    buffer.writeln('    function openGallery() {');
+    buffer.writeln('      const galleryGrid = document.getElementById("gallery-grid");');
+    buffer.writeln('      galleryGrid.innerHTML = "";');
+    buffer.writeln('      const imageMedia = media.filter(m => m.type === "image");');
+    buffer.writeln('      imageMedia.forEach((m, index) => {');
+    buffer.writeln('        const galleryItem = document.createElement("div");');
+    buffer.writeln('        galleryItem.className = "gallery-item";');
+    buffer.writeln('        const img = document.createElement("img");');
+    buffer.writeln('        img.src = m.src;');
+    buffer.writeln('        img.alt = m.question || "Photo";');
+    buffer.writeln('        img.onclick = function() {');
+    buffer.writeln('          closeGallery();');
+    buffer.writeln('          openLightbox(m.src, m.type);');
+    buffer.writeln('        };');
+    buffer.writeln('        galleryItem.appendChild(img);');
+    buffer.writeln('        galleryGrid.appendChild(galleryItem);');
+    buffer.writeln('      });');
+    buffer.writeln('      document.getElementById("gallery-overlay").classList.add("active");');
+    buffer.writeln('      closeLightbox();');
+    buffer.writeln('    }');
+
+    buffer.writeln('    function closeGallery() {');
+    buffer.writeln('      document.getElementById("gallery-overlay").classList.remove("active");');
+    buffer.writeln('    }');
+
+    buffer.writeln('    document.addEventListener("keydown", function(e) {');
+    buffer.writeln('      if (document.getElementById("gallery-overlay").classList.contains("active")) {');
+    buffer.writeln('        if (e.key === "Escape") closeGallery();');
     buffer.writeln('      }');
     buffer.writeln('    });');
     buffer.writeln('  </script>');
