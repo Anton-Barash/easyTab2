@@ -119,7 +119,7 @@ List<String> _groupMediaNames(List<String> mediaNames) {
       final numStr = parts[2];
       
       if (int.tryParse(numStr) != null) {
-        final key = '${attentionPrefix}${typePrefix}${questionNum}_${answerNum}';
+        final key = '$attentionPrefix$typePrefix${questionNum}_$answerNum';
         if (!grouped.containsKey(key)) {
           grouped[key] = [];
         }
@@ -1182,10 +1182,10 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .lightbox-info { position: absolute; top: 60px; left: 20px; bottom: 120px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; z-index: 10001; }');
     buffer.writeln('    .lightbox-question { font-weight: bold; font-size: 16px; margin-bottom: 5px; }');
     buffer.writeln('    .lightbox-answer { font-size: 14px; }');
-    buffer.writeln('    .lightbox-image-container { position: relative; width: 900px; height: 70vh; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10000; }');
+    buffer.writeln('    .lightbox-image-container { position: relative; width: 900px; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10000; }');
     buffer.writeln('    .lightbox-image-container.dragging { cursor: grabbing; }');
     buffer.writeln('    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }');
-    buffer.writeln('    .lightbox-thumbnails-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 8px; max-width: 80%; overflow: hidden; z-index: 10001; }');
+    buffer.writeln('    .lightbox-thumbnails-bar { position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 8px; max-width: 80%; overflow: hidden; z-index: 10001; }');
     buffer.writeln('    @media (max-width: 1000px) {');
     buffer.writeln('      .lightbox-nav.prev { left: 20px; }');
     buffer.writeln('      .lightbox-nav.next { right: 20px; }');
@@ -1326,25 +1326,8 @@ class ReportState extends ChangeNotifier {
         final List<Map<String, dynamic>> mediaList =
             allMediaByQandAandLang[qIndex][li][ai];
         final parts = <String>[];
-        int globalIndex = 0;
         final questionName = questionNames[li];
         final answerText = answerCellContent(ai, li);
-
-        for (int qi = 0; qi < qIndex; qi++) {
-          for (int lai = 0; lai < languages.length; lai++) {
-            for (int aai = 0; aai < allMediaByQandAandLang[qi][lai].length; aai++) {
-              globalIndex += allMediaByQandAandLang[qi][lai][aai].length;
-            }
-          }
-        }
-        for (int lai = 0; lai < li; lai++) {
-          for (int aai = 0; aai < allMediaByQandAandLang[qIndex][lai].length; aai++) {
-            globalIndex += allMediaByQandAandLang[qIndex][lai][aai].length;
-          }
-        }
-        for (int aai = 0; aai < ai; aai++) {
-          globalIndex += allMediaByQandAandLang[qIndex][li][aai].length;
-        }
 
         const int maxVisible = 8;
         final visibleCount = mediaList.length > maxVisible ? maxVisible : mediaList.length;
@@ -1352,17 +1335,16 @@ class ReportState extends ChangeNotifier {
         for (int mi = 0; mi < visibleCount; mi++) {
           final media = mediaList[mi];
           final isImage = media['type'].startsWith('image');
-          final currentGlobalIndex = globalIndex + mi;
           
           if (isImage) {
             parts.add(
-              '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\', $currentGlobalIndex)">'
+              '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
               '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" />'
               '</div>',
             );
           } else {
             parts.add(
-              '<div class="media-item" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\', $currentGlobalIndex)">'
+              '<div class="media-item" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\')">'
               '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="${media['name']}" />'
               '</div>',
             );
@@ -1371,9 +1353,8 @@ class ReportState extends ChangeNotifier {
 
         if (mediaList.length > maxVisible) {
           final remainingCount = mediaList.length - maxVisible;
-          final firstHiddenIndex = globalIndex + maxVisible;
           parts.add(
-            '<div class="media-item media-item-more" data-src="${mediaList[maxVisible]['localPath']}" data-type="${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${mediaList[maxVisible]['localPath']}\', \'${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}\', $firstHiddenIndex)">'
+            '<div class="media-item media-item-more" data-src="${mediaList[maxVisible]['localPath']}" data-type="${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${mediaList[maxVisible]['localPath']}\', \'${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}\')">'
             '<div class="media-more">+$remainingCount</div>'
             '</div>',
           );
@@ -1545,7 +1526,9 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      container.scrollTo({ left: scrollLeft, behavior: "smooth" });');
     buffer.writeln('    }');
 
-    buffer.writeln('    function openLightbox(src, type, index) {');
+    buffer.writeln('    function openLightbox(src, type) {');
+    buffer.writeln('      const index = media.findIndex(m => m.src === src && m.type === type);');
+    buffer.writeln('      if (index === -1) return;');
     buffer.writeln('      currentIndex = index;');
     buffer.writeln('      const imgEl = document.getElementById("lightbox-img");');
     buffer.writeln('      const videoEl = document.getElementById("lightbox-video");');
@@ -1578,7 +1561,7 @@ class ReportState extends ChangeNotifier {
 
     buffer.writeln('    function showMedia(index) {');
     buffer.writeln('      if (index >= 0 && index < media.length) {');
-    buffer.writeln('        openLightbox(media[index].src, media[index].type, index);');
+    buffer.writeln('        openLightbox(media[index].src, media[index].type);');
     buffer.writeln('      }');
     buffer.writeln('    }');
 

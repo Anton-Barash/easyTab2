@@ -2181,7 +2181,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             try {
                               if (tempPhotoPath != null) {
                                 await reportState.addHeaderImage(
-                                  File(tempPhotoPath!),
+                                  File(tempPhotoPath),
                                 );
                               } else if (hadHeaderImageBefore) {
                                 await reportState.removeHeaderImage();
@@ -2913,7 +2913,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               _enabledAnswers.remove(qid);
                               reportState.removeQuestion(index);
                               if (_currentPage >= report.questions.length) {
-                                _currentPage = report.questions.length > 0
+                                _currentPage = report.questions.isNotEmpty
                                     ? report.questions.length - 1
                                     : -1;
                               }
@@ -3099,7 +3099,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         if (_currentPage >=
                                             report.questions.length) {
                                           _currentPage =
-                                              report.questions.length > 0
+                                              report.questions.isNotEmpty
                                               ? report.questions.length - 1
                                               : -1;
                                         }
@@ -3801,7 +3801,7 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
   late final PageController _pageController;
   late int _currentIndex;
   bool _showGrid = false;
-  Set<int> _selectedIndices = {};
+  final Set<int> _selectedIndices = {};
   VideoPlayerController? _videoController;
   bool _isPlaying = false;
 
