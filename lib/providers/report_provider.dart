@@ -284,7 +284,7 @@ class ReportState extends ChangeNotifier {
     final mimeType = _getMimeType(file.path);
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = _compressImage(bytes, 1024);
+      final compressed = _compressImage(bytes, 2000);
       await destPath.writeAsBytes(compressed);
     } else {
       await file.copy(destPath.path);
@@ -558,7 +558,7 @@ class ReportState extends ChangeNotifier {
     
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = _compressImage(bytes, 1024);
+      final compressed = _compressImage(bytes, 2000);
       await destPath.writeAsBytes(compressed);
     } else {
       await file.copy(destPath.path);
@@ -1172,13 +1172,13 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .lightbox-controls button:hover { background: rgba(255,255,255,0.3); }');
     buffer.writeln('    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 15px 20px; border-radius: 4px; cursor: pointer; font-size: 20px; transition: background 0.2s; }');
     buffer.writeln('    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }');
-    buffer.writeln('    .lightbox-nav.prev { left: 20px; }');
+    buffer.writeln('    .lightbox-nav.prev { left: 320px; }');
     buffer.writeln('    .lightbox-nav.next { right: 20px; }');
     buffer.writeln('    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; }');
-    buffer.writeln('    .lightbox-info { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 80%; text-align: center; }');
+    buffer.writeln('    .lightbox-info { position: absolute; top: 60px; left: 20px; bottom: 120px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; }');
     buffer.writeln('    .lightbox-question { font-weight: bold; font-size: 16px; margin-bottom: 5px; }');
     buffer.writeln('    .lightbox-answer { font-size: 14px; }');
-    buffer.writeln('    .lightbox-image-container { position: relative; max-width: 90%; max-height: 90%; overflow: hidden; cursor: grab; }');
+    buffer.writeln('    .lightbox-image-container { position: relative; left: 320px; right: 20px; max-width: calc(100% - 340px); max-height: calc(100% - 140px); overflow: hidden; cursor: grab; }');
     buffer.writeln('    .lightbox-image-container.dragging { cursor: grabbing; }');
     buffer.writeln('    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }');
     buffer.writeln('    .lightbox-thumbnails-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 8px; max-width: 80%; overflow: hidden; }');
@@ -1574,10 +1574,10 @@ class ReportState extends ChangeNotifier {
 
     buffer.writeln('    const container = document.getElementById("lightbox-container");');
     buffer.writeln('    container.addEventListener("mousedown", function(e) {');
-    buffer.writeln('      if (scale > 1) { isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; container.classList.add("dragging"); e.preventDefault(); }');
+    buffer.writeln('      isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; container.classList.add("dragging"); e.preventDefault();');
     buffer.writeln('    });');
     buffer.writeln('    document.addEventListener("mousemove", function(e) {');
-    buffer.writeln('      if (isDragging && scale > 1) { panX = e.clientX - startX; panY = e.clientY - startY; applyTransform(); }');
+    buffer.writeln('      if (isDragging) { panX = e.clientX - startX; panY = e.clientY - startY; applyTransform(); }');
     buffer.writeln('    });');
     buffer.writeln('    document.addEventListener("mouseup", function() { isDragging = false; container.classList.remove("dragging"); });');
     buffer.writeln('    container.addEventListener("wheel", function(e) { e.preventDefault(); if (e.deltaY < 0) zoomIn(); else zoomOut(); });');
