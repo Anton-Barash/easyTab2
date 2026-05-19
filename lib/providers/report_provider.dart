@@ -15,10 +15,23 @@ const String exportDir = 'reports';
 
 const int maxLanguages = 5;
 
+bool _isPng(Uint8List bytes) {
+  if (bytes.length < 8) return false;
+  return bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
+}
+
+bool _isWebp(Uint8List bytes) {
+  if (bytes.length < 12) return false;
+  return bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50;
+}
+
 Uint8List _compressImage(Uint8List bytes, int maxSize) {
   try {
     final image = img.decodeImage(bytes);
-    if (image == null) return bytes;
+    if (image == null) {
+      if (kDebugMode) print('Error: Could not decode image');
+      return bytes;
+    }
     
     int width = image.width;
     int height = image.height;
@@ -31,9 +44,28 @@ Uint8List _compressImage(Uint8List bytes, int maxSize) {
     width = (width * scale).toInt();
     height = (height * scale).toInt();
     
+    if (width < 1) width = 1;
+    if (height < 1) height = 1;
+    
     final resized = img.copyResize(image, width: width, height: height);
-    return img.encodeJpg(resized, quality: 85);
+    
+    Uint8List result;
+    if (_isPng(bytes)) {
+      result = img.encodePng(resized);
+    } else if (_isWebp(bytes)) {
+      result = img.encodeJpg(resized, quality: 90);
+    } else {
+      result = img.encodeJpg(resized, quality: 90);
+    }
+    
+    if (result.isEmpty) {
+      if (kDebugMode) print('Error: Compressed image is empty');
+      return bytes;
+    }
+    
+    return result;
   } catch (e) {
+    if (kDebugMode) print('Error compressing image: $e');
     return bytes;
   }
 }
@@ -1105,7 +1137,21 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      border: 1px solid #d0d0d0;');
     buffer.writeln('      cursor: pointer;');
     buffer.writeln('    }');
+    buffer.writeln('    .media-item-more {');
+    buffer.writeln('      width: 50px;');
+    buffer.writeln('      height: 50px;');
+    buffer.writeln('      background: #e0e0e0;');
+    buffer.writeln('      display: flex;');
+    buffer.writeln('      align-items: center;');
+    buffer.writeln('      justify-content: center;');
+    buffer.writeln('      border-radius: 4px;');
+    buffer.writeln('      border: 1px solid #d0d0d0;');
+    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('    }');
     buffer.writeln('    .media-more {');
+    buffer.writeln('      font-size: 14px;');
+    buffer.writeln('      font-weight: bold;');
+    buffer.writeln('      color: #666;');
     buffer.writeln('      display: flex;');
     buffer.writeln('      align-items: center;');
     buffer.writeln('      justify-content: center;');
@@ -1129,9 +1175,20 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .lightbox-nav.prev { left: 20px; }');
     buffer.writeln('    .lightbox-nav.next { right: 20px; }');
     buffer.writeln('    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; }');
+    buffer.writeln('    .lightbox-info { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 80%; text-align: center; }');
+    buffer.writeln('    .lightbox-question { font-weight: bold; font-size: 16px; margin-bottom: 5px; }');
+    buffer.writeln('    .lightbox-answer { font-size: 14px; }');
     buffer.writeln('    .lightbox-image-container { position: relative; max-width: 90%; max-height: 90%; overflow: hidden; cursor: grab; }');
     buffer.writeln('    .lightbox-image-container.dragging { cursor: grabbing; }');
     buffer.writeln('    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }');
+    buffer.writeln('    .lightbox-thumbnails-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 8px; max-width: 80%; overflow: hidden; }');
+    buffer.writeln('    .thumbnails-container { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.5) rgba(0,0,0,0.3); }');
+    buffer.writeln('    .thumbnails-container::-webkit-scrollbar { height: 6px; }');
+    buffer.writeln('    .thumbnails-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }');
+    buffer.writeln('    .thumbnails-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 3px; }');
+    buffer.writeln('    .lightbox-thumbnail { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s, border 0.2s; border: 2px solid transparent; }');
+    buffer.writeln('    .lightbox-thumbnail:hover { opacity: 1; }');
+    buffer.writeln('    .lightbox-thumbnail.active { opacity: 1; border-color: #00B0F0; }');
     buffer.writeln('    /* Header styles */');
     buffer.writeln('    .header-row {');
     buffer.writeln('      background: #ffffff !important;');
@@ -1252,23 +1309,57 @@ class ReportState extends ChangeNotifier {
         final List<Map<String, dynamic>> mediaList =
             allMediaByQandAandLang[qIndex][li][ai];
         final parts = <String>[];
+        int globalIndex = 0;
+        final questionName = questionNames[li];
+        final answerText = answerCellContent(ai, li);
 
-        const int maxVisible = 9;
+        for (int qi = 0; qi < qIndex; qi++) {
+          for (int lai = 0; lai < languages.length; lai++) {
+            for (int aai = 0; aai < allMediaByQandAandLang[qi][lai].length; aai++) {
+              globalIndex += allMediaByQandAandLang[qi][lai][aai].length;
+            }
+          }
+        }
+        for (int lai = 0; lai < li; lai++) {
+          for (int aai = 0; aai < allMediaByQandAandLang[qIndex][lai].length; aai++) {
+            globalIndex += allMediaByQandAandLang[qIndex][lai][aai].length;
+          }
+        }
+        for (int aai = 0; aai < ai; aai++) {
+          globalIndex += allMediaByQandAandLang[qIndex][li][aai].length;
+        }
+
+        const int maxVisible = 8;
         final visibleCount = mediaList.length > maxVisible ? maxVisible : mediaList.length;
 
         for (int mi = 0; mi < visibleCount; mi++) {
           final media = mediaList[mi];
           final isImage = media['type'].startsWith('image');
+          final currentGlobalIndex = globalIndex + mi;
+          
           if (isImage) {
-            final imageIndex = allImagePaths.indexOf(media['localPath']);
             parts.add(
-              '<img class="media-thumbnail" src="${media['localPath']}" onclick="openLightbox(this.src, $imageIndex)" alt="${media['name']}" />',
+              '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" onclick="openLightbox(\'${media['localPath']}\', \'image\', $currentGlobalIndex)">'
+              '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" />'
+              '</div>',
             );
           } else {
             parts.add(
-              '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>\'" />',
+              '<div class="media-item" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" onclick="openLightbox(\'${media['localPath']}\', \'video\', $currentGlobalIndex)">'
+              '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="${media['name']}" />'
+              '</div>',
             );
           }
+        }
+
+        if (mediaList.length > maxVisible) {
+          final remainingCount = mediaList.length - maxVisible;
+          final firstHiddenIndex = globalIndex + maxVisible;
+          parts.add(
+            '<div class="media-item media-item-more" data-src="${mediaList[maxVisible]['localPath']}" data-type="${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}" data-question="$questionName" data-answer="$answerText" onclick="openLightbox(\'${mediaList[maxVisible]['localPath']}\', \'${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}\', $firstHiddenIndex)">'
+            '<div class="media-more">+$remainingCount</div>'
+            '</div>',
+          );
         }
 
         return '<div class="media-thumbnails">${parts.join('')}</div>';
@@ -1345,22 +1436,30 @@ class ReportState extends ChangeNotifier {
     // Lightbox
     buffer.writeln('  <div class="lightbox" id="lightbox">');
     buffer.writeln('    <button class="lightbox-close" onclick="closeLightbox()">×</button>');
+    buffer.writeln('    <div class="lightbox-info">');
+    buffer.writeln('      <div class="lightbox-question" id="lightbox-question"></div>');
+    buffer.writeln('      <div class="lightbox-answer" id="lightbox-answer"></div>');
+    buffer.writeln('    </div>');
     buffer.writeln('    <div class="lightbox-controls">');
     buffer.writeln('      <button onclick="zoomIn()">+</button>');
     buffer.writeln('      <button onclick="zoomOut()">-</button>');
     buffer.writeln('      <button onclick="resetZoom()">100%</button>');
     buffer.writeln('    </div>');
-    buffer.writeln('    <button class="lightbox-nav prev" onclick="prevImage()">←</button>');
+    buffer.writeln('    <button class="lightbox-nav prev" onclick="prevMedia()">←</button>');
     buffer.writeln('    <div class="lightbox-image-container" id="lightbox-container">');
-    buffer.writeln('      <img id="lightbox-img" src="" alt="" />');
+    buffer.writeln('      <img id="lightbox-img" src="" alt="" style="display:none;" />');
+    buffer.writeln('      <video id="lightbox-video" controls style="display:none;max-width:100%;max-height:100%;" />');
     buffer.writeln('    </div>');
-    buffer.writeln('    <button class="lightbox-nav next" onclick="nextImage()">→</button>');
+    buffer.writeln('    <button class="lightbox-nav next" onclick="nextMedia()">→</button>');
+    buffer.writeln('    <div class="lightbox-thumbnails-bar" id="lightbox-thumbnails-bar">');
+    buffer.writeln('      <div class="thumbnails-container" id="thumbnails-container"></div>');
+    buffer.writeln('    </div>');
     buffer.writeln('  </div>');
 
     // JavaScript
     buffer.writeln('<script>');
     buffer.writeln('    let currentIndex = 0;');
-    buffer.writeln('    let images = [];');
+    buffer.writeln('    let media = [];');
     buffer.writeln('    let scale = 1;');
     buffer.writeln('    let panX = 0;');
     buffer.writeln('    let panY = 0;');
@@ -1381,34 +1480,84 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    }');
 
     buffer.writeln('    document.addEventListener("DOMContentLoaded", function() {');
-    buffer.writeln('      const imgElements = document.querySelectorAll(".media-thumbnail");');
-    buffer.writeln('      images = Array.from(imgElements).map(img => img.src);');
+    buffer.writeln('      const mediaElements = document.querySelectorAll(".media-item");');
+    buffer.writeln('      media = Array.from(mediaElements).map(el => ({');
+    buffer.writeln('        src: el.dataset.src,');
+    buffer.writeln('        type: el.dataset.type,');
+    buffer.writeln('        question: el.dataset.question,');
+    buffer.writeln('        answer: el.dataset.answer');
+    buffer.writeln('      }));');
+    buffer.writeln('      buildThumbnailsBar();');
     buffer.writeln('    });');
+    buffer.writeln('    function buildThumbnailsBar() {');
+    buffer.writeln('      const container = document.getElementById("thumbnails-container");');
+    buffer.writeln('      container.innerHTML = "";');
+    buffer.writeln('      media.forEach((m, index) => {');
+    buffer.writeln('        const thumbnail = document.createElement("img");');
+    buffer.writeln('        thumbnail.className = "lightbox-thumbnail";');
+    buffer.writeln('        if (m.type === "image") {');
+    buffer.writeln('          thumbnail.src = m.src;');
+    buffer.writeln('        } else {');
+    buffer.writeln('          thumbnail.src = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22><rect fill=%22%23e0e0e0%22 width=%2260%22 height=%2260%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2220%22>🎬</text></svg>";');
+    buffer.writeln('        }');
+    buffer.writeln('        thumbnail.onclick = function() { showMedia(index); };');
+    buffer.writeln('        container.appendChild(thumbnail);');
+    buffer.writeln('      });');
+    buffer.writeln('    }');
+    buffer.writeln('    function updateActiveThumbnail() {');
+    buffer.writeln('      document.querySelectorAll(".lightbox-thumbnail").forEach((thumb, index) => {');
+    buffer.writeln('        thumb.classList.toggle("active", index === currentIndex);');
+    buffer.writeln('      });');
+    buffer.writeln('    }');
 
-    buffer.writeln('    function openLightbox(src, index) {');
+    buffer.writeln('    function openLightbox(src, type, index) {');
     buffer.writeln('      currentIndex = index;');
-    buffer.writeln('      document.getElementById("lightbox-img").src = src;');
+    buffer.writeln('      const imgEl = document.getElementById("lightbox-img");');
+    buffer.writeln('      const videoEl = document.getElementById("lightbox-video");');
+    buffer.writeln('      const questionEl = document.getElementById("lightbox-question");');
+    buffer.writeln('      const answerEl = document.getElementById("lightbox-answer");');
+    buffer.writeln('      if (type === "image") {');
+    buffer.writeln('        imgEl.style.display = "block";');
+    buffer.writeln('        videoEl.style.display = "none";');
+    buffer.writeln('        videoEl.pause();');
+    buffer.writeln('        imgEl.src = src;');
+    buffer.writeln('      } else {');
+    buffer.writeln('        imgEl.style.display = "none";');
+    buffer.writeln('        videoEl.style.display = "block";');
+    buffer.writeln('        videoEl.src = src;');
+    buffer.writeln('        videoEl.load();');
+    buffer.writeln('      }');
+    buffer.writeln('      if (media[currentIndex]) {');
+    buffer.writeln('        questionEl.textContent = media[currentIndex].question || "";');
+    buffer.writeln('        answerEl.textContent = media[currentIndex].answer || "";');
+    buffer.writeln('      }');
     buffer.writeln('      document.getElementById("lightbox").classList.add("active");');
     buffer.writeln('      resetZoom();');
+    buffer.writeln('      updateActiveThumbnail();');
     buffer.writeln('    }');
 
     buffer.writeln('    function closeLightbox() {');
     buffer.writeln('      document.getElementById("lightbox").classList.remove("active");');
+    buffer.writeln('      document.getElementById("lightbox-video").pause();');
     buffer.writeln('    }');
 
-    buffer.writeln('    function nextImage() {');
-    buffer.writeln('      if (images.length > 1) {');
-    buffer.writeln('        currentIndex = (currentIndex + 1) % images.length;');
-    buffer.writeln('        document.getElementById("lightbox-img").src = images[currentIndex];');
-    buffer.writeln('        resetZoom();');
+    buffer.writeln('    function showMedia(index) {');
+    buffer.writeln('      if (index >= 0 && index < media.length) {');
+    buffer.writeln('        openLightbox(media[index].src, media[index].type, index);');
     buffer.writeln('      }');
     buffer.writeln('    }');
 
-    buffer.writeln('    function prevImage() {');
-    buffer.writeln('      if (images.length > 1) {');
-    buffer.writeln('        currentIndex = (currentIndex - 1 + images.length) % images.length;');
-    buffer.writeln('        document.getElementById("lightbox-img").src = images[currentIndex];');
-    buffer.writeln('        resetZoom();');
+    buffer.writeln('    function nextMedia() {');
+    buffer.writeln('      if (media.length > 1) {');
+    buffer.writeln('        currentIndex = (currentIndex + 1) % media.length;');
+    buffer.writeln('        showMedia(currentIndex);');
+    buffer.writeln('      }');
+    buffer.writeln('    }');
+
+    buffer.writeln('    function prevMedia() {');
+    buffer.writeln('      if (media.length > 1) {');
+    buffer.writeln('        currentIndex = (currentIndex - 1 + media.length) % media.length;');
+    buffer.writeln('        showMedia(currentIndex);');
     buffer.writeln('      }');
     buffer.writeln('    }');
 
@@ -1417,7 +1566,10 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    function resetZoom() { scale = 1; panX = 0; panY = 0; applyTransform(); }');
 
     buffer.writeln('    function applyTransform() {');
-    buffer.writeln('      document.getElementById("lightbox-img").style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";');
+    buffer.writeln('      const imgEl = document.getElementById("lightbox-img");');
+    buffer.writeln('      const videoEl = document.getElementById("lightbox-video");');
+    buffer.writeln('      imgEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";');
+    buffer.writeln('      videoEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";');
     buffer.writeln('    }');
 
     buffer.writeln('    const container = document.getElementById("lightbox-container");');
@@ -1431,8 +1583,8 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    container.addEventListener("wheel", function(e) { e.preventDefault(); if (e.deltaY < 0) zoomIn(); else zoomOut(); });');
     buffer.writeln('    document.addEventListener("keydown", function(e) {');
     buffer.writeln('      if (document.getElementById("lightbox").classList.contains("active")) {');
-    buffer.writeln('        if (e.key === "ArrowRight") nextImage();');
-    buffer.writeln('        if (e.key === "ArrowLeft") prevImage();');
+    buffer.writeln('        if (e.key === "ArrowRight") nextMedia();');
+    buffer.writeln('        if (e.key === "ArrowLeft") prevMedia();');
     buffer.writeln('        if (e.key === "Escape") closeLightbox();');
     buffer.writeln('        if (e.key === "+" || e.key === "=") zoomIn();');
     buffer.writeln('        if (e.key === "-") zoomOut();');
