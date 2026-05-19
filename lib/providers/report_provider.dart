@@ -1109,9 +1109,6 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      box-shadow: 2px 2px 8px rgba(0,0,0,0.1);');
     buffer.writeln('      margin: 20px auto;');
     buffer.writeln('    }');
-    buffer.writeln('    .content-wrapper {');
-    buffer.writeln('      text-align: center;');
-    buffer.writeln('    }');
     buffer.writeln('    table {');
     buffer.writeln('      border-collapse: collapse;');
     buffer.writeln('      font-size: 13px;');
@@ -1125,7 +1122,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    th {');
     buffer.writeln('      background: #f3f3f3;');
     buffer.writeln('      font-weight: 600;');
-    buffer.writeln('      text-align: center;');
+    buffer.writeln('      text-align: left;');
     buffer.writeln('      color: #2c2c2c;');
     buffer.writeln('    }');
     buffer.writeln('    .media-thumbnails {');
@@ -1141,32 +1138,8 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      border: 1px solid #d0d0d0;');
     buffer.writeln('      cursor: pointer;');
     buffer.writeln('    }');
-    buffer.writeln('    .media-item-more {');
-    buffer.writeln('      width: 50px;');
-    buffer.writeln('      height: 50px;');
-    buffer.writeln('      background: #e0e0e0;');
-    buffer.writeln('      display: flex;');
-    buffer.writeln('      align-items: center;');
-    buffer.writeln('      justify-content: center;');
-    buffer.writeln('      border-radius: 4px;');
-    buffer.writeln('      border: 1px solid #d0d0d0;');
-    buffer.writeln('      cursor: pointer;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-more {');
-    buffer.writeln('      font-size: 14px;');
-    buffer.writeln('      font-weight: bold;');
-    buffer.writeln('      color: #666;');
-    buffer.writeln('      display: flex;');
-    buffer.writeln('      align-items: center;');
-    buffer.writeln('      justify-content: center;');
-    buffer.writeln('      width: 50px;');
-    buffer.writeln('      height: 50px;');
-    buffer.writeln('      background: #e0e0e0;');
-    buffer.writeln('      border-radius: 4px;');
-    buffer.writeln('      border: 1px solid #d0d0d0;');
-    buffer.writeln('      font-size: 14px;');
-    buffer.writeln('      font-weight: bold;');
-    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('    .media-hidden {');
+    buffer.writeln('      display: none;');
     buffer.writeln('    }');
     buffer.writeln('    /* Lightbox styles */');
     buffer.writeln('    .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }');
@@ -1209,7 +1182,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .header-row {');
     buffer.writeln('      background: #ffffff !important;');
     buffer.writeln('      color: #6c757d;');
-    buffer.writeln('      text-align: center;');
+    buffer.writeln('      text-align: left;');
     buffer.writeln('    }');
     buffer.writeln('    .title {');
     buffer.writeln('      font-weight: bold;');
@@ -1238,7 +1211,6 @@ class ReportState extends ChangeNotifier {
 
     final currentDate = DateTime.now().toLocal().toString().substring(0, 10).split('-').reversed.join('.');
 
-    buffer.writeln('<div class="content-wrapper">');
     buffer.writeln('<div class="excel-wrapper">');
     buffer.writeln('  <table>');
     buffer.writeln('    <!-- 1 строка + жирная линия снизу ПО ВСЕЙ ШИРИНЕ -->');
@@ -1260,9 +1232,9 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      <td class="no-border">${_currentReport!.factory}</td>');
     buffer.writeln('      <td class="no-border">${_currentReport!.model}</td>');
     buffer.writeln('    </tr>');
-    buffer.writeln('    <!-- 3 строка: ОБЪЕДИНЕНА + ФОТО по центру -->');
+    buffer.writeln('    <!-- 3 строка: ОБЪЕДИНЕНА + ФОТО -->');
     buffer.writeln('    <tr class="header-row">');
-    buffer.writeln('      <td colspan="5" style="text-align:center; font-weight:bold; padding:8px; color:#6c757d; border-bottom:none;">ФОТО</td>');
+    buffer.writeln('      <td colspan="5" style="text-align:left; font-weight:bold; padding:8px; color:#6c757d; border-bottom:none;">ФОТО</td>');
     buffer.writeln('    </tr>');
     buffer.writeln('    <!-- Исходная шапка -->');
     buffer.writeln('    <tr>');
@@ -1330,34 +1302,25 @@ class ReportState extends ChangeNotifier {
         final answerText = answerCellContent(ai, li);
 
         const int maxVisible = 8;
-        final visibleCount = mediaList.length > maxVisible ? maxVisible : mediaList.length;
 
-        for (int mi = 0; mi < visibleCount; mi++) {
+        for (int mi = 0; mi < mediaList.length; mi++) {
           final media = mediaList[mi];
           final isImage = media['type'].startsWith('image');
+          final isHidden = mi >= maxVisible ? 'media-hidden' : '';
           
           if (isImage) {
             parts.add(
-              '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
+              '<div class="media-item $isHidden" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
               '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" />'
               '</div>',
             );
           } else {
             parts.add(
-              '<div class="media-item" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\')">'
+              '<div class="media-item $isHidden" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\')">'
               '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="${media['name']}" />'
               '</div>',
             );
           }
-        }
-
-        if (mediaList.length > maxVisible) {
-          final remainingCount = mediaList.length - maxVisible;
-          parts.add(
-            '<div class="media-item media-item-more" data-src="${mediaList[maxVisible]['localPath']}" data-type="${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${mediaList[maxVisible]['localPath']}\', \'${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}\')">'
-            '<div class="media-more">+$remainingCount</div>'
-            '</div>',
-          );
         }
 
         return '<div class="media-thumbnails">${parts.join('')}</div>';
@@ -1429,7 +1392,6 @@ class ReportState extends ChangeNotifier {
       }
     }
     buffer.writeln('  </table>');
-    buffer.writeln('</div>');
     buffer.writeln('</div>');
 
     // Lightbox
