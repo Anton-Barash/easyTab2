@@ -1107,6 +1107,10 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      border: 1px solid #a0a0a0;');
     buffer.writeln('      display: inline-block;');
     buffer.writeln('      box-shadow: 2px 2px 8px rgba(0,0,0,0.1);');
+    buffer.writeln('      margin: 20px auto;');
+    buffer.writeln('    }');
+    buffer.writeln('    .content-wrapper {');
+    buffer.writeln('      text-align: center;');
     buffer.writeln('    }');
     buffer.writeln('    table {');
     buffer.writeln('      border-collapse: collapse;');
@@ -1234,6 +1238,7 @@ class ReportState extends ChangeNotifier {
 
     final currentDate = DateTime.now().toLocal().toString().substring(0, 10).split('-').reversed.join('.');
 
+    buffer.writeln('<div class="content-wrapper">');
     buffer.writeln('<div class="excel-wrapper">');
     buffer.writeln('  <table>');
     buffer.writeln('    <!-- 1 строка + жирная линия снизу ПО ВСЕЙ ШИРИНЕ -->');
@@ -1351,13 +1356,13 @@ class ReportState extends ChangeNotifier {
           
           if (isImage) {
             parts.add(
-              '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" onclick="openLightbox(\'${media['localPath']}\', \'image\', $currentGlobalIndex)">'
+              '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\', $currentGlobalIndex)">'
               '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" />'
               '</div>',
             );
           } else {
             parts.add(
-              '<div class="media-item" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" onclick="openLightbox(\'${media['localPath']}\', \'video\', $currentGlobalIndex)">'
+              '<div class="media-item" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\', $currentGlobalIndex)">'
               '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="${media['name']}" />'
               '</div>',
             );
@@ -1368,7 +1373,7 @@ class ReportState extends ChangeNotifier {
           final remainingCount = mediaList.length - maxVisible;
           final firstHiddenIndex = globalIndex + maxVisible;
           parts.add(
-            '<div class="media-item media-item-more" data-src="${mediaList[maxVisible]['localPath']}" data-type="${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}" data-question="$questionName" data-answer="$answerText" onclick="openLightbox(\'${mediaList[maxVisible]['localPath']}\', \'${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}\', $firstHiddenIndex)">'
+            '<div class="media-item media-item-more" data-src="${mediaList[maxVisible]['localPath']}" data-type="${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${mediaList[maxVisible]['localPath']}\', \'${mediaList[maxVisible]['type'].startsWith('image') ? 'image' : 'video'}\', $firstHiddenIndex)">'
             '<div class="media-more">+$remainingCount</div>'
             '</div>',
           );
@@ -1444,6 +1449,7 @@ class ReportState extends ChangeNotifier {
     }
     buffer.writeln('  </table>');
     buffer.writeln('</div>');
+    buffer.writeln('</div>');
 
     // Lightbox
     buffer.writeln('  <div class="lightbox" id="lightbox">');
@@ -1479,6 +1485,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    let startX = 0;');
     buffer.writeln('    let startY = 0;');
     buffer.writeln('    const allLanguages = ${jsonEncode(languages)};');
+    buffer.writeln('    let currentLanguage = 0;');
 
     buffer.writeln('    function switchLanguage(li) {');
     buffer.writeln('      document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));');
@@ -1489,17 +1496,23 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('        document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);');
     buffer.writeln('        document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);');
     buffer.writeln('      }');
+    buffer.writeln('      currentLanguage = li;');
+    buffer.writeln('      loadMediaByLanguage();');
     buffer.writeln('    }');
 
-    buffer.writeln('    document.addEventListener("DOMContentLoaded", function() {');
+    buffer.writeln('    function loadMediaByLanguage() {');
     buffer.writeln('      const mediaElements = document.querySelectorAll(".media-item");');
-    buffer.writeln('      media = Array.from(mediaElements).map(el => ({');
+    buffer.writeln('      media = Array.from(mediaElements).filter(el => parseInt(el.dataset.lang) === currentLanguage).map(el => ({');
     buffer.writeln('        src: el.dataset.src,');
     buffer.writeln('        type: el.dataset.type,');
     buffer.writeln('        question: el.dataset.question,');
     buffer.writeln('        answer: el.dataset.answer');
     buffer.writeln('      }));');
     buffer.writeln('      buildThumbnailsBar();');
+    buffer.writeln('    }');
+
+    buffer.writeln('    document.addEventListener("DOMContentLoaded", function() {');
+    buffer.writeln('      loadMediaByLanguage();');
     buffer.writeln('    });');
     buffer.writeln('    function buildThumbnailsBar() {');
     buffer.writeln('      const container = document.getElementById("thumbnails-container");');
@@ -1520,6 +1533,16 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      document.querySelectorAll(".lightbox-thumbnail").forEach((thumb, index) => {');
     buffer.writeln('        thumb.classList.toggle("active", index === currentIndex);');
     buffer.writeln('      });');
+    buffer.writeln('      scrollToActiveThumbnail();');
+    buffer.writeln('    }');
+    buffer.writeln('    function scrollToActiveThumbnail() {');
+    buffer.writeln('      const container = document.getElementById("thumbnails-container");');
+    buffer.writeln('      const activeThumbnail = document.querySelector(".lightbox-thumbnail.active");');
+    buffer.writeln('      if (!container || !activeThumbnail) return;');
+    buffer.writeln('      const containerRect = container.getBoundingClientRect();');
+    buffer.writeln('      const thumbnailRect = activeThumbnail.getBoundingClientRect();');
+    buffer.writeln('      const scrollLeft = activeThumbnail.offsetLeft - containerRect.width / 2 + thumbnailRect.width / 2;');
+    buffer.writeln('      container.scrollTo({ left: scrollLeft, behavior: "smooth" });');
     buffer.writeln('    }');
 
     buffer.writeln('    function openLightbox(src, type, index) {');
@@ -1601,6 +1624,11 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('        if (e.key === "+" || e.key === "=") zoomIn();');
     buffer.writeln('        if (e.key === "-") zoomOut();');
     buffer.writeln('        if (e.key === "0") resetZoom();');
+    buffer.writeln('      }');
+    buffer.writeln('    });');
+    buffer.writeln('    window.addEventListener("resize", function() {');
+    buffer.writeln('      if (document.getElementById("lightbox").classList.contains("active")) {');
+    buffer.writeln('        scrollToActiveThumbnail();');
     buffer.writeln('      }');
     buffer.writeln('    });');
     buffer.writeln('  </script>');
