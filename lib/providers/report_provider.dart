@@ -1081,20 +1081,21 @@ class ReportState extends ChangeNotifier {
       '      font-family: \'Segoe UI\', \'Calibri\', \'Arial\', sans-serif;',
     );
     buffer.writeln('      background: #e9e9e9;');
-    buffer.writeln('      padding: 20px;');
     buffer.writeln('    }');
     buffer.writeln('    .language-switcher {');
-    buffer.writeln('      margin-bottom: 15px;');
+    buffer.writeln('      position: sticky;');
+    buffer.writeln('      top: 0;');
+    buffer.writeln('      background: #e9e9e9;');
     buffer.writeln('      display: flex;');
     buffer.writeln('      gap: 10px;');
     buffer.writeln('      flex-wrap: wrap;');
     buffer.writeln('    }');
     buffer.writeln('    .lang-btn {');
-    buffer.writeln('      padding: 8px 16px;');
+    buffer.writeln('      padding: 4px 8px;');
     buffer.writeln('      border: 1px solid #a0a0a0;');
     buffer.writeln('      background: white;');
     buffer.writeln('      cursor: pointer;');
-    buffer.writeln('      font-size: 14px;');
+    buffer.writeln('      font-size: 7px;');
     buffer.writeln('      border-radius: 4px;');
     buffer.writeln('    }');
     buffer.writeln('    .lang-btn.active {');
@@ -1105,7 +1106,8 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .excel-wrapper {');
     buffer.writeln('      background: white;');
     buffer.writeln('      border: 1px solid #a0a0a0;');
-    buffer.writeln('      display: inline-block;');
+    buffer.writeln('      display: block;');
+    buffer.writeln('      width: fit-content;');
     buffer.writeln('      box-shadow: 2px 2px 8px rgba(0,0,0,0.1);');
     buffer.writeln('      margin: 20px auto;');
     buffer.writeln('    }');
@@ -1130,6 +1132,26 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      flex-wrap: wrap;');
     buffer.writeln('      gap: 4px;');
     buffer.writeln('    }');
+    buffer.writeln('    .media-item {');
+    buffer.writeln('      width: 50px;');
+    buffer.writeln('      height: 50px;');
+    buffer.writeln('      cursor: pointer;');
+    buffer.writeln('    }');
+    buffer.writeln('    .media-item-more {');
+    buffer.writeln('      background: #c0c0c0;');
+    buffer.writeln('      border: 1px solid #a0a0a0;');
+    buffer.writeln('      display: flex;');
+    buffer.writeln('      align-items: center;');
+    buffer.writeln('      justify-content: center;');
+    buffer.writeln('    }');
+    buffer.writeln('    .media-item-more:hover {');
+    buffer.writeln('      background: #b0b0b0;');
+    buffer.writeln('    }');
+    buffer.writeln('    .media-more {');
+    buffer.writeln('      font-size: 20px;');
+    buffer.writeln('      font-weight: bold;');
+    buffer.writeln('      color: #333;');
+    buffer.writeln('    }');
     buffer.writeln('    .media-thumbnail {');
     buffer.writeln('      width: 50px;');
     buffer.writeln('      height: 50px;');
@@ -1152,11 +1174,11 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    .lightbox-nav.prev { left: calc(50% - 500px); }');
     buffer.writeln('    .lightbox-nav.next { right: calc(50% - 500px); }');
     buffer.writeln('    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }');
-    buffer.writeln('    .lightbox-info { position: absolute; top: 0px; left: 0px; bottom: 120px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; z-index: 10001; }');
+    buffer.writeln('    .lightbox-info { position: absolute; top: 0px; left: 0px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; z-index: 10001; }');
     buffer.writeln('    .attention-answer { color: #f69a15; }');
     buffer.writeln('    .lightbox-question { font-weight: bold; font-size: 16px; margin-bottom: 5px; }');
     buffer.writeln('    .lightbox-answer { font-size: 14px; }');
-    buffer.writeln('    .lightbox-image-container { position: relative; width: 900px; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10000; }');
+    buffer.writeln('    .lightbox-image-container { position: relative; width: 100%; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10000; }');
     buffer.writeln('    .lightbox-image-container.dragging { cursor: grabbing; }');
     buffer.writeln('    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }');
     buffer.writeln('    .lightbox-thumbnails-bar { position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 8px; max-width: 80%; overflow: hidden; z-index: 10001; }');
@@ -1330,21 +1352,48 @@ class ReportState extends ChangeNotifier {
         final answerText = answerCellContent(ai, li);
 
         const int maxVisible = 8;
+        final visibleCount = mediaList.length > maxVisible ? maxVisible : mediaList.length;
 
-        for (int mi = 0; mi < mediaList.length; mi++) {
+        for (int mi = 0; mi < visibleCount; mi++) {
           final media = mediaList[mi];
           final isImage = media['type'].startsWith('image');
-          final isHidden = mi >= maxVisible ? 'media-hidden' : '';
           
           if (isImage) {
             parts.add(
-              '<div class="media-item $isHidden" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
+              '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
               '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" />'
               '</div>',
             );
           } else {
             parts.add(
-              '<div class="media-item $isHidden" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\')">'
+              '<div class="media-item" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\')">'
+              '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="${media['name']}" />'
+              '</div>',
+            );
+          }
+        }
+
+        if (mediaList.length > maxVisible) {
+          final hiddenCount = mediaList.length - maxVisible;
+          parts.add(
+            '<div class="media-item media-item-more" onclick="openGallery()">'
+            '<div class="media-more">+$hiddenCount</div>'
+            '</div>',
+          );
+        }
+
+        for (int mi = visibleCount; mi < mediaList.length; mi++) {
+          final media = mediaList[mi];
+          final isImage = media['type'].startsWith('image');
+          if (isImage) {
+            parts.add(
+              '<div class="media-item media-hidden" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
+              '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" />'
+              '</div>',
+            );
+          } else {
+            parts.add(
+              '<div class="media-item media-hidden" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\')">'
               '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="${media['name']}" />'
               '</div>',
             );
@@ -1628,6 +1677,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('        groupedMedia[key].items.push(m);');
     buffer.writeln('      });');
     buffer.writeln('      ');
+    buffer.writeln('      let targetElement = null;');
     buffer.writeln('      Object.values(groupedMedia).forEach((group) => {');
     buffer.writeln('        const section = document.createElement("div");');
     buffer.writeln('        section.className = "gallery-section";');
@@ -1659,6 +1709,11 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('          };');
     buffer.writeln('          galleryItem.appendChild(img);');
     buffer.writeln('          section.appendChild(galleryItem);');
+    buffer.writeln('          ');
+    buffer.writeln('          // Check if this is the current media item');
+    buffer.writeln('          if (currentIndex >= 0 && currentIndex < media.length && media[currentIndex].src === m.src) {');
+    buffer.writeln('            targetElement = galleryItem;');
+    buffer.writeln('          }');
     buffer.writeln('        });');
     buffer.writeln('        ');
     buffer.writeln('        galleryGrid.appendChild(section);');
@@ -1666,6 +1721,13 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      ');
     buffer.writeln('      document.getElementById("gallery-overlay").classList.add("active");');
     buffer.writeln('      closeLightbox();');
+    buffer.writeln('      ');
+    buffer.writeln('      // Scroll to target element if found');
+    buffer.writeln('      setTimeout(() => {');
+    buffer.writeln('        if (targetElement) {');
+    buffer.writeln('          targetElement.scrollIntoView({ behavior: "smooth", block: "center" });');
+    buffer.writeln('        }');
+    buffer.writeln('      }, 100);');
     buffer.writeln('    }');
 
     buffer.writeln('    function closeGallery() {');
