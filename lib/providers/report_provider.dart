@@ -487,7 +487,6 @@ class ReportState extends ChangeNotifier {
       _currentReport!.translations[qid]![lang]![answerIndex].text = text;
       _currentReport!.translations[qid]![lang]![answerIndex].isEmpty =
           text.isEmpty;
-      notifyListeners();
     }
   }
 
@@ -867,7 +866,6 @@ class ReportState extends ChangeNotifier {
       final jsonData = _currentReport!.toJson();
       await jsonFile.writeAsString(jsonEncode(jsonData));
       await _saveHtmlPreview(folderPath);
-      notifyListeners();
       return true;
     } catch (e) {
       if (kDebugMode) print('Error saving report: $e');
@@ -1113,11 +1111,11 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    }');
     buffer.writeln('    table {');
     buffer.writeln('      border-collapse: collapse;');
-    buffer.writeln('      font-size: 13px;');
+    buffer.writeln('      font-size: 16px;');
     buffer.writeln('      table-layout: auto;');
     buffer.writeln('    }');
     buffer.writeln('    th, td {');
-    buffer.writeln('      padding: 6px 10px;');
+    buffer.writeln('      padding: 7.5px 12.5px;');
     buffer.writeln('      vertical-align: top;');
     buffer.writeln('      border-bottom: 1px solid #d0d0d0;');
     buffer.writeln('    }');
@@ -1236,15 +1234,15 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    }');
     buffer.writeln('    .title {');
     buffer.writeln('      font-weight: bold;');
-    buffer.writeln('      font-size: 18px;');
+    buffer.writeln('      font-size: 22px;');
     buffer.writeln('    }');
     buffer.writeln('    .border-bold {');
     buffer.writeln('      border-bottom: 2px solid #6c757d !important;');
-    buffer.writeln('      font-size: 18px;');
+    buffer.writeln('      font-size: 22px;');
     buffer.writeln('    }');
     buffer.writeln('    .no-border {');
     buffer.writeln('      border-bottom: none !important;');
-    buffer.writeln('      font-size: 14px;');
+    buffer.writeln('      font-size: 18px;');
     buffer.writeln('    }');
     buffer.writeln('  </style>');
     buffer.writeln('</head>');

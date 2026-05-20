@@ -651,13 +651,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
             }
           });
         } else {
-          final controller = _getSafeController(qid, j);
-          if (controller != null &&
-              controller.text != (answers[j]['text'] ?? '')) {
-            _isUpdatingControllers = true;
-            controller.text = answers[j]['text'] ?? '';
-            _isUpdatingControllers = false;
-          }
+          // Контроллер уже создан, не обновляем текст — это может сбросить позицию курсора
+          // Модель данных уже содержит актуальные значения, сохранение берет данные оттуда
         }
 
         final hasOtherAnswers = reportState.hasAnswersInOtherLanguages(i, j);
