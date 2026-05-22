@@ -245,6 +245,7 @@ class ReportState extends ChangeNotifier {
     if (factory != null) _currentReport!.factory = factory;
     if (model != null) _currentReport!.model = model;
     if (dateTimestamp != null) _currentReport!.dateTimestamp = dateTimestamp;
+    updateReportName();
     notifyListeners();
   }
 

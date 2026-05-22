@@ -2234,7 +2234,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             } catch (e) {
                               debugPrint('Header image error: $e');
                             }
-                            reportState.updateReportName();
                             await reportState.saveReport();
                             if (mounted) Navigator.pop(ctx);
                           },
@@ -2581,14 +2580,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 children: [
                   _buildEditableRow(loc.productType, report.productType, (val) {
                     reportState.updateHeaderInfo(productType: val);
+                    if (!_hasUnsavedChanges) {
+                      setState(() => _hasUnsavedChanges = true);
+                    }
                   }),
                   const SizedBox(height: 6),
                   _buildEditableRow(loc.factory, report.factory, (val) {
                     reportState.updateHeaderInfo(factory: val);
+                    if (!_hasUnsavedChanges) {
+                      setState(() => _hasUnsavedChanges = true);
+                    }
                   }),
                   const SizedBox(height: 6),
                   _buildEditableRow(loc.model, report.model, (val) {
                     reportState.updateHeaderInfo(model: val);
+                    if (!_hasUnsavedChanges) {
+                      setState(() => _hasUnsavedChanges = true);
+                    }
                   }),
                   if (report.dateTimestamp != null) ...[
                     const SizedBox(height: 6),
@@ -2643,7 +2651,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
-              onFieldSubmitted: onChanged,
+              onChanged: onChanged,
             ),
           ),
         ),
