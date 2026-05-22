@@ -3192,6 +3192,18 @@ class ReportState extends ChangeNotifier {
         savedMedia.add(List.from(markersList[i].media));
       }
 
+      // Ensure translations map exists for this question
+      if (!_currentReport!.translations.containsKey(qid)) {
+        _currentReport!.translations[qid] = {};
+      }
+
+      // Initialize all languages with empty answers if not exists
+      for (final lang in _currentReport!.availableLanguages) {
+        if (!_currentReport!.translations[qid]!.containsKey(lang)) {
+          _currentReport!.translations[qid]![lang] = [];
+        }
+      }
+
       // Update translations for all languages in sync data
       for (final answerData in answers) {
         final answerId = answerData['id'] as int;
@@ -3202,24 +3214,15 @@ class ReportState extends ChangeNotifier {
           if (!_currentReport!.availableLanguages.contains(lang)) continue;
 
           final text = langIndex < texts.length ? texts[langIndex] : '';
-
-          if (!_currentReport!.translations.containsKey(qid)) {
-            _currentReport!.translations[qid] = {};
-          }
-          if (!_currentReport!.translations[qid]!.containsKey(lang)) {
-            _currentReport!.translations[qid]![lang] = [];
-          }
-
           final answersList = _currentReport!.translations[qid]![lang]!;
+
           if (answerId < answersList.length) {
-            if (text.isNotEmpty) {
-              answersList[answerId].text = text;
-              answersList[answerId].isEmpty = text.isEmpty;
-            }
+            answersList[answerId] = TranslationAnswer(text: text, isEmpty: text.isEmpty);
           } else {
-            answersList.add(
-              TranslationAnswer(text: text, isEmpty: text.isEmpty),
-            );
+            while (answersList.length < answerId) {
+              answersList.add(TranslationAnswer());
+            }
+            answersList.add(TranslationAnswer(text: text, isEmpty: text.isEmpty));
           }
         }
       }
