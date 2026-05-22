@@ -70,7 +70,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   void _checkSyncAfterLoad() {
     if (_checkedSyncAfterLoad) return;
-    
+
     final reportState = context.read<ReportState>();
     if (reportState.needsSyncAfterLoad()) {
       _showSyncMenuDialog();
@@ -164,10 +164,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
         reportState: context.read<ReportState>(),
         targetLang: targetLang,
         unsyncIndices: unsyncIndices,
-        onSyncApplied: () {
+        onSyncApplied: () async {
           final reportState = context.read<ReportState>();
           reportState.setLanguage(targetLang);
           _blockedQuestionIndices.clear();
+          await reportState.saveReport();
         },
         onSkipSync: () {
           final reportState = context.read<ReportState>();
@@ -691,8 +692,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
               final selection = controller.selection;
               controller.value = TextEditingValue(
                 text: newText,
-                selection: selection.baseOffset > newText.length 
-                    ? TextSelection.collapsed(offset: newText.length) 
+                selection: selection.baseOffset > newText.length
+                    ? TextSelection.collapsed(offset: newText.length)
                     : selection,
               );
             }
@@ -976,7 +977,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     try {
                       final result = await FilePicker.platform.saveFile(
                         dialogTitle: loc.saveZip,
-                        fileName: '${reportState.currentReport?.reportName.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_')}.zip',
+                        fileName:
+                            '${reportState.currentReport?.reportName.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_')}.zip',
                         allowedExtensions: ['zip'],
                       );
                       if (result != null) {

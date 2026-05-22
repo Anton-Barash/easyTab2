@@ -3042,7 +3042,27 @@ class ReportState extends ChangeNotifier {
   }
 
   bool get needsSync {
-    return getUnsyncQuestionIndices().isNotEmpty;
+    if (_currentReport == null) return false;
+    final languages = _currentReport!.availableLanguages;
+    if (languages.isEmpty) return false;
+    if (_currentReport!.currentLanguage == languages.first) return false;
+
+    for (int i = 0; i < _currentReport!.questions.length; i++) {
+      final firstLangAnswers = _currentReport!.getAnswersForQuestion(i, languages.first);
+      final currentLangAnswers = _currentReport!.getAnswersForQuestion(i, _currentReport!.currentLanguage);
+
+      for (int j = 0; j < firstLangAnswers.length; j++) {
+        final firstLangAnswer = firstLangAnswers[j]['text']?.toString().trim() ?? '';
+        final currentLangAnswer = j < currentLangAnswers.length 
+            ? currentLangAnswers[j]['text']?.toString().trim() ?? '' 
+            : '';
+        
+        if (firstLangAnswer.isNotEmpty && currentLangAnswer.isEmpty) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   String generateSyncJson() {
