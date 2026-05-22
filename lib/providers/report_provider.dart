@@ -17,12 +17,18 @@ const int maxLanguages = 5;
 
 bool _isPng(Uint8List bytes) {
   if (bytes.length < 8) return false;
-  return bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
+  return bytes[0] == 0x89 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x4E &&
+      bytes[3] == 0x47;
 }
 
 bool _isWebp(Uint8List bytes) {
   if (bytes.length < 12) return false;
-  return bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50;
+  return bytes[8] == 0x57 &&
+      bytes[9] == 0x45 &&
+      bytes[10] == 0x42 &&
+      bytes[11] == 0x50;
 }
 
 Uint8List _compressImage(Uint8List bytes, int maxSize) {
@@ -32,23 +38,23 @@ Uint8List _compressImage(Uint8List bytes, int maxSize) {
       if (kDebugMode) print('Error: Could not decode image');
       return bytes;
     }
-    
+
     int width = image.width;
     int height = image.height;
-    
+
     if (width <= maxSize && height <= maxSize) {
       return bytes;
     }
-    
+
     double scale = maxSize / (width > height ? width : height);
     width = (width * scale).toInt();
     height = (height * scale).toInt();
-    
+
     if (width < 1) width = 1;
     if (height < 1) height = 1;
-    
+
     final resized = img.copyResize(image, width: width, height: height);
-    
+
     Uint8List result;
     if (_isPng(bytes)) {
       result = img.encodePng(resized);
@@ -57,12 +63,12 @@ Uint8List _compressImage(Uint8List bytes, int maxSize) {
     } else {
       result = img.encodeJpg(resized, quality: 90);
     }
-    
+
     if (result.isEmpty) {
       if (kDebugMode) print('Error: Compressed image is empty');
       return bytes;
     }
-    
+
     return result;
   } catch (e) {
     if (kDebugMode) print('Error compressing image: $e');
@@ -102,22 +108,22 @@ String getLanguageColor(int index) {
 
 List<String> _groupMediaNames(List<String> mediaNames) {
   if (mediaNames.isEmpty) return [];
-  
+
   final Map<String, List<int>> grouped = {};
-  
+
   for (final name in mediaNames) {
     final attentionPrefix = name.startsWith('x') ? 'x' : '';
     final cleanName = name.startsWith('x') ? name.substring(1) : name;
-    
+
     final typePrefix = cleanName.substring(0, 1);
     final rest = cleanName.substring(1);
     final parts = rest.split('_');
-    
+
     if (parts.length >= 3) {
       final questionNum = parts[0];
       final answerNum = parts[1];
       final numStr = parts[2];
-      
+
       if (int.tryParse(numStr) != null) {
         final key = '$attentionPrefix$typePrefix${questionNum}_$answerNum';
         if (!grouped.containsKey(key)) {
@@ -137,7 +143,7 @@ List<String> _groupMediaNames(List<String> mediaNames) {
       grouped['other']!.add(mediaNames.indexOf(name));
     }
   }
-  
+
   final result = <String>[];
   for (final entry in grouped.entries) {
     if (entry.key == 'other') {
@@ -150,11 +156,13 @@ List<String> _groupMediaNames(List<String> mediaNames) {
       if (uniqueNums.length == 1) {
         result.add('${entry.key}_${uniqueNums[0].toString().padLeft(3, '0')}');
       } else {
-        result.add('${entry.key}_${uniqueNums.first.toString().padLeft(3, '0')}-${uniqueNums.last.toString().padLeft(3, '0')}');
+        result.add(
+          '${entry.key}_${uniqueNums.first.toString().padLeft(3, '0')}-${uniqueNums.last.toString().padLeft(3, '0')}',
+        );
       }
     }
   }
-  
+
   return result;
 }
 
@@ -242,15 +250,13 @@ class ReportState extends ChangeNotifier {
 
   void updateReportName() {
     if (_currentReport == null) return;
-    final productType = _currentReport!.productType.isNotEmpty 
-        ? '(${_currentReport!.productType})' 
+    final productType = _currentReport!.productType.isNotEmpty
+        ? '(${_currentReport!.productType})'
         : '';
-    final factory = _currentReport!.factory.isNotEmpty 
-        ? '${_currentReport!.factory} ' 
+    final factory = _currentReport!.factory.isNotEmpty
+        ? '${_currentReport!.factory} '
         : '';
-    final model = _currentReport!.model.isNotEmpty 
-        ? _currentReport!.model 
-        : '';
+    final model = _currentReport!.model.isNotEmpty ? _currentReport!.model : '';
     _currentReport!.reportName = '$factory$productType $model'.trim();
     notifyListeners();
   }
@@ -275,7 +281,9 @@ class ReportState extends ChangeNotifier {
     final destPath = File('$_currentReportPath/$fileName');
 
     if (_currentReport!.headerImagePath != null) {
-      final oldFilePath = File('$_currentReportPath/${_currentReport!.headerImagePath}');
+      final oldFilePath = File(
+        '$_currentReportPath/${_currentReport!.headerImagePath}',
+      );
       if (await oldFilePath.exists()) {
         await oldFilePath.delete();
       }
@@ -297,7 +305,8 @@ class ReportState extends ChangeNotifier {
   Future<void> removeHeaderImage() async {
     if (_currentReport == null) return;
     if (_currentReportPath != null && _currentReport!.headerImagePath != null) {
-      final absolutePath = '$_currentReportPath/${_currentReport!.headerImagePath}';
+      final absolutePath =
+          '$_currentReportPath/${_currentReport!.headerImagePath}';
       final file = File(absolutePath);
       if (await file.exists()) {
         await file.delete();
@@ -537,7 +546,8 @@ class ReportState extends ChangeNotifier {
       _currentReport!.markers[qid]!.add(AnswerMarkers());
     }
 
-    final counterKey = '${questionIndex}_${answerIndex}_${isAttention ? 'X' : 'photos'}';
+    final counterKey =
+        '${questionIndex}_${answerIndex}_${isAttention ? 'X' : 'photos'}';
     if (!_currentReport!.mediaCounter.containsKey(counterKey)) {
       _currentReport!.mediaCounter[counterKey] = 1;
     }
@@ -545,7 +555,8 @@ class ReportState extends ChangeNotifier {
     final ext = file.path.split('.').last;
     final mimeType = _getMimeType(file.path);
     final typePrefix = mimeType.startsWith('video/') ? 'v' : 'f';
-    final fileName = '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
+    final fileName =
+        '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
 
     final folderName = isAttention ? 'X' : 'photos';
     final destFolder = Directory('$_currentReportPath/$folderName');
@@ -554,7 +565,7 @@ class ReportState extends ChangeNotifier {
     }
 
     final destPath = File('${destFolder.path}/$fileName');
-    
+
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
       final compressed = _compressImage(bytes, 2000);
@@ -611,13 +622,15 @@ class ReportState extends ChangeNotifier {
       final item = remainingMedia[i];
       final ext = item.name.split('.').last;
       final typePrefix = item.name.startsWith('v') ? 'v' : 'f';
-      final newName = '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${(i + 1).toString().padLeft(3, '0')}.$ext';
+      final newName =
+          '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${(i + 1).toString().padLeft(3, '0')}.$ext';
 
       if (item.name != newName) {
         final oldName = item.name;
         if (_currentReportPath != null && item.localPath != null) {
           final oldPath = '$_currentReportPath/${item.localPath}';
-          final newPath = '$_currentReportPath/${item.localPath!.replaceFirst(oldName, newName)}';
+          final newPath =
+              '$_currentReportPath/${item.localPath!.replaceFirst(oldName, newName)}';
           final oldFile = File(oldPath);
           if (await oldFile.exists()) {
             await oldFile.rename(newPath);
@@ -628,7 +641,8 @@ class ReportState extends ChangeNotifier {
       }
     }
 
-    final counterKey = '${questionIndex}_${answerIndex}_${media.attention ? 'X' : 'photos'}';
+    final counterKey =
+        '${questionIndex}_${answerIndex}_${media.attention ? 'X' : 'photos'}';
     _currentReport!.mediaCounter[counterKey] = remainingMedia.length + 1;
 
     notifyListeners();
@@ -794,14 +808,14 @@ class ReportState extends ChangeNotifier {
       try {
         final relativePath = videoPaths[i];
         final absolutePath = '$_currentReportPath/$relativePath';
-        
+
         if (_compressedVideoPaths.contains(relativePath)) {
           continue;
         }
 
         final file = File(absolutePath);
         if (!await file.exists()) continue;
-        
+
         final fileSize = await file.length();
         if (fileSize <= 5 * 1024 * 1024) {
           continue;
@@ -821,7 +835,7 @@ class ReportState extends ChangeNotifier {
             await compressedFile.delete();
             _compressedVideoPaths.add(relativePath);
             compressedVideos.add(relativePath);
-            
+
             for (final markerEntry in _currentReport!.markers.entries) {
               for (final answerMarker in markerEntry.value) {
                 for (final media in answerMarker.media) {
@@ -892,6 +906,19 @@ class ReportState extends ChangeNotifier {
     }
   }
 
+  bool needsSyncAfterLoad() {
+    if (_currentReport == null) return false;
+    final languages = _currentReport!.availableLanguages;
+    if (languages.isEmpty) return false;
+
+    // Если текущий язык - первый язык (по умолчанию), синхронизация не нужна
+    if (_currentReport!.currentLanguage == languages.first) {
+      return false;
+    }
+
+    return getUnsyncQuestionIndices().isNotEmpty;
+  }
+
   Future<String?> importProjectFromZip(String zipPath) async {
     try {
       final zipFile = File(zipPath);
@@ -903,7 +930,7 @@ class ReportState extends ChangeNotifier {
       final reportsDir = await _getReportsDir();
       final folderName = 'imported_${DateTime.now().millisecondsSinceEpoch}';
       final targetPath = '$reportsDir/$folderName';
-      
+
       if (await Directory(targetPath).exists()) {
         await Directory(targetPath).delete(recursive: true);
       }
@@ -915,7 +942,9 @@ class ReportState extends ChangeNotifier {
       for (final file in archive) {
         if (file.isFile) {
           final filePath = '$targetPath/${file.name}';
-          final fileDir = Directory(filePath.substring(0, filePath.lastIndexOf('/')));
+          final fileDir = Directory(
+            filePath.substring(0, filePath.lastIndexOf('/')),
+          );
           if (!await fileDir.exists()) {
             await fileDir.create(recursive: true);
           }
@@ -1025,7 +1054,8 @@ class ReportState extends ChangeNotifier {
     final buffer = StringBuffer();
 
     final List<String> allImagePaths = [];
-    final List<List<List<List<Map<String, dynamic>>>>> allMediaByQandAandLang = [];
+    final List<List<List<List<Map<String, dynamic>>>>> allMediaByQandAandLang =
+        [];
 
     for (int i = 0; i < _currentReport!.questions.length; i++) {
       final List<List<List<Map<String, dynamic>>>> questionMedia = [];
@@ -1042,14 +1072,15 @@ class ReportState extends ChangeNotifier {
             final relativePath = (media['attention'] == true)
                 ? 'X/${media['name']}'
                 : 'photos/${media['name']}';
-            
+
             final mediaData = {
               'name': media['name'],
               'type': media['type'],
               'localPath': relativePath,
             };
             answerMedia.add(mediaData);
-            if (media['type'].startsWith('image') && !allImagePaths.contains(relativePath)) {
+            if (media['type'].startsWith('image') &&
+                !allImagePaths.contains(relativePath)) {
               allImagePaths.add(relativePath);
             }
           }
@@ -1162,59 +1193,125 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      display: none;');
     buffer.writeln('    }');
     buffer.writeln('    /* Lightbox styles */');
-    buffer.writeln('    .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }');
+    buffer.writeln(
+      '    .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }',
+    );
     buffer.writeln('    .lightbox.active { display: flex; }');
-    buffer.writeln('    .lightbox-controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10002; }');
-    buffer.writeln('    .lightbox-controls button { background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; transition: background 0.2s; }');
-    buffer.writeln('    .lightbox-controls button:hover { background: rgba(255,255,255,0.3); }');
-    buffer.writeln('    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 15px 20px; border-radius: 4px; cursor: pointer; font-size: 20px; transition: background 0.2s; z-index: 10001; }');
-    buffer.writeln('    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }');
+    buffer.writeln(
+      '    .lightbox-controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10002; }',
+    );
+    buffer.writeln(
+      '    .lightbox-controls button { background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; transition: background 0.2s; }',
+    );
+    buffer.writeln(
+      '    .lightbox-controls button:hover { background: rgba(255,255,255,0.3); }',
+    );
+    buffer.writeln(
+      '    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 15px 20px; border-radius: 4px; cursor: pointer; font-size: 20px; transition: background 0.2s; z-index: 10001; }',
+    );
+    buffer.writeln(
+      '    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }',
+    );
     buffer.writeln('    .lightbox-nav.prev { left: calc(50% - 500px); }');
     buffer.writeln('    .lightbox-nav.next { right: calc(50% - 500px); }');
-    buffer.writeln('    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }');
-    buffer.writeln('    .lightbox-info { position: absolute; top: 0px; left: 0px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; z-index: 10001; }');
+    buffer.writeln(
+      '    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }',
+    );
+    buffer.writeln(
+      '    .lightbox-info { position: absolute; top: 0px; left: 0px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; z-index: 10001; }',
+    );
     buffer.writeln('    .attention-answer { color: #f69a15; }');
-    buffer.writeln('    .lightbox-question { font-weight: bold; font-size: 16px; margin-bottom: 5px; }');
+    buffer.writeln(
+      '    .lightbox-question { font-weight: bold; font-size: 16px; margin-bottom: 5px; }',
+    );
     buffer.writeln('    .lightbox-answer { font-size: 14px; }');
-    buffer.writeln('    .lightbox-image-container { position: relative; width: 100%; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10000; }');
-    buffer.writeln('    .lightbox-image-container.dragging { cursor: grabbing; }');
-    buffer.writeln('    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }');
-    buffer.writeln('    .lightbox-thumbnails-bar { position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 8px; max-width: 80%; overflow: hidden; z-index: 10001; }');
+    buffer.writeln(
+      '    .lightbox-image-container { position: relative; width: 100%; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10000; }',
+    );
+    buffer.writeln(
+      '    .lightbox-image-container.dragging { cursor: grabbing; }',
+    );
+    buffer.writeln(
+      '    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }',
+    );
+    buffer.writeln(
+      '    .lightbox-thumbnails-bar { position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 8px; max-width: 80%; overflow: hidden; z-index: 10001; }',
+    );
     buffer.writeln('    @media (max-width: 1000px) {');
     buffer.writeln('      .lightbox-nav.prev { left: 20px; }');
     buffer.writeln('      .lightbox-nav.next { right: 20px; }');
     buffer.writeln('      .lightbox-image-container { width: 90%; }');
     buffer.writeln('    }');
     buffer.writeln('    @media (max-width: 768px) {');
-    buffer.writeln('      .lightbox-info { left: 20px; right: 20px; top: 60px; bottom: auto; max-width: none; max-height: 100px; }');
-    buffer.writeln('      .lightbox-image-container { position: relative; width: calc(100% - 40px); height: calc(100vh - 290px); }');
+    buffer.writeln(
+      '      .lightbox-info { left: 20px; right: 20px; top: 60px; bottom: auto; max-width: none; max-height: 100px; }',
+    );
+    buffer.writeln(
+      '      .lightbox-image-container { position: relative; width: calc(100% - 40px); height: calc(100vh - 290px); }',
+    );
     buffer.writeln('      .lightbox-nav.prev { left: 20px; }');
     buffer.writeln('      .lightbox-nav.next { right: 20px; }');
     buffer.writeln('      .lightbox-thumbnails-bar { bottom: 120px; }');
     buffer.writeln('    }');
-    buffer.writeln('    .thumbnails-container { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.5) rgba(0,0,0,0.3); }');
-    buffer.writeln('    .thumbnails-container::-webkit-scrollbar { height: 6px; }');
-    buffer.writeln('    .thumbnails-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }');
-    buffer.writeln('    .thumbnails-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 3px; }');
-    buffer.writeln('    .lightbox-thumbnail { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s, border 0.2s; border: 2px solid transparent; }');
+    buffer.writeln(
+      '    .thumbnails-container { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.5) rgba(0,0,0,0.3); }',
+    );
+    buffer.writeln(
+      '    .thumbnails-container::-webkit-scrollbar { height: 6px; }',
+    );
+    buffer.writeln(
+      '    .thumbnails-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }',
+    );
+    buffer.writeln(
+      '    .thumbnails-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 3px; }',
+    );
+    buffer.writeln(
+      '    .lightbox-thumbnail { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s, border 0.2s; border: 2px solid transparent; }',
+    );
     buffer.writeln('    .lightbox-thumbnail:hover { opacity: 1; }');
-    buffer.writeln('    .lightbox-thumbnail.active { opacity: 1; border-color: #00B0F0; }');
-    buffer.writeln('    .lightbox-grid-btn { position: absolute; top: 20px; right: 70px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; z-index: 10002; padding: 5px 12px; border-radius: 4px; transition: background 0.2s; }');
-    buffer.writeln('    .lightbox-grid-btn:hover { background: rgba(255,255,255,0.3); }');
+    buffer.writeln(
+      '    .lightbox-thumbnail.active { opacity: 1; border-color: #00B0F0; }',
+    );
+    buffer.writeln(
+      '    .lightbox-grid-btn { position: absolute; top: 20px; right: 70px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; z-index: 10002; padding: 5px 12px; border-radius: 4px; transition: background 0.2s; }',
+    );
+    buffer.writeln(
+      '    .lightbox-grid-btn:hover { background: rgba(255,255,255,0.3); }',
+    );
     buffer.writeln('    /* Gallery overlay styles */');
-    buffer.writeln('    .gallery-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; z-index: 9998; }');
+    buffer.writeln(
+      '    .gallery-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; z-index: 9998; }',
+    );
     buffer.writeln('    .gallery-overlay.active { display: flex; }');
-    buffer.writeln('    .gallery-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }');
-    buffer.writeln('    .gallery-container { flex: 1; overflow-y: auto; padding: 80px 20px 20px; }');
-    buffer.writeln('    .gallery-grid { grid-template-columns: repeat(4, 1fr); gap: 15px; max-width: 1400px; margin: 0 auto; }');
-    buffer.writeln('    .gallery-item { aspect-ratio: 1; overflow: hidden; border-radius: 8px; cursor: pointer; transition: transform 0.2s; }');
+    buffer.writeln(
+      '    .gallery-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }',
+    );
+    buffer.writeln(
+      '    .gallery-container { flex: 1; overflow-y: auto; padding: 80px 20px 20px; }',
+    );
+    buffer.writeln(
+      '    .gallery-grid { grid-template-columns: repeat(4, 1fr); gap: 15px; max-width: 1400px; margin: 0 auto; }',
+    );
+    buffer.writeln(
+      '    .gallery-item { aspect-ratio: 1; overflow: hidden; border-radius: 8px; cursor: pointer; transition: transform 0.2s; }',
+    );
     buffer.writeln('    .gallery-item:hover { transform: scale(1.02); }');
-    buffer.writeln('    .gallery-item img { width: 100%; height: 100%; object-fit: cover; }');
-    buffer.writeln('    @media (max-width: 1200px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); } }');
-    buffer.writeln('    @media (max-width: 900px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }');
-    buffer.writeln('    @media (max-width: 600px) { .gallery-grid { grid-template-columns: 1fr; } }');
+    buffer.writeln(
+      '    .gallery-item img { width: 100%; height: 100%; object-fit: cover; }',
+    );
+    buffer.writeln(
+      '    @media (max-width: 1200px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); } }',
+    );
+    buffer.writeln(
+      '    @media (max-width: 900px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }',
+    );
+    buffer.writeln(
+      '    @media (max-width: 600px) { .gallery-grid { grid-template-columns: 1fr; } }',
+    );
     buffer.writeln('    /* Gallery section header styles */');
-    buffer.writeln('    .gallery-section { margin-bottom: 30px; display: grid; grid-template-columns: inherit; }');
+    buffer.writeln(
+      '    .gallery-section { margin-bottom: 30px; display: grid; grid-template-columns: inherit; }',
+    );
     buffer.writeln('    .gallery-section-header {');
     buffer.writeln('      grid-column: 1 / -1;');
     buffer.writeln('      color: white;');
@@ -1224,8 +1321,12 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      font-size: 16px;');
     buffer.writeln('      font-weight: 600;');
     buffer.writeln('    }');
-    buffer.writeln('    .gallery-section-header .question { font-size: 14px; opacity: 0.9; margin-bottom: 5px; }');
-    buffer.writeln('    .gallery-section-header .answer { font-size: 18px; font-weight: 700; }');
+    buffer.writeln(
+      '    .gallery-section-header .question { font-size: 14px; opacity: 0.9; margin-bottom: 5px; }',
+    );
+    buffer.writeln(
+      '    .gallery-section-header .answer { font-size: 18px; font-weight: 700; }',
+    );
     buffer.writeln('    /* Header styles */');
     buffer.writeln('    .header-row {');
     buffer.writeln('      background: #ffffff !important;');
@@ -1257,32 +1358,46 @@ class ReportState extends ChangeNotifier {
     }
     buffer.writeln('</div>');
 
-    final currentDate = DateTime.now().toLocal().toString().substring(0, 10).split('-').reversed.join('.');
+    final currentDate = DateTime.now()
+        .toLocal()
+        .toString()
+        .substring(0, 10)
+        .split('-')
+        .reversed
+        .join('.');
 
     buffer.writeln('<div class="excel-wrapper">');
     buffer.writeln('  <table>');
     buffer.writeln('    <!-- 1 строка + жирная линия снизу ПО ВСЕЙ ШИРИНЕ -->');
     buffer.writeln('    <tr class="header-row">');
     buffer.writeln('      <td class="border-bold"></td>');
-    buffer.writeln('      <td class="title border-bold">${_currentReport!.productType}</td>');
+    buffer.writeln(
+      '      <td class="title border-bold">${_currentReport!.productType}</td>',
+    );
     buffer.writeln('      <td class="border-bold"></td>');
     buffer.writeln('      <td class="border-bold">Фабрика</td>');
     buffer.writeln('      <td class="border-bold">Модель</td>');
     buffer.writeln('    </tr>');
     buffer.writeln('    <!-- 2 строка + НЕТ линии снизу -->');
-    final displayDate = _currentReport!.dateTimestamp != null 
-        ? DateTime.fromMillisecondsSinceEpoch(_currentReport!.dateTimestamp!).toLocal().toString().substring(0, 10).split('-').reversed.join('.')
+    final displayDate = _currentReport!.dateTimestamp != null
+        ? DateTime.fromMillisecondsSinceEpoch(
+            _currentReport!.dateTimestamp!,
+          ).toLocal().toString().substring(0, 10).split('-').reversed.join('.')
         : currentDate;
     buffer.writeln('    <tr class="header-row">');
     buffer.writeln('      <td class="no-border"></td>');
     buffer.writeln('      <td class="no-border">$displayDate</td>');
     buffer.writeln('      <td class="no-border"></td>');
-    buffer.writeln('      <td class="no-border">${_currentReport!.factory}</td>');
+    buffer.writeln(
+      '      <td class="no-border">${_currentReport!.factory}</td>',
+    );
     buffer.writeln('      <td class="no-border">${_currentReport!.model}</td>');
     buffer.writeln('    </tr>');
     buffer.writeln('    <!-- 3 строка: ОБЪЕДИНЕНА + ФОТО -->');
     buffer.writeln('    <tr class="header-row">');
-    buffer.writeln('      <td colspan="5" style="text-align:left; font-weight:bold; padding:8px; color:#6c757d; border-bottom:none;">ФОТО</td>');
+    buffer.writeln(
+      '      <td colspan="5" style="text-align:left; font-weight:bold; padding:8px; color:#6c757d; border-bottom:none;">ФОТО</td>',
+    );
     buffer.writeln('    </tr>');
     buffer.writeln('    <!-- Исходная шапка -->');
     buffer.writeln('    <tr>');
@@ -1350,12 +1465,14 @@ class ReportState extends ChangeNotifier {
         final answerText = answerCellContent(ai, li);
 
         const int maxVisible = 8;
-        final visibleCount = mediaList.length > maxVisible ? maxVisible : mediaList.length;
+        final visibleCount = mediaList.length > maxVisible
+            ? maxVisible
+            : mediaList.length;
 
         for (int mi = 0; mi < visibleCount; mi++) {
           final media = mediaList[mi];
           final isImage = media['type'].startsWith('image');
-          
+
           if (isImage) {
             parts.add(
               '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
@@ -1423,11 +1540,11 @@ class ReportState extends ChangeNotifier {
             );
           }
           buffer.writeln(
-            '      <td style="background:#fafafa;font-weight:500;width:160px;">${qContentParts.join('')}</td>',
+            '      <td style="background:#fafafa;font-weight:500;width:200px;">${qContentParts.join('')}</td>',
           );
         } else {
           buffer.writeln(
-            '      <td style="background:#fafafa;width:160px;"></td>',
+            '      <td style="background:#fafafa;width:200px;"></td>',
           );
         }
 
@@ -1449,7 +1566,7 @@ class ReportState extends ChangeNotifier {
           );
         }
         buffer.writeln(
-          '      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:300px;">${aContentParts.join('')}</td>',
+          '      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:375px;">${aContentParts.join('')}</td>',
         );
 
         final mContentParts = <String>[];
@@ -1471,32 +1588,58 @@ class ReportState extends ChangeNotifier {
 
     // Lightbox
     buffer.writeln('  <div class="lightbox" id="lightbox">');
-    buffer.writeln('    <button class="lightbox-close" onclick="closeLightbox()">×</button>');
-    buffer.writeln('    <button class="lightbox-grid-btn" onclick="openGallery()" title="Просмотр всех фото">⊞</button>');
+    buffer.writeln(
+      '    <button class="lightbox-close" onclick="closeLightbox()">×</button>',
+    );
+    buffer.writeln(
+      '    <button class="lightbox-grid-btn" onclick="openGallery()" title="Просмотр всех фото">⊞</button>',
+    );
     buffer.writeln('    <div class="lightbox-info">');
-    buffer.writeln('      <div class="lightbox-question" id="lightbox-question"></div>');
-    buffer.writeln('      <div class="lightbox-answer" id="lightbox-answer"></div>');
+    buffer.writeln(
+      '      <div class="lightbox-question" id="lightbox-question"></div>',
+    );
+    buffer.writeln(
+      '      <div class="lightbox-answer" id="lightbox-answer"></div>',
+    );
     buffer.writeln('    </div>');
     buffer.writeln('    <div class="lightbox-controls">');
     buffer.writeln('      <button onclick="zoomIn()">+</button>');
     buffer.writeln('      <button onclick="zoomOut()">-</button>');
     buffer.writeln('      <button onclick="resetZoom()">100%</button>');
     buffer.writeln('    </div>');
-    buffer.writeln('    <button class="lightbox-nav prev" onclick="prevMedia()">←</button>');
-    buffer.writeln('    <div class="lightbox-image-container" id="lightbox-container">');
-    buffer.writeln('      <img id="lightbox-img" src="" alt="" style="display:none;" />');
-    buffer.writeln('      <video id="lightbox-video" controls style="display:none;max-width:100%;max-height:100%;" />');
+    buffer.writeln(
+      '    <button class="lightbox-nav prev" onclick="prevMedia()">←</button>',
+    );
+    buffer.writeln(
+      '    <div class="lightbox-image-container" id="lightbox-container">',
+    );
+    buffer.writeln(
+      '      <img id="lightbox-img" src="" alt="" style="display:none;" />',
+    );
+    buffer.writeln(
+      '      <video id="lightbox-video" controls autoplay playsinline style="display:none;max-width:100%;max-height:100%;object-fit:contain;" />',
+    );
     buffer.writeln('    </div>');
-    buffer.writeln('    <button class="lightbox-nav next" onclick="nextMedia()">→</button>');
-    buffer.writeln('    <div class="lightbox-thumbnails-bar" id="lightbox-thumbnails-bar">');
-    buffer.writeln('      <div class="thumbnails-container" id="thumbnails-container"></div>');
+    buffer.writeln(
+      '    <button class="lightbox-nav next" onclick="nextMedia()">→</button>',
+    );
+    buffer.writeln(
+      '    <div class="lightbox-thumbnails-bar" id="lightbox-thumbnails-bar">',
+    );
+    buffer.writeln(
+      '      <div class="thumbnails-container" id="thumbnails-container"></div>',
+    );
     buffer.writeln('    </div>');
     buffer.writeln('  </div>');
 
     // Gallery overlay
     buffer.writeln('  <div class="gallery-overlay" id="gallery-overlay">');
-    buffer.writeln('    <button class="gallery-close" onclick="closeGallery()">×</button>');
-    buffer.writeln('    <div class="gallery-container" id="gallery-container">');
+    buffer.writeln(
+      '    <button class="gallery-close" onclick="closeGallery()">×</button>',
+    );
+    buffer.writeln(
+      '    <div class="gallery-container" id="gallery-container">',
+    );
     buffer.writeln('      <div class="gallery-grid" id="gallery-grid"></div>');
     buffer.writeln('    </div>');
     buffer.writeln('  </div>');
@@ -1515,21 +1658,35 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    let currentLanguage = 0;');
 
     buffer.writeln('    function switchLanguage(li) {');
-    buffer.writeln('      document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));');
-    buffer.writeln('      document.querySelector(\'.lang-btn[data-lang="\' + li + \'"]\').classList.add("active");');
+    buffer.writeln(
+      '      document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));',
+    );
+    buffer.writeln(
+      '      document.querySelector(\'.lang-btn[data-lang="\' + li + \'"]\').classList.add("active");',
+    );
     buffer.writeln('      for (let l = 0; l < allLanguages.length; l++) {');
     buffer.writeln('        const display = l === li ? "" : "none";');
-    buffer.writeln('        document.querySelectorAll(".question-lang-" + l).forEach(el => el.style.display = display);');
-    buffer.writeln('        document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);');
-    buffer.writeln('        document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);');
+    buffer.writeln(
+      '        document.querySelectorAll(".question-lang-" + l).forEach(el => el.style.display = display);',
+    );
+    buffer.writeln(
+      '        document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);',
+    );
+    buffer.writeln(
+      '        document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);',
+    );
     buffer.writeln('      }');
     buffer.writeln('      currentLanguage = li;');
     buffer.writeln('      loadMediaByLanguage();');
     buffer.writeln('    }');
 
     buffer.writeln('    function loadMediaByLanguage() {');
-    buffer.writeln('      const mediaElements = document.querySelectorAll(".media-item");');
-    buffer.writeln('      media = Array.from(mediaElements).filter(el => parseInt(el.dataset.lang) === currentLanguage).map(el => ({');
+    buffer.writeln(
+      '      const mediaElements = document.querySelectorAll(".media-item");',
+    );
+    buffer.writeln(
+      '      media = Array.from(mediaElements).filter(el => parseInt(el.dataset.lang) === currentLanguage).map(el => ({',
+    );
     buffer.writeln('        src: el.dataset.src,');
     buffer.writeln('        type: el.dataset.type,');
     buffer.writeln('        question: el.dataset.question,');
@@ -1538,11 +1695,15 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      buildThumbnailsBar();');
     buffer.writeln('    }');
 
-    buffer.writeln('    document.addEventListener("DOMContentLoaded", function() {');
+    buffer.writeln(
+      '    document.addEventListener("DOMContentLoaded", function() {',
+    );
     buffer.writeln('      loadMediaByLanguage();');
     buffer.writeln('    });');
     buffer.writeln('    function buildThumbnailsBar() {');
-    buffer.writeln('      const container = document.getElementById("thumbnails-container");');
+    buffer.writeln(
+      '      const container = document.getElementById("thumbnails-container");',
+    );
     buffer.writeln('      container.innerHTML = "";');
     buffer.writeln('      media.forEach((m, index) => {');
     buffer.writeln('        const thumbnail = document.createElement("img");');
@@ -1550,36 +1711,66 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('        if (m.type === "image") {');
     buffer.writeln('          thumbnail.src = m.src;');
     buffer.writeln('        } else {');
-    buffer.writeln('          thumbnail.src = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22><rect fill=%22%23e0e0e0%22 width=%2260%22 height=%2260%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2220%22>🎬</text></svg>";');
+    buffer.writeln(
+      '          thumbnail.src = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22><rect fill=%22%23e0e0e0%22 width=%2260%22 height=%2260%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2220%22>🎬</text></svg>";',
+    );
     buffer.writeln('        }');
-    buffer.writeln('        thumbnail.onclick = function() { showMedia(index); };');
+    buffer.writeln(
+      '        thumbnail.onclick = function() { showMedia(index); };',
+    );
     buffer.writeln('        container.appendChild(thumbnail);');
     buffer.writeln('      });');
     buffer.writeln('    }');
     buffer.writeln('    function updateActiveThumbnail() {');
-    buffer.writeln('      document.querySelectorAll(".lightbox-thumbnail").forEach((thumb, index) => {');
-    buffer.writeln('        thumb.classList.toggle("active", index === currentIndex);');
+    buffer.writeln(
+      '      document.querySelectorAll(".lightbox-thumbnail").forEach((thumb, index) => {',
+    );
+    buffer.writeln(
+      '        thumb.classList.toggle("active", index === currentIndex);',
+    );
     buffer.writeln('      });');
     buffer.writeln('      scrollToActiveThumbnail();');
     buffer.writeln('    }');
     buffer.writeln('    function scrollToActiveThumbnail() {');
-    buffer.writeln('      const container = document.getElementById("thumbnails-container");');
-    buffer.writeln('      const activeThumbnail = document.querySelector(".lightbox-thumbnail.active");');
+    buffer.writeln(
+      '      const container = document.getElementById("thumbnails-container");',
+    );
+    buffer.writeln(
+      '      const activeThumbnail = document.querySelector(".lightbox-thumbnail.active");',
+    );
     buffer.writeln('      if (!container || !activeThumbnail) return;');
-    buffer.writeln('      const containerRect = container.getBoundingClientRect();');
-    buffer.writeln('      const thumbnailRect = activeThumbnail.getBoundingClientRect();');
-    buffer.writeln('      const scrollLeft = activeThumbnail.offsetLeft - containerRect.width / 2 + thumbnailRect.width / 2;');
-    buffer.writeln('      container.scrollTo({ left: scrollLeft, behavior: "smooth" });');
+    buffer.writeln(
+      '      const containerRect = container.getBoundingClientRect();',
+    );
+    buffer.writeln(
+      '      const thumbnailRect = activeThumbnail.getBoundingClientRect();',
+    );
+    buffer.writeln(
+      '      const scrollLeft = activeThumbnail.offsetLeft - containerRect.width / 2 + thumbnailRect.width / 2;',
+    );
+    buffer.writeln(
+      '      container.scrollTo({ left: scrollLeft, behavior: "smooth" });',
+    );
     buffer.writeln('    }');
 
     buffer.writeln('    function openLightbox(src, type) {');
-    buffer.writeln('      const index = media.findIndex(m => m.src === src && m.type === type);');
+    buffer.writeln(
+      '      const index = media.findIndex(m => m.src === src && m.type === type);',
+    );
     buffer.writeln('      if (index === -1) return;');
     buffer.writeln('      currentIndex = index;');
-    buffer.writeln('      const imgEl = document.getElementById("lightbox-img");');
-    buffer.writeln('      const videoEl = document.getElementById("lightbox-video");');
-    buffer.writeln('      const questionEl = document.getElementById("lightbox-question");');
-    buffer.writeln('      const answerEl = document.getElementById("lightbox-answer");');
+    buffer.writeln(
+      '      const imgEl = document.getElementById("lightbox-img");',
+    );
+    buffer.writeln(
+      '      const videoEl = document.getElementById("lightbox-video");',
+    );
+    buffer.writeln(
+      '      const questionEl = document.getElementById("lightbox-question");',
+    );
+    buffer.writeln(
+      '      const answerEl = document.getElementById("lightbox-answer");',
+    );
     buffer.writeln('      if (type === "image") {');
     buffer.writeln('        imgEl.style.display = "block";');
     buffer.writeln('        videoEl.style.display = "none";');
@@ -1592,22 +1783,32 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('        videoEl.load();');
     buffer.writeln('      }');
     buffer.writeln('      if (media[currentIndex]) {');
-    buffer.writeln('        questionEl.textContent = media[currentIndex].question || "";');
-    buffer.writeln('        answerEl.textContent = media[currentIndex].answer || "";');
+    buffer.writeln(
+      '        questionEl.textContent = media[currentIndex].question || "";',
+    );
+    buffer.writeln(
+      '        answerEl.textContent = media[currentIndex].answer || "";',
+    );
     buffer.writeln('      }');
-    buffer.writeln('      document.getElementById("lightbox").classList.add("active");');
+    buffer.writeln(
+      '      document.getElementById("lightbox").classList.add("active");',
+    );
     buffer.writeln('      resetZoom();');
     buffer.writeln('      updateActiveThumbnail();');
     buffer.writeln('    }');
 
     buffer.writeln('    function closeLightbox() {');
-    buffer.writeln('      document.getElementById("lightbox").classList.remove("active");');
+    buffer.writeln(
+      '      document.getElementById("lightbox").classList.remove("active");',
+    );
     buffer.writeln('      document.getElementById("lightbox-video").pause();');
     buffer.writeln('    }');
 
     buffer.writeln('    function showMedia(index) {');
     buffer.writeln('      if (index >= 0 && index < media.length) {');
-    buffer.writeln('        openLightbox(media[index].src, media[index].type);');
+    buffer.writeln(
+      '        openLightbox(media[index].src, media[index].type);',
+    );
     buffer.writeln('      }');
     buffer.writeln('    }');
 
@@ -1620,33 +1821,61 @@ class ReportState extends ChangeNotifier {
 
     buffer.writeln('    function prevMedia() {');
     buffer.writeln('      if (media.length > 1) {');
-    buffer.writeln('        currentIndex = (currentIndex - 1 + media.length) % media.length;');
+    buffer.writeln(
+      '        currentIndex = (currentIndex - 1 + media.length) % media.length;',
+    );
     buffer.writeln('        showMedia(currentIndex);');
     buffer.writeln('      }');
     buffer.writeln('    }');
 
-    buffer.writeln('    function zoomIn() { scale = Math.min(scale * 1.2, 5); applyTransform(); }');
-    buffer.writeln('    function zoomOut() { scale = Math.max(scale / 1.2, 0.5); applyTransform(); }');
-    buffer.writeln('    function resetZoom() { scale = 1; panX = 0; panY = 0; applyTransform(); }');
+    buffer.writeln(
+      '    function zoomIn() { scale = Math.min(scale * 1.2, 5); applyTransform(); }',
+    );
+    buffer.writeln(
+      '    function zoomOut() { scale = Math.max(scale / 1.2, 0.5); applyTransform(); }',
+    );
+    buffer.writeln(
+      '    function resetZoom() { scale = 1; panX = 0; panY = 0; applyTransform(); }',
+    );
 
     buffer.writeln('    function applyTransform() {');
-    buffer.writeln('      const imgEl = document.getElementById("lightbox-img");');
-    buffer.writeln('      const videoEl = document.getElementById("lightbox-video");');
-    buffer.writeln('      imgEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";');
-    buffer.writeln('      videoEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";');
+    buffer.writeln(
+      '      const imgEl = document.getElementById("lightbox-img");',
+    );
+    buffer.writeln(
+      '      const videoEl = document.getElementById("lightbox-video");',
+    );
+    buffer.writeln(
+      '      imgEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";',
+    );
+    buffer.writeln(
+      '      videoEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";',
+    );
     buffer.writeln('    }');
 
-    buffer.writeln('    const container = document.getElementById("lightbox-container");');
+    buffer.writeln(
+      '    const container = document.getElementById("lightbox-container");',
+    );
     buffer.writeln('    container.addEventListener("mousedown", function(e) {');
-    buffer.writeln('      isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; container.classList.add("dragging"); e.preventDefault();');
+    buffer.writeln(
+      '      isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; container.classList.add("dragging"); e.preventDefault();',
+    );
     buffer.writeln('    });');
     buffer.writeln('    document.addEventListener("mousemove", function(e) {');
-    buffer.writeln('      if (isDragging) { panX = e.clientX - startX; panY = e.clientY - startY; applyTransform(); }');
+    buffer.writeln(
+      '      if (isDragging) { panX = e.clientX - startX; panY = e.clientY - startY; applyTransform(); }',
+    );
     buffer.writeln('    });');
-    buffer.writeln('    document.addEventListener("mouseup", function() { isDragging = false; container.classList.remove("dragging"); });');
-    buffer.writeln('    container.addEventListener("wheel", function(e) { e.preventDefault(); if (e.deltaY < 0) zoomIn(); else zoomOut(); });');
+    buffer.writeln(
+      '    document.addEventListener("mouseup", function() { isDragging = false; container.classList.remove("dragging"); });',
+    );
+    buffer.writeln(
+      '    container.addEventListener("wheel", function(e) { e.preventDefault(); if (e.deltaY < 0) zoomIn(); else zoomOut(); });',
+    );
     buffer.writeln('    document.addEventListener("keydown", function(e) {');
-    buffer.writeln('      if (document.getElementById("lightbox").classList.contains("active")) {');
+    buffer.writeln(
+      '      if (document.getElementById("lightbox").classList.contains("active")) {',
+    );
     buffer.writeln('        if (e.key === "ArrowRight") nextMedia();');
     buffer.writeln('        if (e.key === "ArrowLeft") prevMedia();');
     buffer.writeln('        if (e.key === "Escape") closeLightbox();');
@@ -1656,21 +1885,31 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      }');
     buffer.writeln('    });');
     buffer.writeln('    window.addEventListener("resize", function() {');
-    buffer.writeln('      if (document.getElementById("lightbox").classList.contains("active")) {');
+    buffer.writeln(
+      '      if (document.getElementById("lightbox").classList.contains("active")) {',
+    );
     buffer.writeln('        scrollToActiveThumbnail();');
     buffer.writeln('      }');
     buffer.writeln('    });');
 
     buffer.writeln('    function openGallery() {');
-    buffer.writeln('      const galleryGrid = document.getElementById("gallery-grid");');
+    buffer.writeln(
+      '      const galleryGrid = document.getElementById("gallery-grid");',
+    );
     buffer.writeln('      galleryGrid.innerHTML = "";');
-    buffer.writeln('      const imageMedia = media.filter(m => m.type === "image");');
+    buffer.writeln(
+      '      const imageMedia = media.filter(m => m.type === "image");',
+    );
     buffer.writeln('      ');
     buffer.writeln('      const groupedMedia = {};');
     buffer.writeln('      imageMedia.forEach((m) => {');
-    buffer.writeln('        const key = (m.question || "") + "|||" + (m.answer || "");');
+    buffer.writeln(
+      '        const key = (m.question || "") + "|||" + (m.answer || "");',
+    );
     buffer.writeln('        if (!groupedMedia[key]) {');
-    buffer.writeln('          groupedMedia[key] = { question: m.question, answer: m.answer, items: [] };');
+    buffer.writeln(
+      '          groupedMedia[key] = { question: m.question, answer: m.answer, items: [] };',
+    );
     buffer.writeln('        }');
     buffer.writeln('        groupedMedia[key].items.push(m);');
     buffer.writeln('      });');
@@ -1683,20 +1922,28 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('        const header = document.createElement("div");');
     buffer.writeln('        header.className = "gallery-section-header";');
     buffer.writeln('        ');
-    buffer.writeln('        const questionDiv = document.createElement("div");');
+    buffer.writeln(
+      '        const questionDiv = document.createElement("div");',
+    );
     buffer.writeln('        questionDiv.className = "question";');
-    buffer.writeln('        questionDiv.textContent = group.question || "Без вопроса";');
+    buffer.writeln(
+      '        questionDiv.textContent = group.question || "Без вопроса";',
+    );
     buffer.writeln('        header.appendChild(questionDiv);');
     buffer.writeln('        ');
     buffer.writeln('        const answerDiv = document.createElement("div");');
     buffer.writeln('        answerDiv.className = "answer";');
-    buffer.writeln('        answerDiv.textContent = group.answer || "Без ответа";');
+    buffer.writeln(
+      '        answerDiv.textContent = group.answer || "Без ответа";',
+    );
     buffer.writeln('        header.appendChild(answerDiv);');
     buffer.writeln('        ');
     buffer.writeln('        section.appendChild(header);');
     buffer.writeln('        ');
     buffer.writeln('        group.items.forEach((m) => {');
-    buffer.writeln('          const galleryItem = document.createElement("div");');
+    buffer.writeln(
+      '          const galleryItem = document.createElement("div");',
+    );
     buffer.writeln('          galleryItem.className = "gallery-item";');
     buffer.writeln('          const img = document.createElement("img");');
     buffer.writeln('          img.src = m.src;');
@@ -1709,7 +1956,9 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('          section.appendChild(galleryItem);');
     buffer.writeln('          ');
     buffer.writeln('          // Check if this is the current media item');
-    buffer.writeln('          if (currentIndex >= 0 && currentIndex < media.length && media[currentIndex].src === m.src) {');
+    buffer.writeln(
+      '          if (currentIndex >= 0 && currentIndex < media.length && media[currentIndex].src === m.src) {',
+    );
     buffer.writeln('            targetElement = galleryItem;');
     buffer.writeln('          }');
     buffer.writeln('        });');
@@ -1717,23 +1966,31 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('        galleryGrid.appendChild(section);');
     buffer.writeln('      });');
     buffer.writeln('      ');
-    buffer.writeln('      document.getElementById("gallery-overlay").classList.add("active");');
+    buffer.writeln(
+      '      document.getElementById("gallery-overlay").classList.add("active");',
+    );
     buffer.writeln('      closeLightbox();');
     buffer.writeln('      ');
     buffer.writeln('      // Scroll to target element if found');
     buffer.writeln('      setTimeout(() => {');
     buffer.writeln('        if (targetElement) {');
-    buffer.writeln('          targetElement.scrollIntoView({ behavior: "smooth", block: "center" });');
+    buffer.writeln(
+      '          targetElement.scrollIntoView({ behavior: "smooth", block: "center" });',
+    );
     buffer.writeln('        }');
     buffer.writeln('      }, 100);');
     buffer.writeln('    }');
 
     buffer.writeln('    function closeGallery() {');
-    buffer.writeln('      document.getElementById("gallery-overlay").classList.remove("active");');
+    buffer.writeln(
+      '      document.getElementById("gallery-overlay").classList.remove("active");',
+    );
     buffer.writeln('    }');
 
     buffer.writeln('    document.addEventListener("keydown", function(e) {');
-    buffer.writeln('      if (document.getElementById("gallery-overlay").classList.contains("active")) {');
+    buffer.writeln(
+      '      if (document.getElementById("gallery-overlay").classList.contains("active")) {',
+    );
     buffer.writeln('        if (e.key === "Escape") closeGallery();');
     buffer.writeln('      }');
     buffer.writeln('    });');
@@ -1867,9 +2124,15 @@ class ReportState extends ChangeNotifier {
         buffer.writeln(
           '<td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>',
         );
-        buffer.writeln('<td style="text-align:center;vertical-align:middle;width:30px;"></td>');
-        buffer.writeln('<td style="background:white;width:300px;">${answerCellContent(0)}</td>');
-        buffer.writeln('<td style="background:#fafafa;width:200px;">$photoCellContent</td>');
+        buffer.writeln(
+          '<td style="text-align:center;vertical-align:middle;width:30px;"></td>',
+        );
+        buffer.writeln(
+          '<td style="background:white;width:300px;">${answerCellContent(0)}</td>',
+        );
+        buffer.writeln(
+          '<td style="background:#fafafa;width:200px;">$photoCellContent</td>',
+        );
         buffer.writeln('</tr>');
       } else {
         for (int ai = 0; ai < maxAnswers; ai++) {
@@ -1886,7 +2149,9 @@ class ReportState extends ChangeNotifier {
               '<td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>',
             );
           } else {
-            buffer.writeln('<td style="text-align:center;vertical-align:middle;width:30px;"></td>');
+            buffer.writeln(
+              '<td style="text-align:center;vertical-align:middle;width:30px;"></td>',
+            );
           }
 
           final answerBgColor = answerHasAttention[ai] ? '#fff3cd' : 'white';
@@ -1894,7 +2159,9 @@ class ReportState extends ChangeNotifier {
             '<td style="background:$answerBgColor;width:300px;">${answerCellContent(ai)}</td>',
           );
 
-          buffer.writeln('<td style="background:#fafafa;width:200px;">$photoCellContent</td>');
+          buffer.writeln(
+            '<td style="background:#fafafa;width:200px;">$photoCellContent</td>',
+          );
           buffer.writeln('</tr>');
         }
       }
@@ -1929,7 +2196,10 @@ class ReportState extends ChangeNotifier {
       bold: true,
       fontSize: 12,
       fontFamily: 'Courier New',
-      bottomBorder: Border(borderStyle: BorderStyle.Thin, borderColorHex: ExcelColor.black),
+      bottomBorder: Border(
+        borderStyle: BorderStyle.Thin,
+        borderColorHex: ExcelColor.black,
+      ),
     );
     final headerStyle1Normal = CellStyle(
       backgroundColorHex: ExcelColor.white,
@@ -1937,18 +2207,47 @@ class ReportState extends ChangeNotifier {
       bold: false,
       fontSize: 12,
       fontFamily: 'Courier New',
-      bottomBorder: Border(borderStyle: BorderStyle.Thin, borderColorHex: ExcelColor.black),
+      bottomBorder: Border(
+        borderStyle: BorderStyle.Thin,
+        borderColorHex: ExcelColor.black,
+      ),
     );
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(_currentReport!.productType);
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = headerStyle1Bold;
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue('Фабрика');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = headerStyle1Normal;
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue('Модель');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = headerStyle1Normal;
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).cellStyle = CellStyle(
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+        .value = TextCellValue(
+      _currentReport!.productType,
+    );
+    sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+            .cellStyle =
+        headerStyle1Bold;
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+        .value = TextCellValue(
+      'Фабрика',
+    );
+    sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+            .cellStyle =
+        headerStyle1Normal;
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+        .value = TextCellValue(
+      'Модель',
+    );
+    sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+            .cellStyle =
+        headerStyle1Normal;
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+        .cellStyle = CellStyle(
       backgroundColorHex: ExcelColor.white,
       fontFamily: 'Courier New',
-      bottomBorder: Border(borderStyle: BorderStyle.Thin, borderColorHex: ExcelColor.black),
+      bottomBorder: Border(
+        borderStyle: BorderStyle.Thin,
+        borderColorHex: ExcelColor.black,
+      ),
     );
     row++;
 
@@ -1959,15 +2258,44 @@ class ReportState extends ChangeNotifier {
       fontSize: 10,
       fontFamily: 'Courier New',
     );
-    final excelDate = _currentReport!.dateTimestamp != null 
-        ? DateTime.fromMillisecondsSinceEpoch(_currentReport!.dateTimestamp!).toLocal().toString().substring(0, 10).split('-').reversed.join('.')
-        : DateTime.now().toLocal().toString().substring(0, 10).split('-').reversed.join('.');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(excelDate);
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = headerStyle2;
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue(_currentReport!.factory);
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = headerStyle2;
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue(_currentReport!.model);
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = headerStyle2;
+    final excelDate = _currentReport!.dateTimestamp != null
+        ? DateTime.fromMillisecondsSinceEpoch(
+            _currentReport!.dateTimestamp!,
+          ).toLocal().toString().substring(0, 10).split('-').reversed.join('.')
+        : DateTime.now()
+              .toLocal()
+              .toString()
+              .substring(0, 10)
+              .split('-')
+              .reversed
+              .join('.');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+        .value = TextCellValue(
+      excelDate,
+    );
+    sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+            .cellStyle =
+        headerStyle2;
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+        .value = TextCellValue(
+      _currentReport!.factory,
+    );
+    sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+            .cellStyle =
+        headerStyle2;
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+        .value = TextCellValue(
+      _currentReport!.model,
+    );
+    sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+            .cellStyle =
+        headerStyle2;
     row++;
 
     // 3-я строка шапки (ФОТО - объединенная ячейка)
@@ -1984,13 +2312,22 @@ class ReportState extends ChangeNotifier {
       fontFamily: 'Courier New',
       horizontalAlign: HorizontalAlign.Center,
     );
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('ФОТО');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).cellStyle = photoHeaderStyle;
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+        .value = TextCellValue(
+      'ФОТО',
+    );
+    sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+            .cellStyle =
+        photoHeaderStyle;
     row++;
 
     // 4-я строка - пустая строка
     for (int col = 0; col < totalColumns; col++) {
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 3)).cellStyle = CellStyle(
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 3))
+          .cellStyle = CellStyle(
         backgroundColorHex: ExcelColor.white,
         fontFamily: 'Courier New',
       );
@@ -2073,58 +2410,121 @@ class ReportState extends ChangeNotifier {
           if (li == 0) {
             sheet.merge(
               CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
-              CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row + languages.length - 1),
+              CellIndex.indexByColumnRow(
+                columnIndex: 0,
+                rowIndex: row + languages.length - 1,
+              ),
             );
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = IntCellValue(i + 1);
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).cellStyle = CellStyle(
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+                .value = IntCellValue(
+              i + 1,
+            );
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+                .cellStyle = CellStyle(
               backgroundColorHex: questionBgColor,
               fontColorHex: rowNumColor,
               bold: true,
               fontFamily: 'Courier New',
               verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+              bottomBorder: isLast
+                  ? Border(
+                      borderStyle: BorderStyle.Thin,
+                      borderColorHex: borderColor,
+                    )
+                  : null,
             );
           }
 
-          final qColor = li == 0 ? ExcelColor.black : ExcelColor.fromHexString(getLanguageColor(li));
+          final qColor = li == 0
+              ? ExcelColor.black
+              : ExcelColor.fromHexString(getLanguageColor(li));
           final qFontSize = li == 0 ? 12 : 10;
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(questionNames[li]);
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = CellStyle(
+          sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+              .value = TextCellValue(
+            questionNames[li],
+          );
+          sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+              .cellStyle = CellStyle(
             backgroundColorHex: questionBgColor,
             fontColorHex: qColor,
             fontSize: qFontSize,
             fontFamily: 'Courier New',
             verticalAlign: VerticalAlign.Top,
-            bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+            bottomBorder: isLast
+                ? Border(
+                    borderStyle: BorderStyle.Thin,
+                    borderColorHex: borderColor,
+                  )
+                : null,
           );
 
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = TextCellValue('');
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).cellStyle = CellStyle(
+          sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+              .value = TextCellValue(
+            '',
+          );
+          sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+              .cellStyle = CellStyle(
             backgroundColorHex: questionBgColor,
             fontFamily: 'Courier New',
             verticalAlign: VerticalAlign.Top,
-            bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+            bottomBorder: isLast
+                ? Border(
+                    borderStyle: BorderStyle.Thin,
+                    borderColorHex: borderColor,
+                  )
+                : null,
           );
 
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue('');
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = CellStyle(
+          sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+              .value = TextCellValue(
+            '',
+          );
+          sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+              .cellStyle = CellStyle(
             backgroundColorHex: ExcelColor.white,
             fontFamily: 'Courier New',
             verticalAlign: VerticalAlign.Top,
-            bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+            bottomBorder: isLast
+                ? Border(
+                    borderStyle: BorderStyle.Thin,
+                    borderColorHex: borderColor,
+                  )
+                : null,
           );
 
           if (li == 0) {
             sheet.merge(
               CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
-              CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row + languages.length - 1),
+              CellIndex.indexByColumnRow(
+                columnIndex: 4,
+                rowIndex: row + languages.length - 1,
+              ),
             );
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue('');
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = CellStyle(
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+                .value = TextCellValue(
+              '',
+            );
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+                .cellStyle = CellStyle(
               backgroundColorHex: questionBgColor,
               fontFamily: 'Courier New',
               verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+              bottomBorder: isLast
+                  ? Border(
+                      borderStyle: BorderStyle.Thin,
+                      borderColorHex: borderColor,
+                    )
+                  : null,
             );
           }
 
@@ -2138,79 +2538,174 @@ class ReportState extends ChangeNotifier {
             if (li == 0 && ai == 0) {
               sheet.merge(
                 CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
-                CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row + totalRows - 1),
+                CellIndex.indexByColumnRow(
+                  columnIndex: 0,
+                  rowIndex: row + totalRows - 1,
+                ),
               );
-              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = IntCellValue(i + 1);
-              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).cellStyle = CellStyle(
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+                  )
+                  .value = IntCellValue(
+                i + 1,
+              );
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
+                  )
+                  .cellStyle = CellStyle(
                 backgroundColorHex: questionBgColor,
                 fontColorHex: rowNumColor,
                 bold: true,
                 fontFamily: 'Courier New',
                 verticalAlign: VerticalAlign.Top,
-                bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+                bottomBorder: isLast
+                    ? Border(
+                        borderStyle: BorderStyle.Thin,
+                        borderColorHex: borderColor,
+                      )
+                    : null,
               );
             }
 
             if (ai == 0) {
-              final qColor = li == 0 ? ExcelColor.black : ExcelColor.fromHexString(getLanguageColor(li));
+              final qColor = li == 0
+                  ? ExcelColor.black
+                  : ExcelColor.fromHexString(getLanguageColor(li));
               final qFontSize = li == 0 ? 12 : 10;
-              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(questionNames[li]);
-              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = CellStyle(
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row),
+                  )
+                  .value = TextCellValue(
+                questionNames[li],
+              );
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row),
+                  )
+                  .cellStyle = CellStyle(
                 backgroundColorHex: questionBgColor,
                 fontColorHex: qColor,
                 fontSize: qFontSize,
                 fontFamily: 'Courier New',
                 verticalAlign: VerticalAlign.Top,
-                bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+                bottomBorder: isLast
+                    ? Border(
+                        borderStyle: BorderStyle.Thin,
+                        borderColorHex: borderColor,
+                      )
+                    : null,
               );
             } else {
-              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('');
-              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).cellStyle = CellStyle(
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row),
+                  )
+                  .value = TextCellValue(
+                '',
+              );
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row),
+                  )
+                  .cellStyle = CellStyle(
                 backgroundColorHex: questionBgColor,
                 fontFamily: 'Courier New',
                 verticalAlign: VerticalAlign.Top,
-                bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+                bottomBorder: isLast
+                    ? Border(
+                        borderStyle: BorderStyle.Thin,
+                        borderColorHex: borderColor,
+                      )
+                    : null,
               );
             }
 
             final hasAttentionMark = answerHasAttention[ai];
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = hasAttentionMark ? TextCellValue('!') : TextCellValue('');
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).cellStyle = CellStyle(
-              backgroundColorHex: hasAttentionMark ? attentionBgColor : ExcelColor.white,
-              fontColorHex: hasAttentionMark ? ExcelColor.fromHexString('#ef4444') : ExcelColor.black,
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+                .value = hasAttentionMark
+                ? TextCellValue('!')
+                : TextCellValue('');
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+                .cellStyle = CellStyle(
+              backgroundColorHex: hasAttentionMark
+                  ? attentionBgColor
+                  : ExcelColor.white,
+              fontColorHex: hasAttentionMark
+                  ? ExcelColor.fromHexString('#ef4444')
+                  : ExcelColor.black,
               bold: hasAttentionMark,
               fontFamily: 'Courier New',
               horizontalAlign: HorizontalAlign.Center,
               verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+              bottomBorder: isLast
+                  ? Border(
+                      borderStyle: BorderStyle.Thin,
+                      borderColorHex: borderColor,
+                    )
+                  : null,
             );
 
             final text = ai < answersByLang[li].length
                 ? (answersByLang[li][ai]['text'] ?? '') as String
                 : '';
             final hasAttention = answerHasAttention[ai];
-            final answerBgColor = hasAttention ? attentionBgColor : ExcelColor.white;
-            final aColor = li == 0 ? ExcelColor.black : ExcelColor.fromHexString(getLanguageColor(li));
+            final answerBgColor = hasAttention
+                ? attentionBgColor
+                : ExcelColor.white;
+            final aColor = li == 0
+                ? ExcelColor.black
+                : ExcelColor.fromHexString(getLanguageColor(li));
             final aFontSize = li == 0 ? 12 : 10;
-            
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue(text);
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).cellStyle = CellStyle(
+
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+                .value = TextCellValue(
+              text,
+            );
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+                .cellStyle = CellStyle(
               backgroundColorHex: answerBgColor,
               fontColorHex: aColor,
               fontSize: aFontSize,
               fontFamily: 'Courier New',
               verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+              bottomBorder: isLast
+                  ? Border(
+                      borderStyle: BorderStyle.Thin,
+                      borderColorHex: borderColor,
+                    )
+                  : null,
             );
 
-            final photoBgColor = hasAttention ? attentionBgColor : questionBgColor;
+            final photoBgColor = hasAttention
+                ? attentionBgColor
+                : questionBgColor;
             if (li == 0) {
               sheet.merge(
                 CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
-                CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row + languages.length - 1),
+                CellIndex.indexByColumnRow(
+                  columnIndex: 4,
+                  rowIndex: row + languages.length - 1,
+                ),
               );
-              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = TextCellValue(photoCellContents[ai]);
-              sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = CellStyle(
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
+                  )
+                  .value = TextCellValue(
+                photoCellContents[ai],
+              );
+              sheet
+                  .cell(
+                    CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
+                  )
+                  .cellStyle = CellStyle(
                 backgroundColorHex: photoBgColor,
                 fontColorHex: ExcelColor.fromHexString('#6c757d'),
                 bold: true,
@@ -2220,14 +2715,21 @@ class ReportState extends ChangeNotifier {
               );
             }
 
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).cellStyle = CellStyle(
+            sheet
+                .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+                .cellStyle = CellStyle(
               backgroundColorHex: photoBgColor,
               fontColorHex: ExcelColor.fromHexString('#6c757d'),
               bold: true,
               fontSize: 10,
               fontFamily: 'Courier New',
               verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast ? Border(borderStyle: BorderStyle.Thin, borderColorHex: borderColor) : null,
+              bottomBorder: isLast
+                  ? Border(
+                      borderStyle: BorderStyle.Thin,
+                      borderColorHex: borderColor,
+                    )
+                  : null,
             );
 
             row++;
@@ -2339,7 +2841,10 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  Future<String?> exportZip({String? customSavePath}) async {
+  Future<String?> exportZip({
+    String? customSavePath,
+    String? customFileName,
+  }) async {
     if (_currentReport == null || _currentReportPath == null) return null;
     try {
       await saveReport();
@@ -2367,7 +2872,11 @@ class ReportState extends ChangeNotifier {
 
       String zipPath;
       if (customSavePath != null && customSavePath.isNotEmpty) {
-        zipPath = '$customSavePath/$safeName.zip';
+        if (customFileName != null && customFileName.isNotEmpty) {
+          zipPath = '$customSavePath/$customFileName';
+        } else {
+          zipPath = '$customSavePath/$safeName.zip';
+        }
       } else {
         final reportsDir = await _getReportsDir();
         zipPath = '$reportsDir/$safeName.zip';
@@ -2388,7 +2897,7 @@ class ReportState extends ChangeNotifier {
       encoder.create(zipFile.path);
 
       final Set<String> neededFiles = {};
-      
+
       neededFiles.add('report.json');
       neededFiles.add('report.html');
       neededFiles.add('report.xlsx');
@@ -2497,11 +3006,15 @@ class ReportState extends ChangeNotifier {
       } else {
         final firstLang = languages.first;
         final firstLangAnswers = allAnswers[firstLang]!;
-        
-        for (int answerIdx = 0; answerIdx < firstLangAnswers.length; answerIdx++) {
+
+        for (
+          int answerIdx = 0;
+          answerIdx < firstLangAnswers.length;
+          answerIdx++
+        ) {
           bool hasEmptyInAnswer = false;
           bool hasNonEmptyInAnswer = false;
-          
+
           for (final lang in languages) {
             final answers = allAnswers[lang]!;
             if (answerIdx < answers.length) {
@@ -2513,7 +3026,7 @@ class ReportState extends ChangeNotifier {
               }
             }
           }
-          
+
           if (hasEmptyInAnswer && hasNonEmptyInAnswer) {
             needsSync = true;
             break;
@@ -2563,18 +3076,12 @@ class ReportState extends ChangeNotifier {
         final hasEmpty = variant.any((text) => text.isEmpty);
         final hasNonEmpty = variant.any((text) => text.isNotEmpty);
         if (hasEmpty && hasNonEmpty) {
-          answersWithId.add({
-            'id': answerIdx,
-            'variants': variant,
-          });
+          answersWithId.add({'id': answerIdx, 'variants': variant});
         }
       }
 
       if (answersWithId.isNotEmpty) {
-        (data['questions'] as List).add({
-          'id': q.id,
-          'answers': answersWithId,
-        });
+        (data['questions'] as List).add({'id': q.id, 'answers': answersWithId});
       }
     }
 
@@ -2600,7 +3107,7 @@ class ReportState extends ChangeNotifier {
           if (answer is! Map) return null;
           if (!answer.containsKey('id')) return null;
           if (!answer.containsKey('variants')) return null;
-          
+
           final variants = answer['variants'] as List;
           if (variants.length != languages.length) return null;
         }
@@ -2704,7 +3211,7 @@ class ReportState extends ChangeNotifier {
 
       for (final answerData in answers) {
         final answerId = answerData['id'] as int;
-        
+
         bool attention = answerId < shouldHaveAttention.length
             ? shouldHaveAttention[answerId]
             : false;

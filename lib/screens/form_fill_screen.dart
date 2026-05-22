@@ -8,6 +8,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:video_player/video_player.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
+import 'package:path/path.dart' as path;
 import '../providers/report_provider.dart';
 import '../providers/locale_provider.dart';
 import '../l10n/app_localizations.dart';
@@ -45,6 +46,37 @@ class _FormFillScreenState extends State<FormFillScreen> {
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
   String _processingMessage = '';
+
+  bool _checkedSyncAfterLoad = false;
+  bool _isUpdatingQuestions = false;
+
+  void _resetControllers() {
+    _answerControllers.values
+        .expand((map) => map.values)
+        .forEach((c) => c.dispose());
+    _answerControllers.clear();
+    _debounceTimers.values
+        .expand((map) => map.values)
+        .forEach((timer) => timer?.cancel());
+    _debounceTimers.clear();
+    _enabledAnswers.clear();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkSyncAfterLoad());
+  }
+
+  void _checkSyncAfterLoad() {
+    if (_checkedSyncAfterLoad) return;
+    
+    final reportState = context.read<ReportState>();
+    if (reportState.needsSyncAfterLoad()) {
+      _showSyncMenuDialog();
+    }
+    _checkedSyncAfterLoad = true;
+  }
 
   @override
   void dispose() {
@@ -651,8 +683,20 @@ class _FormFillScreenState extends State<FormFillScreen> {
             }
           });
         } else {
-          // Контроллер уже создан, не обновляем текст — это может сбросить позицию курсора
-          // Модель данных уже содержит актуальные значения, сохранение берет данные оттуда
+          final controller = _getSafeController(qid, j);
+          if (controller != null) {
+            final newText = answers[j]['text'] ?? '';
+            if (controller.text != newText) {
+              // Сохраняем позицию курсора перед обновлением
+              final selection = controller.selection;
+              controller.value = TextEditingValue(
+                text: newText,
+                selection: selection.baseOffset > newText.length 
+                    ? TextSelection.collapsed(offset: newText.length) 
+                    : selection,
+              );
+            }
+          }
         }
 
         final hasOtherAnswers = reportState.hasAnswersInOtherLanguages(i, j);
@@ -930,12 +974,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     }
                     await reportState.saveReport();
                     try {
-                      final directory = await FilePicker.platform
-                          .getDirectoryPath();
-                      if (directory != null) {
+                      final result = await FilePicker.platform.saveFile(
+                        dialogTitle: loc.saveZip,
+                        fileName: '${reportState.currentReport?.reportName.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_')}.zip',
+                        allowedExtensions: ['zip'],
+                      );
+                      if (result != null) {
                         _showProcessingDialog(loc.processingZip);
                         final zipPath = await reportState.exportZip(
-                          customSavePath: directory,
+                          customSavePath: path.dirname(result),
+                          customFileName: path.basename(result),
                         );
                         _hideProcessingDialog();
                         if (zipPath != null && mounted) {
@@ -2861,6 +2909,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ],
                         onSelected: (value) async {
                           if (value == 'add_above') {
+                            _resetControllers();
                             reportState.addQuestion(index - 1);
                             if (index > 0) {
                               _pageController.animateToPage(
@@ -2870,6 +2919,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               );
                             }
                           } else if (value == 'add_below') {
+                            _resetControllers();
                             reportState.addQuestion(index);
                             _pageController.animateToPage(
                               index + 1,
@@ -2896,16 +2946,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             );
                             if (confirm == true &&
                                 report.questions.length > 1) {
-                              final qid = index.toString();
-                              _answerControllers[qid]?.forEach(
-                                (_, c) => c.dispose(),
-                              );
-                              _answerControllers.remove(qid);
-                              _debounceTimers[qid]?.forEach(
-                                (_, t) => t?.cancel(),
-                              );
-                              _debounceTimers.remove(qid);
-                              _enabledAnswers.remove(qid);
+                              _resetControllers();
                               reportState.removeQuestion(index);
                               if (_currentPage >= report.questions.length) {
                                 _currentPage = report.questions.isNotEmpty
@@ -3037,6 +3078,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   ],
                                   onSelected: (value) async {
                                     if (value == 'add_above') {
+                                      _resetControllers();
                                       reportState.addQuestion(index - 1);
                                       if (index > 0) {
                                         _pageController.animateToPage(
@@ -3048,6 +3090,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         );
                                       }
                                     } else if (value == 'add_below') {
+                                      _resetControllers();
                                       reportState.addQuestion(index);
                                       _pageController.animateToPage(
                                         index + 1,
@@ -3080,16 +3123,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       );
                                       if (confirm == true &&
                                           report.questions.length > 1) {
-                                        final qid = index.toString();
-                                        _answerControllers[qid]?.forEach(
-                                          (_, c) => c.dispose(),
-                                        );
-                                        _answerControllers.remove(qid);
-                                        _debounceTimers[qid]?.forEach(
-                                          (_, t) => t?.cancel(),
-                                        );
-                                        _debounceTimers.remove(qid);
-                                        _enabledAnswers.remove(qid);
+                                        _resetControllers();
                                         reportState.removeQuestion(index);
                                         if (_currentPage >=
                                             report.questions.length) {
