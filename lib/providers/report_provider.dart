@@ -476,20 +476,6 @@ class ReportState extends ChangeNotifier {
     final qid = questionIndex.toString();
     final lang = _currentReport!.currentLanguage;
 
-    if (text.isNotEmpty) {
-      for (final otherLang in _currentReport!.availableLanguages) {
-        if (otherLang == lang) continue;
-        if (_currentReport!.translations.containsKey(qid) &&
-            _currentReport!.translations[qid]!.containsKey(otherLang) &&
-            answerIndex <
-                _currentReport!.translations[qid]![otherLang]!.length) {
-          _currentReport!.translations[qid]![otherLang]![answerIndex].text = '';
-          _currentReport!.translations[qid]![otherLang]![answerIndex].isEmpty =
-              true;
-        }
-      }
-    }
-
     if (_currentReport!.translations.containsKey(qid) &&
         _currentReport!.translations[qid]!.containsKey(lang) &&
         answerIndex < _currentReport!.translations[qid]![lang]!.length) {
@@ -879,6 +865,13 @@ class ReportState extends ChangeNotifier {
       final jsonFile = File('$folderPath/$reportFilename');
       final jsonData = _currentReport!.toJson();
       await jsonFile.writeAsString(jsonEncode(jsonData));
+      
+      print('saveReport: availableLanguages=${_currentReport!.availableLanguages}');
+      print('saveReport: translations keys=${_currentReport!.translations.keys}');
+      for (final qid in _currentReport!.translations.keys) {
+        print('saveReport: translations[$qid] keys=${_currentReport!.translations[qid]!.keys}');
+      }
+      
       await _saveHtmlPreview(folderPath);
       return true;
     } catch (e) {
@@ -3048,15 +3041,22 @@ class ReportState extends ChangeNotifier {
     if (_currentReport!.currentLanguage == languages.first) return false;
 
     for (int i = 0; i < _currentReport!.questions.length; i++) {
-      final firstLangAnswers = _currentReport!.getAnswersForQuestion(i, languages.first);
-      final currentLangAnswers = _currentReport!.getAnswersForQuestion(i, _currentReport!.currentLanguage);
+      final firstLangAnswers = _currentReport!.getAnswersForQuestion(
+        i,
+        languages.first,
+      );
+      final currentLangAnswers = _currentReport!.getAnswersForQuestion(
+        i,
+        _currentReport!.currentLanguage,
+      );
 
       for (int j = 0; j < firstLangAnswers.length; j++) {
-        final firstLangAnswer = firstLangAnswers[j]['text']?.toString().trim() ?? '';
-        final currentLangAnswer = j < currentLangAnswers.length 
-            ? currentLangAnswers[j]['text']?.toString().trim() ?? '' 
+        final firstLangAnswer =
+            firstLangAnswers[j]['text']?.toString().trim() ?? '';
+        final currentLangAnswer = j < currentLangAnswers.length
+            ? currentLangAnswers[j]['text']?.toString().trim() ?? ''
             : '';
-        
+
         if (firstLangAnswer.isNotEmpty && currentLangAnswer.isEmpty) {
           return true;
         }
@@ -3093,9 +3093,9 @@ class ReportState extends ChangeNotifier {
       final answersWithId = <Map<String, dynamic>>[];
       for (int answerIdx = 0; answerIdx < answerVariants.length; answerIdx++) {
         final variant = answerVariants[answerIdx];
-        final hasEmpty = variant.any((text) => text.isEmpty);
+        // Включаем ответ если есть хотя бы один непустой текст (для перевода)
         final hasNonEmpty = variant.any((text) => text.isNotEmpty);
-        if (hasEmpty && hasNonEmpty) {
+        if (hasNonEmpty) {
           answersWithId.add({'id': answerIdx, 'variants': variant});
         }
       }
@@ -3154,10 +3154,20 @@ class ReportState extends ChangeNotifier {
   void applySyncAnswers(String jsonStr) {
     if (_currentReport == null) return;
     final data = validateSyncJson(jsonStr);
-    if (data == null) return;
+    if (data == null) {
+      print('applySyncAnswers: validateSyncJson returned null');
+      return;
+    }
 
-    final languages = (data['languages'] as List).cast<String>();
+    // Сохраняем языки из JSON, чтобы сопоставить варианты
+    final jsonLanguages = (data['languages'] as List).cast<String>();
+    // Используем языки ИЗ ОТЧЕТА для обновления
+    final languages = _currentReport!.availableLanguages;
     final questions = data['questions'] as List;
+
+    print('applySyncAnswers START: jsonLanguages=$jsonLanguages');
+    print('applySyncAnswers START: reportLanguages=$languages');
+    print('applySyncAnswers START: questions count=${questions.length}');
 
     for (final qData in questions) {
       final questionId = qData['id'] as int;
@@ -3204,26 +3214,55 @@ class ReportState extends ChangeNotifier {
         }
       }
 
+      if (qid == '7') {
+        print('applySyncAnswers: qid=7 before update:');
+        for (final lang in languages) {
+          final langAnswers = _currentReport!.translations[qid]![lang]!;
+          print('applySyncAnswers: qid=7, lang=$lang, answers=${langAnswers.map((a) => a.text).toList()}');
+        }
+      }
+
       // Update translations for all languages in sync data
       for (final answerData in answers) {
         final answerId = answerData['id'] as int;
         final texts = (answerData['variants'] as List).cast<String>();
 
-        for (int langIndex = 0; langIndex < languages.length; langIndex++) {
-          final lang = languages[langIndex];
-          if (!_currentReport!.availableLanguages.contains(lang)) continue;
+        print('applySyncAnswers: qid=$qid, answerId=$answerId, texts=$texts');
 
-          final text = langIndex < texts.length ? texts[langIndex] : '';
+        for (final lang in languages) {
+          // Найдем индекс языка в JSON языках
+          final jsonLangIndex = jsonLanguages.indexOf(lang);
+          if (jsonLangIndex == -1) {
+            print('applySyncAnswers: lang=$lang not found in jsonLanguages');
+            continue; // Язык не найден в JSON, пропускаем
+          }
+
+          final text = jsonLangIndex < texts.length ? texts[jsonLangIndex] : '';
           final answersList = _currentReport!.translations[qid]![lang]!;
 
+          print('applySyncAnswers: lang=$lang, jsonLangIndex=$jsonLangIndex, text=$text');
+
           if (answerId < answersList.length) {
-            answersList[answerId] = TranslationAnswer(text: text, isEmpty: text.isEmpty);
+            answersList[answerId] = TranslationAnswer(
+              text: text,
+              isEmpty: text.isEmpty,
+            );
           } else {
             while (answersList.length < answerId) {
               answersList.add(TranslationAnswer());
             }
-            answersList.add(TranslationAnswer(text: text, isEmpty: text.isEmpty));
+            answersList.add(
+              TranslationAnswer(text: text, isEmpty: text.isEmpty),
+            );
           }
+        }
+      }
+
+      if (qid == '7') {
+        print('applySyncAnswers: qid=7 after update:');
+        for (final lang in languages) {
+          final langAnswers = _currentReport!.translations[qid]![lang]!;
+          print('applySyncAnswers: qid=7, lang=$lang, answers=${langAnswers.map((a) => a.text).toList()}');
         }
       }
 
