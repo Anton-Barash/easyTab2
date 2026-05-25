@@ -226,6 +226,7 @@
   "unlockAnswerTooltip": "Разблокировать ответ",
   "saved": "Сохранено",
   "processingZip": "Обработка ZIP...",
+  "processingMedia": "Файлы добавляются, подождите...",
   "importingProject": "Импорт проекта...",
   "projectImported": "Проект импортирован!",
   "importError": "Ошибка импорта",

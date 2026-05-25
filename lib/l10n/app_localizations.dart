@@ -1036,6 +1036,12 @@ abstract class AppLocalizations {
   /// **'Processing ZIP...'**
   String get processingZip;
 
+  /// No description provided for @processingMedia.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding files, please wait...'**
+  String get processingMedia;
+
   /// No description provided for @importingProject.
   ///
   /// In en, this message translates to:

@@ -512,6 +512,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get processingZip => 'Processing ZIP...';
 
   @override
+  String get processingMedia => 'Adding files, please wait...';
+
+  @override
   String get importingProject => 'Importing project...';
 
   @override

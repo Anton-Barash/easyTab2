@@ -513,6 +513,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get processingZip => 'Обработка ZIP...';
 
   @override
+  String get processingMedia => 'Файлы добавляются, подождите...';
+
+  @override
   String get importingProject => 'Импорт проекта...';
 
   @override

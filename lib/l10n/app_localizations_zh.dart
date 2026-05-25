@@ -504,6 +504,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get processingZip => '正在处理ZIP...';
 
   @override
+  String get processingMedia => '正在添加文件，请稍候...';
+
+  @override
   String get importingProject => '正在导入项目...';
 
   @override

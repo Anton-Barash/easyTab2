@@ -226,6 +226,7 @@
   "unlockAnswerTooltip": "Unlock answer",
   "saved": "Saved",
   "processingZip": "Processing ZIP...",
+  "processingMedia": "Adding files, please wait...",
   "importingProject": "Importing project...",
   "projectImported": "Project imported!",
   "importError": "Import error",

@@ -225,6 +225,7 @@
   "unlockAnswerTooltip": "解锁答案",
   "saved": "已保存",
   "processingZip": "正在处理ZIP...",
+  "processingMedia": "正在添加文件，请稍候...",
   "importingProject": "正在导入项目...",
   "projectImported": "项目导入成功！",
   "importError": "导入错误",

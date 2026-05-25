@@ -42,7 +42,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
   Set<int> _blockedQuestionIndices = {};
   bool _isUpdatingControllers = false;
   final Map<String, Map<int, bool>> _enabledAnswers = {};
-  Timer? _saveTimer;
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
   String _processingMessage = '';
@@ -86,33 +85,35 @@ class _FormFillScreenState extends State<FormFillScreen> {
     _debounceTimers.values
         .expand((map) => map.values)
         .forEach((timer) => timer?.cancel());
-    _saveTimer?.cancel();
     _pageController.dispose();
     _listScrollController.dispose();
     super.dispose();
   }
 
-  void _scheduleSave() {
-    setState(() => _hasUnsavedChanges = true);
-    _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(seconds: 2), () async {
-      await _doSave();
-    });
+  void _markAsUnsaved() {
+    if (!_hasUnsavedChanges) {
+      setState(() => _hasUnsavedChanges = true);
+    }
   }
 
   Future<void> _doSave() async {
+    if (!_hasUnsavedChanges) return;
+    
     setState(() => _isSaving = true);
     try {
       final reportState = context.read<ReportState>();
       await reportState.saveReport();
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _hasUnsavedChanges = false;
+        });
+      }
     } catch (e) {
       debugPrint('Save error: $e');
-    }
-    if (mounted) {
-      setState(() {
-        _isSaving = false;
-        _hasUnsavedChanges = false;
-      });
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -418,7 +419,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               _answerControllers[qid]?.remove(j);
                               _enabledAnswers[qid]?.remove(j);
                               reportState.removeAnswer(i, j);
-                              _scheduleSave();
+                              _markAsUnsaved();
                               Navigator.pop(ctx);
                             },
                             child: Text(loc.delete),
@@ -455,7 +456,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           _answerControllers[qid]?.remove(j);
                           _enabledAnswers[qid]?.remove(j);
                           reportState.removeAnswer(i, j);
-                          _scheduleSave();
+                          _markAsUnsaved();
                           Navigator.pop(ctx);
                         },
                         child: Text(loc.delete),
@@ -678,7 +679,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     j,
                     _getSafeController(qid, j)?.text ?? '',
                   );
-                  setState(() => _hasUnsavedChanges = true);
+                  if (!_hasUnsavedChanges) {
+                    setState(() => _hasUnsavedChanges = true);
+                  }
                 },
               );
             }
@@ -2966,10 +2969,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               _pageController.jumpToPage(
                                 _currentPage == -1 ? 0 : _currentPage + 1,
                               );
-                              _scheduleSave();
-                              if (mounted) {
-                                setState(() {});
-                              }
+                              _markAsUnsaved();
                             }
                           }
                         },
@@ -3147,10 +3147,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               ? 0
                                               : _currentPage + 1,
                                         );
-                                        _scheduleSave();
-                                        if (mounted) {
-                                          setState(() {});
-                                        }
+                                        _markAsUnsaved();
                                       }
                                     }
                                   },
@@ -3208,7 +3205,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       ),
                       onPressed: () {
                         reportState.addAnswer(index);
-                        _scheduleSave();
+                        _markAsUnsaved();
                       },
                       tooltip: loc.addAnswerTooltip,
                     ),
@@ -3324,7 +3321,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         _needsWorkMap[i] = newValue;
                       });
                       reportState.updateAnswerNeedsWork(i, j, newValue);
-                      _scheduleSave();
+                      _markAsUnsaved();
                     },
                   ),
                 ),
@@ -3341,7 +3338,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ),
                     onPressed: () {
                       reportState.updateAnswerAttention(i, j, !attention);
-                      _scheduleSave();
+                      _markAsUnsaved();
                     },
                   ),
                 ),
@@ -3465,6 +3462,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
+    _showProcessingDialog(loc.processingMedia);
+
     try {
       final reportState = context.read<ReportState>();
       for (final file in selectedFiles) {
@@ -3475,15 +3474,22 @@ class _FormFillScreenState extends State<FormFillScreen> {
           isAttention,
         );
       }
+
+      await reportState.saveReport();
+      if (mounted) {
+        setState(() {
+          _hasUnsavedChanges = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('${loc.saveError}$e')));
       }
-      return;
+    } finally {
+      _hideProcessingDialog();
     }
-    _scheduleSave();
   }
 
   Widget _buildMediaGrid(
