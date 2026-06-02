@@ -1,7 +1,7 @@
 name: easy_tab
 description: "EasyTab - Excel Report Builder"
 publish_to: 'none'
-version: 1.0.14
+version: 1.0.15
 
 environment:
   sdk: ^3.11.5

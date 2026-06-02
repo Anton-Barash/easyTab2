@@ -483,6 +483,15 @@ class ReportState extends ChangeNotifier {
       _currentReport!.translations[qid]![lang]![answerIndex].text = text;
       _currentReport!.translations[qid]![lang]![answerIndex].isEmpty =
           text.isEmpty;
+      
+      for (final otherLang in _currentReport!.availableLanguages) {
+        if (otherLang != lang &&
+            _currentReport!.translations[qid]!.containsKey(otherLang) &&
+            answerIndex < _currentReport!.translations[qid]![otherLang]!.length) {
+          _currentReport!.translations[qid]![otherLang]![answerIndex].text = '';
+          _currentReport!.translations[qid]![otherLang]![answerIndex].isEmpty = true;
+        }
+      }
     }
   }
 
