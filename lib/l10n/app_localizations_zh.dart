@@ -401,6 +401,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get questions => '问题';
 
   @override
+  String get hideAnswered => '隐藏已答';
+
+  @override
   String get reportNameLabel => '报告名称';
 
   @override

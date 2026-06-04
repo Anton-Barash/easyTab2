@@ -408,6 +408,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get questions => 'Questions';
 
   @override
+  String get hideAnswered => 'Hide answered';
+
+  @override
   String get reportNameLabel => 'Report name';
 
   @override

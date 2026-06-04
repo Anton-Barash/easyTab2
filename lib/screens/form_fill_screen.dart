@@ -14,6 +14,7 @@ import '../providers/locale_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/report_models.dart';
 
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'dart:async';
 
 enum ViewMode { list, card }
@@ -35,8 +36,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   bool _isSidePanelCollapsed = false;
+  bool _hideAnsweredQuestions = false;
   final PageController _pageController = PageController();
-  final ScrollController _listScrollController = ScrollController();
+  final ItemScrollController _listItemScrollController = ItemScrollController();
+  final ItemScrollController _sidePanelItemScrollController = ItemScrollController();
   int _currentPage = -1;
   final Map<int, bool> _needsWorkMap = {};
   Set<int> _blockedQuestionIndices = {};
@@ -86,7 +89,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
         .expand((map) => map.values)
         .forEach((timer) => timer?.cancel());
     _pageController.dispose();
-    _listScrollController.dispose();
     super.dispose();
   }
 
@@ -654,12 +656,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
       final existingIndices = _answerControllers[qid]?.keys.toList() ?? [];
       for (final j in existingIndices) {
+        // Cancel any pending debounce timer to prevent stale updates
+        _debounceTimers[qid]?[j]?.cancel();
+        _debounceTimers[qid]?.remove(j);
         if (j >= answers.length) {
           _getSafeController(qid, j)?.dispose();
           _answerControllers[qid]?.remove(j);
           _enabledAnswers[qid]?.remove(j);
-          _debounceTimers[qid]?[j]?.cancel();
-          _debounceTimers[qid]?.remove(j);
         }
       }
 
@@ -691,6 +694,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           if (controller != null) {
             final newText = answers[j]['text'] ?? '';
             if (controller.text != newText) {
+              _isUpdatingControllers = true;
               // Сохраняем позицию курсора перед обновлением
               final selection = controller.selection;
               controller.value = TextEditingValue(
@@ -699,6 +703,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ? TextSelection.collapsed(offset: newText.length)
                     : selection,
               );
+              _isUpdatingControllers = false;
             }
           }
         }
@@ -773,9 +778,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
               });
               if (_viewMode == ViewMode.card) {
                 Future.delayed(Duration.zero, () {
-                  _pageController.jumpToPage(
-                    _currentPage == -1 ? 0 : _currentPage + 1,
-                  );
+                  if (_currentPage == -1) {
+                    _pageController.jumpToPage(0);
+                  } else {
+                    final page = _getPageForQuestion(_currentPage, report);
+                    if (page >= 0) {
+                      _pageController.jumpToPage(page);
+                    }
+                  }
                 });
               }
             },
@@ -1129,12 +1139,39 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       ],
                                     ),
                                   ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: Checkbox(
+                                            value: _hideAnsweredQuestions,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _hideAnsweredQuestions = value ?? false;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            loc.hideAnswered,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF666666),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                   Expanded(
-                                    child: ListView.builder(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      itemCount: report.questions.length + 1,
+                                    child: ScrollablePositionedList.builder(
+                                      itemScrollController: _sidePanelItemScrollController,
+                                      itemCount: _getFilteredQuestionCount(report),
                                       itemBuilder: (ctx, index) {
                                         if (index == 0) {
                                           return _buildHeaderCard0SidePanel(
@@ -1143,7 +1180,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                             reportState,
                                           );
                                         }
-                                        final i = index - 1;
+                                        final i = _getFilteredQuestionIndex(index - 1, report);
+                                        if (i == -1) return const SizedBox.shrink();
                                         final lang = report.currentLanguage;
                                         final answers = report
                                             .getAnswersForQuestion(i, lang);
@@ -1167,10 +1205,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         );
 
                                         return Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 4,
-                                          ),
-                                          child: Material(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 4,
+                                            ),
+                                            child: Material(
                                             color: Colors.white,
                                             borderRadius: BorderRadius.circular(
                                               8,
@@ -1179,17 +1217,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               onTap: () {
                                                 setState(() {
                                                   _currentPage = i;
-                                                  _isSidePanelCollapsed = true;
                                                 });
                                                 if (_viewMode ==
                                                     ViewMode.card) {
-                                                  _pageController.animateToPage(
-                                                    i + 1,
-                                                    duration: const Duration(
-                                                      milliseconds: 300,
-                                                    ),
-                                                    curve: Curves.ease,
-                                                  );
+                                                  final page = _getPageForQuestion(i, report);
+                                                  if (page >= 0) {
+                                                    _pageController.animateToPage(
+                                                      page,
+                                                      duration: const Duration(
+                                                        milliseconds: 300,
+                                                      ),
+                                                      curve: Curves.ease,
+                                                    );
+                                                  }
                                                 } else {
                                                   _scrollToQuestion(i);
                                                 }
@@ -1449,7 +1489,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               ),
                                             ),
                                           ),
-                                        );
+                                      );
                                       },
                                     ),
                                   ),
@@ -1517,10 +1557,39 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             ],
                           ),
                         ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Checkbox(
+                                  value: _hideAnsweredQuestions,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _hideAnsweredQuestions = value ?? false;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  loc.hideAnswered,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF666666),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         Expanded(
-                          child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            itemCount: report.questions.length + 1,
+                          child: ScrollablePositionedList.builder(
+                            itemScrollController: _sidePanelItemScrollController,
+                            itemCount: _getFilteredQuestionCount(report),
                             itemBuilder: (ctx, index) {
                               if (index == 0) {
                                 return _buildHeaderCard0SidePanel(
@@ -1529,7 +1598,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   reportState,
                                 );
                               }
-                              final i = index - 1;
+                              final i = _getFilteredQuestionIndex(index - 1, report);
+                              if (i == -1) return const SizedBox.shrink();
                               final lang = report.currentLanguage;
                               final answers = report.getAnswersForQuestion(
                                 i,
@@ -1547,12 +1617,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               final hasTranslation = q.hasTranslation(lang);
 
                               return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                                child: Material(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: Material(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
                                   child: InkWell(
                                     onTap: () {
                                       setState(() {
@@ -1560,13 +1630,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         _isSidePanelCollapsed = true;
                                       });
                                       if (_viewMode == ViewMode.card) {
-                                        _pageController.animateToPage(
-                                          i + 1,
-                                          duration: const Duration(
-                                            milliseconds: 300,
-                                          ),
-                                          curve: Curves.ease,
-                                        );
+                                        final page = _getPageForQuestion(i, report);
+                                        if (page >= 0) {
+                                          _pageController.animateToPage(
+                                            page,
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            curve: Curves.ease,
+                                          );
+                                        }
                                       } else {
                                         _scrollToQuestion(i);
                                       }
@@ -1784,24 +1857,112 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   void _scrollToQuestion(int index) {
-    const itemHeight = 300.0;
-    final offset = index * itemHeight;
-    _listScrollController.animateTo(
-      offset,
+    // index is 0-based question index; in list, item at listIndex where visibleIndices[listIndex] == index+1
+    if (!_listItemScrollController.isAttached) return;
+    final report = context.read<ReportState>().currentReport;
+    if (report == null) return;
+    // Build same visibleIndices as _buildListView
+    final visibleIndices = <int>[0];
+    for (int i = 0; i < report.questions.length; i++) {
+      if (_shouldShowQuestion(i, report)) {
+        visibleIndices.add(i + 1);
+      }
+    }
+    final targetValue = index + 1;
+    final listIndex = visibleIndices.indexOf(targetValue);
+    if (listIndex < 0) return;
+    _listItemScrollController.scrollTo(
+      index: listIndex,
       duration: const Duration(milliseconds: 300),
       curve: Curves.ease,
+      alignment: 0.0,
     );
+  }
+
+  void _scrollSidePanelToQuestion(int questionIndex, Report report) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_sidePanelItemScrollController.isAttached) return;
+      // Calculate visible index in side panel
+      int visibleIndex;
+      if (questionIndex == -1) {
+        visibleIndex = 0; // header
+      } else if (!_hideAnsweredQuestions) {
+        visibleIndex = questionIndex + 1;
+      } else {
+        int seen = 1; // header is always first
+        for (int i = 0; i <= questionIndex; i++) {
+          if (_shouldShowQuestion(i, report)) seen++;
+        }
+        visibleIndex = seen - 1;
+      }
+      _sidePanelItemScrollController.scrollTo(
+        index: visibleIndex,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.ease,
+        alignment: 0.5, // center the item
+      );
+    });
+  }
+
+  bool _shouldShowQuestion(int i, Report report) {
+    if (!_hideAnsweredQuestions) return true;
+    if (_needsWorkMap[i] == true) return true;
+    final lang = report.currentLanguage;
+    final answers = report.getAnswersForQuestion(i, lang);
+    final hasFilledAnswer = answers.any((a) => !(a['isEmpty'] == true));
+    return !hasFilledAnswer;
+  }
+
+  int _getFilteredQuestionCount(Report report) {
+    if (!_hideAnsweredQuestions) return report.questions.length + 1;
+    int count = 1; // card 0 always visible
+    for (int i = 0; i < report.questions.length; i++) {
+      if (_shouldShowQuestion(i, report)) count++;
+    }
+    return count;
+  }
+
+  int _getFilteredQuestionIndex(int visibleIndex, Report report) {
+    if (!_hideAnsweredQuestions) return visibleIndex;
+    int seen = 0;
+    for (int i = 0; i < report.questions.length; i++) {
+      if (_shouldShowQuestion(i, report)) {
+        if (seen == visibleIndex) return i;
+        seen++;
+      }
+    }
+    return -1;
+  }
+
+  /// Get the page index in filtered PageView for a given question index
+  int _getPageForQuestion(int questionIndex, Report report) {
+    if (!_hideAnsweredQuestions) return questionIndex + 1;
+    int page = 1; // page 0 is header
+    for (int i = 0; i < questionIndex; i++) {
+      if (_shouldShowQuestion(i, report)) page++;
+    }
+    // Check if this question is visible
+    if (_shouldShowQuestion(questionIndex, report)) return page;
+    return -1; // question is hidden
   }
 
   Widget _buildListView(ReportState reportState, Report report) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth <= 800;
-        return ListView.builder(
-          controller: _listScrollController,
-          padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(16),
-          itemCount: report.questions.length + 1,
-          itemBuilder: (ctx, index) {
+        // Build list of visible items: always include index 0 (header),
+        // then only questions that pass the filter
+        final visibleIndices = <int>[0];
+        for (int i = 0; i < report.questions.length; i++) {
+          if (_shouldShowQuestion(i, report)) {
+            visibleIndices.add(i + 1);
+          }
+        }
+        return ScrollablePositionedList.builder(
+          itemScrollController: _listItemScrollController,
+          itemCount: visibleIndices.length,
+          itemBuilder: (ctx, listIndex) {
+            final index = visibleIndices[listIndex];
             if (index == 0) {
               return Padding(
                 padding: isMobile
@@ -1835,22 +1996,41 @@ class _FormFillScreenState extends State<FormFillScreen> {
           return Center(child: Text(loc.noQuestions));
         }
         final isMobile = constraints.maxWidth <= 800;
+        // Build list of visible page indices: always include 0 (header),
+        // then only questions that pass the filter
+        final visiblePageIndices = <int>[0];
+        for (int i = 0; i < report.questions.length; i++) {
+          if (_shouldShowQuestion(i, report)) {
+            visiblePageIndices.add(i + 1);
+          }
+        }
         return Stack(
           children: [
             PageView.builder(
               controller: _pageController,
               onPageChanged: (page) {
-                final newPage = page == 0 ? -1 : page - 1;
+                final realIndex = page < visiblePageIndices.length
+                    ? visiblePageIndices[page]
+                    : page;
+                final newPage = realIndex == 0 ? -1 : realIndex - 1;
                 if (_currentPage != newPage && _hasUnsavedChanges) {
                   _doSave();
                 }
                 setState(() {
                   _currentPage = newPage;
                 });
+                if (newPage >= 0) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _scrollSidePanelToQuestion(newPage, report);
+                  });
+                }
               },
               physics: const BouncingScrollPhysics(),
-              itemCount: report.questions.length + 1,
-              itemBuilder: (context, index) {
+              itemCount: visiblePageIndices.length,
+              itemBuilder: (context, pageIdx) {
+                final index = pageIdx < visiblePageIndices.length
+                    ? visiblePageIndices[pageIdx]
+                    : pageIdx;
                 if (index == 0) {
                   return SingleChildScrollView(
                     padding: isMobile
@@ -1970,6 +2150,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   onTap: () {
                     setState(() {
                       _isSidePanelCollapsed = false;
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollSidePanelToQuestion(-1, report);
                     });
                   },
                   child: Container(
@@ -2461,6 +2644,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           _isSidePanelCollapsed = false;
                         }
                       });
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _scrollSidePanelToQuestion(-1, report);
+                      });
                     },
                     child: Container(
                       width: 24,
@@ -2685,11 +2871,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 curve: Curves.ease,
               );
             } else {
-              _listScrollController.animateTo(
-                0,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.ease,
-              );
+              if (_listItemScrollController.isAttached) {
+                _listItemScrollController.scrollTo(
+                  index: 0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.ease,
+                );
+              }
             }
           },
           borderRadius: BorderRadius.circular(8),
@@ -2820,6 +3008,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         onTap: () {
                           setState(() {
                             _isSidePanelCollapsed = false;
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _scrollSidePanelToQuestion(index, report);
                           });
                         },
                         child: Container(
@@ -2966,9 +3157,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     ? report.questions.length - 1
                                     : -1;
                               }
-                              _pageController.jumpToPage(
-                                _currentPage == -1 ? 0 : _currentPage + 1,
-                              );
+                              if (_currentPage == -1) {
+                                _pageController.jumpToPage(0);
+                              } else {
+                                final page = _getPageForQuestion(_currentPage, report);
+                                if (page >= 0) {
+                                  _pageController.jumpToPage(page);
+                                }
+                              }
                               _markAsUnsaved();
                             }
                           }
@@ -3142,11 +3338,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               ? report.questions.length - 1
                                               : -1;
                                         }
-                                        _pageController.jumpToPage(
-                                          _currentPage == -1
-                                              ? 0
-                                              : _currentPage + 1,
-                                        );
+                                        if (_currentPage == -1) {
+                                          _pageController.jumpToPage(0);
+                                        } else {
+                                          final page = _getPageForQuestion(_currentPage, report);
+                                          if (page >= 0) {
+                                            _pageController.jumpToPage(page);
+                                          }
+                                        }
                                         _markAsUnsaved();
                                       }
                                     }

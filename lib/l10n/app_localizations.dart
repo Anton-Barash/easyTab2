@@ -838,6 +838,12 @@ abstract class AppLocalizations {
   /// **'Questions'**
   String get questions;
 
+  /// No description provided for @hideAnswered.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide answered'**
+  String get hideAnswered;
+
   /// No description provided for @reportNameLabel.
   ///
   /// In en, this message translates to:

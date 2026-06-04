@@ -192,6 +192,7 @@
   "aiPromptContent": "\"此json包含不同语言的答案。用现有答案的翻译填写空白答案。\"",
   "enterDecryption": "输入描述...",
   "questions": "问题",
+  "hideAnswered": "隐藏已答",
   "reportNameLabel": "报告名称",
   "selectTemplate": "选择模板",
   "builtInTemplate": "内置模板",

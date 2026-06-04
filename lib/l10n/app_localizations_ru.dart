@@ -407,6 +407,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get questions => 'Вопросы';
 
   @override
+  String get hideAnswered => 'Скрыть заполненные';
+
+  @override
   String get reportNameLabel => 'Название отчёта';
 
   @override

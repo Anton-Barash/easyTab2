@@ -3250,19 +3250,20 @@ class ReportState extends ChangeNotifier {
           final text = jsonLangIndex < texts.length ? texts[jsonLangIndex] : '';
           final answersList = _currentReport!.translations[qid]![lang]!;
 
-          print('applySyncAnswers: lang=$lang, jsonLangIndex=$jsonLangIndex, text=$text');
+          // Skip empty texts — don't overwrite existing non-empty answers
+          if (text.isEmpty) continue;
 
           if (answerId < answersList.length) {
             answersList[answerId] = TranslationAnswer(
               text: text,
-              isEmpty: text.isEmpty,
+              isEmpty: false,
             );
           } else {
             while (answersList.length < answerId) {
               answersList.add(TranslationAnswer());
             }
             answersList.add(
-              TranslationAnswer(text: text, isEmpty: text.isEmpty),
+              TranslationAnswer(text: text, isEmpty: false),
             );
           }
         }

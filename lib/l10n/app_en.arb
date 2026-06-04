@@ -193,6 +193,7 @@
   "aiPromptContent": "\"This json contains answers in different languages. Fill in empty answers with translations of existing answers.\"",
   "enterDecryption": "Enter description...",
   "questions": "Questions",
+  "hideAnswered": "Hide answered",
   "reportNameLabel": "Report name",
   "selectTemplate": "Select template",
   "builtInTemplate": "Built-in template",

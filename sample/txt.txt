@@ -17,5 +17,5 @@ flutter run -d web-server --web-port=3000
 cd d:\neiroQC\easyTab2\easy_tab
 flutter build apk --release
 flutter install
-
-//flutter run
+запускаес на android с сохраением данных приложения:
+//flutter run 
