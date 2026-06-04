@@ -715,12 +715,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: const SizedBox(),
-        title: Text(
-          report.reportName,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        leadingWidth: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Text(
+            report.reportName,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         backgroundColor: const Color(0xFFe0e0e0),
         foregroundColor: const Color(0xFF424242),
@@ -1115,8 +1120,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
+                                  Container(
+                                    color: const Color(0xFFf3f4f6),
+                                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                                     child: Row(
                                       children: [
                                         Text(
@@ -1139,40 +1145,58 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       ],
                                     ),
                                   ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    child: Row(
-                                      children: [
-                                        SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: Checkbox(
-                                            value: _hideAnsweredQuestions,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _hideAnsweredQuestions = value ?? false;
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text(
-                                            loc.hideAnswered,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF666666),
+                                  Container(
+                                    color: const Color(0xFFf3f4f6),
+                                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _hideAnsweredQuestions = !_hideAnsweredQuestions;
+                                        });
+                                      },
+                                      child: Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: Checkbox(
+                                              value: _hideAnsweredQuestions,
+                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              fillColor: WidgetStateProperty.resolveWith((states) {
+                                                if (states.contains(WidgetState.selected)) {
+                                                  return const Color(0xFF424242);
+                                                }
+                                                return const Color(0xFF9ca3af);
+                                              }),
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _hideAnsweredQuestions = value ?? false;
+                                                });
+                                              },
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              loc.hideAnswered,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Color(0xFF666666),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                   Expanded(
                                     child: ScrollablePositionedList.builder(
                                       itemScrollController: _sidePanelItemScrollController,
-                                      itemCount: _getFilteredQuestionCount(report),
+                                      itemCount: _getFilteredQuestionCount(report) + 1,
                                       itemBuilder: (ctx, index) {
+                                        if (index == _getFilteredQuestionCount(report)) {
+                                          return const SizedBox(height: 80);
+                                        }
                                         if (index == 0) {
                                           return _buildHeaderCard0SidePanel(
                                             context,
@@ -1533,8 +1557,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     color: Colors.white,
                     child: Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
+                        Container(
+                          color: const Color(0xFFf3f4f6),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                           child: Row(
                             children: [
                               Text(
@@ -1557,40 +1582,58 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             ],
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: Checkbox(
-                                  value: _hideAnsweredQuestions,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _hideAnsweredQuestions = value ?? false;
-                                    });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  loc.hideAnswered,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF666666),
+                        Container(
+                          color: const Color(0xFFf3f4f6),
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                _hideAnsweredQuestions = !_hideAnsweredQuestions;
+                              });
+                            },
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: Checkbox(
+                                    value: _hideAnsweredQuestions,
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    fillColor: WidgetStateProperty.resolveWith((states) {
+                                      if (states.contains(WidgetState.selected)) {
+                                        return const Color(0xFF424242);
+                                      }
+                                      return const Color(0xFF9ca3af);
+                                    }),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _hideAnsweredQuestions = value ?? false;
+                                      });
+                                    },
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    loc.hideAnswered,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF666666),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         Expanded(
                           child: ScrollablePositionedList.builder(
                             itemScrollController: _sidePanelItemScrollController,
-                            itemCount: _getFilteredQuestionCount(report),
+                            itemCount: _getFilteredQuestionCount(report) + 1,
                             itemBuilder: (ctx, index) {
+                              if (index == _getFilteredQuestionCount(report)) {
+                                return const SizedBox(height: 80);
+                              }
                               if (index == 0) {
                                 return _buildHeaderCard0SidePanel(
                                   context,
@@ -1960,8 +2003,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
         }
         return ScrollablePositionedList.builder(
           itemScrollController: _listItemScrollController,
-          itemCount: visibleIndices.length,
+          itemCount: visibleIndices.length + 1,
           itemBuilder: (ctx, listIndex) {
+            if (listIndex == visibleIndices.length) {
+              return const SizedBox(height: 120);
+            }
             final index = visibleIndices[listIndex];
             if (index == 0) {
               return Padding(
@@ -2886,9 +2932,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             decoration: BoxDecoration(
               border: Border.all(
                 width: 1.5,
-                color: _currentPage == -1
-                    ? const Color(0xFF3b82f6)
-                    : const Color(0xFFe5e7eb),
+                color: const Color(0xFFe5e7eb),
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -3041,6 +3085,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             index,
                             reportState,
                             'name',
+                            _markAsUnsaved,
                           ),
                           child: Text(
                             questionLoc?.name ??
@@ -3064,6 +3109,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             index,
                             reportState,
                             'description',
+                            _markAsUnsaved,
                           ),
                         ),
                       PopupMenuButton<String>(
@@ -3208,6 +3254,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       index,
                                       reportState,
                                       'name',
+                                      _markAsUnsaved,
                                     ),
                                     child: Text(
                                       questionLoc?.name ??
@@ -3235,6 +3282,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       index,
                                       reportState,
                                       'description',
+                                      _markAsUnsaved,
                                     ),
                                   ),
                                 PopupMenuButton<String>(
@@ -4355,6 +4403,7 @@ void _showEditQuestionDialog(
   int questionIndex,
   ReportState reportState,
   String fieldType,
+  VoidCallback? onSaved,
 ) {
   final report = reportState.currentReport;
   if (report == null) return;
@@ -4424,6 +4473,7 @@ void _showEditQuestionDialog(
                   questionLoc?.example,
                 );
               }
+              onSaved?.call();
               Navigator.pop(ctx);
             },
             child: Text(loc.save),
