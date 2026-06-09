@@ -561,4 +561,54 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fillAllFields => 'Please fill in all fields';
+
+  @override
+  String get compressVideoTitle => 'Compress Video';
+
+  @override
+  String get highQuality => 'High quality';
+
+  @override
+  String get highQualityDesc => 'Less compression, better quality';
+
+  @override
+  String get mediumQuality => 'Medium quality';
+
+  @override
+  String get mediumQualityDesc => 'Balanced compression';
+
+  @override
+  String get lowQuality => 'Low quality';
+
+  @override
+  String get lowQualityDesc => 'Maximum compression';
+
+  @override
+  String get compressingVideo => 'Compressing video...';
+
+  @override
+  String get noVideoToCompress =>
+      'No video to compress or all already compressed';
+
+  @override
+  String get compressionComplete => 'Compression complete';
+
+  @override
+  String compressedVideoCount(int count) {
+    return 'Compressed videos: $count';
+  }
+
+  @override
+  String compressionError(String error) {
+    return 'Compression error: $error';
+  }
+
+  @override
+  String get importProject => 'Import project';
+
+  @override
+  String get newReportTooltip => 'New report';
+
+  @override
+  String get noSavedReports => 'No saved reports';
 }

@@ -209,18 +209,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Сжать видео'),
+        title: Text(loc.compressVideoTitle),
         content: StatefulBuilder(
           builder: (dialogCtx, setState) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 8),
-                const Text('Сжать видео'),
+                Text(loc.compressVideoTitle),
                 const SizedBox(height: 16),
                 RadioListTile<int>(
-                  title: const Text('Высокое качество'),
-                  subtitle: const Text('Меньшее сжатие, лучше качество'),
+                  title: Text(loc.highQuality),
+                  subtitle: Text(loc.highQualityDesc),
                   value: 1,
                   groupValue: selectedQuality,
                   onChanged: (value) {
@@ -230,8 +230,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   },
                 ),
                 RadioListTile<int>(
-                  title: const Text('Среднее качество'),
-                  subtitle: const Text('Сбалансированное сжатие'),
+                  title: Text(loc.mediumQuality),
+                  subtitle: Text(loc.mediumQualityDesc),
                   value: 2,
                   groupValue: selectedQuality,
                   onChanged: (value) {
@@ -241,8 +241,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   },
                 ),
                 RadioListTile<int>(
-                  title: const Text('Низкое качество'),
-                  subtitle: const Text('Максимальное сжатие'),
+                  title: Text(loc.lowQuality),
+                  subtitle: Text(loc.lowQualityDesc),
                   value: 3,
                   groupValue: selectedQuality,
                   onChanged: (value) {
@@ -274,6 +274,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   Future<void> _compressVideosWithQuality(int quality) async {
     final reportState = context.read<ReportState>();
+    final loc = AppLocalizations.of(context)!;
     int currentProgress = 0;
     int totalVideos = 0;
     List<String> compressedVideos = [];
@@ -284,11 +285,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setState) {
           return AlertDialog(
-            title: const Text('Сжать видео'),
+            title: Text(loc.compressVideoTitle),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Сжимаем видео...'),
+                Text(loc.compressingVideo),
                 const SizedBox(height: 16),
                 LinearProgressIndicator(
                   value: totalVideos > 0 ? currentProgress / totalVideos : 0,
@@ -319,19 +320,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
         if (compressedVideos.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Нет видео для сжатия или все уже сжаты'),
+            SnackBar(
+              content: Text(loc.noVideoToCompress),
             ),
           );
         } else {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Сжатие завершено'),
+              title: Text(loc.compressionComplete),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Сжато видео: ${compressedVideos.length}'),
+                  Text(loc.compressedVideoCount(compressedVideos.length)),
                   const SizedBox(height: 8),
                   SizedBox(
                     height: 200,
@@ -351,7 +352,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
+                  child: Text(loc.ok),
                 ),
               ],
             ),
@@ -363,7 +364,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка сжатия: $e')));
+        ).showSnackBar(SnackBar(content: Text(loc.compressionError(e.toString()))));
       }
     }
   }
@@ -855,7 +856,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       children: [
                         const Icon(Icons.video_call),
                         const SizedBox(width: 8),
-                        const Text('Сжать видео'),
+                        Text(loc.compressVideoTitle),
                       ],
                     ),
                   ),

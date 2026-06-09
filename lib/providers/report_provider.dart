@@ -1451,7 +1451,8 @@ class ReportState extends ChangeNotifier {
 
       String answerCellContent(int ai, int li) {
         if (ai < answersByLang[li].length) {
-          return answersByLang[li][ai]['text'] ?? '';
+          final text = answersByLang[li][ai]['text'] ?? '';
+          return text.replaceAll('\n', '<br>');
         }
         return '';
       }

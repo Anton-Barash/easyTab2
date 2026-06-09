@@ -265,8 +265,9 @@ class StartScreen extends StatelessWidget {
     final reports = await reportState.loadReportList();
     
     if (reports.isEmpty) {
+      final loc = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Нет сохраненных отчетов')),
+        SnackBar(content: Text(loc.noSavedReports)),
       );
       return;
     }

@@ -156,19 +156,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildActionButtons() {
+    final loc = AppLocalizations.of(context)!;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         FloatingActionButton(
           onPressed: _importProject,
-          tooltip: 'Импорт проекта',
+          tooltip: loc.importProject,
           child: const Icon(Icons.upload_file),
         ),
         const SizedBox(width: 10),
         FloatingActionButton(
           onPressed: () =>
               Navigator.of(context).pushReplacementNamed('/template'),
-          tooltip: 'Новый отчет',
+          tooltip: loc.newReportTooltip,
           child: const Icon(Icons.add),
         ),
       ],
@@ -252,150 +253,158 @@ class _ReportsScreenState extends State<ReportsScreen> {
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFe0e0e0),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(width: 2, color: const Color(0xFF333333)),
-                ),
-                child: hasThumbnail
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.file(
-                          File('${report.folderName}/${report.thumbnailPath}'),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Icon(
-                                Icons.note,
-                                size: 32,
-                                color: Color(0xFF424242),
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    : const Center(
-                        child: Icon(
-                          Icons.note,
-                          size: 32,
-                          color: Color(0xFF424242),
-                        ),
-                      ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFe0e0e0),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(width: 2, color: const Color(0xFF333333)),
+                    ),
+                    child: hasThumbnail
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.file(
+                              File('${report.folderName}/${report.thumbnailPath}'),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: Icon(
+                                    Icons.note,
+                                    size: 32,
+                                    color: Color(0xFF424242),
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.note,
+                              size: 32,
+                              color: Color(0xFF424242),
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
                       report.name,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF424242),
                       ),
-                      maxLines: 1,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      report.dateTime.toLocal().toString().substring(0, 16),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF666666),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Color(0xFFdc2626)),
-                onPressed: () async {
-                  final loc = AppLocalizations.of(context)!;
-                  final scaffoldMessenger = ScaffoldMessenger.of(context);
-                  final isMobile = MediaQuery.of(context).size.width <= 800;
-                  final confirm = await showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      insetPadding: isMobile
-                          ? EdgeInsets.zero
-                          : const EdgeInsets.all(40),
-                      contentPadding: isMobile
-                          ? const EdgeInsets.all(16)
-                          : const EdgeInsets.all(24),
-                      shape: isMobile
-                          ? const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.zero,
-                            )
-                          : null,
-                      title: isMobile ? null : Text(loc.deleteReport),
-                      content: isMobile
-                          ? Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(loc.cannotUndo),
-                                const SizedBox(height: 24),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
-                                        child: Text(loc.cancel),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
-                                        child: Text(loc.delete),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )
-                          : Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(loc.cannotUndo),
-                                const SizedBox(height: 24),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(ctx, false),
-                                      child: Text(loc.cancel),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      child: Text(loc.delete),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    report.dateTime.toLocal().toString().substring(0, 16),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF666666),
                     ),
-                  );
-                  if (confirm == true) {
-                    await reportState.deleteReport(report.folderName);
-                    setState(() {
-                      _loadReports();
-                    });
-                    if (!mounted) return;
-                    scaffoldMessenger.showSnackBar(
-                      SnackBar(content: Text(loc.reportDeleted)),
-                    );
-                  }
-                },
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Color(0xFFdc2626)),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () async {
+                      final loc = AppLocalizations.of(context)!;
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      final isMobile = MediaQuery.of(context).size.width <= 800;
+                      final confirm = await showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          insetPadding: isMobile
+                              ? EdgeInsets.zero
+                              : const EdgeInsets.all(40),
+                          contentPadding: isMobile
+                              ? const EdgeInsets.all(16)
+                              : const EdgeInsets.all(24),
+                          shape: isMobile
+                              ? const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.zero,
+                                )
+                              : null,
+                          title: isMobile ? null : Text(loc.deleteReport),
+                          content: isMobile
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(loc.cannotUndo),
+                                    const SizedBox(height: 24),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: Text(loc.cancel),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: Text(loc.delete),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(loc.cannotUndo),
+                                    const SizedBox(height: 24),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, false),
+                                          child: Text(loc.cancel),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          child: Text(loc.delete),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      );
+                      if (confirm == true) {
+                        await reportState.deleteReport(report.folderName);
+                        setState(() {
+                          _loadReports();
+                        });
+                        if (!mounted) return;
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(content: Text(loc.reportDeleted)),
+                        );
+                      }
+                    },
+                  ),
+                ],
               ),
             ],
           ),

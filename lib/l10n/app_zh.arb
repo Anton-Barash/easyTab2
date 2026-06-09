@@ -24,6 +24,7 @@
   "takePhoto": "拍照",
   "takeVideo": "拍视频",
   "chooseFromGallery": "从图库选择",
+  "chooseVideoFromGallery": "从图库选择视频",
   "chooseFromFiles": "从文件选择",
   "attention": "注意",
   "needsWork": "需要修改",
@@ -241,5 +242,34 @@
   "noPhoto": "无照片",
   "photo": "照片",
   "addPhoto": "添加照片",
-  "fillAllFields": "请填写所有字段"
+  "fillAllFields": "请填写所有字段",
+  "compressVideoTitle": "压缩视频",
+  "highQuality": "高质量",
+  "highQualityDesc": "较少压缩，更好质量",
+  "mediumQuality": "中等质量",
+  "mediumQualityDesc": "平衡压缩",
+  "lowQuality": "低质量",
+  "lowQualityDesc": "最大压缩",
+  "compressingVideo": "正在压缩视频...",
+  "noVideoToCompress": "没有视频可压缩或已全部压缩",
+  "compressionComplete": "压缩完成",
+  "compressedVideoCount": "已压缩视频：{count}",
+  "@compressedVideoCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compressionError": "压缩错误：{error}",
+  "@compressionError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importProject": "导入项目",
+  "newReportTooltip": "新报告",
+  "noSavedReports": "没有保存的报告"
 }

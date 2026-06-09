@@ -562,4 +562,53 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get fillAllFields => 'Пожалуйста, заполните все поля';
+
+  @override
+  String get compressVideoTitle => 'Сжать видео';
+
+  @override
+  String get highQuality => 'Высокое качество';
+
+  @override
+  String get highQualityDesc => 'Меньшее сжатие, лучше качество';
+
+  @override
+  String get mediumQuality => 'Среднее качество';
+
+  @override
+  String get mediumQualityDesc => 'Сбалансированное сжатие';
+
+  @override
+  String get lowQuality => 'Низкое качество';
+
+  @override
+  String get lowQualityDesc => 'Максимальное сжатие';
+
+  @override
+  String get compressingVideo => 'Сжимаем видео...';
+
+  @override
+  String get noVideoToCompress => 'Нет видео для сжатия или все уже сжаты';
+
+  @override
+  String get compressionComplete => 'Сжатие завершено';
+
+  @override
+  String compressedVideoCount(int count) {
+    return 'Сжато видео: $count';
+  }
+
+  @override
+  String compressionError(String error) {
+    return 'Ошибка сжатия: $error';
+  }
+
+  @override
+  String get importProject => 'Импорт проекта';
+
+  @override
+  String get newReportTooltip => 'Новый отчёт';
+
+  @override
+  String get noSavedReports => 'Нет сохранённых отчётов';
 }

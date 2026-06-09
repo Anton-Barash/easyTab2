@@ -242,5 +242,34 @@
   "noPhoto": "Нет фото",
   "photo": "Фото",
   "addPhoto": "Добавить фото",
-  "fillAllFields": "Пожалуйста, заполните все поля"
+  "fillAllFields": "Пожалуйста, заполните все поля",
+  "compressVideoTitle": "Сжать видео",
+  "highQuality": "Высокое качество",
+  "highQualityDesc": "Меньшее сжатие, лучше качество",
+  "mediumQuality": "Среднее качество",
+  "mediumQualityDesc": "Сбалансированное сжатие",
+  "lowQuality": "Низкое качество",
+  "lowQualityDesc": "Максимальное сжатие",
+  "compressingVideo": "Сжимаем видео...",
+  "noVideoToCompress": "Нет видео для сжатия или все уже сжаты",
+  "compressionComplete": "Сжатие завершено",
+  "compressedVideoCount": "Сжато видео: {count}",
+  "@compressedVideoCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compressionError": "Ошибка сжатия: {error}",
+  "@compressionError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importProject": "Импорт проекта",
+  "newReportTooltip": "Новый отчёт",
+  "noSavedReports": "Нет сохранённых отчётов"
 }

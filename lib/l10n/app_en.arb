@@ -242,5 +242,34 @@
   "noPhoto": "No photo",
   "photo": "Photo",
   "addPhoto": "Add photo",
-  "fillAllFields": "Please fill in all fields"
+  "fillAllFields": "Please fill in all fields",
+  "compressVideoTitle": "Compress Video",
+  "highQuality": "High quality",
+  "highQualityDesc": "Less compression, better quality",
+  "mediumQuality": "Medium quality",
+  "mediumQualityDesc": "Balanced compression",
+  "lowQuality": "Low quality",
+  "lowQualityDesc": "Maximum compression",
+  "compressingVideo": "Compressing video...",
+  "noVideoToCompress": "No video to compress or all already compressed",
+  "compressionComplete": "Compression complete",
+  "compressedVideoCount": "Compressed videos: {count}",
+  "@compressedVideoCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compressionError": "Compression error: {error}",
+  "@compressionError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importProject": "Import project",
+  "newReportTooltip": "New report",
+  "noSavedReports": "No saved reports"
 }

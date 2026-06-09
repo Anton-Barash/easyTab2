@@ -1137,6 +1137,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please fill in all fields'**
   String get fillAllFields;
+
+  /// No description provided for @compressVideoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compress Video'**
+  String get compressVideoTitle;
+
+  /// No description provided for @highQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'High quality'**
+  String get highQuality;
+
+  /// No description provided for @highQualityDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Less compression, better quality'**
+  String get highQualityDesc;
+
+  /// No description provided for @mediumQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium quality'**
+  String get mediumQuality;
+
+  /// No description provided for @mediumQualityDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced compression'**
+  String get mediumQualityDesc;
+
+  /// No description provided for @lowQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Low quality'**
+  String get lowQuality;
+
+  /// No description provided for @lowQualityDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum compression'**
+  String get lowQualityDesc;
+
+  /// No description provided for @compressingVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressing video...'**
+  String get compressingVideo;
+
+  /// No description provided for @noVideoToCompress.
+  ///
+  /// In en, this message translates to:
+  /// **'No video to compress or all already compressed'**
+  String get noVideoToCompress;
+
+  /// No description provided for @compressionComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Compression complete'**
+  String get compressionComplete;
+
+  /// No description provided for @compressedVideoCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressed videos: {count}'**
+  String compressedVideoCount(int count);
+
+  /// No description provided for @compressionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Compression error: {error}'**
+  String compressionError(String error);
+
+  /// No description provided for @importProject.
+  ///
+  /// In en, this message translates to:
+  /// **'Import project'**
+  String get importProject;
+
+  /// No description provided for @newReportTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'New report'**
+  String get newReportTooltip;
+
+  /// No description provided for @noSavedReports.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved reports'**
+  String get noSavedReports;
 }
 
 class _AppLocalizationsDelegate

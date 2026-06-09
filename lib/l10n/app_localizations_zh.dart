@@ -81,7 +81,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chooseFromGallery => '从图库选择';
 
   @override
-  String get chooseVideoFromGallery => 'Choose video from gallery';
+  String get chooseVideoFromGallery => '从图库选择视频';
 
   @override
   String get chooseFromFiles => '从文件选择';
@@ -553,4 +553,53 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fillAllFields => '请填写所有字段';
+
+  @override
+  String get compressVideoTitle => '压缩视频';
+
+  @override
+  String get highQuality => '高质量';
+
+  @override
+  String get highQualityDesc => '较少压缩，更好质量';
+
+  @override
+  String get mediumQuality => '中等质量';
+
+  @override
+  String get mediumQualityDesc => '平衡压缩';
+
+  @override
+  String get lowQuality => '低质量';
+
+  @override
+  String get lowQualityDesc => '最大压缩';
+
+  @override
+  String get compressingVideo => '正在压缩视频...';
+
+  @override
+  String get noVideoToCompress => '没有视频可压缩或已全部压缩';
+
+  @override
+  String get compressionComplete => '压缩完成';
+
+  @override
+  String compressedVideoCount(int count) {
+    return '已压缩视频：$count';
+  }
+
+  @override
+  String compressionError(String error) {
+    return '压缩错误：$error';
+  }
+
+  @override
+  String get importProject => '导入项目';
+
+  @override
+  String get newReportTooltip => '新报告';
+
+  @override
+  String get noSavedReports => '没有保存的报告';
 }
