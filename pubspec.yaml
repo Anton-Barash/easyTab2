@@ -33,6 +33,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  image_path: "sample_icon/note_rect_3_v4_inner_round_warm3.svg"
+  min_sdk_android: 21
 
 dependency_overrides:
   xml: ^7.0.1
