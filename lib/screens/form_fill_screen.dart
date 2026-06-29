@@ -997,7 +997,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       final result = await FilePicker.platform.saveFile(
                         dialogTitle: loc.saveZip,
                         fileName:
-                            '${reportState.currentReport?.reportName.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_')}.zip',
+                            '${reportState.currentReport?.reportName.replaceAll(RegExp(r'[^\w\sа-яА-ЯёЁ\u4e00-\u9fff-]'), '').replaceAll(' ', '_')}.zip',
                         allowedExtensions: ['zip'],
                       );
                       if (result != null) {

@@ -1,0 +1,44 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code files - ensure UTF-8 encoding
+*.dart text eol=lf encoding=utf-8
+*.arb text eol=lf encoding=utf-8
+*.json text eol=lf encoding=utf-8
+*.yaml text eol=lf encoding=utf-8
+*.yml text eol=lf encoding=utf-8
+*.xml text eol=lf encoding=utf-8
+*.svg text eol=lf encoding=utf-8
+*.md text eol=lf encoding=utf-8
+*.txt text eol=lf encoding=utf-8
+*.html text eol=lf encoding=utf-8
+*.css text eol=lf encoding=utf-8
+*.js text eol=lf encoding=utf-8
+*.ts text eol=lf encoding=utf-8
+*.kts text eol=lf encoding=utf-8
+*.gradle text eol=lf encoding=utf-8
+*.properties text eol=lf encoding=utf-8
+
+# Kotlin/Java files
+*.kt text eol=lf encoding=utf-8
+*.java text eol=lf encoding=utf-8
+
+# Windows batch files - keep CRLF
+*.bat text eol=crlf
+
+# Binary files - don't touch
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.apk binary
+*.aab binary
+*.dex binary
+*.class binary
+*.jar binary
+*.so binary
+*.dll binary
+*.dylib binary

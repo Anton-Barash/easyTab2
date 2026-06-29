@@ -2871,7 +2871,7 @@ class ReportState extends ChangeNotifier {
 
       final folderPath = _currentReportPath!;
       final safeName = _currentReport!.reportName
-          .replaceAll(RegExp(r'[^\w\s-]'), '')
+          .replaceAll(RegExp(r'[^\w\sа-яА-ЯёЁ\u4e00-\u9fff-]'), '') // Allow Russian, Chinese, and alphanumeric
           .replaceAll(' ', '_');
 
       String zipPath;
