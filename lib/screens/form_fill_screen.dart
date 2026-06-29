@@ -992,7 +992,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       }
                       return;
                     }
-                    // Show hint on mobile devices
+                    // Show hint on mobile devices - only hint, no action
                     if (Platform.isAndroid || Platform.isIOS) {
                       if (mounted) {
                         ScaffoldMessenger.of(
@@ -1001,13 +1001,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           SnackBar(
                             content: Text(loc.saveZipMobileHint),
                             duration: const Duration(seconds: 3),
-                            action: SnackBarAction(
-                              label: loc.ok,
-                              onPressed: () {},
-                            ),
                           ),
                         );
                       }
+                      return;
                     }
                     await reportState.saveReport();
                     try {
