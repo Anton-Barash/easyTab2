@@ -64,3 +64,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
+
+# Node.js/npm (for icon conversion)
+node_modules/
+package.json
+package-lock.json
+
+# Temporary files
+*.bat
+*.tmp
+build_apk.bat
+sample/txt.txt
