@@ -57,6 +57,7 @@
   "htmlCopied": "HTML copied to clipboard",
   "excelHtmlCopied": "Excel HTML copied to clipboard",
   "saveZipWeb": "Saving ZIP is not available on web",
+  "saveZipMobileHint": "Use \"Share\" to save ZIP file",
   "shareWeb": "Share is not available on web",
   "comingSoon": "Loading existing reports — coming soon!",
   "toggleView": "Toggle View",

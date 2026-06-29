@@ -57,6 +57,7 @@
   "htmlCopied": "HTML已复制到剪贴板",
   "excelHtmlCopied": "Excel HTML已复制到剪贴板",
   "saveZipWeb": "在Web上无法保存ZIP",
+  "saveZipMobileHint": "使用\"分享\"保存ZIP文件",
   "shareWeb": "在Web上无法分享",
   "comingSoon": "加载现有报告 — 即将推出！",
   "toggleView": "切换视图",

@@ -992,6 +992,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       }
                       return;
                     }
+                    // Show hint on mobile devices
+                    if (Platform.isAndroid || Platform.isIOS) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(
+                          SnackBar(
+                            content: Text(loc.saveZipMobileHint),
+                            duration: const Duration(seconds: 3),
+                            action: SnackBarAction(
+                              label: loc.ok,
+                              onPressed: () {},
+                            ),
+                          ),
+                        );
+                      }
+                    }
                     await reportState.saveReport();
                     try {
                       final result = await FilePicker.platform.saveFile(
