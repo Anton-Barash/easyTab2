@@ -182,6 +182,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get saveZipWeb => 'Сохранение ZIP недоступно на вебе';
 
   @override
+  String get saveZipMobileHint =>
+      'Используйте \"Поделиться\" для сохранения ZIP';
+
+  @override
   String get shareWeb => 'Поделиться недоступно на вебе';
 
   @override

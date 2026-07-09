@@ -182,6 +182,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveZipWeb => 'Saving ZIP is not available on web';
 
   @override
+  String get saveZipMobileHint => 'Use \"Share\" to save ZIP file';
+
+  @override
   String get shareWeb => 'Share is not available on web';
 
   @override

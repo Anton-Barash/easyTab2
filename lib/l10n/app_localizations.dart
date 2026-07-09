@@ -442,6 +442,12 @@ abstract class AppLocalizations {
   /// **'Saving ZIP is not available on web'**
   String get saveZipWeb;
 
+  /// No description provided for @saveZipMobileHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use \"Share\" to save ZIP file'**
+  String get saveZipMobileHint;
+
   /// No description provided for @shareWeb.
   ///
   /// In en, this message translates to:

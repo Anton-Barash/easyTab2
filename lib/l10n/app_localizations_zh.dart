@@ -180,6 +180,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveZipWeb => '在Web上无法保存ZIP';
 
   @override
+  String get saveZipMobileHint => '使用\"分享\"保存ZIP文件';
+
+  @override
   String get shareWeb => '在Web上无法分享';
 
   @override
