@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../providers/report_provider.dart';
+import '../providers/auth_provider.dart';
 import '../l10n/app_localizations.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -16,6 +17,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<List<dynamic>>? _reportsFuture;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isSyncingAll = false;
+  Set<String> _syncedReports = {};
+  Set<String> _syncingReports = {};
 
   @override
   void initState() {
@@ -34,6 +38,78 @@ class _ReportsScreenState extends State<ReportsScreen> {
       context,
       listen: false,
     ).loadReportList();
+  }
+
+  Future<void> _syncAllReports() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      final loc = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.loginError)),
+      );
+      return;
+    }
+
+    final reports = await _reportsFuture;
+    if (reports == null || reports.isEmpty) return;
+
+    setState(() {
+      _isSyncingAll = true;
+      for (var report in reports) {
+        _syncingReports.add(report.folderName);
+      }
+    });
+
+    // TODO: реализовать реальную загрузку отчётов на сервер через API.
+    // Пока используется заглушка с задержкой для демонстрации UI.
+    for (var report in reports) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      setState(() {
+        _syncingReports.remove(report.folderName);
+        _syncedReports.add(report.folderName);
+      });
+    }
+
+    setState(() {
+      _isSyncingAll = false;
+    });
+
+    if (!mounted) return;
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.syncCompleteMessage)),
+    );
+  }
+
+  Future<void> _syncReport(dynamic report) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      final loc = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.loginError)),
+      );
+      return;
+    }
+
+    setState(() {
+      _syncingReports.add(report.folderName);
+    });
+
+    // TODO: реализовать реальную загрузку отчёта на сервер через API.
+    // Пока используется заглушка с задержкой для демонстрации UI.
+    await Future.delayed(const Duration(seconds: 1));
+
+    if (!mounted) return;
+    setState(() {
+      _syncingReports.remove(report.folderName);
+      _syncedReports.add(report.folderName);
+    });
+
+    final loc = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.syncCompleteMessage)),
+    );
   }
 
   @override
@@ -157,16 +233,38 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _buildActionButtons() {
     final loc = AppLocalizations.of(context)!;
+    final authProvider = Provider.of<AuthProvider>(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        if (authProvider.isLoggedIn)
+          FloatingActionButton(
+            heroTag: 'sync_all_btn',
+            onPressed: _isSyncingAll ? null : _syncAllReports,
+            tooltip: loc.syncToCloud,
+            backgroundColor:
+                _isSyncingAll ? const Color(0xFFcccccc) : const Color(0xFF2563eb),
+            child: _isSyncingAll
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.cloud_upload),
+          ),
+        if (authProvider.isLoggedIn) const SizedBox(width: 10),
         FloatingActionButton(
+          heroTag: 'import_btn',
           onPressed: _importProject,
           tooltip: loc.importProject,
           child: const Icon(Icons.upload_file),
         ),
         const SizedBox(width: 10),
         FloatingActionButton(
+          heroTag: 'new_report_btn',
           onPressed: () =>
               Navigator.of(context).pushReplacementNamed('/template'),
           tooltip: loc.newReportTooltip,
@@ -232,8 +330,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _buildReportCard(BuildContext context, dynamic report) {
     final reportState = Provider.of<ReportState>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final loc = AppLocalizations.of(context)!;
     final hasThumbnail =
         report.thumbnailPath != null && report.thumbnailPath!.isNotEmpty;
+    final isSynced = _syncedReports.contains(report.folderName);
+    final isSyncing = _syncingReports.contains(report.folderName);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -293,15 +395,61 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Text(
-                      report.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF424242),
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            report.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF424242),
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (authProvider.isLoggedIn) ...[
+                          const SizedBox(width: 8),
+                          // Состояния облачка:
+                          //   синее облако (cloud_done) — файл залит, синхронизация не требуется
+                          //   серое облако (cloud_upload) — файл ещё не залит
+                          //   стрелки по кругу рядом с облаком — нужна синхронизация (тап = загрузить)
+                          if (isSyncing)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF2563eb),
+                              ),
+                            )
+                          else ...[
+                            Icon(
+                              isSynced ? Icons.cloud_done : Icons.cloud_upload,
+                              color: isSynced
+                                  ? const Color(0xFF2563eb)
+                                  : const Color(0xFF9e9e9e),
+                              size: 20,
+                            ),
+                            // Стрелки по кругу показываем, когда нужна синхронизация.
+                            if (!isSynced) ...[
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.sync,
+                                  color: Color(0xFF666666),
+                                  size: 18,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                tooltip: loc.syncToCloud,
+                                onPressed: () => _syncReport(report),
+                              ),
+                            ],
+                          ],
+                        ],
+                      ],
                     ),
                   ),
                 ],

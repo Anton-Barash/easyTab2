@@ -4,21 +4,26 @@ import 'package:provider/provider.dart';
 import './providers/report_provider.dart';
 import './providers/settings_provider.dart';
 import './providers/locale_provider.dart';
+import './providers/auth_provider.dart';
 import './l10n/app_localizations.dart';
 import './screens/template_select_screen.dart';
 import './screens/form_fill_screen.dart';
 import './screens/reports_screen.dart';
+import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final localeProvider = LocaleProvider();
   await localeProvider.init();
-  runApp(EasyTabApp(localeProvider: localeProvider));
+  final authProvider = AuthProvider();
+  await authProvider.init();
+  runApp(EasyTabApp(localeProvider: localeProvider, authProvider: authProvider));
 }
 
 class EasyTabApp extends StatelessWidget {
   final LocaleProvider localeProvider;
-  const EasyTabApp({super.key, required this.localeProvider});
+  final AuthProvider authProvider;
+  const EasyTabApp({super.key, required this.localeProvider, required this.authProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +32,7 @@ class EasyTabApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ReportState()),
         ChangeNotifierProvider(create: (_) => SettingsState()),
         ChangeNotifierProvider.value(value: localeProvider),
+        ChangeNotifierProvider.value(value: authProvider),
       ],
       child: Consumer<LocaleProvider>(
         builder: (context, localeProvider, child) {
@@ -68,6 +74,7 @@ class StartScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final localeProvider = Provider.of<LocaleProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
     return Scaffold(
       body: Stack(
         children: [
@@ -90,10 +97,24 @@ class StartScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Language switcher at top right
+                  // Language switcher + settings gear at top right
                   Align(
                     alignment: Alignment.topRight,
-                    child: _buildLanguageSwitcher(context, localeProvider, loc),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (authProvider.isLoggedIn)
+                          IconButton(
+                            icon: const Icon(Icons.settings, size: 22),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => showSettingsDialog(context),
+                            tooltip: loc.settingsTitle,
+                          ),
+                        if (authProvider.isLoggedIn) const SizedBox(width: 8),
+                        _buildLanguageSwitcher(context, localeProvider, loc),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 15),
                   const Text(
@@ -115,6 +136,12 @@ class StartScreen extends StatelessWidget {
                     label: loc.yourReports,
                     onTap: () => Navigator.pushNamed(context, '/reports'),
                   ),
+                  const SizedBox(height: 15),
+                  if (!authProvider.isLoggedIn)
+                    _buildButton(
+                      label: loc.loginButton,
+                      onTap: () => showLoginDialog(context),
+                    ),
                   const SizedBox(height: 30),
                   Text(
                     loc.instructionsText,

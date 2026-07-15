@@ -1233,6 +1233,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No saved reports'**
   String get noSavedReports;
+
+  /// No description provided for @loginButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Login/Register'**
+  String get loginButton;
+
+  /// No description provided for @loginTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Login'**
+  String get loginTitle;
+
+  /// No description provided for @usernameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get usernameLabel;
+
+  /// No description provided for @emailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Email (optional)'**
+  String get emailLabel;
+
+  /// No description provided for @passwordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get passwordLabel;
+
+  /// No description provided for @serverSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get serverSettings;
+
+  /// No description provided for @serverLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Server address (host:port)'**
+  String get serverLabel;
+
+  /// No description provided for @connectionOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection successful'**
+  String get connectionOk;
+
+  /// No description provided for @connectionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection failed'**
+  String get connectionFailed;
+
+  /// No description provided for @loginAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Login'**
+  String get loginAction;
+
+  /// No description provided for @registerAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get registerAction;
+
+  /// No description provided for @cancelAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancelAction;
+
+  /// No description provided for @loginSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Login successful'**
+  String get loginSuccess;
+
+  /// No description provided for @loginError.
+  ///
+  /// In en, this message translates to:
+  /// **'Login failed'**
+  String get loginError;
+
+  /// No description provided for @registerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get registerTitle;
+
+  /// No description provided for @logoutAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout'**
+  String get logoutAction;
+
+  /// No description provided for @syncToCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync to cloud'**
+  String get syncToCloud;
+
+  /// No description provided for @syncingProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing...'**
+  String get syncingProgress;
+
+  /// No description provided for @syncCompleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync complete'**
+  String get syncCompleteMessage;
+
+  /// No description provided for @syncErrorMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync failed'**
+  String get syncErrorMessage;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// No description provided for @accountSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get accountSection;
+
+  /// No description provided for @uploadToServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload to server'**
+  String get uploadToServer;
+
+  /// No description provided for @uploadingFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading files...'**
+  String get uploadingFiles;
+
+  /// No description provided for @uploadCompleteAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All files uploaded successfully'**
+  String get uploadCompleteAll;
+
+  /// No description provided for @uploadCompletePartial.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload complete: {count}/{total} files'**
+  String uploadCompletePartial(int count, int total);
+
+  /// No description provided for @uploadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload error'**
+  String get uploadError;
+
+  /// No description provided for @noFilesToUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'No files to upload'**
+  String get noFilesToUpload;
+
+  /// No description provided for @loginRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please login first'**
+  String get loginRequired;
 }
 
 class _AppLocalizationsDelegate

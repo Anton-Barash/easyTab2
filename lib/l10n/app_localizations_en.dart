@@ -614,4 +614,93 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noSavedReports => 'No saved reports';
+
+  @override
+  String get loginButton => 'Login/Register';
+
+  @override
+  String get loginTitle => 'Login';
+
+  @override
+  String get usernameLabel => 'Username';
+
+  @override
+  String get emailLabel => 'Email (optional)';
+
+  @override
+  String get passwordLabel => 'Password';
+
+  @override
+  String get serverSettings => 'Server';
+
+  @override
+  String get serverLabel => 'Server address (host:port)';
+
+  @override
+  String get connectionOk => 'Connection successful';
+
+  @override
+  String get connectionFailed => 'Connection failed';
+
+  @override
+  String get loginAction => 'Login';
+
+  @override
+  String get registerAction => 'Register';
+
+  @override
+  String get cancelAction => 'Cancel';
+
+  @override
+  String get loginSuccess => 'Login successful';
+
+  @override
+  String get loginError => 'Login failed';
+
+  @override
+  String get registerTitle => 'Register';
+
+  @override
+  String get logoutAction => 'Logout';
+
+  @override
+  String get syncToCloud => 'Sync to cloud';
+
+  @override
+  String get syncingProgress => 'Syncing...';
+
+  @override
+  String get syncCompleteMessage => 'Sync complete';
+
+  @override
+  String get syncErrorMessage => 'Sync failed';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get accountSection => 'Account';
+
+  @override
+  String get uploadToServer => 'Upload to server';
+
+  @override
+  String get uploadingFiles => 'Uploading files...';
+
+  @override
+  String get uploadCompleteAll => 'All files uploaded successfully';
+
+  @override
+  String uploadCompletePartial(int count, int total) {
+    return 'Upload complete: $count/$total files';
+  }
+
+  @override
+  String get uploadError => 'Upload error';
+
+  @override
+  String get noFilesToUpload => 'No files to upload';
+
+  @override
+  String get loginRequired => 'Please login first';
 }

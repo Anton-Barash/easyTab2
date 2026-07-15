@@ -605,4 +605,93 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get noSavedReports => '没有保存的报告';
+
+  @override
+  String get loginButton => '登录/注册';
+
+  @override
+  String get loginTitle => '登录';
+
+  @override
+  String get usernameLabel => '用户名';
+
+  @override
+  String get emailLabel => '邮箱（可选）';
+
+  @override
+  String get passwordLabel => '密码';
+
+  @override
+  String get serverSettings => '服务器';
+
+  @override
+  String get serverLabel => '服务器地址（主机:端口）';
+
+  @override
+  String get connectionOk => '连接成功';
+
+  @override
+  String get connectionFailed => '连接失败';
+
+  @override
+  String get loginAction => '登录';
+
+  @override
+  String get registerAction => '注册';
+
+  @override
+  String get cancelAction => '取消';
+
+  @override
+  String get loginSuccess => '登录成功';
+
+  @override
+  String get loginError => '登录失败';
+
+  @override
+  String get registerTitle => '注册';
+
+  @override
+  String get logoutAction => '退出登录';
+
+  @override
+  String get syncToCloud => '同步到云端';
+
+  @override
+  String get syncingProgress => '正在同步...';
+
+  @override
+  String get syncCompleteMessage => '同步完成';
+
+  @override
+  String get syncErrorMessage => '同步失败';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get accountSection => '账户';
+
+  @override
+  String get uploadToServer => '上传到服务器';
+
+  @override
+  String get uploadingFiles => '正在上传文件...';
+
+  @override
+  String get uploadCompleteAll => '所有文件上传成功';
+
+  @override
+  String uploadCompletePartial(int count, int total) {
+    return '上传完成：$count/$total 个文件';
+  }
+
+  @override
+  String get uploadError => '上传错误';
+
+  @override
+  String get noFilesToUpload => '没有可上传的文件';
+
+  @override
+  String get loginRequired => '请先登录';
 }

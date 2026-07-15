@@ -272,5 +272,40 @@
   },
   "importProject": "导入项目",
   "newReportTooltip": "新报告",
-  "noSavedReports": "没有保存的报告"
+  "noSavedReports": "没有保存的报告",
+  "loginButton": "登录/注册",
+  "loginTitle": "登录",
+  "usernameLabel": "用户名",
+  "emailLabel": "邮箱（可选）",
+  "passwordLabel": "密码",
+  "serverSettings": "服务器",
+  "serverLabel": "服务器地址（主机:端口）",
+  "connectionOk": "连接成功",
+  "connectionFailed": "连接失败",
+  "loginAction": "登录",
+  "registerAction": "注册",
+  "cancelAction": "取消",
+  "loginSuccess": "登录成功",
+  "loginError": "登录失败",
+  "registerTitle": "注册",
+  "logoutAction": "退出登录",
+  "syncToCloud": "同步到云端",
+  "syncingProgress": "正在同步...",
+  "syncCompleteMessage": "同步完成",
+  "syncErrorMessage": "同步失败",
+  "settingsTitle": "设置",
+  "accountSection": "账户",
+  "uploadToServer": "上传到服务器",
+  "uploadingFiles": "正在上传文件...",
+  "uploadCompleteAll": "所有文件上传成功",
+  "uploadCompletePartial": "上传完成：{count}/{total} 个文件",
+  "@uploadCompletePartial": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "uploadError": "上传错误",
+  "noFilesToUpload": "没有可上传的文件",
+  "loginRequired": "请先登录"
 }

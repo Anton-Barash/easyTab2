@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:image/image.dart' as img;
 import 'package:v_video_compressor/v_video_compressor.dart';
 import '../models/report_models.dart';
+import '../services/api_service.dart';
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
@@ -223,6 +224,9 @@ class ReportState extends ChangeNotifier {
       }
     }
     _currentReportPath = null;
+    // Сбрасываем ID отчёта на сервере — это новый отчёт
+    _serverReportId = null;
+    _ks3Folder = null;
     notifyListeners();
   }
 
@@ -588,6 +592,257 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Добавить медиафайл из байтов (для web-версии).
+  ///
+  /// Гибридный подход:
+  /// - Если есть _serverReportId и _ks3Folder (отчёт уже сохранён на сервере):
+  ///   - Фото (< 5 МБ) — загружаются на KS3 сразу, сохраняется serverFileId
+  ///   - Видео (≥ 5 МБ) — загружаются в фоне, webBytes для превью
+  /// - Если нет — файл хранится в памяти (webBytes), загрузится при сохранении
+  ///
+  /// Параметры:
+  /// - [questionIndex], [answerIndex] — индексы вопроса и ответа
+  /// - [bytes] — содержимое файла (из XFile.readAsBytes())
+  /// - [fileName] — имя файла с расширением (например, 'photo.jpg')
+  /// - [mimeType] — MIME-тип (например, 'image/jpeg', 'video/mp4')
+  /// - [isAttention] — true для папки X (внимание), false для photos
+  /// - [onUploadProgress] — callback для отслеживания прогресса (0.0 - 1.0)
+  Future<void> addMediaFromBytes({
+    required int questionIndex,
+    required int answerIndex,
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+    bool isAttention = false,
+    void Function(double progress)? onUploadProgress,
+  }) async {
+    if (_currentReport == null) return;
+
+    final qid = questionIndex.toString();
+
+    // Создаём markers для вопроса, если нет
+    if (!_currentReport!.markers.containsKey(qid)) {
+      _currentReport!.markers[qid] = [];
+    }
+    while (_currentReport!.markers[qid]!.length <= answerIndex) {
+      _currentReport!.markers[qid]!.add(AnswerMarkers());
+    }
+
+    // Счётчик медиа для этого вопроса/ответа
+    final counterKey =
+        '${questionIndex}_${answerIndex}_${isAttention ? 'X' : 'photos'}';
+    if (!_currentReport!.mediaCounter.containsKey(counterKey)) {
+      _currentReport!.mediaCounter[counterKey] = 1;
+    }
+    final counter = _currentReport!.mediaCounter[counterKey]!;
+
+    // Генерируем имя файла: f/v + вопрос + ответ + номер
+    // f = photo, v = video
+    final typePrefix = mimeType.startsWith('video/') ? 'v' : 'f';
+    final ext = fileName.split('.').last;
+    final generatedName =
+        '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
+
+    // Относительный путь (для совместимости с mobile/desktop)
+    final folderName = isAttention ? 'X' : 'photos';
+    final relativePath = '$folderName/$generatedName';
+
+    // Сжимаем изображение, если нужно
+    Uint8List finalBytes = bytes;
+    if (mimeType.startsWith('image/')) {
+      finalBytes = _compressImage(bytes, 2000);
+    }
+
+    // Создаём MediaItem с байтами для web
+    final mediaItem = MediaItem(
+      name: generatedName,
+      type: mimeType,
+      attention: isAttention,
+      originalName: fileName,
+      localPath: relativePath,
+      fileSize: finalBytes.length,
+      webBytes: finalBytes, // Байты для превью в UI
+    );
+
+    _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
+    _currentReport!.mediaCounter[counterKey] = counter + 1;
+
+    notifyListeners();
+
+    // ===== Загрузка на KS3 (если отчёт уже сохранён на сервере) =====
+    // Гибридный подход:
+    // - Фото (< 5 МБ): загружаем сразу (быстро, не блокирует UI)
+    // - Видео (≥ 5 МБ): загружаем в фоне (не блокирует UI)
+    if (_serverReportId != null && _ks3Folder != null) {
+      final isVideo = mimeType.startsWith('video/');
+      final sizeMb = finalBytes.length / (1024 * 1024);
+
+      if (!isVideo && sizeMb < 5) {
+        // Фото < 5 МБ — загружаем сразу
+        await _uploadMediaToServer(
+          mediaItem,
+          finalBytes,
+          generatedName,
+          relativePath,
+          mimeType,
+          onUploadProgress,
+        );
+      } else {
+        // Видео или большой файл — загружаем в фоне
+        // (не ждём завершения, UI не блокируется)
+        _uploadMediaToServer(
+          mediaItem,
+          finalBytes,
+          generatedName,
+          relativePath,
+          mimeType,
+          onUploadProgress,
+        ).catchError((e) {
+          if (kDebugMode) print('Background upload failed: $e');
+        });
+      }
+    }
+  }
+
+  /// Загрузить медиафайл на сервер KS3.
+  ///
+  /// Вызывается из addMediaFromBytes. После успешной загрузки:
+  /// - Сохраняет serverFileId в MediaItem
+  /// - Очищает webBytes (чтобы не держать в памяти)
+  /// - Вызывает notifyListeners() для обновления UI
+  Future<void> _uploadMediaToServer(
+    MediaItem mediaItem,
+    Uint8List bytes,
+    String fileName,
+    String relativePath,
+    String mimeType,
+    void Function(double progress)? onUploadProgress,
+  ) async {
+    try {
+      onUploadProgress?.call(0.1);
+
+      final result = await ApiService.uploadFileFromBytes(
+        bytes: bytes,
+        filename: fileName,
+        relativePath: relativePath,
+        reportId: _serverReportId,
+        ks3Folder: _ks3Folder,
+      );
+
+      onUploadProgress?.call(1.0);
+
+      if (result.success && result.data?['file'] != null) {
+        // Сохраняем serverFileId (UUID файла на сервере)
+        final fileId = result.data!['file']['id'];
+        if (fileId is String) {
+          mediaItem.serverFileId = fileId;
+          notifyListeners();
+          if (kDebugMode) {
+            print('Media uploaded: $fileName → fileId=$fileId');
+          }
+        }
+      } else {
+        if (kDebugMode) {
+          print('Media upload failed: $fileName — ${result.error}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('Media upload error: $fileName — $e');
+    }
+  }
+
+  /// Загрузить все медиа, у которых ещё нет serverFileId.
+  ///
+  /// Вызывается после saveReport(), когда _serverReportId и _ks3Folder
+  /// уже установлены. Проходит по всем медиа отчёта и загружает те,
+  /// у которых serverFileId == null и есть webBytes.
+  Future<void> _uploadPendingMedia() async {
+    if (_currentReport == null || _ks3Folder == null || _serverReportId == null) {
+      return;
+    }
+
+    if (kDebugMode) print('_uploadPendingMedia: scanning for pending media...');
+
+    int uploadedCount = 0;
+
+    // Проходим по всем markers и их media
+    for (final entry in _currentReport!.markers.entries) {
+      final qid = entry.key;
+      final markersList = entry.value;
+
+      for (int answerIdx = 0; answerIdx < markersList.length; answerIdx++) {
+        final mediaList = markersList[answerIdx].media;
+
+        for (int mediaIdx = 0; mediaIdx < mediaList.length; mediaIdx++) {
+          final media = mediaList[mediaIdx];
+
+          // Пропускаем уже загруженные
+          if (media.serverFileId != null) continue;
+
+          // Пропускаем медиа без байтов (не web)
+          if (media.webBytes == null) continue;
+
+          // Загружаем на сервер
+          if (kDebugMode) {
+            print('_uploadPendingMedia: uploading ${media.name}...');
+          }
+
+          await _uploadMediaToServer(
+            media,
+            media.webBytes!,
+            media.name,
+            media.localPath ?? media.name,
+            media.type,
+            null,
+          );
+
+          if (media.serverFileId != null) {
+            uploadedCount++;
+          }
+        }
+      }
+    }
+
+    if (kDebugMode) {
+      print('_uploadPendingMedia: uploaded $uploadedCount files');
+    }
+  }
+
+  /// Удалить медиафайл.
+  ///
+  /// На web: если есть serverFileId — удаляем с сервера.
+  /// На mobile/desktop: удаляем локальный файл.
+  Future<void> removeMediaWeb(
+    int questionIndex,
+    int answerIndex,
+    int mediaIndex,
+  ) async {
+    if (_currentReport == null) return;
+    final qid = questionIndex.toString();
+
+    if (!_currentReport!.markers.containsKey(qid) ||
+        answerIndex >= _currentReport!.markers[qid]!.length ||
+        mediaIndex >= _currentReport!.markers[qid]![answerIndex].media.length) {
+      return;
+    }
+
+    final media = _currentReport!.markers[qid]![answerIndex].media[mediaIndex];
+
+    // Если файл на сервере — удаляем с сервера
+    if (media.serverFileId != null) {
+      try {
+        await ApiService.deleteFile(media.serverFileId!);
+        if (kDebugMode) print('Media deleted from server: ${media.serverFileId}');
+      } catch (e) {
+        if (kDebugMode) print('Failed to delete media from server: $e');
+      }
+    }
+
+    // Удаляем из списка
+    _currentReport!.markers[qid]![answerIndex].media.removeAt(mediaIndex);
+    notifyListeners();
+  }
+
   Future<void> removeMedia(
     int questionIndex,
     int answerIndex,
@@ -858,6 +1113,14 @@ class ReportState extends ChangeNotifier {
   Future<bool> saveReport() async {
     if (_currentReport == null) return false;
     try {
+      // ===== Web: сохраняем на сервер =====
+      // На web нет локальной файловой системы (path_provider не работает),
+      // поэтому отчёт сохраняется напрямую на сервер через API.
+      if (kIsWeb) {
+        return await _saveReportToServer();
+      }
+
+      // ===== Mobile/Desktop: сохраняем локально =====
       String folderPath;
       if (_currentReportPath == null) {
         folderPath = await _generateFolderName();
@@ -875,13 +1138,13 @@ class ReportState extends ChangeNotifier {
       final jsonFile = File('$folderPath/$reportFilename');
       final jsonData = _currentReport!.toJson();
       await jsonFile.writeAsString(jsonEncode(jsonData));
-      
+
       print('saveReport: availableLanguages=${_currentReport!.availableLanguages}');
       print('saveReport: translations keys=${_currentReport!.translations.keys}');
       for (final qid in _currentReport!.translations.keys) {
         print('saveReport: translations[$qid] keys=${_currentReport!.translations[qid]!.keys}');
       }
-      
+
       await _saveHtmlPreview(folderPath);
       return true;
     } catch (e) {
@@ -890,8 +1153,74 @@ class ReportState extends ChangeNotifier {
     }
   }
 
+  /// ID отчёта на сервере (используется на web для обновления существующего отчёта).
+  int? _serverReportId;
+
+  /// Папка отчёта в KS3 (например, "reports/abc-123/").
+  /// Заполняется после первого сохранения отчёта на сервер.
+  /// Используется для загрузки медиафайлов в правильную папку.
+  String? _ks3Folder;
+
+  /// Геттеры для внешнего доступа
+  int? get serverReportId => _serverReportId;
+  String? get ks3Folder => _ks3Folder;
+
+  /// Сохранить отчёт на сервер (web-режим).
+  ///
+  /// Если _serverReportId уже задан — обновляем существующий отчёт.
+  /// Если нет — создаём новый и запоминаем ID.
+  Future<bool> _saveReportToServer() async {
+    try {
+      final jsonData = _currentReport!.toJson();
+      final title = _currentReport!.reportName.isNotEmpty
+          ? _currentReport!.reportName
+          : 'Report ${DateTime.now().millisecondsSinceEpoch}';
+
+      final result = await ApiService.saveReport(
+        title: title,
+        reportData: jsonData,
+        reportId: _serverReportId,
+      );
+
+      if (result.success && result.data?['report'] != null) {
+        // Запоминаем ID отчёта на сервере (для будущих обновлений)
+        final id = result.data!['report']['id'];
+        _serverReportId = id is int ? id : int.tryParse(id.toString());
+        // Запоминаем папку KS3 (для загрузки медиафайлов)
+        final folder = result.data!['report']['ks3Folder'];
+        if (folder is String && folder.isNotEmpty) {
+          _ks3Folder = folder;
+        }
+        if (kDebugMode) {
+          print('saveReport (web): saved as ID $_serverReportId, folder=$_ks3Folder');
+        }
+
+        // После сохранения отчёта — загружаем все медиа, у которых
+        // ещё нет serverFileId (добавлены до сохранения отчёта).
+        if (_ks3Folder != null && _serverReportId != null) {
+          await _uploadPendingMedia();
+        }
+
+        return true;
+      } else {
+        if (kDebugMode) print('saveReport (web): ${result.error}');
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) print('saveReport (web) error: $e');
+      return false;
+    }
+  }
+
   Future<bool> loadReport(String folderName) async {
     try {
+      // ===== Web: загружаем с сервера =====
+      // folderName на web = ID отчёта на сервере
+      if (kIsWeb) {
+        return await _loadReportFromServer(int.tryParse(folderName) ?? 0);
+      }
+
+      // ===== Mobile/Desktop: загружаем локально =====
       final folder = Directory(folderName);
       if (!await folder.exists()) return false;
       final jsonFile = File('${folder.path}/$reportFilename');
@@ -906,6 +1235,109 @@ class ReportState extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('Error loading report: $e');
       return false;
+    }
+  }
+
+  /// Загрузить отчёт с сервера по ID (web-режим).
+  Future<bool> _loadReportFromServer(int reportId) async {
+    try {
+      final result = await ApiService.getReport(reportId);
+      if (!result.success || result.data?['report'] == null) {
+        if (kDebugMode) print('loadReport (web): ${result.error}');
+        return false;
+      }
+
+      final reportData = result.data!['report']['reportData'] as Map<String, dynamic>;
+      _currentReport = Report.fromJson(reportData, folderPath: reportId.toString());
+      _currentReportPath = reportId.toString();
+      _serverReportId = reportId; // запоминаем для будущих сохранений
+
+      // Запоминаем папку KS3 (для загрузки новых медиа в правильную папку)
+      final folder = result.data!['report']['ks3Folder'];
+      if (folder is String && folder.isNotEmpty) {
+        _ks3Folder = folder;
+      } else {
+        _ks3Folder = null;
+      }
+
+      if (kDebugMode) {
+        print('loadReport (web): ID=$_serverReportId, folder=$_ks3Folder');
+      }
+
+      resetCompressedVideos();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('loadReport (web) error: $e');
+      return false;
+    }
+  }
+
+  /// Получить список всех отчётов.
+  ///
+  /// На web — загружает с сервера (через API).
+  /// На mobile/desktop — читает локальную папку.
+  ///
+  /// Возвращает список карт: { 'id': String, 'name': String, 'modified': DateTime }
+  Future<List<Map<String, dynamic>>> getAllReports() async {
+    if (kIsWeb) {
+      return await _listReportsFromServer();
+    }
+    return await _listLocalReports();
+  }
+
+  /// Загрузить список отчётов с сервера (web-режим).
+  Future<List<Map<String, dynamic>>> _listReportsFromServer() async {
+    try {
+      final result = await ApiService.listReports();
+      if (!result.success || result.data?['reports'] == null) {
+        return [];
+      }
+
+      final reports = result.data!['reports'] as List;
+      return reports.map((r) {
+        return {
+          'id': r['id'].toString(),
+          'name': r['title'] as String? ?? 'Untitled',
+          'modified': DateTime.tryParse(r['createdAt'] as String? ?? '') ?? DateTime.now(),
+        };
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) print('listReports (web) error: $e');
+      return [];
+    }
+  }
+
+  /// Получить список локальных отчётов (mobile/desktop).
+  Future<List<Map<String, dynamic>>> _listLocalReports() async {
+    try {
+      final reportsDir = await _getReportsDir();
+      final dir = Directory(reportsDir);
+      if (!await dir.exists()) return [];
+
+      final List<Map<String, dynamic>> reports = [];
+      await for (final entity in dir.list()) {
+        if (entity is Directory) {
+          final jsonFile = File('${entity.path}/$reportFilename');
+          if (await jsonFile.exists()) {
+            try {
+              final jsonString = await jsonFile.readAsString();
+              final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+              reports.add({
+                'id': entity.path,
+                'name': jsonData['name'] as String? ?? 'Untitled',
+                'modified': await jsonFile.lastModified(),
+              });
+            } catch (_) {
+              // Пропускаем повреждённые отчёты
+            }
+          }
+        }
+      }
+      return reports;
+    } catch (e) {
+      if (kDebugMode) print('listLocalReports error: $e');
+      return [];
     }
   }
 
@@ -971,6 +1403,12 @@ class ReportState extends ChangeNotifier {
   }
 
   Future<List<ReportInfo>> loadReportList() async {
+    // ===== Web: загружаем список с сервера =====
+    if (kIsWeb) {
+      return await _loadReportListFromServer();
+    }
+
+    // ===== Mobile/Desktop: читаем локальную папку =====
     final reportsDir = await _getReportsDir();
     final dir = Directory(reportsDir);
     if (!await dir.exists()) return [];
@@ -1010,8 +1448,51 @@ class ReportState extends ChangeNotifier {
     return reports;
   }
 
+  /// Загрузить список отчётов с сервера (web-режим).
+  ///
+  /// Возвращает список ReportInfo, где folderName = ID отчёта на сервере.
+  Future<List<ReportInfo>> _loadReportListFromServer() async {
+    try {
+      final result = await ApiService.listReports();
+      if (!result.success || result.data?['reports'] == null) {
+        return [];
+      }
+
+      final reports = result.data!['reports'] as List;
+      final List<ReportInfo> reportInfos = reports.map((r) {
+        final id = r['id'];
+        final idStr = id is int ? id.toString() : id.toString();
+        final title = r['title'] as String? ?? 'Untitled';
+        final createdAt = DateTime.tryParse(r['createdAt'] as String? ?? '') ?? DateTime.now();
+
+        return ReportInfo(
+          folderName: idStr,
+          name: title,
+          dateTime: createdAt,
+          thumbnailPath: null, // на web нет локальных превью
+        );
+      }).toList();
+
+      // Сортируем по дате (новые первыми)
+      reportInfos.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      return reportInfos;
+    } catch (e) {
+      if (kDebugMode) print('loadReportList (web) error: $e');
+      return [];
+    }
+  }
+
   Future<bool> deleteReport(String folderName) async {
     try {
+      // ===== Web: удаляем на сервере =====
+      if (kIsWeb) {
+        final reportId = int.tryParse(folderName);
+        if (reportId == null) return false;
+        final result = await ApiService.deleteReport(reportId);
+        return result.success;
+      }
+
+      // ===== Mobile/Desktop: удаляем локально =====
       final folder = Directory(folderName);
       if (await folder.exists()) {
         await folder.delete(recursive: true);
@@ -1040,6 +1521,12 @@ class ReportState extends ChangeNotifier {
 
   String generateHtmlContent() {
     return _generateHtml();
+  }
+
+  /// Сгенерировать Excel-файл как массив байтов.
+  /// Используется при загрузке отчёта на сервер.
+  Uint8List generateExcelBytes() {
+    return _generateExcel();
   }
 
   String generateExcelHtmlContent() {

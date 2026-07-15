@@ -272,5 +272,40 @@
   },
   "importProject": "Импорт проекта",
   "newReportTooltip": "Новый отчёт",
-  "noSavedReports": "Нет сохранённых отчётов"
+  "noSavedReports": "Нет сохранённых отчётов",
+  "loginButton": "Войти/Регистрация",
+  "loginTitle": "Вход",
+  "usernameLabel": "Имя пользователя",
+  "emailLabel": "Эл. почта (необязательно)",
+  "passwordLabel": "Пароль",
+  "serverSettings": "Сервер",
+  "serverLabel": "Адрес сервера (хост:порт)",
+  "connectionOk": "Связь установлена",
+  "connectionFailed": "Связь не установлена",
+  "loginAction": "Войти",
+  "registerAction": "Регистрация",
+  "cancelAction": "Отмена",
+  "loginSuccess": "Успешный вход",
+  "loginError": "Ошибка входа",
+  "registerTitle": "Регистрация",
+  "logoutAction": "Выйти",
+  "syncToCloud": "Синхронизировать",
+  "syncingProgress": "Синхронизация...",
+  "syncCompleteMessage": "Синхронизация завершена",
+  "syncErrorMessage": "Ошибка синхронизации",
+  "settingsTitle": "Настройки",
+  "accountSection": "Аккаунт",
+  "uploadToServer": "Залить на сервер",
+  "uploadingFiles": "Загрузка файлов...",
+  "uploadCompleteAll": "Все файлы успешно загружены",
+  "uploadCompletePartial": "Загрузка завершена: {count}/{total} файлов",
+  "@uploadCompletePartial": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "uploadError": "Ошибка загрузки",
+  "noFilesToUpload": "Нет файлов для загрузки",
+  "loginRequired": "Сначала войдите в аккаунт"
 }

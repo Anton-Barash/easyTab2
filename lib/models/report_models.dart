@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 class MediaItem {
   String name;
@@ -9,6 +10,16 @@ class MediaItem {
   int? fileSize;
   int? compressedSize;
 
+  /// Байты медиафайла для web-версии.
+  /// На web нет локальной файловой системы, поэтому храним байты в памяти.
+  /// При сохранении отчёта байты загружаются на сервер через API.
+  /// На mobile/desktop это поле всегда null.
+  Uint8List? webBytes;
+
+  /// ID файла на сервере (заполняется после загрузки).
+  /// Используется для получения URL просмотра/скачивания.
+  String? serverFileId;
+
   MediaItem({
     required this.name,
     required this.type,
@@ -17,6 +28,8 @@ class MediaItem {
     this.localPath,
     this.fileSize,
     this.compressedSize,
+    this.webBytes,
+    this.serverFileId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -65,6 +78,8 @@ class MediaItem {
       localPath: localPath,
       fileSize: json['fileSize'] as int?,
       compressedSize: json['compressedSize'] as int?,
+      serverFileId: json['serverFileId'] as String?,
+      // webBytes не сохраняется в JSON, т.к. это временные данные
     );
   }
 }
@@ -248,27 +263,39 @@ class Report {
     final qid = questionIndex.toString();
     final langAnswers = translations[qid]?[langCode] ?? [];
     final langMarkers = markers[qid] ?? [];
-    
+
     final result = <Map<String, dynamic>>[];
     final maxLength = langAnswers.length > langMarkers.length ? langAnswers.length : langMarkers.length;
-    
+
     for (int i = 0; i < maxLength; i++) {
       final text = i < langAnswers.length ? langAnswers[i].text : '';
       final isEmpty = i >= langAnswers.length || langAnswers[i].isEmpty;
       final attention = i < langMarkers.length ? langMarkers[i].attention : false;
       final needsWork = i < langMarkers.length ? langMarkers[i].needsWork : false;
-      
+
       final mediaList = i < langMarkers.length ? langMarkers[i].media : [];
-      final mediaMaps = mediaList.map((m) => {
-        'name': m.name,
-        'type': m.type,
-        'attention': m.attention,
-        'originalName': m.originalName,
-        'localPath': m.localPath,
-        'fileSize': m.fileSize,
-        'compressedSize': m.compressedSize,
+      final mediaMaps = mediaList.map((m) {
+        final map = <String, dynamic>{
+          'name': m.name,
+          'type': m.type,
+          'attention': m.attention,
+          'originalName': m.originalName,
+          'localPath': m.localPath,
+          'fileSize': m.fileSize,
+          'compressedSize': m.compressedSize,
+        };
+        // Добавляем webBytes для отображения на web
+        // (на mobile/desktop это поле null)
+        if (m.webBytes != null) {
+          map['webBytes'] = m.webBytes;
+        }
+        // Добавляем serverFileId для получения URL
+        if (m.serverFileId != null) {
+          map['serverFileId'] = m.serverFileId;
+        }
+        return map;
       }).toList();
-      
+
       result.add({
         'text': text,
         'isEmpty': isEmpty,
@@ -277,7 +304,7 @@ class Report {
         'needsWork': needsWork,
       });
     }
-    
+
     return result;
   }
 

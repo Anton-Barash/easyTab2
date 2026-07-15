@@ -272,5 +272,40 @@
   },
   "importProject": "Import project",
   "newReportTooltip": "New report",
-  "noSavedReports": "No saved reports"
+  "noSavedReports": "No saved reports",
+  "loginButton": "Login/Register",
+  "loginTitle": "Login",
+  "usernameLabel": "Username",
+  "emailLabel": "Email (optional)",
+  "passwordLabel": "Password",
+  "serverSettings": "Server",
+  "serverLabel": "Server address (host:port)",
+  "connectionOk": "Connection successful",
+  "connectionFailed": "Connection failed",
+  "loginAction": "Login",
+  "registerAction": "Register",
+  "cancelAction": "Cancel",
+  "loginSuccess": "Login successful",
+  "loginError": "Login failed",
+  "registerTitle": "Register",
+  "logoutAction": "Logout",
+  "syncToCloud": "Sync to cloud",
+  "syncingProgress": "Syncing...",
+  "syncCompleteMessage": "Sync complete",
+  "syncErrorMessage": "Sync failed",
+  "settingsTitle": "Settings",
+  "accountSection": "Account",
+  "uploadToServer": "Upload to server",
+  "uploadingFiles": "Uploading files...",
+  "uploadCompleteAll": "All files uploaded successfully",
+  "uploadCompletePartial": "Upload complete: {count}/{total} files",
+  "@uploadCompletePartial": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "uploadError": "Upload error",
+  "noFilesToUpload": "No files to upload",
+  "loginRequired": "Please login first"
 }

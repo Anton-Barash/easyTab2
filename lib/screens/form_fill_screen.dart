@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -11,8 +13,11 @@ import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as path;
 import '../providers/report_provider.dart';
 import '../providers/locale_provider.dart';
+import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 import '../l10n/app_localizations.dart';
 import '../models/report_models.dart';
+import '../utils/open_html.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'dart:async';
@@ -51,6 +56,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   bool _checkedSyncAfterLoad = false;
   bool _isUpdatingQuestions = false;
+
+  /// Определить MIME-тип по расширению файла.
+  String _getMimeType(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(ext)) {
+      return 'image/$ext';
+    } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext)) {
+      return 'video/$ext';
+    }
+    return 'application/octet-stream';
+  }
 
   void _resetControllers() {
     _answerControllers.values
@@ -144,6 +160,172 @@ class _FormFillScreenState extends State<FormFillScreen> {
       _processingMessage = '';
     });
     Navigator.of(context, rootNavigator: true).pop();
+  }
+
+  /// Загрузить все файлы отчёта на сервер по отдельности (не ZIP).
+  ///
+  /// Файлы загружаются в KS3 через POST /files/upload:
+  ///   - report.json — данные отчёта
+  ///   - report.html — HTML-представление (будет открываться в браузере)
+  ///   - report.xlsx — Excel-экспорт
+  ///   - Медиафайлы (фото, видео) из маркеров ответов
+  ///
+  /// Каждый файл загружается отдельным запросом, сохраняя относительные пути,
+  /// чтобы на сервере получить структуру папок отчёта.
+  Future<void> _uploadReportToServer() async {
+    final loc = AppLocalizations.of(context)!;
+    final reportState = context.read<ReportState>();
+    final authProvider = context.read<AuthProvider>();
+
+    // Проверяем, что пользователь залогинен
+    if (!authProvider.isLoggedIn) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.loginRequired)),
+        );
+      }
+      return;
+    }
+
+    // Сначала сохраняем отчёт локально (чтобы файлы были актуальны)
+    await reportState.saveReport();
+
+    // Генерируем HTML и Excel для загрузки
+    try {
+      // Собираем список файлов для загрузки
+      // Каждый элемент: {'filePath': абсолютный путь, 'relativePath': путь в отчёте}
+      final filesToUpload = <Map<String, String>>[];
+
+      // Папка отчёта
+      final reportPath = reportState.currentReportPath;
+      if (reportPath == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(loc.uploadError)),
+          );
+        }
+        return;
+      }
+
+      // 1. report.json — основной файл данных
+      final jsonFile = File('$reportPath/report.json');
+      if (await jsonFile.exists()) {
+        filesToUpload.add({
+          'filePath': jsonFile.path,
+          'relativePath': 'report.json',
+        });
+      }
+
+      // 2. report.html — HTML-отчёт (будет открываться в браузере на сервере)
+      final htmlContent = reportState.generateHtmlContent();
+      final htmlFile = File('$reportPath/report.html');
+      await htmlFile.writeAsString(htmlContent);
+      filesToUpload.add({
+        'filePath': htmlFile.path,
+        'relativePath': 'report.html',
+      });
+
+      // 3. report.xlsx — Excel-экспорт
+      final excelBytes = reportState.generateExcelBytes();
+      final excelFile = File('$reportPath/report.xlsx');
+      await excelFile.writeAsBytes(excelBytes);
+      filesToUpload.add({
+        'filePath': excelFile.path,
+        'relativePath': 'report.xlsx',
+      });
+
+      // 4. Заголовочное фото (если есть)
+      final headerPath = reportState.currentReport?.headerImagePath;
+      if (headerPath != null && headerPath.isNotEmpty) {
+        final hFile = File('$reportPath/$headerPath');
+        if (await hFile.exists()) {
+          filesToUpload.add({
+            'filePath': hFile.path,
+            'relativePath': headerPath,
+          });
+        }
+      }
+
+      // 5. Медиафайлы из ответов (фото, видео)
+      final report = reportState.currentReport;
+      if (report != null) {
+        for (final markerEntry in report.markers.entries) {
+          for (final answerMarker in markerEntry.value) {
+            for (final media in answerMarker.media) {
+              if (media.localPath != null && media.localPath!.isNotEmpty) {
+                final mFile = File('$reportPath/${media.localPath}');
+                if (await mFile.exists()) {
+                  filesToUpload.add({
+                    'filePath': mFile.path,
+                    'relativePath': media.localPath!,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (filesToUpload.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(loc.noFilesToUpload)),
+          );
+        }
+        return;
+      }
+
+      // Показываем диалог с прогрессом
+      _showProcessingDialog(loc.uploadingFiles);
+
+      // Загружаем файлы на сервер
+      final result = await ApiService.uploadFiles(
+        files: filesToUpload,
+      );
+
+      _hideProcessingDialog();
+
+      if (!mounted) return;
+
+      // Показываем результат
+      if (result.success) {
+        final total = result.data?['total'] ?? 0;
+        final successCount = result.data?['successCount'] ?? 0;
+        final failedCount = result.data?['failedCount'] ?? 0;
+
+        if (failedCount == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(loc.uploadCompleteAll),
+              backgroundColor: const Color(0xFF2e7d32),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${loc.uploadCompletePartial}: $successCount/$total',
+              ),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? loc.uploadError),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      _hideProcessingDialog();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${loc.uploadError}: $e')),
+        );
+      }
+    }
   }
 
   void _handleLanguageChange(String lang) {
@@ -624,6 +806,123 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
+  /// Просмотр HTML на web: загружает report.html на сервер,
+  /// получает подписанную ссылку и открывает её в новой вкладке.
+  ///
+  /// Если пользователь не залогинен — fallback на document.write
+  /// (открывает HTML напрямую без серверной ссылки).
+  Future<void> _viewHtmlOnWeb(String htmlContent) async {
+    final loc = AppLocalizations.of(context)!;
+    final authProvider = context.read<AuthProvider>();
+    final reportState = context.read<ReportState>();
+
+    // Если не залогинен — нет смысла грузить на сервер, открываем напрямую
+    if (!authProvider.isLoggedIn) {
+      openHtmlInBrowser(htmlContent);
+      return;
+    }
+
+    // Если отчёт ещё не сохранён на сервере — нет ks3Folder, fallback
+    if (reportState.ks3Folder == null || reportState.serverReportId == null) {
+      openHtmlInBrowser(htmlContent);
+      return;
+    }
+
+    // Показываем индикатор загрузки
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.uploadingFiles)),
+      );
+    }
+
+    try {
+      // 1. Получаем подписанные URL для всех файлов отчёта
+      final urlsResult = await ApiService.getReportFileUrls(
+        reportState.serverReportId!,
+      );
+
+      Map<String, String> fileUrls = {};
+      if (urlsResult.success && urlsResult.data?['urls'] != null) {
+        final urlsData = urlsResult.data!['urls'] as Map<String, dynamic>;
+        fileUrls = urlsData.map((k, v) => MapEntry(k, v.toString()));
+      }
+
+      // 2. Заменяем относительные пути в HTML на подписанные URL
+      String htmlWithUrls = htmlContent;
+      for (final entry in fileUrls.entries) {
+        // Заменяем src="photos/f1_1_001.jpg" на src="https://..."
+        htmlWithUrls = htmlWithUrls.replaceAll(
+          'src="${entry.key}"',
+          'src="${entry.value}"',
+        );
+        // Заменяем data-src="photos/f1_1_001.jpg" (для JavaScript media array)
+        htmlWithUrls = htmlWithUrls.replaceAll(
+          'data-src="${entry.key}"',
+          'data-src="${entry.value}"',
+        );
+        // Заменяем onclick="openLightbox('photos/f1_1_001.jpg', ..."
+        // на onclick="openLightbox('https://...', 'image')"
+        htmlWithUrls = htmlWithUrls.replaceAll(
+          "openLightbox('${entry.key}'",
+          "openLightbox('${entry.value}'",
+        );
+      }
+
+      // 3. Конвертируем HTML в байты (UTF-8)
+      final bytes = Uint8List.fromList(utf8.encode(htmlWithUrls));
+
+      // 4. Загружаем report.html на сервер В ТУ ЖЕ ПАПКУ отчёта
+      final uploadResult = await ApiService.uploadFileFromBytes(
+        bytes: bytes,
+        filename: 'report.html',
+        relativePath: 'report.html',
+        reportId: reportState.serverReportId,
+        ks3Folder: reportState.ks3Folder,
+      );
+
+      if (!uploadResult.success || uploadResult.data?['file'] == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${loc.uploadError}: ${uploadResult.error ?? "unknown"}')),
+          );
+        }
+        openHtmlInBrowser(htmlContent);
+        return;
+      }
+
+      // 5. Получаем ID файла (UUID)
+      final fileId = uploadResult.data!['file']['id'] as String;
+
+      // 6. Запрашиваем подписанную ссылку для просмотра
+      final urlResult = await ApiService.getDownloadUrl(fileId);
+
+      if (urlResult.success && urlResult.data?['url'] != null) {
+        final url = urlResult.data!['url'] as String;
+        openHtmlInBrowserUrl(url);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('HTML отчёт открыт в новой вкладке')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${loc.uploadError}: ${urlResult.error ?? "no url"}')),
+          );
+        }
+        openHtmlInBrowser(htmlContent);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${loc.uploadError}: $e')),
+        );
+      }
+      openHtmlInBrowser(htmlContent);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -817,6 +1116,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           ),
           Consumer<LocaleProvider>(
             builder: (context, localeProvider, child) {
+              final authProvider = context.watch<AuthProvider>();
               return PopupMenuButton<dynamic>(
                 icon: const Icon(Icons.menu),
                 itemBuilder: (ctx) => [
@@ -850,6 +1150,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       ],
                     ),
                   ),
+                  // "Залить на сервер" — только для залогиненных пользователей.
+                  // Загружает файлы отчёта на KS3 (по отдельности, не ZIP).
+                  if (authProvider.isLoggedIn)
+                    PopupMenuItem(
+                      value: 7,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cloud_upload),
+                          const SizedBox(width: 8),
+                          Text(loc.uploadToServer),
+                        ],
+                      ),
+                    ),
                   PopupMenuItem(
                     value: 6,
                     child: Row(
@@ -946,23 +1259,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   } else if (value == 0) {
                     final htmlContent = reportState.generateHtmlContent();
                     if (kIsWeb) {
-                      // На вебе копируем в буфер
-                      try {
-                        await Clipboard.setData(
-                          ClipboardData(text: htmlContent),
-                        );
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(loc.htmlCopied)),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${loc.copyError}$e')),
-                          );
-                        }
-                      }
+                      // На web — загружаем report.html на сервер и открываем ссылку
+                      await _viewHtmlOnWeb(htmlContent);
                     } else {
                       // На мобильных/десктопах открываем через системный диалог
                       await viewHtmlWithChooser(htmlContent);
@@ -1057,6 +1355,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     Navigator.pushReplacementNamed(context, '/');
                   } else if (value == 6) {
                     _showCompressVideoDialog();
+                  } else if (value == 7) {
+                    // Залить отчёт на сервер (только для залогиненных)
+                    await _uploadReportToServer();
                   }
                 },
               );
@@ -3677,6 +3978,91 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     if (!mounted || action == null) return;
 
+    // ===== Web: используем XFile/PlatformFile напрямую =====
+    if (kIsWeb) {
+      final List<XFile> selectedXFiles = [];
+      final List<PlatformFile> selectedPlatformFiles = [];
+
+      if (action == 'camera-photo') {
+        final picker = ImagePicker();
+        final file = await picker.pickImage(source: ImageSource.camera);
+        if (file != null) selectedXFiles.add(file);
+      } else if (action == 'camera-video') {
+        final picker = ImagePicker();
+        final file = await picker.pickVideo(source: ImageSource.camera);
+        if (file != null) selectedXFiles.add(file);
+      } else if (action == 'gallery-photo') {
+        final picker = ImagePicker();
+        final files = await picker.pickMultiImage();
+        selectedXFiles.addAll(files);
+      } else if (action == 'gallery-video') {
+        final result = await FilePicker.platform.pickFiles(
+          allowMultiple: true,
+          type: FileType.video,
+          withData: true, // Важно: загружаем байты сразу
+        );
+        if (result != null && result.files.isNotEmpty) {
+          selectedPlatformFiles.addAll(result.files);
+        }
+      }
+
+      if (selectedXFiles.isEmpty && selectedPlatformFiles.isEmpty) return;
+
+      _showProcessingDialog(loc.processingMedia);
+      try {
+        final reportState = context.read<ReportState>();
+
+        // Обрабатываем XFile (image_picker)
+        for (final file in selectedXFiles) {
+          final bytes = await file.readAsBytes();
+          final fileName = file.name;
+          final mimeType = _getMimeType(file.name);
+
+          await reportState.addMediaFromBytes(
+            questionIndex: questionIndex,
+            answerIndex: answerIndex,
+            bytes: bytes,
+            fileName: fileName,
+            mimeType: mimeType,
+            isAttention: isAttention,
+          );
+        }
+
+        // Обрабатываем PlatformFile (file_picker)
+        for (final file in selectedPlatformFiles) {
+          if (file.bytes == null) continue;
+          final fileName = file.name;
+          final mimeType = _getMimeType(file.name);
+
+          await reportState.addMediaFromBytes(
+            questionIndex: questionIndex,
+            answerIndex: answerIndex,
+            bytes: file.bytes!,
+            fileName: fileName,
+            mimeType: mimeType,
+            isAttention: isAttention,
+          );
+        }
+
+        await reportState.saveReport();
+        if (mounted) {
+          setState(() {
+            _hasUnsavedChanges = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${loc.saveError}$e')),
+          );
+        }
+      } finally {
+        _hideProcessingDialog();
+      }
+      return;
+    }
+
+    // ===== Mobile/Desktop: используем File =====
     final List<File> selectedFiles = [];
 
     if (action == 'camera-photo') {
@@ -3714,15 +4100,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
 
     if (selectedFiles.isEmpty) return;
-
-    if (kIsWeb) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.addMediaWebSoon)));
-      }
-      return;
-    }
 
     _showProcessingDialog(loc.processingMedia);
 
@@ -3881,12 +4258,14 @@ class _VideoThumbnailWidget extends StatefulWidget {
   final int size;
   final int? fileSize;
   final int? compressedSize;
+  final Uint8List? webBytes;
 
   const _VideoThumbnailWidget({
     this.localPath,
     this.size = 80,
     this.fileSize,
     this.compressedSize,
+    this.webBytes,
   });
 
   @override
@@ -4046,7 +4425,44 @@ class _MediaItemWidget extends StatelessWidget {
                   final localPath = _getAbsolutePath(
                     media['localPath'] as String?,
                   );
-                  if ((media['type'] as String? ?? '').startsWith('image')) {
+                  final isImage = (media['type'] as String? ?? '').startsWith('image');
+                  final webBytes = media['webBytes'] as Uint8List?;
+
+                  if (isImage) {
+                    // Web: отображаем из webBytes
+                    if (kIsWeb && webBytes != null) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.memory(
+                            webBytes,
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image,
+                              color: Colors.red,
+                            ),
+                          ),
+                          // Индикатор загрузки на сервер (если serverFileId ещё нет)
+                          if (media['serverFileId'] == null)
+                            Container(
+                              color: Colors.black45,
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    }
+                    // Mobile/Desktop: отображаем из файла
                     if (!kIsWeb && localPath != null) {
                       if (!File(localPath).existsSync()) {
                         return const Icon(
@@ -4061,6 +4477,7 @@ class _MediaItemWidget extends StatelessWidget {
                         fit: BoxFit.cover,
                       );
                     }
+                    // Нет данных для отображения
                     return const Center(
                       child: Icon(
                         Icons.image,
@@ -4069,11 +4486,14 @@ class _MediaItemWidget extends StatelessWidget {
                       ),
                     );
                   }
+
+                  // Видео
                   return _VideoThumbnailWidget(
                     localPath: localPath,
                     size: 70,
                     fileSize: media['fileSize'] as int?,
                     compressedSize: media['compressedSize'] as int?,
+                    webBytes: webBytes,
                   );
                 },
               ),

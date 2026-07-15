@@ -11,11 +11,12 @@ $env:FLUTTER_STORAGE_BASE_URL = "https://storage.flutter-io.cn"
 flutter pub get
 flutter clean
 flutter build web
-flutter run -d web-server --web-port=3000
-// flutter run -d edge --web-port=3000
+н// flutter run -d edge --web-port=3000
 
 cd d:\neiroQC\easyTab2\easy_tab
 flutter build apk --release
 flutter install
 запускаес на android с сохраением данных приложения:
 //flutter run 
+cd d:\neiroQC\easyTab2\easy_tab_Server
+npm run dev

@@ -615,4 +615,93 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get noSavedReports => 'Нет сохранённых отчётов';
+
+  @override
+  String get loginButton => 'Войти/Регистрация';
+
+  @override
+  String get loginTitle => 'Вход';
+
+  @override
+  String get usernameLabel => 'Имя пользователя';
+
+  @override
+  String get emailLabel => 'Эл. почта (необязательно)';
+
+  @override
+  String get passwordLabel => 'Пароль';
+
+  @override
+  String get serverSettings => 'Сервер';
+
+  @override
+  String get serverLabel => 'Адрес сервера (хост:порт)';
+
+  @override
+  String get connectionOk => 'Связь установлена';
+
+  @override
+  String get connectionFailed => 'Связь не установлена';
+
+  @override
+  String get loginAction => 'Войти';
+
+  @override
+  String get registerAction => 'Регистрация';
+
+  @override
+  String get cancelAction => 'Отмена';
+
+  @override
+  String get loginSuccess => 'Успешный вход';
+
+  @override
+  String get loginError => 'Ошибка входа';
+
+  @override
+  String get registerTitle => 'Регистрация';
+
+  @override
+  String get logoutAction => 'Выйти';
+
+  @override
+  String get syncToCloud => 'Синхронизировать';
+
+  @override
+  String get syncingProgress => 'Синхронизация...';
+
+  @override
+  String get syncCompleteMessage => 'Синхронизация завершена';
+
+  @override
+  String get syncErrorMessage => 'Ошибка синхронизации';
+
+  @override
+  String get settingsTitle => 'Настройки';
+
+  @override
+  String get accountSection => 'Аккаунт';
+
+  @override
+  String get uploadToServer => 'Залить на сервер';
+
+  @override
+  String get uploadingFiles => 'Загрузка файлов...';
+
+  @override
+  String get uploadCompleteAll => 'Все файлы успешно загружены';
+
+  @override
+  String uploadCompletePartial(int count, int total) {
+    return 'Загрузка завершена: $count/$total файлов';
+  }
+
+  @override
+  String get uploadError => 'Ошибка загрузки';
+
+  @override
+  String get noFilesToUpload => 'Нет файлов для загрузки';
+
+  @override
+  String get loginRequired => 'Сначала войдите в аккаунт';
 }
