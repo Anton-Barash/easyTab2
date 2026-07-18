@@ -1,5 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:easy_tab/utils/platform_io.dart'
+    if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
+import 'package:easy_tab/utils/file_image.dart'
+    if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
+import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -286,7 +290,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                   width: 2,
                                 ),
                                 image: DecorationImage(
-                                  image: FileImage(File(_headerImagePath!)),
+                                  image: fileImageProvider(_headerImagePath!),
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -1204,25 +1208,4 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       );
     }
   }
-}
-
-class DottedPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFcbc7bc)
-      ..style = PaintingStyle.fill;
-
-    const dotSize = 1.0;
-    const spacing = 20.0;
-
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), dotSize, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

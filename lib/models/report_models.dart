@@ -16,9 +16,20 @@ class MediaItem {
   /// На mobile/desktop это поле всегда null.
   Uint8List? webBytes;
 
+  /// Presigned URL медиафайла на KS3 (только для web-версии).
+  /// Заполняется при загрузке отчёта с сервера через getReportFileUrls.
+  /// Используется для отображения фото/видео через Image.network/VideoPlayerController.networkUrl
+  /// без необходимости грузить байты в память.
+  /// На mobile/desktop это поле всегда null (используется localPath).
+  String? webUrl;
+
   /// ID файла на сервере (заполняется после загрузки).
   /// Используется для получения URL просмотра/скачивания.
   String? serverFileId;
+
+  /// P3-45: Флаг загрузки на сервер — защита от race condition.
+  /// Если true — файл уже загружается, повторная загрузка пропускается.
+  bool isUploading = false;
 
   MediaItem({
     required this.name,
@@ -29,6 +40,7 @@ class MediaItem {
     this.fileSize,
     this.compressedSize,
     this.webBytes,
+    this.webUrl,
     this.serverFileId,
   });
 
@@ -288,6 +300,11 @@ class Report {
         // (на mobile/desktop это поле null)
         if (m.webBytes != null) {
           map['webBytes'] = m.webBytes;
+        }
+        // Добавляем webUrl (presigned URL с KS3) для отображения
+        // уже загруженных на сервер фото на web.
+        if (m.webUrl != null) {
+          map['webUrl'] = m.webUrl;
         }
         // Добавляем serverFileId для получения URL
         if (m.serverFileId != null) {

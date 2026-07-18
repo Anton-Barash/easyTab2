@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- БЕЗОПАСНОСТЬ (C-16): INTERNET permission обязательно в main manifest,
+         иначе release-сборка не сможет обращаться к серверу. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Permissions for v_video_compressor -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />

@@ -10,19 +10,30 @@
 include: package:flutter_lints/flutter.yaml
 
 linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
+  # P3-50: Включены только «bug-finder» правила — они находят реальные баги
+  # и не требуют массового рефакторинга (в отличие от style-правил вроде
+  # prefer_single_quotes / avoid_print / prefer_const_constructors,
+  # которые в этом проекте сгенерируют сотни предупреждений).
+  # Style-правила планируется включить отдельным шагом после чистки кода.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # Поиск реальных багов:
+    - cancel_subscriptions              # утечка StreamSubscription
+    - close_sinks                       # утечка StreamController
+    - hash_and_equals                   # переопределил ==, но не hashCode (или наоборот)
+    - no_duplicate_case_values          # дубликаты в switch-case
+    - valid_regexps                     # невалидные регулярки
+    - use_rethrow_when_possible         # throw e вместо rethrow
+    - avoid_returning_null_for_void     # return null в void-функции
+    - avoid_void_async                  # async-функция без возврата Future
+    - empty_catches                     # пустой catch блок
+    - avoid_empty_else                  # пустой else
+    - unnecessary_null_in_if_null_operators
+    - prefer_void_to_null
+    - no_adjacent_strings_in_list       # ['a' 'b'] вместо ['a', 'b']
+    - throw_in_finally                  # throw внутри finally
+    - control_flow_in_finally           # return/break/continue в finally
+    - empty_statements                  # лишние ;
+    - recursive_getters                 # геттер вызывает сам себя
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

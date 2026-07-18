@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -10,27 +11,49 @@ import './screens/template_select_screen.dart';
 import './screens/form_fill_screen.dart';
 import './screens/reports_screen.dart';
 import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
+import './widgets/dotted_pattern_painter.dart';
+import './widgets/easy_tab_button.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final localeProvider = LocaleProvider();
-  await localeProvider.init();
-  final authProvider = AuthProvider();
-  await authProvider.init();
-  runApp(EasyTabApp(localeProvider: localeProvider, authProvider: authProvider));
+  // P3: runZonedGuarded перехватывает необработанные async-ошибки,
+  // предотвращая тихое падение приложения.
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    // Перехват ошибок Flutter-фреймворка (build, layout и т.д.)
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      debugPrint('FlutterError: ${details.exception}\n${details.stack}');
+    };
+
+    final localeProvider = LocaleProvider();
+    await localeProvider.init();
+    final authProvider = AuthProvider();
+    await authProvider.init();
+    final settingsProvider = SettingsState();
+    await settingsProvider.init();
+    runApp(EasyTabApp(
+      localeProvider: localeProvider,
+      authProvider: authProvider,
+      settingsProvider: settingsProvider,
+    ));
+  }, (error, stackTrace) {
+    debugPrint('Unhandled async error: $error\n$stackTrace');
+  });
 }
 
 class EasyTabApp extends StatelessWidget {
   final LocaleProvider localeProvider;
   final AuthProvider authProvider;
-  const EasyTabApp({super.key, required this.localeProvider, required this.authProvider});
+  final SettingsState settingsProvider;
+  const EasyTabApp({super.key, required this.localeProvider, required this.authProvider, required this.settingsProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ReportState()),
-        ChangeNotifierProvider(create: (_) => SettingsState()),
+        ChangeNotifierProvider.value(value: settingsProvider),
         ChangeNotifierProvider.value(value: localeProvider),
         ChangeNotifierProvider.value(value: authProvider),
       ],
@@ -122,25 +145,37 @@ class StartScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 16, color: Color(0xFF424242)),
                   ),
                   const SizedBox(height: 30),
-                  _buildButton(
+                  EasyTabButton(
                     label: loc.createNewReport,
                     onTap: () => Navigator.pushNamed(context, '/template'),
+                    fontSize: 18,
+                    verticalPadding: 18,
+                    horizontalPadding: 20,
                   ),
                   const SizedBox(height: 15),
-                  _buildButton(
+                  EasyTabButton(
                     label: loc.continueReport,
                     onTap: () => _continueLastReport(context),
+                    fontSize: 18,
+                    verticalPadding: 18,
+                    horizontalPadding: 20,
                   ),
                   const SizedBox(height: 15),
-                  _buildButton(
+                  EasyTabButton(
                     label: loc.yourReports,
                     onTap: () => Navigator.pushNamed(context, '/reports'),
+                    fontSize: 18,
+                    verticalPadding: 18,
+                    horizontalPadding: 20,
                   ),
                   const SizedBox(height: 15),
                   if (!authProvider.isLoggedIn)
-                    _buildButton(
+                    EasyTabButton(
                       label: loc.loginButton,
                       onTap: () => showLoginDialog(context),
+                      fontSize: 18,
+                      verticalPadding: 18,
+                      horizontalPadding: 20,
                     ),
                   const SizedBox(height: 30),
                   Text(
@@ -220,73 +255,6 @@ class StartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildButton({required String label, required VoidCallback onTap}) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFFe0e0e0),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(9),
-          bottomRight: Radius.circular(11),
-        ),
-        border: Border.all(width: 2.5, color: const Color(0xFF333333)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF333333),
-            blurRadius: 0,
-            spreadRadius: 1.5,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.13),
-            offset: const Offset(2, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(9),
-          bottomRight: Radius.circular(11),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(8),
-            topRight: Radius.circular(10),
-            bottomLeft: Radius.circular(9),
-            bottomRight: Radius.circular(11),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF424242),
-                shadows: [
-                  Shadow(
-                    color: Color.fromRGBO(66, 66, 66, 0.45),
-                    blurRadius: 1.2,
-                  ),
-                  Shadow(
-                    color: Color.fromRGBO(255, 255, 255, 0.9),
-                    blurRadius: 0.8,
-                  ),
-                ],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _continueLastReport(BuildContext context) async {
     final reportState = Provider.of<ReportState>(context, listen: false);
     final reports = await reportState.loadReportList();
@@ -305,25 +273,4 @@ class StartScreen extends StatelessWidget {
     await reportState.loadReport(lastReport.folderName);
     Navigator.of(context).pushNamed('/fill');
   }
-}
-
-class DottedPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFcbc7bc)
-      ..style = PaintingStyle.fill;
-
-    const dotSize = 1.0;
-    const spacing = 20.0;
-
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), dotSize, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

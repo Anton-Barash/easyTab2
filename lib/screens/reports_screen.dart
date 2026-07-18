@@ -1,4 +1,6 @@
-import 'dart:io';
+import 'package:easy_tab/utils/file_image.dart'
+    if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
+import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -18,8 +20,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSyncingAll = false;
-  Set<String> _syncedReports = {};
-  Set<String> _syncingReports = {};
+  final Set<String> _syncedReports = {};
+  final Set<String> _syncingReports = {};
 
   @override
   void initState() {
@@ -44,8 +46,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       final loc = AppLocalizations.of(context)!;
+      // P2-36: loginRequired ("Сначала войдите") вместо loginError ("Ошибка входа").
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.loginError)),
+        SnackBar(content: Text(loc.loginRequired)),
       );
       return;
     }
@@ -86,8 +89,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       final loc = AppLocalizations.of(context)!;
+      // P2-36: loginRequired вместо loginError.
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.loginError)),
+        SnackBar(content: Text(loc.loginRequired)),
       );
       return;
     }
@@ -371,8 +375,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     child: hasThumbnail
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: Image.file(
-                              File('${report.folderName}/${report.thumbnailPath}'),
+                            child: fileImageWidget(
+                              '${report.folderName}/${report.thumbnailPath}',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return const Center(
@@ -560,23 +564,4 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
     );
   }
-}
-
-class DottedPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFcbc7bc)
-      ..style = PaintingStyle.fill;
-    const dotSize = 1.0;
-    const spacing = 20.0;
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), dotSize, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

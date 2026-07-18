@@ -30,6 +30,20 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    // P1-56: инициализация _serverController.text в initState
+    // через addPostFrameCallback вместо побочного эффекта в build().
+    // Это гарантирует однократную установку и не сбивает позицию курсора.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (_serverController.text.isEmpty) {
+        _serverController.text = authProvider.serverUrl;
+      }
+    });
+  }
+
   /// Разобрать строку "host:port" → (host, port).
   /// Если порт не указан, используется 3000.
   (String, int) _parseServerUrl(String value) {
@@ -234,12 +248,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final authProvider = Provider.of<AuthProvider>(context);
-
-    // Синхронизируем поле сервера с текущим значением из провайдера.
-    if (_serverController.text.isEmpty) {
-      _serverController.text = authProvider.serverUrl;
-    }
 
     return Dialog(
       backgroundColor: Colors.transparent,

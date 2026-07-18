@@ -13,7 +13,14 @@ class SettingsState extends ChangeNotifier {
   String get platform => _platform;
 
   SettingsState() {
-    _loadSettings();
+    // P1-55: _loadSettings() теперь вызывается через init(),
+    // а не fire-and-forget в конструкторе.
+    // Это гарантирует, что загрузка завершится до runApp().
+  }
+
+  /// Инициализация настроек. Вызывается в main() до runApp().
+  Future<void> init() async {
+    await _loadSettings();
   }
 
   Future<void> _loadSettings() async {
@@ -50,7 +57,12 @@ class SettingsState extends ChangeNotifier {
 
   Future<void> resetSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    // TODO-35: НЕ используем prefs.clear() — он удаляет ВСЕ ключи,
+    // включая auth-токен (user_token) и другие данные AuthProvider'а.
+    // Удаляем только собственные ключи настроек.
+    await prefs.remove('templatesFolder');
+    await prefs.remove('reportsFolder');
+    await prefs.remove('mediaFolder');
     _templatesFolder = '';
     _reportsFolder = '';
     _mediaFolder = '';

@@ -1,6 +1,11 @@
-import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
+import 'package:easy_tab/utils/platform_io.dart'
+    if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
+import 'package:easy_tab/utils/file_image.dart'
+    if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
+import 'package:easy_tab/utils/native_file_ops.dart'
+    if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
+import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -55,7 +60,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
   String _processingMessage = '';
 
   bool _checkedSyncAfterLoad = false;
-  bool _isUpdatingQuestions = false;
 
   /// Определить MIME-тип по расширению файла.
   String _getMimeType(String path) {
@@ -156,10 +160,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   void _hideProcessingDialog() {
+    if (!mounted) return;
     setState(() {
       _processingMessage = '';
     });
-    Navigator.of(context, rootNavigator: true).pop();
+    // P3-47: pop только если диалог действительно активен.
+    // Проверяем через canPop — иначе pop() закроет текущий экран,
+    // если диалог уже был закрыт ранее.
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
   }
 
   /// Загрузить все файлы отчёта на сервер по отдельности (не ZIP).
@@ -1163,16 +1174,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ],
                       ),
                     ),
-                  PopupMenuItem(
-                    value: 6,
-                    child: Row(
-                      children: [
-                        const Icon(Icons.video_call),
-                        const SizedBox(width: 8),
-                        Text(loc.compressVideoTitle),
-                      ],
+                  // P3-46: «Сжать видео» — только на native, на web недоступно.
+                  if (!kIsWeb)
+                    PopupMenuItem(
+                      value: 6,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.video_call),
+                          const SizedBox(width: 8),
+                          Text(loc.compressVideoTitle),
+                        ],
+                      ),
                     ),
-                  ),
                   PopupMenuItem(
                     value: 3,
                     child: Row(
@@ -2564,8 +2577,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
               height: 250,
               decoration: BoxDecoration(
                 image: DecorationImage(
-                  image: FileImage(
-                    File('${reportState.currentReportPath}/$headerImagePath'),
+                  image: fileImageProvider(
+                    '${reportState.currentReportPath}/$headerImagePath',
                   ),
                   fit: BoxFit.cover,
                 ),
@@ -2685,18 +2698,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
         sourceFile.copySync(tempFile.path);
         tempPhotoPath = tempFile.path;
       }
-    }
-
-    Widget buildCard({required Widget child}) {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(width: 2, color: const Color(0xFF333333)),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: child,
-      );
     }
 
     showModalBottomSheet(
@@ -2873,7 +2874,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(6),
                   image: DecorationImage(
-                    image: FileImage(File(tempPhotoPath!)),
+                    image: fileImageProvider(tempPhotoPath!),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -3058,10 +3059,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   height: 150,
                   decoration: BoxDecoration(
                     image: DecorationImage(
-                      image: FileImage(
-                        File(
-                          '${reportState.currentReportPath}/$headerImagePath',
-                        ),
+                      image: fileImageProvider(
+                        '${reportState.currentReportPath}/$headerImagePath',
                       ),
                       fit: BoxFit.cover,
                     ),
@@ -4429,7 +4428,7 @@ class _MediaItemWidget extends StatelessWidget {
                   final webBytes = media['webBytes'] as Uint8List?;
 
                   if (isImage) {
-                    // Web: отображаем из webBytes
+                    // Web: отображаем из webBytes (freshly загруженные фото)
                     if (kIsWeb && webBytes != null) {
                       return Stack(
                         fit: StackFit.expand,
@@ -4462,6 +4461,37 @@ class _MediaItemWidget extends StatelessWidget {
                         ],
                       );
                     }
+                    // Web: отображаем через presigned URL (фото с сервера)
+                    final webUrl = media['webUrl'] as String?;
+                    if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(
+                            webUrl,
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      );
+                    }
                     // Mobile/Desktop: отображаем из файла
                     if (!kIsWeb && localPath != null) {
                       if (!File(localPath).existsSync()) {
@@ -4470,8 +4500,8 @@ class _MediaItemWidget extends StatelessWidget {
                           color: Colors.red,
                         );
                       }
-                      return Image.file(
-                        File(localPath),
+                      return fileImageWidget(
+                        localPath,
                         width: 70,
                         height: 70,
                         fit: BoxFit.cover,
@@ -4569,9 +4599,13 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
       if ((media['type'] as String? ?? '').startsWith('video') &&
           !kIsWeb &&
           localPath != null) {
-        _videoController = VideoPlayerController.file(File(localPath))
+        _videoController = createFileVideoController(localPath)
           ..initialize().then((_) {
-            setState(() {});
+            // P3-48: проверка mounted — виджет мог быть удалён
+            // к моменту завершения async initialize().
+            if (mounted) {
+              setState(() {});
+            }
           });
       }
     }
@@ -4686,16 +4720,52 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
                             fileSize: media['fileSize'] as int?,
                             compressedSize: media['compressedSize'] as int?,
                           )
-                        : const Icon(Icons.videocam, color: Colors.grey))
+                        : (kIsWeb && (media['webUrl'] as String?) != null
+                              ? Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.network(
+                                      media['webUrl'] as String,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.broken_image,
+                                              color: Colors.grey),
+                                    ),
+                                    const Positioned(
+                                      bottom: 4,
+                                      right: 4,
+                                      child: Icon(Icons.play_circle,
+                                          color: Colors.white, size: 20),
+                                    ),
+                                  ],
+                                )
+                              : const Icon(Icons.videocam, color: Colors.grey)))
                   : (!kIsWeb && media['localPath'] != null
-                        ? Image.file(
-                            File(
-                              _getAbsolutePath(media['localPath']) ??
-                                  media['localPath'],
-                            ),
+                        ? fileImageWidget(
+                            _getAbsolutePath(media['localPath']) ??
+                                media['localPath'],
                             fit: BoxFit.cover,
                           )
-                        : const Icon(Icons.image, color: Colors.grey)),
+                        : (kIsWeb && (media['webUrl'] as String?) != null
+                              ? Image.network(
+                                  media['webUrl'] as String,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return const Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey),
+                                )
+                              : const Icon(Icons.image, color: Colors.grey))),
             ),
             if (isSelected)
               const Positioned(
@@ -4740,10 +4810,35 @@ class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
                 final localPath = _getAbsolutePath(
                   media['localPath'] as String?,
                 );
+                final webUrl = media['webUrl'] as String?;
                 return Center(
                   child: (!kIsWeb && localPath != null)
-                      ? Image.file(File(localPath), fit: BoxFit.contain)
-                      : const Icon(Icons.image, size: 60, color: Colors.white),
+                      ? fileImageWidget(localPath, fit: BoxFit.contain)
+                      : (kIsWeb && webUrl != null && webUrl.isNotEmpty
+                            ? InteractiveViewer(
+                                child: Image.network(
+                                  webUrl,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return const Center(
+                                      child: SizedBox(
+                                        width: 40,
+                                        height: 40,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 3,
+                                            color: Colors.white),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.broken_image,
+                                      size: 60,
+                                      color: Colors.white),
+                                ),
+                              )
+                            : const Icon(Icons.image,
+                                size: 60, color: Colors.white)),
                 );
               }
             },
@@ -5551,25 +5646,4 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
       );
     }
   }
-}
-
-class DottedPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFcbc7bc)
-      ..style = PaintingStyle.fill;
-
-    const dotSize = 1.0;
-    const spacing = 20.0;
-
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), dotSize, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

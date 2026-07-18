@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:easy_tab/utils/platform_io.dart'
+    if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 
 /// API client for easyTab server.
 ///
@@ -27,7 +28,11 @@ class ApiService {
   }
 
   /// Токен авторизации (устанавливается AuthProvider'ом после входа).
-  static String? authToken;
+  // H-20: приватное хранилище с accessor — токен нельзя прочитать/перезаписать
+  // извне произвольно, только через контролируемый setter.
+  static String? _authToken;
+  static String? get authToken => _authToken;
+  static set authToken(String? value) => _authToken = value;
 
   /// Заголовки для JSON-запросов (с токеном авторизации).
   static Map<String, String> get _headers => {
@@ -195,12 +200,19 @@ class ApiService {
       // Определяем MIME-тип по расширению
       final ext = filename.split('.').last.toLowerCase();
       String mimeType = 'application/octet-stream';
-      if (ext == 'html' || ext == 'htm') mimeType = 'text/html';
-      else if (ext == 'json') mimeType = 'application/json';
-      else if (ext == 'xlsx') mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      else if (ext == 'png') mimeType = 'image/png';
-      else if (ext == 'jpg' || ext == 'jpeg') mimeType = 'image/jpeg';
-      else if (ext == 'mp4') mimeType = 'video/mp4';
+      if (ext == 'html' || ext == 'htm') {
+        mimeType = 'text/html';
+      } else if (ext == 'json') {
+        mimeType = 'application/json';
+      } else if (ext == 'xlsx') {
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      } else if (ext == 'png') {
+        mimeType = 'image/png';
+      } else if (ext == 'jpg' || ext == 'jpeg') {
+        mimeType = 'image/jpeg';
+      } else if (ext == 'mp4') {
+        mimeType = 'video/mp4';
+      }
 
       request.files.add(
         http.MultipartFile.fromBytes(

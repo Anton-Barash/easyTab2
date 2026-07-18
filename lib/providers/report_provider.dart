@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:easy_tab/utils/platform_io.dart'
+    if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:flutter/foundation.dart';
 import 'package:excel_community/excel_community.dart';
 import 'package:path/path.dart' as path;
@@ -8,6 +9,8 @@ import 'package:archive/archive_io.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:image/image.dart' as img;
 import 'package:v_video_compressor/v_video_compressor.dart';
+import 'package:easy_tab/utils/native_file_ops.dart'
+    if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import '../models/report_models.dart';
 import '../services/api_service.dart';
 
@@ -36,7 +39,7 @@ Uint8List _compressImage(Uint8List bytes, int maxSize) {
   try {
     final image = img.decodeImage(bytes);
     if (image == null) {
-      if (kDebugMode) print('Error: Could not decode image');
+      if (kDebugMode) debugPrint('Error: Could not decode image');
       return bytes;
     }
 
@@ -66,13 +69,13 @@ Uint8List _compressImage(Uint8List bytes, int maxSize) {
     }
 
     if (result.isEmpty) {
-      if (kDebugMode) print('Error: Compressed image is empty');
+      if (kDebugMode) debugPrint('Error: Compressed image is empty');
       return bytes;
     }
 
     return result;
   } catch (e) {
-    if (kDebugMode) print('Error compressing image: $e');
+    if (kDebugMode) debugPrint('Error compressing image: $e');
     return bytes;
   }
 }
@@ -105,6 +108,52 @@ List<String> sortLanguages(List<String> languages) {
 String getLanguageColor(int index) {
   if (index == 0) return '#888888';
   return languageColors[index] ?? '#888888';
+}
+
+/// Экранирует спецсимволы HTML для защиты от XSS (H-22, M-30).
+///
+/// Применяется ко всем пользовательским данным (productType, factory,
+/// model, тексты ответов) перед вставкой в HTML-отчёт.
+///
+/// Превращает: `<script>alert(1)</script>` →
+/// `&lt;script&gt;alert(1)&lt;/script&gt;`
+String escapeHtml(String input) {
+  return input
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+}
+
+/// Экранирует текст и сохраняет переносы строк как `<br>`.
+///
+/// Сначала экранирует HTML-спецсимволы (защита от XSS),
+/// потом заменяет `\n` на `<br>` для отображения переносов.
+String escapeHtmlWithBr(String input) {
+  return escapeHtml(input).replaceAll('\n', '<br>');
+}
+
+/// P2-40: Санитизирует ячейку Excel-таблицы от XSS и formula injection.
+///
+/// 1. Экранирует HTML-спецсимволы (защита от XSS в HTML-представлении Excel).
+/// 2. Если ячейка начинается с префикса формулы (=, +, -, @, таб, возврат каретки),
+///    добавляет ведущую одинарную кавычку — Excel воспринимает её как текст.
+String _sanitizeExcelCell(String input) {
+  final escaped = escapeHtml(input);
+  // Защита от formula injection: если первый символ — оператор формулы.
+  if (escaped.isNotEmpty) {
+    final firstChar = escaped[0];
+    if (firstChar == '=' ||
+        firstChar == '+' ||
+        firstChar == '-' ||
+        firstChar == '@' ||
+        firstChar == '\t' ||
+        firstChar == '\r') {
+      return "'$escaped";
+    }
+  }
+  return escaped;
 }
 
 List<String> _groupMediaNames(List<String> mediaNames) {
@@ -297,7 +346,7 @@ class ReportState extends ChangeNotifier {
     final mimeType = _getMimeType(file.path);
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = _compressImage(bytes, 2000);
+      final compressed = _compressImage(Uint8List.fromList(bytes), 2000);
       await destPath.writeAsBytes(compressed);
     } else {
       await file.copy(destPath.path);
@@ -466,7 +515,7 @@ class ReportState extends ChangeNotifier {
               file.deleteSync();
             }
           } catch (e) {
-            if (kDebugMode) print('Error deleting media file: $e');
+            if (kDebugMode) debugPrint('Error deleting media file: $e');
           }
         }
       }
@@ -568,7 +617,7 @@ class ReportState extends ChangeNotifier {
 
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = _compressImage(bytes, 2000);
+      final compressed = _compressImage(Uint8List.fromList(bytes), 2000);
       await destPath.writeAsBytes(compressed);
     } else {
       await file.copy(destPath.path);
@@ -698,7 +747,7 @@ class ReportState extends ChangeNotifier {
           mimeType,
           onUploadProgress,
         ).catchError((e) {
-          if (kDebugMode) print('Background upload failed: $e');
+          if (kDebugMode) debugPrint('Background upload failed: $e');
         });
       }
     }
@@ -718,6 +767,13 @@ class ReportState extends ChangeNotifier {
     String mimeType,
     void Function(double progress)? onUploadProgress,
   ) async {
+    // P3-45: Защита от race condition — если файл уже загружается, пропускаем.
+    if (mediaItem.isUploading) {
+      if (kDebugMode) debugPrint('Upload skipped (already uploading): $fileName');
+      return;
+    }
+    mediaItem.isUploading = true;
+
     try {
       onUploadProgress?.call(0.1);
 
@@ -738,16 +794,19 @@ class ReportState extends ChangeNotifier {
           mediaItem.serverFileId = fileId;
           notifyListeners();
           if (kDebugMode) {
-            print('Media uploaded: $fileName → fileId=$fileId');
+            debugPrint('Media uploaded: $fileName → fileId=$fileId');
           }
         }
       } else {
         if (kDebugMode) {
-          print('Media upload failed: $fileName — ${result.error}');
+          debugPrint('Media upload failed: $fileName — ${result.error}');
         }
       }
     } catch (e) {
-      if (kDebugMode) print('Media upload error: $fileName — $e');
+      if (kDebugMode) debugPrint('Media upload error: $fileName — $e');
+    } finally {
+      // P3-45: Сбрасываем флаг загрузки в любом случае.
+      mediaItem.isUploading = false;
     }
   }
 
@@ -761,13 +820,12 @@ class ReportState extends ChangeNotifier {
       return;
     }
 
-    if (kDebugMode) print('_uploadPendingMedia: scanning for pending media...');
+    if (kDebugMode) debugPrint('_uploadPendingMedia: scanning for pending media...');
 
     int uploadedCount = 0;
 
     // Проходим по всем markers и их media
     for (final entry in _currentReport!.markers.entries) {
-      final qid = entry.key;
       final markersList = entry.value;
 
       for (int answerIdx = 0; answerIdx < markersList.length; answerIdx++) {
@@ -784,7 +842,7 @@ class ReportState extends ChangeNotifier {
 
           // Загружаем на сервер
           if (kDebugMode) {
-            print('_uploadPendingMedia: uploading ${media.name}...');
+            debugPrint('_uploadPendingMedia: uploading ${media.name}...');
           }
 
           await _uploadMediaToServer(
@@ -804,7 +862,7 @@ class ReportState extends ChangeNotifier {
     }
 
     if (kDebugMode) {
-      print('_uploadPendingMedia: uploaded $uploadedCount files');
+      debugPrint('_uploadPendingMedia: uploaded $uploadedCount files');
     }
   }
 
@@ -832,9 +890,9 @@ class ReportState extends ChangeNotifier {
     if (media.serverFileId != null) {
       try {
         await ApiService.deleteFile(media.serverFileId!);
-        if (kDebugMode) print('Media deleted from server: ${media.serverFileId}');
+        if (kDebugMode) debugPrint('Media deleted from server: ${media.serverFileId}');
       } catch (e) {
-        if (kDebugMode) print('Failed to delete media from server: $e');
+        if (kDebugMode) debugPrint('Failed to delete media from server: $e');
       }
     }
 
@@ -1009,7 +1067,7 @@ class ReportState extends ChangeNotifier {
           }
         }
       } catch (e) {
-        if (kDebugMode) print('Error compressing video: $e');
+        if (kDebugMode) debugPrint('Error compressing video: $e');
       }
     }
   }
@@ -1099,7 +1157,7 @@ class ReportState extends ChangeNotifier {
           }
         }
       } catch (e) {
-        if (kDebugMode) print('Error compressing video: $e');
+        if (kDebugMode) debugPrint('Error compressing video: $e');
       }
     }
 
@@ -1139,16 +1197,18 @@ class ReportState extends ChangeNotifier {
       final jsonData = _currentReport!.toJson();
       await jsonFile.writeAsString(jsonEncode(jsonData));
 
-      print('saveReport: availableLanguages=${_currentReport!.availableLanguages}');
-      print('saveReport: translations keys=${_currentReport!.translations.keys}');
+      if (kDebugMode) {
+      debugPrint('saveReport: availableLanguages=${_currentReport!.availableLanguages}');
+      debugPrint('saveReport: translations keys=${_currentReport!.translations.keys}');
       for (final qid in _currentReport!.translations.keys) {
-        print('saveReport: translations[$qid] keys=${_currentReport!.translations[qid]!.keys}');
+        debugPrint('saveReport: translations[$qid] keys=${_currentReport!.translations[qid]!.keys}');
       }
+    }
 
       await _saveHtmlPreview(folderPath);
       return true;
     } catch (e) {
-      if (kDebugMode) print('Error saving report: $e');
+      if (kDebugMode) debugPrint('Error saving report: $e');
       return false;
     }
   }
@@ -1192,7 +1252,7 @@ class ReportState extends ChangeNotifier {
           _ks3Folder = folder;
         }
         if (kDebugMode) {
-          print('saveReport (web): saved as ID $_serverReportId, folder=$_ks3Folder');
+          debugPrint('saveReport (web): saved as ID $_serverReportId, folder=$_ks3Folder');
         }
 
         // После сохранения отчёта — загружаем все медиа, у которых
@@ -1203,11 +1263,11 @@ class ReportState extends ChangeNotifier {
 
         return true;
       } else {
-        if (kDebugMode) print('saveReport (web): ${result.error}');
+        if (kDebugMode) debugPrint('saveReport (web): ${result.error}');
         return false;
       }
     } catch (e) {
-      if (kDebugMode) print('saveReport (web) error: $e');
+      if (kDebugMode) debugPrint('saveReport (web) error: $e');
       return false;
     }
   }
@@ -1233,7 +1293,7 @@ class ReportState extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      if (kDebugMode) print('Error loading report: $e');
+      if (kDebugMode) debugPrint('Error loading report: $e');
       return false;
     }
   }
@@ -1243,7 +1303,7 @@ class ReportState extends ChangeNotifier {
     try {
       final result = await ApiService.getReport(reportId);
       if (!result.success || result.data?['report'] == null) {
-        if (kDebugMode) print('loadReport (web): ${result.error}');
+        if (kDebugMode) debugPrint('loadReport (web): ${result.error}');
         return false;
       }
 
@@ -1260,16 +1320,54 @@ class ReportState extends ChangeNotifier {
         _ks3Folder = null;
       }
 
+      // Заполняем webUrl для медиа — presigned URL с KS3.
+      // Без этого на web фото/видео не отображаются (webBytes пустой,
+      // localPath бесполезен т.к. ФС недоступна).
+      await _populateMediaWebUrls(reportId);
+
       if (kDebugMode) {
-        print('loadReport (web): ID=$_serverReportId, folder=$_ks3Folder');
+        debugPrint('loadReport (web): ID=$_serverReportId, folder=$_ks3Folder');
       }
 
       resetCompressedVideos();
       notifyListeners();
       return true;
     } catch (e) {
-      if (kDebugMode) print('loadReport (web) error: $e');
+      if (kDebugMode) debugPrint('loadReport (web) error: $e');
       return false;
+    }
+  }
+
+  /// Заполнить MediaItem.webUrl presigned-ссылками с KS3.
+  /// Вызывается после загрузки отчёта с сервера на web.
+  /// Молча игнорирует ошибки сети — отчёт всё равно откроется,
+  /// просто медиа покажутся плейсхолдерами.
+  Future<void> _populateMediaWebUrls(int reportId) async {
+    try {
+      final urlsResult = await ApiService.getReportFileUrls(reportId);
+      if (!urlsResult.success || urlsResult.data?['urls'] == null) return;
+
+      final urlsData = urlsResult.data!['urls'] as Map<String, dynamic>;
+      if (urlsData.isEmpty) return;
+
+      // Проходим по всем markers (Map<qid, List<AnswerMarkers>>),
+      // заполняем webUrl для каждого медиа.
+      // Ключ в urlsData — relativePath (например "photos/f1_1_001.jpg"),
+      // совпадает с MediaItem.localPath (который после fromJson уже относительный).
+      _currentReport!.markers.forEach((qid, markersList) {
+        for (final markers in markersList) {
+          for (final media in markers.media) {
+            if (media.localPath == null || media.localPath!.isEmpty) continue;
+            // Пробуем точное совпадение по localPath, затем по name
+            final url = urlsData[media.localPath] ?? urlsData[media.name];
+            if (url is String && url.isNotEmpty) {
+              media.webUrl = url;
+            }
+          }
+        }
+      });
+    } catch (e) {
+      if (kDebugMode) debugPrint('_populateMediaWebUrls error: $e');
     }
   }
 
@@ -1303,7 +1401,7 @@ class ReportState extends ChangeNotifier {
         };
       }).toList();
     } catch (e) {
-      if (kDebugMode) print('listReports (web) error: $e');
+      if (kDebugMode) debugPrint('listReports (web) error: $e');
       return [];
     }
   }
@@ -1336,7 +1434,7 @@ class ReportState extends ChangeNotifier {
       }
       return reports;
     } catch (e) {
-      if (kDebugMode) print('listLocalReports error: $e');
+      if (kDebugMode) debugPrint('listLocalReports error: $e');
       return [];
     }
   }
@@ -1358,7 +1456,7 @@ class ReportState extends ChangeNotifier {
     try {
       final zipFile = File(zipPath);
       if (!await zipFile.exists()) {
-        if (kDebugMode) print('ZIP file not found: $zipPath');
+        if (kDebugMode) debugPrint('ZIP file not found: $zipPath');
         return null;
       }
 
@@ -1374,30 +1472,44 @@ class ReportState extends ChangeNotifier {
       final bytes = await zipFile.readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
 
+      // БЕЗОПАСНОСТЬ (H-23): Path traversal защита.
+      // ZIP-архив может содержать имена с "../" или абсолютные пути —
+      // записываем только те файлы, чей итоговый путь внутри targetPath.
+      final canonicalTarget = path.canonicalize(targetPath);
+
       for (final file in archive) {
-        if (file.isFile) {
-          final filePath = '$targetPath/${file.name}';
-          final fileDir = Directory(
-            filePath.substring(0, filePath.lastIndexOf('/')),
-          );
-          if (!await fileDir.exists()) {
-            await fileDir.create(recursive: true);
+        if (!file.isFile) continue;
+
+        // Склеиваем через path.join (обрабатывает разные разделители),
+        // затем нормализуем и проверяем, что путь остался внутри targetPath.
+        final joined = path.join(canonicalTarget, file.name);
+        final canonical = path.canonicalize(joined);
+        if (!path.isWithin(canonicalTarget, canonical)) {
+          if (kDebugMode) {
+            debugPrint('ZIP path traversal blocked: ${file.name}');
           }
-          await File(filePath).writeAsBytes(file.content);
+          continue;
         }
+
+        final filePath = canonical;
+        final fileDir = Directory(path.dirname(filePath));
+        if (!await fileDir.exists()) {
+          await fileDir.create(recursive: true);
+        }
+        await File(filePath).writeAsBytes(file.content);
       }
 
       final jsonFile = File('$targetPath/report.json');
       if (!await jsonFile.exists()) {
         await Directory(targetPath).delete(recursive: true);
-        if (kDebugMode) print('report.json not found in ZIP');
+        if (kDebugMode) debugPrint('report.json not found in ZIP');
         return null;
       }
 
-      if (kDebugMode) print('Project imported successfully: $targetPath');
+      if (kDebugMode) debugPrint('Project imported successfully: $targetPath');
       return targetPath;
     } catch (e) {
-      if (kDebugMode) print('Error importing project: $e');
+      if (kDebugMode) debugPrint('Error importing project: $e');
       return null;
     }
   }
@@ -1443,7 +1555,7 @@ class ReportState extends ChangeNotifier {
       }
       reports.sort((a, b) => b.dateTime.compareTo(a.dateTime));
     } catch (e) {
-      if (kDebugMode) print('Error loading report list: $e');
+      if (kDebugMode) debugPrint('Error loading report list: $e');
     }
     return reports;
   }
@@ -1477,7 +1589,7 @@ class ReportState extends ChangeNotifier {
       reportInfos.sort((a, b) => b.dateTime.compareTo(a.dateTime));
       return reportInfos;
     } catch (e) {
-      if (kDebugMode) print('loadReportList (web) error: $e');
+      if (kDebugMode) debugPrint('loadReportList (web) error: $e');
       return [];
     }
   }
@@ -1499,7 +1611,7 @@ class ReportState extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      if (kDebugMode) print('Error deleting report: $e');
+      if (kDebugMode) debugPrint('Error deleting report: $e');
       return false;
     }
   }
@@ -1535,7 +1647,7 @@ class ReportState extends ChangeNotifier {
 
   String _generateHtml() {
     if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
-    final reportName = _currentReport!.reportName;
+    final reportName = escapeHtml(_currentReport!.reportName);
     final dateTime = DateTime.fromMillisecondsSinceEpoch(
       _currentReport!.timestamp,
     ).toLocal().toString().substring(0, 16);
@@ -1862,7 +1974,7 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('    <tr class="header-row">');
     buffer.writeln('      <td class="border-bold"></td>');
     buffer.writeln(
-      '      <td class="title border-bold">${_currentReport!.productType}</td>',
+      '      <td class="title border-bold">${escapeHtml(_currentReport!.productType)}</td>',
     );
     buffer.writeln('      <td class="border-bold"></td>');
     buffer.writeln('      <td class="border-bold">Фабрика</td>');
@@ -1879,9 +1991,11 @@ class ReportState extends ChangeNotifier {
     buffer.writeln('      <td class="no-border">$displayDate</td>');
     buffer.writeln('      <td class="no-border"></td>');
     buffer.writeln(
-      '      <td class="no-border">${_currentReport!.factory}</td>',
+      '      <td class="no-border">${escapeHtml(_currentReport!.factory)}</td>',
     );
-    buffer.writeln('      <td class="no-border">${_currentReport!.model}</td>');
+    buffer.writeln(
+      '      <td class="no-border">${escapeHtml(_currentReport!.model)}</td>',
+    );
     buffer.writeln('    </tr>');
     buffer.writeln('    <!-- 3 строка: ОБЪЕДИНЕНА + ФОТО -->');
     buffer.writeln('    <tr class="header-row">');
@@ -1900,8 +2014,9 @@ class ReportState extends ChangeNotifier {
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final loc = q.getLocalization(lang);
+        // XSS-защита: экранируем имя вопроса
         questionNames.add(
-          loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
+          escapeHtml(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}'),
         );
       }
 
@@ -1939,7 +2054,8 @@ class ReportState extends ChangeNotifier {
       String answerCellContent(int ai, int li) {
         if (ai < answersByLang[li].length) {
           final text = answersByLang[li][ai]['text'] ?? '';
-          return text.replaceAll('\n', '<br>');
+          // XSS-защита: экранируем HTML + сохраняем переносы как <br>
+          return escapeHtmlWithBr(text);
         }
         return '';
       }
@@ -1953,7 +2069,12 @@ class ReportState extends ChangeNotifier {
             allMediaByQandAandLang[qIndex][li][ai];
         final parts = <String>[];
         final questionName = questionNames[li];
-        final answerText = answerCellContent(ai, li);
+        // P0-5: для data-атрибутов используем чистый escapeHtml (без <br>),
+        // т.к. answerCellContent содержит <br> для видимого контента,
+        // а внутри data-answer HTML-теги недопустимы.
+        final escapedAnswerText = ai < answersByLang[li].length
+            ? escapeHtml(answersByLang[li][ai]['text'] ?? '')
+            : '';
 
         const int maxVisible = 8;
         final visibleCount = mediaList.length > maxVisible
@@ -1963,17 +2084,21 @@ class ReportState extends ChangeNotifier {
         for (int mi = 0; mi < visibleCount; mi++) {
           final media = mediaList[mi];
           final isImage = media['type'].startsWith('image');
+          // P0-5: escapeHtml для media-аттрибутов — защита от XSS.
+          // Имена файлов могут содержать кавычки и спецсимволы.
+          final escapedLocalPath = escapeHtml(media['localPath'] as String? ?? '');
+          final escapedName = escapeHtml(media['name'] as String? ?? '');
 
           if (isImage) {
             parts.add(
-              '<div class="media-item" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
-              '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" />'
+              '<div class="media-item" data-src="$escapedLocalPath" data-type="image" data-question="$questionName" data-answer="$escapedAnswerText" data-lang="$li" onclick="openLightbox(\'$escapedLocalPath\', \'image\')">'
+              '<img class="media-thumbnail" src="$escapedLocalPath" alt="$escapedName" />'
               '</div>',
             );
           } else {
             parts.add(
-              '<div class="media-item" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\')">'
-              '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="${media['name']}" />'
+              '<div class="media-item" data-src="$escapedLocalPath" data-type="video" data-question="$questionName" data-answer="$escapedAnswerText" data-lang="$li" onclick="openLightbox(\'$escapedLocalPath\', \'video\')">'
+              '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="$escapedName" />'
               '</div>',
             );
           }
@@ -1991,16 +2116,18 @@ class ReportState extends ChangeNotifier {
         for (int mi = visibleCount; mi < mediaList.length; mi++) {
           final media = mediaList[mi];
           final isImage = media['type'].startsWith('image');
+          final escapedLocalPath = escapeHtml(media['localPath'] as String? ?? '');
+          final escapedName = escapeHtml(media['name'] as String? ?? '');
           if (isImage) {
             parts.add(
-              '<div class="media-item media-hidden" data-src="${media['localPath']}" data-type="image" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'image\')">'
-              '<img class="media-thumbnail" src="${media['localPath']}" alt="${media['name']}" />'
+              '<div class="media-item media-hidden" data-src="$escapedLocalPath" data-type="image" data-question="$questionName" data-answer="$escapedAnswerText" data-lang="$li" onclick="openLightbox(\'$escapedLocalPath\', \'image\')">'
+              '<img class="media-thumbnail" src="$escapedLocalPath" alt="$escapedName" />'
               '</div>',
             );
           } else {
             parts.add(
-              '<div class="media-item media-hidden" data-src="${media['localPath']}" data-type="video" data-question="$questionName" data-answer="$answerText" data-lang="$li" onclick="openLightbox(\'${media['localPath']}\', \'video\')">'
-              '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="${media['name']}" />'
+              '<div class="media-item media-hidden" data-src="$escapedLocalPath" data-type="video" data-question="$questionName" data-answer="$escapedAnswerText" data-lang="$li" onclick="openLightbox(\'$escapedLocalPath\', \'video\')">'
+              '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="$escapedName" />'
               '</div>',
             );
           }
@@ -2494,7 +2621,7 @@ class ReportState extends ChangeNotifier {
 
   String _generateExcelHtml() {
     if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
-    final reportName = _currentReport!.reportName;
+    final reportName = escapeHtml(_currentReport!.reportName);
     final dateTime = DateTime.fromMillisecondsSinceEpoch(
       _currentReport!.timestamp,
     ).toLocal().toString().substring(0, 16);
@@ -2532,8 +2659,9 @@ class ReportState extends ChangeNotifier {
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final loc = q.getLocalization(lang);
+        // P2-40: экранируем имя вопроса от XSS/formula injection.
         questionNames.add(
-          loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
+          _sanitizeExcelCell(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}'),
         );
       }
 
@@ -2551,7 +2679,7 @@ class ReportState extends ChangeNotifier {
         for (final a in answers) {
           final media = a['media'] as List? ?? [];
           for (final m in media) {
-            allMediaNames.add(m['name'] ?? '');
+            allMediaNames.add(_sanitizeExcelCell(m['name'] ?? ''));
           }
         }
       }
@@ -2594,7 +2722,7 @@ class ReportState extends ChangeNotifier {
         final parts = <String>[];
         for (int li = 0; li < languages.length; li++) {
           if (ai < answersByLang[li].length) {
-            final text = answersByLang[li][ai]['text'] ?? '';
+            final text = _sanitizeExcelCell(answersByLang[li][ai]['text'] ?? '');
             if (li == 0) {
               parts.add('<div>$text</div>');
             } else {
@@ -2706,7 +2834,8 @@ class ReportState extends ChangeNotifier {
     sheet
         .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
         .value = TextCellValue(
-      _currentReport!.productType,
+      // P2-40: sanitize от formula injection (=, +, -, @, \t, \r) для Excel-ячеек.
+      _sanitizeExcelCell(_currentReport!.productType),
     );
     sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
@@ -2772,7 +2901,8 @@ class ReportState extends ChangeNotifier {
     sheet
         .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
         .value = TextCellValue(
-      _currentReport!.factory,
+      // P2-40: sanitize от formula injection для Excel-ячеек.
+      _sanitizeExcelCell(_currentReport!.factory),
     );
     sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
@@ -2781,7 +2911,8 @@ class ReportState extends ChangeNotifier {
     sheet
         .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
         .value = TextCellValue(
-      _currentReport!.model,
+      // P2-40: sanitize от formula injection для Excel-ячеек.
+      _sanitizeExcelCell(_currentReport!.model),
     );
     sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
@@ -2833,8 +2964,11 @@ class ReportState extends ChangeNotifier {
       for (int li = 0; li < languages.length; li++) {
         final lang = languages[li];
         final loc = q.getLocalization(lang);
+        // P2-40: sanitize от formula injection для Excel-ячеек.
         questionNames.add(
-          loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
+          _sanitizeExcelCell(
+            loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
+          ),
         );
       }
 
@@ -3142,7 +3276,9 @@ class ReportState extends ChangeNotifier {
             );
 
             final text = ai < answersByLang[li].length
-                ? (answersByLang[li][ai]['text'] ?? '') as String
+                ? _sanitizeExcelCell(
+                    (answersByLang[li][ai]['text'] ?? '') as String,
+                  )
                 : '';
             final hasAttention = answerHasAttention[ai];
             final answerBgColor = hasAttention
@@ -3190,7 +3326,8 @@ class ReportState extends ChangeNotifier {
                     CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
                   )
                   .value = TextCellValue(
-                photoCellContents[ai],
+                // P2-40: sanitize от formula injection для Excel-ячеек.
+                _sanitizeExcelCell(photoCellContents[ai]),
               );
               sheet
                   .cell(
@@ -3327,7 +3464,7 @@ class ReportState extends ChangeNotifier {
 
       return report;
     } catch (e) {
-      if (kDebugMode) print('Error parsing template: $e');
+      if (kDebugMode) debugPrint('Error parsing template: $e');
       return null;
     }
   }
@@ -3345,7 +3482,7 @@ class ReportState extends ChangeNotifier {
       final excelFile = File('$_currentReportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
       if (kDebugMode) {
-        print('Excel saved to: ${excelFile.path}, bytes: ${excelBytes.length}');
+        debugPrint('Excel saved to: ${excelFile.path}, bytes: ${excelBytes.length}');
       }
 
       // Сохраняем HTML
@@ -3353,7 +3490,7 @@ class ReportState extends ChangeNotifier {
       final htmlFile = File('$_currentReportPath/report.html');
       await htmlFile.writeAsString(htmlContent);
       if (kDebugMode) {
-        print('HTML saved to: ${htmlFile.path}');
+        debugPrint('HTML saved to: ${htmlFile.path}');
       }
 
       final folderPath = _currentReportPath!;
@@ -3408,19 +3545,35 @@ class ReportState extends ChangeNotifier {
         }
       }
 
-      if (kDebugMode) {
-        print('Files to add to zip: $neededFiles');
+      // P2-39: Валидация путей — защита от path traversal при экспорте.
+      // Отбрасываем пути с `..` или ведущие `/` — они могут выйти за пределы папки отчёта.
+      final Set<String> safeFiles = {};
+      for (final relativePath in neededFiles) {
+        if (relativePath.contains('..') ||
+            relativePath.startsWith('/') ||
+            relativePath.startsWith('\\') ||
+            relativePath.contains('\x00')) {
+          if (kDebugMode) {
+            debugPrint('ZIP export: skipping unsafe path: $relativePath');
+          }
+          continue;
+        }
+        safeFiles.add(relativePath);
       }
 
-      for (final relativePath in neededFiles) {
+      if (kDebugMode) {
+        debugPrint('Files to add to zip: $safeFiles');
+      }
+
+      for (final relativePath in safeFiles) {
         final filePath = '$folderPath/$relativePath';
         final file = File(filePath);
         if (await file.exists()) {
-          if (kDebugMode) print('Adding file to zip: $filePath');
-          encoder.addFile(file, relativePath);
+          if (kDebugMode) debugPrint('Adding file to zip: $filePath');
+          zipAddFile(encoder, filePath, relativePath);
           await Future.delayed(const Duration(milliseconds: 20));
         } else {
-          if (kDebugMode) print('File not found: $filePath');
+          if (kDebugMode) debugPrint('File not found: $filePath');
         }
       }
 
@@ -3431,14 +3584,14 @@ class ReportState extends ChangeNotifier {
         final zipArchive = ZipDecoder().decodeBytes(
           await zipFile.readAsBytes(),
         );
-        print('ZIP content: ${zipArchive.files.map((f) => f.name).toList()}');
+        debugPrint('ZIP content: ${zipArchive.files.map((f) => f.name).toList()}');
       }
 
       return zipPath;
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('Error exporting zip: $e');
-        print('Stack trace: $stackTrace');
+        debugPrint('Error exporting zip: $e');
+        debugPrint('Stack trace: $stackTrace');
       }
       return null;
     }
@@ -3449,7 +3602,7 @@ class ReportState extends ChangeNotifier {
     try {
       await Share.shareXFiles([XFile(zipPath)], text: 'EasyTab Report');
     } catch (e) {
-      if (kDebugMode) print('Error sharing zip: $e');
+      if (kDebugMode) debugPrint('Error sharing zip: $e');
     }
   }
 
@@ -3606,28 +3759,58 @@ class ReportState extends ChangeNotifier {
     return const JsonEncoder.withIndent('  ').convert(data);
   }
 
+  // M-30: лимиты для validateSyncJson — защита от гигантских/некорректных payload.
+  static const int _maxSyncLanguages = 32;
+  static const int _maxSyncQuestions = 2000;
+  static const int _maxSyncAnswersPerQuestion = 2000;
+  static const int _maxSyncVariantLength = 50000;
+
   Map<String, dynamic>? validateSyncJson(String jsonStr) {
     try {
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
       if (!data.containsKey('languages')) return null;
       if (!data.containsKey('questions')) return null;
 
-      final languages = (data['languages'] as List).cast<String>();
-      final questions = data['questions'] as List;
+      final languagesRaw = data['languages'];
+      if (languagesRaw is! List) return null;
+      if (languagesRaw.isEmpty || languagesRaw.length > _maxSyncLanguages) {
+        return null;
+      }
+      // Каждая запись языка — непустая строка.
+      for (final lang in languagesRaw) {
+        if (lang is! String || lang.isEmpty) return null;
+      }
+      final languages = languagesRaw.cast<String>();
 
-      for (final q in questions) {
+      final questionsRaw = data['questions'];
+      if (questionsRaw is! List) return null;
+      if (questionsRaw.length > _maxSyncQuestions) return null;
+
+      for (final q in questionsRaw) {
         if (q is! Map) return null;
-        if (!q.containsKey('id')) return null;
+        // id должен быть int.
+        final id = q['id'];
+        if (id is! int) return null;
         if (!q.containsKey('answers')) return null;
 
-        final answers = q['answers'] as List;
+        final answers = q['answers'];
+        if (answers is! List) return null;
+        if (answers.length > _maxSyncAnswersPerQuestion) return null;
+
         for (final answer in answers) {
           if (answer is! Map) return null;
-          if (!answer.containsKey('id')) return null;
+          final answerId = answer['id'];
+          if (answerId is! int) return null;
           if (!answer.containsKey('variants')) return null;
 
-          final variants = answer['variants'] as List;
+          final variants = answer['variants'];
+          if (variants is! List) return null;
           if (variants.length != languages.length) return null;
+          // Каждый вариант — строка ограниченной длины.
+          for (final v in variants) {
+            if (v is! String) return null;
+            if (v.length > _maxSyncVariantLength) return null;
+          }
         }
       }
 
@@ -3653,7 +3836,7 @@ class ReportState extends ChangeNotifier {
     if (_currentReport == null) return;
     final data = validateSyncJson(jsonStr);
     if (data == null) {
-      print('applySyncAnswers: validateSyncJson returned null');
+      if (kDebugMode) debugPrint('applySyncAnswers: validateSyncJson returned null');
       return;
     }
 
@@ -3663,9 +3846,11 @@ class ReportState extends ChangeNotifier {
     final languages = _currentReport!.availableLanguages;
     final questions = data['questions'] as List;
 
-    print('applySyncAnswers START: jsonLanguages=$jsonLanguages');
-    print('applySyncAnswers START: reportLanguages=$languages');
-    print('applySyncAnswers START: questions count=${questions.length}');
+    if (kDebugMode) {
+    debugPrint('applySyncAnswers START: jsonLanguages=$jsonLanguages');
+    debugPrint('applySyncAnswers START: reportLanguages=$languages');
+    debugPrint('applySyncAnswers START: questions count=${questions.length}');
+    }
 
     for (final qData in questions) {
       final questionId = qData['id'] as int;
@@ -3712,26 +3897,20 @@ class ReportState extends ChangeNotifier {
         }
       }
 
-      if (qid == '7') {
-        print('applySyncAnswers: qid=7 before update:');
-        for (final lang in languages) {
-          final langAnswers = _currentReport!.translations[qid]![lang]!;
-          print('applySyncAnswers: qid=7, lang=$lang, answers=${langAnswers.map((a) => a.text).toList()}');
-        }
-      }
-
       // Update translations for all languages in sync data
       for (final answerData in answers) {
         final answerId = answerData['id'] as int;
         final texts = (answerData['variants'] as List).cast<String>();
 
-        print('applySyncAnswers: qid=$qid, answerId=$answerId, texts=$texts');
+        if (kDebugMode) {
+        debugPrint('applySyncAnswers: qid=$qid, answerId=$answerId, texts=$texts');
+        }
 
         for (final lang in languages) {
           // Найдем индекс языка в JSON языках
           final jsonLangIndex = jsonLanguages.indexOf(lang);
           if (jsonLangIndex == -1) {
-            print('applySyncAnswers: lang=$lang not found in jsonLanguages');
+            if (kDebugMode) debugPrint('applySyncAnswers: lang=$lang not found in jsonLanguages');
             continue; // Язык не найден в JSON, пропускаем
           }
 
@@ -3754,14 +3933,6 @@ class ReportState extends ChangeNotifier {
               TranslationAnswer(text: text, isEmpty: false),
             );
           }
-        }
-      }
-
-      if (qid == '7') {
-        print('applySyncAnswers: qid=7 after update:');
-        for (final lang in languages) {
-          final langAnswers = _currentReport!.translations[qid]![lang]!;
-          print('applySyncAnswers: qid=7, lang=$lang, answers=${langAnswers.map((a) => a.text).toList()}');
         }
       }
 
