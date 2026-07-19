@@ -1,0 +1,44 @@
+name: Deploy Web to Server
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout frontend
+      uses: actions/checkout@v4
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.41.9'
+        channel: stable
+
+    - name: Install Flutter dependencies
+      run: flutter pub get
+
+    - name: Build Flutter Web
+      run: flutter build web --release
+
+    - name: Deploy frontend to Server
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        source: "build/web/*"
+        target: "~/easy_tab_Server/web/"
+
+    - name: Restart Server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          pm2 restart easyTab
+          echo "Web deployment completed successfully"
