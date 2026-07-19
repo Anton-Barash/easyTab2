@@ -461,6 +461,28 @@ class ApiService {
     }
   }
 
+  /// Получить HTML отчёта для отображения внутри Flutter (через iframe srcdoc).
+  ///
+  /// Сервер сам:
+  ///   1. Скачивает report.json из KS3
+  ///   2. Генерирует HTML с АБСОЛЮТНЫМИ URL к фото
+  ///   3. Возвращает JSON { success, html }
+  ///
+  /// [reportId] — ID отчёта на сервере.
+  /// Возвращает ApiResult с data['html'] — HTML-строка.
+  static Future<ApiResult> getReportHtml(int reportId) async {
+    try {
+      final response = await http
+          .get(_uri('/reports/$reportId/html'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _parseResponse(response);
+    } on SocketException {
+      return ApiResult(success: false, error: 'Нет соединения с сервером');
+    } catch (e) {
+      return ApiResult(success: false, error: 'Ошибка сети: $e');
+    }
+  }
+
   static ApiResult _parseResponse(http.Response response) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;

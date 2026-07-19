@@ -817,120 +817,45 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  /// Просмотр HTML на web: загружает report.html на сервер,
-  /// получает подписанную ссылку и открывает её в новой вкладке.
+  /// Просмотр HTML на web: открывает новую вкладку Flutter (localhost:4000).
   ///
-  /// Если пользователь не залогинен — fallback на document.write
-  /// (открывает HTML напрямую без серверной ссылки).
+  /// Архитектура:
+  ///   1. Flutter открывает новую вкладку: localhost:4000/#/view-report?id=9&token=xxx
+  ///   2. Новая вкладка — это Flutter-экран ViewReportHtmlScreen
+  ///   3. Экран делает API-запрос к серверу (8000): GET /reports/9/html
+  ///   4. Сервер скачивает JSON из KS3, генерирует HTML, возвращает {success, html}
+  ///   5. Экран отображает HTML в iframe srcdoc (пользователь видит localhost:4000)
+  ///   6. Фото в HTML имеют абсолютные URL (http://localhost:8000/...) — грузятся с сервера
+  ///
+  /// Пользователь всегда остаётся на localhost:4000. Сервер (8000) — только API.
+  ///
+  /// Если пользователь не залогинен или отчёт не сохранён — fallback на blob.
   Future<void> _viewHtmlOnWeb(String htmlContent) async {
-    final loc = AppLocalizations.of(context)!;
     final authProvider = context.read<AuthProvider>();
     final reportState = context.read<ReportState>();
 
-    // Если не залогинен — нет смысла грузить на сервер, открываем напрямую
+    // Если не залогинен — нет смысла открывать серверный прокси, blob
     if (!authProvider.isLoggedIn) {
       openHtmlInBrowser(htmlContent);
       return;
     }
 
-    // Если отчёт ещё не сохранён на сервере — нет ks3Folder, fallback
-    if (reportState.ks3Folder == null || reportState.serverReportId == null) {
+    // Если отчёт ещё не сохранён на сервере — нет serverReportId, fallback
+    if (reportState.serverReportId == null) {
       openHtmlInBrowser(htmlContent);
       return;
     }
 
-    // Показываем индикатор загрузки
+    // Открываем новую вкладку с Flutter-маршрутом /view-report.
+    // Cookie auth_token уже установлен при логине, поэтому токен не нужен в URL.
+    final viewUrl = 'http://localhost:4000/#/view-report?id=${reportState.serverReportId}';
+
+    openHtmlInBrowserUrl(viewUrl);
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.uploadingFiles)),
+        const SnackBar(content: Text('HTML отчёт открыт в новой вкладке')),
       );
-    }
-
-    try {
-      // 1. Получаем подписанные URL для всех файлов отчёта
-      final urlsResult = await ApiService.getReportFileUrls(
-        reportState.serverReportId!,
-      );
-
-      Map<String, String> fileUrls = {};
-      if (urlsResult.success && urlsResult.data?['urls'] != null) {
-        final urlsData = urlsResult.data!['urls'] as Map<String, dynamic>;
-        fileUrls = urlsData.map((k, v) => MapEntry(k, v.toString()));
-      }
-
-      // 2. Заменяем относительные пути в HTML на подписанные URL
-      String htmlWithUrls = htmlContent;
-      for (final entry in fileUrls.entries) {
-        // Заменяем src="photos/f1_1_001.jpg" на src="https://..."
-        htmlWithUrls = htmlWithUrls.replaceAll(
-          'src="${entry.key}"',
-          'src="${entry.value}"',
-        );
-        // Заменяем data-src="photos/f1_1_001.jpg" (для JavaScript media array)
-        htmlWithUrls = htmlWithUrls.replaceAll(
-          'data-src="${entry.key}"',
-          'data-src="${entry.value}"',
-        );
-        // Заменяем onclick="openLightbox('photos/f1_1_001.jpg', ..."
-        // на onclick="openLightbox('https://...', 'image')"
-        htmlWithUrls = htmlWithUrls.replaceAll(
-          "openLightbox('${entry.key}'",
-          "openLightbox('${entry.value}'",
-        );
-      }
-
-      // 3. Конвертируем HTML в байты (UTF-8)
-      final bytes = Uint8List.fromList(utf8.encode(htmlWithUrls));
-
-      // 4. Загружаем report.html на сервер В ТУ ЖЕ ПАПКУ отчёта
-      final uploadResult = await ApiService.uploadFileFromBytes(
-        bytes: bytes,
-        filename: 'report.html',
-        relativePath: 'report.html',
-        reportId: reportState.serverReportId,
-        ks3Folder: reportState.ks3Folder,
-      );
-
-      if (!uploadResult.success || uploadResult.data?['file'] == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${loc.uploadError}: ${uploadResult.error ?? "unknown"}')),
-          );
-        }
-        openHtmlInBrowser(htmlContent);
-        return;
-      }
-
-      // 5. Получаем ID файла (UUID)
-      final fileId = uploadResult.data!['file']['id'] as String;
-
-      // 6. Запрашиваем подписанную ссылку для просмотра
-      final urlResult = await ApiService.getDownloadUrl(fileId);
-
-      if (urlResult.success && urlResult.data?['url'] != null) {
-        final url = urlResult.data!['url'] as String;
-        openHtmlInBrowserUrl(url);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('HTML отчёт открыт в новой вкладке')),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${loc.uploadError}: ${urlResult.error ?? "no url"}')),
-          );
-        }
-        openHtmlInBrowser(htmlContent);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loc.uploadError}: $e')),
-        );
-      }
-      openHtmlInBrowser(htmlContent);
     }
   }
 

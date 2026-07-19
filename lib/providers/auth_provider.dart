@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../utils/cookie.dart' as cookie_utils;
 
 class AuthProvider extends ChangeNotifier {
   bool _isLoggedIn = false;
@@ -10,7 +11,7 @@ class AuthProvider extends ChangeNotifier {
   int? _userId;
   String? _lastError;
   String _serverHost = 'localhost';
-  int _serverPort = 3000;
+  int _serverPort = 8000;
 
   static const String _tokenKey = 'user_token';
   static const String _usernameKey = 'user_name';
@@ -111,6 +112,7 @@ class AuthProvider extends ChangeNotifier {
       _lastError = null;
 
       ApiService.authToken = _userToken;
+      cookie_utils.setAuthTokenCookie(_userToken!);
       await _persist();
       notifyListeners();
       return true;
@@ -151,6 +153,7 @@ class AuthProvider extends ChangeNotifier {
       _lastError = null;
 
       ApiService.authToken = _userToken;
+      cookie_utils.setAuthTokenCookie(_userToken!);
       await _persist();
       notifyListeners();
       return true;
@@ -183,6 +186,7 @@ class AuthProvider extends ChangeNotifier {
     _userId = null;
 
     ApiService.authToken = null;
+    cookie_utils.clearAuthTokenCookie();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);

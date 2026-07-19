@@ -49,6 +49,7 @@
   "deleteReportConfirm": "Are you sure you want to delete this report?",
   "cannotUndo": "This action cannot be undone",
   "reportDeleted": "Report deleted",
+  "reportDeleteError": "Error deleting report",
   "createNewReport": "+ Create New Report",
   "continueReport": "Continue",
   "openExistingReport": "Open Existing Report",

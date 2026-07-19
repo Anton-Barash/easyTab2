@@ -49,6 +49,7 @@
   "deleteReportConfirm": "Вы уверены, что хотите удалить этот отчёт?",
   "cannotUndo": "Это действие нельзя отменить",
   "reportDeleted": "Отчёт удалён",
+  "reportDeleteError": "Ошибка удаления отчёта",
   "createNewReport": "+ Создать новый отчёт",
   "continueReport": "Продолжить",
   "openExistingReport": "Открыть существующий отчёт",

@@ -394,6 +394,12 @@ abstract class AppLocalizations {
   /// **'Report deleted'**
   String get reportDeleted;
 
+  /// No description provided for @reportDeleteError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error deleting report'**
+  String get reportDeleteError;
+
   /// No description provided for @createNewReport.
   ///
   /// In en, this message translates to:

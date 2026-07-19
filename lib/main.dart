@@ -10,6 +10,7 @@ import './l10n/app_localizations.dart';
 import './screens/template_select_screen.dart';
 import './screens/form_fill_screen.dart';
 import './screens/reports_screen.dart';
+import './screens/view_report_html_screen.dart';
 import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
 import './widgets/dotted_pattern_painter.dart';
 import './widgets/easy_tab_button.dart';
@@ -82,6 +83,30 @@ class EasyTabApp extends StatelessWidget {
               '/template': (context) => const TemplateSelectScreen(),
               '/fill': (context) => FormFillScreen(),
               '/reports': (context) => ReportsScreen(),
+            },
+            // /view-report — открывается в новой вкладке браузера с
+            // query-параметрами: /view-report?id=9&token=xxx
+            // Используем onGenerateRoute, т.к. routes не парсит query.
+            onGenerateRoute: (settings) {
+              if (settings.name == null) return null;
+              final uri = Uri.parse(settings.name!);
+              if (uri.path == '/view-report') {
+                final idStr = uri.queryParameters['id'];
+                final reportId = idStr != null ? int.tryParse(idStr) : null;
+                final token = uri.queryParameters['token'];
+                if (reportId == null) {
+                  return MaterialPageRoute(
+                    builder: (_) => const Scaffold(
+                      body: Center(child: Text('Не указан ID отчёта')),
+                    ),
+                  );
+                }
+                return MaterialPageRoute(
+                  builder: (_) =>
+                      ViewReportHtmlScreen(reportId: reportId, token: token),
+                );
+              }
+              return null;
             },
           );
         },

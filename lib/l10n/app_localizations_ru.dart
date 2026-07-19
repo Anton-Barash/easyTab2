@@ -157,6 +157,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get reportDeleted => 'Отчёт удалён';
 
   @override
+  String get reportDeleteError => 'Ошибка удаления отчёта';
+
+  @override
   String get createNewReport => '+ Создать новый отчёт';
 
   @override

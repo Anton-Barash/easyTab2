@@ -156,6 +156,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportDeleted => '报告已删除';
 
   @override
+  String get reportDeleteError => '删除报告错误';
+
+  @override
   String get createNewReport => '+ 创建新报告';
 
   @override

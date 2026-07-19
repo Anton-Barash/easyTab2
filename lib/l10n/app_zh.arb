@@ -49,6 +49,7 @@
   "deleteReportConfirm": "您确定要删除此报告吗?",
   "cannotUndo": "此操作无法撤消",
   "reportDeleted": "报告已删除",
+  "reportDeleteError": "删除报告错误",
   "createNewReport": "+ 创建新报告",
   "continueReport": "继续",
   "openExistingReport": "打开现有报告",

@@ -157,6 +157,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportDeleted => 'Report deleted';
 
   @override
+  String get reportDeleteError => 'Error deleting report';
+
+  @override
   String get createNewReport => '+ Create New Report';
 
   @override

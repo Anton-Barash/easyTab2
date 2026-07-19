@@ -545,13 +545,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                       );
                       if (confirm == true) {
-                        await reportState.deleteReport(report.folderName);
+                        final deleted = await reportState.deleteReport(report.folderName);
                         setState(() {
                           _loadReports();
                         });
                         if (!mounted) return;
                         scaffoldMessenger.showSnackBar(
-                          SnackBar(content: Text(loc.reportDeleted)),
+                          deleted
+                              ? SnackBar(content: Text(loc.reportDeleted))
+                              : SnackBar(
+                                  content: Text(loc.reportDeleteError),
+                                  backgroundColor: const Color(0xFFc62828),
+                                ),
                         );
                       }
                     },
