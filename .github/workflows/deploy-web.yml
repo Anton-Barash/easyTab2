@@ -29,7 +29,7 @@ jobs:
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
-        password: ${{ secrets.SERVER_PASSWORD }}
+        key: ${{ secrets.SSH_KEY }}
         source: "build/web/*"
         target: "~/easy_tab_Server/web/"
 
@@ -38,7 +38,7 @@ jobs:
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
-        password: ${{ secrets.SERVER_PASSWORD }}
+        key: ${{ secrets.SSH_KEY }}
         script: |
           pm2 restart easyTab
           echo "Web deployment completed successfully"
