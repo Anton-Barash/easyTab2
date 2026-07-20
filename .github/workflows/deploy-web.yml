@@ -30,8 +30,7 @@ jobs:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_KEY }}
-        fingerprint: SHA256:SX4qrqQBXzEGFTTuWOcOFYPLdVRlVFvt9s5aebXdYPk
-        port: 22
+        use_insecure_cipher: true
         source: "build/web/*"
         target: "~/easy_tab_Server/web/"
         strip_components: 1
@@ -43,8 +42,7 @@ jobs:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_KEY }}
-        fingerprint: SHA256:SX4qrqQBXzEGFTTuWOcOFYPLdVRlVFvt9s5aebXdYPk
-        port: 22
+        use_insecure_cipher: true
         script: |
           pm2 restart easyTab
           echo "Web deployment completed successfully"
