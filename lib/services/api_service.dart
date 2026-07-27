@@ -152,6 +152,10 @@ class ApiService {
       final request = http.MultipartRequest('POST', _uri('/files/upload'));
       request.headers.addAll(_authHeaders);
 
+      // Добавляем относительный путь ДО файла — сервер читает поля
+      // до первой файловой части, иначе reportId/relativePath теряются.
+      request.fields['relativePath'] = relativePath;
+
       // Добавляем файл
       request.files.add(
         await http.MultipartFile.fromPath(
@@ -160,9 +164,6 @@ class ApiService {
           filename: fileName,
         ),
       );
-
-      // Добавляем относительный путь (для сохранения структуры папок)
-      request.fields['relativePath'] = relativePath;
 
       // Отправляем с увеличенным таймаутом (файлы могут быть большими)
       final streamedResponse = await request.send().timeout(
@@ -214,6 +215,16 @@ class ApiService {
         mimeType = 'video/mp4';
       }
 
+      // Поля multipart ДОЛЖНЫ идти ДО файловой части — иначе сервер
+      // (Fastify @fastify/multipart) не увидит reportId/relativePath.
+      request.fields['relativePath'] = relativePath;
+      if (reportId != null) {
+        request.fields['reportId'] = reportId.toString();
+      }
+      if (ks3Folder != null) {
+        request.fields['ks3Folder'] = ks3Folder;
+      }
+
       request.files.add(
         http.MultipartFile.fromBytes(
           'file',
@@ -222,15 +233,6 @@ class ApiService {
           contentType: MediaType.parse(mimeType),
         ),
       );
-
-      request.fields['relativePath'] = relativePath;
-      // Если есть reportId и ks3Folder — файл привяжется к отчёту
-      if (reportId != null) {
-        request.fields['reportId'] = reportId.toString();
-      }
-      if (ks3Folder != null) {
-        request.fields['ks3Folder'] = ks3Folder;
-      }
 
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 120),
@@ -461,19 +463,11 @@ class ApiService {
     }
   }
 
-  /// Получить HTML отчёта для отображения внутри Flutter (через iframe srcdoc).
-  ///
-  /// Сервер сам:
-  ///   1. Скачивает report.json из KS3
-  ///   2. Генерирует HTML с АБСОЛЮТНЫМИ URL к фото
-  ///   3. Возвращает JSON { success, html }
-  ///
-  /// [reportId] — ID отчёта на сервере.
-  /// Возвращает ApiResult с data['html'] — HTML-строка.
-  static Future<ApiResult> getReportHtml(int reportId) async {
+  /// Получить HTML отчёта по публичному идентификатору (для iframe srcdoc).
+  static Future<ApiResult> getReportHtmlByPublicId(String publicId) async {
     try {
       final response = await http
-          .get(_uri('/reports/$reportId/html'), headers: _headers)
+          .get(_uri('/reports/$publicId/html'), headers: _headers)
           .timeout(const Duration(seconds: 30));
       return _parseResponse(response);
     } on SocketException {

@@ -307,7 +307,7 @@ abstract class AppLocalizations {
   /// No description provided for @exit.
   ///
   /// In en, this message translates to:
-  /// **'Exit'**
+  /// **'← Back'**
   String get exit;
 
   /// No description provided for @showSidePanel.

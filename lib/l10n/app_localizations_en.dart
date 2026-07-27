@@ -111,7 +111,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportExcel => 'Export Excel';
 
   @override
-  String get exit => 'Exit';
+  String get exit => '← Back';
 
   @override
   String get showSidePanel => 'Show Side Panel';

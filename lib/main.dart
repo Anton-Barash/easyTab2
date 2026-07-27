@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import './providers/report_provider.dart';
 import './providers/settings_provider.dart';
 import './providers/locale_provider.dart';
@@ -85,16 +88,15 @@ class EasyTabApp extends StatelessWidget {
               '/reports': (context) => ReportsScreen(),
             },
             // /view-report — открывается в новой вкладке браузера с
-            // query-параметрами: /view-report?id=9&token=xxx
+            // query-параметрами: /view-report?pid=abc123&token=xxx
             // Используем onGenerateRoute, т.к. routes не парсит query.
             onGenerateRoute: (settings) {
               if (settings.name == null) return null;
               final uri = Uri.parse(settings.name!);
               if (uri.path == '/view-report') {
-                final idStr = uri.queryParameters['id'];
-                final reportId = idStr != null ? int.tryParse(idStr) : null;
+                final publicId = uri.queryParameters['pid'];
                 final token = uri.queryParameters['token'];
-                if (reportId == null) {
+                if (publicId == null || publicId.isEmpty) {
                   return MaterialPageRoute(
                     builder: (_) => const Scaffold(
                       body: Center(child: Text('Не указан ID отчёта')),
@@ -103,7 +105,7 @@ class EasyTabApp extends StatelessWidget {
                 }
                 return MaterialPageRoute(
                   builder: (_) =>
-                      ViewReportHtmlScreen(reportId: reportId, token: token),
+                      ViewReportHtmlScreen(publicId: publicId, token: token),
                 );
               }
               return null;
@@ -115,8 +117,36 @@ class EasyTabApp extends StatelessWidget {
   }
 }
 
-class StartScreen extends StatelessWidget {
+class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
+
+  @override
+  State<StartScreen> createState() => _StartScreenState();
+}
+
+class _StartScreenState extends State<StartScreen> {
+  late Future<String?> _versionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _versionFuture = _loadVersion();
+  }
+
+  /// Загружает версию приложения из version.json, сгенерированного Flutter при сборке.
+  Future<String?> _loadVersion() async {
+    try {
+      final uri = Uri.base.resolve('version.json');
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['version'] as String?;
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Failed to load version: $e');
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -201,6 +231,14 @@ class StartScreen extends StatelessWidget {
                       fontSize: 18,
                       verticalPadding: 18,
                       horizontalPadding: 20,
+                    )
+                  else
+                    EasyTabButton(
+                      label: loc.logoutAction,
+                      onTap: () => authProvider.logout(),
+                      fontSize: 18,
+                      verticalPadding: 18,
+                      horizontalPadding: 20,
                     ),
                   const SizedBox(height: 30),
                   Text(
@@ -212,10 +250,22 @@ class StartScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'v1.0.15',
-                    style: TextStyle(color: Color(0xFF999999), fontSize: 10),
-                    textAlign: TextAlign.center,
+                  FutureBuilder<String?>(
+                    future: _versionFuture,
+                    builder: (context, snapshot) {
+                      final version = snapshot.data;
+                      if (version == null || version.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Text(
+                        'v$version',
+                        style: const TextStyle(
+                          color: Color(0xFF999999),
+                          fontSize: 10,
+                        ),
+                        textAlign: TextAlign.center,
+                      );
+                    },
                   ),
                 ],
               ),

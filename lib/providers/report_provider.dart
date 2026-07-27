@@ -221,12 +221,14 @@ class ReportInfo {
   final String name;
   final DateTime dateTime;
   final String? thumbnailPath;
+  final String? publicId;
 
   ReportInfo({
     required this.folderName,
     required this.name,
     required this.dateTime,
     this.thumbnailPath,
+    this.publicId,
   });
 }
 
@@ -275,6 +277,7 @@ class ReportState extends ChangeNotifier {
     _currentReportPath = null;
     // Сбрасываем ID отчёта на сервере — это новый отчёт
     _serverReportId = null;
+    _serverPublicId = null;
     _ks3Folder = null;
     notifyListeners();
   }
@@ -643,11 +646,9 @@ class ReportState extends ChangeNotifier {
 
   /// Добавить медиафайл из байтов (для web-версии).
   ///
-  /// Гибридный подход:
-  /// - Если есть _serverReportId и _ks3Folder (отчёт уже сохранён на сервере):
-  ///   - Фото (< 5 МБ) — загружаются на KS3 сразу, сохраняется serverFileId
-  ///   - Видео (≥ 5 МБ) — загружаются в фоне, webBytes для превью
-  /// - Если нет — файл хранится в памяти (webBytes), загрузится при сохранении
+  /// Все файлы добавляются в UI сразу; загрузка на сервер идёт в фоне.
+  /// - Если есть _serverReportId и _ks3Folder — фоновая загрузка в KS3.
+  /// - Если нет — файл хранится в памяти (webBytes), загрузится при saveReport.
   ///
   /// Параметры:
   /// - [questionIndex], [answerIndex] — индексы вопроса и ответа
@@ -718,38 +719,20 @@ class ReportState extends ChangeNotifier {
 
     notifyListeners();
 
-    // ===== Загрузка на KS3 (если отчёт уже сохранён на сервере) =====
-    // Гибридный подход:
-    // - Фото (< 5 МБ): загружаем сразу (быстро, не блокирует UI)
-    // - Видео (≥ 5 МБ): загружаем в фоне (не блокирует UI)
+    // ===== Загрузка на сервер в фоне (если отчёт уже сохранён) =====
+    // Все медиа загружаются асинхронно — UI не блокируется.
+    // Пользователь может сразу добавлять следующие фото/видео.
     if (_serverReportId != null && _ks3Folder != null) {
-      final isVideo = mimeType.startsWith('video/');
-      final sizeMb = finalBytes.length / (1024 * 1024);
-
-      if (!isVideo && sizeMb < 5) {
-        // Фото < 5 МБ — загружаем сразу
-        await _uploadMediaToServer(
-          mediaItem,
-          finalBytes,
-          generatedName,
-          relativePath,
-          mimeType,
-          onUploadProgress,
-        );
-      } else {
-        // Видео или большой файл — загружаем в фоне
-        // (не ждём завершения, UI не блокируется)
-        _uploadMediaToServer(
-          mediaItem,
-          finalBytes,
-          generatedName,
-          relativePath,
-          mimeType,
-          onUploadProgress,
-        ).catchError((e) {
-          if (kDebugMode) debugPrint('Background upload failed: $e');
-        });
-      }
+      _uploadMediaToServer(
+        mediaItem,
+        finalBytes,
+        generatedName,
+        relativePath,
+        mimeType,
+        onUploadProgress,
+      ).catchError((e) {
+        if (kDebugMode) debugPrint('Background upload failed: $e');
+      });
     }
   }
 
@@ -868,39 +851,9 @@ class ReportState extends ChangeNotifier {
 
   /// Удалить медиафайл.
   ///
-  /// На web: если есть serverFileId — удаляем с сервера.
-  /// На mobile/desktop: удаляем локальный файл.
-  Future<void> removeMediaWeb(
-    int questionIndex,
-    int answerIndex,
-    int mediaIndex,
-  ) async {
-    if (_currentReport == null) return;
-    final qid = questionIndex.toString();
-
-    if (!_currentReport!.markers.containsKey(qid) ||
-        answerIndex >= _currentReport!.markers[qid]!.length ||
-        mediaIndex >= _currentReport!.markers[qid]![answerIndex].media.length) {
-      return;
-    }
-
-    final media = _currentReport!.markers[qid]![answerIndex].media[mediaIndex];
-
-    // Если файл на сервере — удаляем с сервера
-    if (media.serverFileId != null) {
-      try {
-        await ApiService.deleteFile(media.serverFileId!);
-        if (kDebugMode) debugPrint('Media deleted from server: ${media.serverFileId}');
-      } catch (e) {
-        if (kDebugMode) debugPrint('Failed to delete media from server: $e');
-      }
-    }
-
-    // Удаляем из списка
-    _currentReport!.markers[qid]![answerIndex].media.removeAt(mediaIndex);
-    notifyListeners();
-  }
-
+  /// На web: если файл уже загружен на сервер (serverFileId) — удаляем с сервера.
+  /// На mobile/desktop: удаляем локальный файл и переименовываем оставшиеся
+  /// для сохранения порядка именования.
   Future<void> removeMedia(
     int questionIndex,
     int answerIndex,
@@ -916,43 +869,68 @@ class ReportState extends ChangeNotifier {
     }
 
     final media = _currentReport!.markers[qid]![answerIndex].media[mediaIndex];
-    if (_currentReportPath != null && media.localPath != null) {
-      final absolutePath = '$_currentReportPath/${media.localPath}';
-      final file = File(absolutePath);
-      if (await file.exists()) {
-        await file.delete();
+
+    if (kIsWeb) {
+      // На web удаляем файл с сервера, если он уже туда загружен.
+      if (media.serverFileId != null) {
+        try {
+          final result = await ApiService.deleteFile(media.serverFileId!);
+          if (result.success) {
+            if (kDebugMode) {
+              debugPrint('Media deleted from server: ${media.serverFileId}');
+            }
+          } else if (kDebugMode) {
+            debugPrint(
+                'Server returned error when deleting media: ${result.error}');
+          }
+        } catch (e) {
+          if (kDebugMode) debugPrint('Failed to delete media from server: $e');
+        }
+      }
+    } else {
+      // На нативных платформах удаляем локальный файл.
+      if (_currentReportPath != null && media.localPath != null) {
+        final absolutePath = '$_currentReportPath/${media.localPath}';
+        final file = File(absolutePath);
+        if (await file.exists()) {
+          await file.delete();
+        }
       }
     }
 
     _currentReport!.markers[qid]![answerIndex].media.removeAt(mediaIndex);
 
-    final remainingMedia = _currentReport!.markers[qid]![answerIndex].media;
-    for (int i = 0; i < remainingMedia.length; i++) {
-      final item = remainingMedia[i];
-      final ext = item.name.split('.').last;
-      final typePrefix = item.name.startsWith('v') ? 'v' : 'f';
-      final newName =
-          '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${(i + 1).toString().padLeft(3, '0')}.$ext';
+    // Переименование оставшихся файлов актуально только для локального хранения.
+    if (!kIsWeb) {
+      final remainingMedia = _currentReport!.markers[qid]![answerIndex].media;
+      for (int i = 0; i < remainingMedia.length; i++) {
+        final item = remainingMedia[i];
+        final ext = item.name.split('.').last;
+        final typePrefix = item.name.startsWith('v') ? 'v' : 'f';
+        final newName =
+            '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${(i + 1).toString().padLeft(3, '0')}.$ext';
 
-      if (item.name != newName) {
-        final oldName = item.name;
-        if (_currentReportPath != null && item.localPath != null) {
-          final oldPath = '$_currentReportPath/${item.localPath}';
-          final newPath =
-              '$_currentReportPath/${item.localPath!.replaceFirst(oldName, newName)}';
-          final oldFile = File(oldPath);
-          if (await oldFile.exists()) {
-            await oldFile.rename(newPath);
+        if (item.name != newName) {
+          final oldName = item.name;
+          if (_currentReportPath != null && item.localPath != null) {
+            final oldPath = '$_currentReportPath/${item.localPath}';
+            final newPath =
+                '$_currentReportPath/${item.localPath!.replaceFirst(oldName, newName)}';
+            final oldFile = File(oldPath);
+            if (await oldFile.exists()) {
+              await oldFile.rename(newPath);
+            }
+            item.localPath = item.localPath!.replaceFirst(oldName, newName);
           }
-          item.localPath = item.localPath!.replaceFirst(oldName, newName);
+          item.name = newName;
         }
-        item.name = newName;
       }
     }
 
     final counterKey =
         '${questionIndex}_${answerIndex}_${media.attention ? 'X' : 'photos'}';
-    _currentReport!.mediaCounter[counterKey] = remainingMedia.length + 1;
+    _currentReport!.mediaCounter[counterKey] =
+        _currentReport!.markers[qid]![answerIndex].media.length + 1;
 
     notifyListeners();
   }
@@ -1216,6 +1194,9 @@ class ReportState extends ChangeNotifier {
   /// ID отчёта на сервере (используется на web для обновления существующего отчёта).
   int? _serverReportId;
 
+  /// Публичный идентификатор отчёта для URL просмотра.
+  String? _serverPublicId;
+
   /// Папка отчёта в KS3 (например, "reports/abc-123/").
   /// Заполняется после первого сохранения отчёта на сервер.
   /// Используется для загрузки медиафайлов в правильную папку.
@@ -1223,6 +1204,7 @@ class ReportState extends ChangeNotifier {
 
   /// Геттеры для внешнего доступа
   int? get serverReportId => _serverReportId;
+  String? get serverPublicId => _serverPublicId;
   String? get ks3Folder => _ks3Folder;
 
   /// Сохранить отчёт на сервер (web-режим).
@@ -1246,19 +1228,26 @@ class ReportState extends ChangeNotifier {
         // Запоминаем ID отчёта на сервере (для будущих обновлений)
         final id = result.data!['report']['id'];
         _serverReportId = id is int ? id : int.tryParse(id.toString());
+        // Запоминаем публичный идентификатор (для URL просмотра)
+        final publicId = result.data!['report']['publicId'];
+        if (publicId is String && publicId.isNotEmpty) {
+          _serverPublicId = publicId;
+        }
         // Запоминаем папку KS3 (для загрузки медиафайлов)
         final folder = result.data!['report']['ks3Folder'];
         if (folder is String && folder.isNotEmpty) {
           _ks3Folder = folder;
         }
         if (kDebugMode) {
-          debugPrint('saveReport (web): saved as ID $_serverReportId, folder=$_ks3Folder');
+          debugPrint('saveReport (web): saved as ID $_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder');
         }
 
-        // После сохранения отчёта — загружаем все медиа, у которых
-        // ещё нет serverFileId (добавлены до сохранения отчёта).
+        // После сохранения отчёта — запускаем загрузку всех медиа,
+        // у которых ещё нет serverFileId, в фоне (не блокируем UI).
         if (_ks3Folder != null && _serverReportId != null) {
-          await _uploadPendingMedia();
+          _uploadPendingMedia().catchError((e) {
+            if (kDebugMode) debugPrint('Pending media upload error: $e');
+          });
         }
 
         return true;
@@ -1312,6 +1301,14 @@ class ReportState extends ChangeNotifier {
       _currentReportPath = reportId.toString();
       _serverReportId = reportId; // запоминаем для будущих сохранений
 
+      // Запоминаем публичный идентификатор (для URL просмотра)
+      final publicId = result.data!['report']['publicId'];
+      if (publicId is String && publicId.isNotEmpty) {
+        _serverPublicId = publicId;
+      } else {
+        _serverPublicId = null;
+      }
+
       // Запоминаем папку KS3 (для загрузки новых медиа в правильную папку)
       final folder = result.data!['report']['ks3Folder'];
       if (folder is String && folder.isNotEmpty) {
@@ -1326,7 +1323,7 @@ class ReportState extends ChangeNotifier {
       await _populateMediaWebUrls(reportId);
 
       if (kDebugMode) {
-        debugPrint('loadReport (web): ID=$_serverReportId, folder=$_ks3Folder');
+        debugPrint('loadReport (web): ID=$_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder');
       }
 
       resetCompressedVideos();
@@ -1545,6 +1542,7 @@ class ReportState extends ChangeNotifier {
                   name: name,
                   dateTime: dateTime,
                   thumbnailPath: headerImagePath,
+                  publicId: null,
                 ),
               );
             } catch (e) {
@@ -1574,6 +1572,7 @@ class ReportState extends ChangeNotifier {
       final List<ReportInfo> reportInfos = reports.map((r) {
         final id = r['id'];
         final idStr = id is int ? id.toString() : id.toString();
+        final publicId = r['publicId'] as String?;
         final title = r['title'] as String? ?? 'Untitled';
         final createdAt = DateTime.tryParse(r['createdAt'] as String? ?? '') ?? DateTime.now();
 
@@ -1582,6 +1581,7 @@ class ReportState extends ChangeNotifier {
           name: title,
           dateTime: createdAt,
           thumbnailPath: null, // на web нет локальных превью
+          publicId: publicId,
         );
       }).toList();
 

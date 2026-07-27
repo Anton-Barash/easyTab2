@@ -111,7 +111,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exportExcel => '导出Excel';
 
   @override
-  String get exit => '退出';
+  String get exit => '← 返回';
 
   @override
   String get showSidePanel => '显示侧边栏';

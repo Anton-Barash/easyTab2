@@ -1,6 +1,9 @@
 import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
+import 'package:easy_tab/utils/open_html_stub.dart'
+    if (dart.library.html) 'package:easy_tab/utils/open_html_web.dart';
 import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -86,6 +89,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _syncReport(dynamic report) async {
+    if (!mounted) return;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       final loc = AppLocalizations.of(context)!;
@@ -110,6 +114,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _syncedReports.add(report.folderName);
     });
 
+    if (!mounted) return;
     final loc = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(loc.syncCompleteMessage)),
@@ -289,8 +294,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (result != null && result.files.isNotEmpty) {
         final zipPath = result.files.single.path;
         if (zipPath != null) {
+          if (!mounted) return;
           final reportState = Provider.of<ReportState>(context, listen: false);
 
+          if (!mounted) return;
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -326,6 +333,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         }
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(loc.importError)));
@@ -333,6 +341,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildReportCard(BuildContext context, dynamic report) {
+    if (!mounted) return const SizedBox.shrink();
     final reportState = Provider.of<ReportState>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final loc = AppLocalizations.of(context)!;
@@ -351,10 +360,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
       child: InkWell(
         onTap: () async {
-          final navigator = Navigator.of(context);
+          final nav = Navigator.of(context);
           await reportState.loadReport(report.folderName);
           if (!mounted) return;
-          navigator.pushNamed('/fill');
+          nav.pushNamed('/fill');
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -470,6 +479,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  if (kIsWeb && report.publicId != null)
+                    IconButton(
+                      icon: const Icon(Icons.open_in_new, color: Color(0xFF2563eb)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Открыть HTML',
+                      onPressed: () {
+                        final origin = Uri.base.origin;
+                        final viewUrl = '$origin/#/view-report?pid=${report.publicId}';
+                        openHtmlInBrowserUrl(viewUrl);
+                      },
+                    ),
+                  if (kIsWeb && report.publicId != null) const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.delete, color: Color(0xFFdc2626)),
                     padding: EdgeInsets.zero,

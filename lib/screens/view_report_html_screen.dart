@@ -1,27 +1,26 @@
 // ============================================================
 // ViewReportHtmlScreen — экран просмотра HTML-отчёта внутри Flutter.
 //
-// Открывается в новой вкладке браузера (по адресу localhost:4000/#/view-report).
-// Делает API-запрос к серверу (8000): GET /reports/:id/html,
+// Открывается в новой вкладке браузера (по адресу /#/view-report?pid=...).
+// Делает API-запрос: GET /reports/:publicId/html,
 // получает HTML-строку, отображает её в iframe srcdoc.
 //
-// Пользователь остаётся внутри Flutter (localhost:4000).
-// Сервер (8000) используется только как API.
+// Пользователь остаётся внутри Flutter-приложения.
+// Сервер используется только как API.
 // ============================================================
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import '../services/api_service.dart';
 import '../utils/report_html_iframe.dart';
 
 class ViewReportHtmlScreen extends StatefulWidget {
-  final int reportId;
+  final String publicId;
   final String? token;
 
   const ViewReportHtmlScreen({
     super.key,
-    required this.reportId,
+    required this.publicId,
     this.token,
   });
 
@@ -30,7 +29,6 @@ class ViewReportHtmlScreen extends StatefulWidget {
 }
 
 class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
-  String? _html;
   String? _error;
   bool _loading = true;
   String? _viewType;
@@ -53,14 +51,13 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
     }
 
     try {
-      final result = await ApiService.getReportHtml(widget.reportId);
+      final result = await ApiService.getReportHtmlByPublicId(widget.publicId);
       if (!mounted) return;
 
       if (result.success && result.data?['html'] != null) {
         final htmlContent = result.data!['html'] as String;
         final viewType = createIframeView(htmlContent);
         setState(() {
-          _html = htmlContent;
           _viewType = viewType;
           _loading = false;
         });
@@ -83,7 +80,7 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Отчёт #${widget.reportId}'),
+        title: Text('Отчёт #${widget.publicId}'),
         backgroundColor: const Color(0xFFe0e0e0),
         foregroundColor: const Color(0xFF424242),
         elevation: 0,

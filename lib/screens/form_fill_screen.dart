@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/utils/file_image.dart'
@@ -176,10 +175,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
   /// Загрузить все файлы отчёта на сервер по отдельности (не ZIP).
   ///
   /// Файлы загружаются в KS3 через POST /files/upload:
-  ///   - report.json — данные отчёта
-  ///   - report.html — HTML-представление (будет открываться в браузере)
+  ///   - report.json — данные отчёта (основное хранилище — БД, KS3 — бекап)
   ///   - report.xlsx — Excel-экспорт
   ///   - Медиафайлы (фото, видео) из маркеров ответов
+  ///
+  /// HTML-отчёт не загружается: сервер генерирует его сам из JSON-данных в БД.
   ///
   /// Каждый файл загружается отдельным запросом, сохраняя относительные пути,
   /// чтобы на сервере получить структуру папок отчёта.
@@ -227,16 +227,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         });
       }
 
-      // 2. report.html — HTML-отчёт (будет открываться в браузере на сервере)
-      final htmlContent = reportState.generateHtmlContent();
-      final htmlFile = File('$reportPath/report.html');
-      await htmlFile.writeAsString(htmlContent);
-      filesToUpload.add({
-        'filePath': htmlFile.path,
-        'relativePath': 'report.html',
-      });
-
-      // 3. report.xlsx — Excel-экспорт
+      // 2. report.xlsx — Excel-экспорт
       final excelBytes = reportState.generateExcelBytes();
       final excelFile = File('$reportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
@@ -817,17 +808,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  /// Просмотр HTML на web: открывает новую вкладку Flutter (localhost:4000).
+  /// Просмотр HTML на web: открывает новую вкладку Flutter.
   ///
   /// Архитектура:
-  ///   1. Flutter открывает новую вкладку: localhost:4000/#/view-report?id=9&token=xxx
+  ///   1. Flutter открывает новую вкладку: /#/view-report?pid=abc123&token=xxx
   ///   2. Новая вкладка — это Flutter-экран ViewReportHtmlScreen
-  ///   3. Экран делает API-запрос к серверу (8000): GET /reports/9/html
-  ///   4. Сервер скачивает JSON из KS3, генерирует HTML, возвращает {success, html}
-  ///   5. Экран отображает HTML в iframe srcdoc (пользователь видит localhost:4000)
-  ///   6. Фото в HTML имеют абсолютные URL (http://localhost:8000/...) — грузятся с сервера
+  ///   3. Экран делает API-запрос: GET /reports/abc123/html
+  ///   4. Сервер читает JSON из БД, генерирует HTML, возвращает {success, html}
+  ///   5. Экран отображает HTML в iframe srcdoc
+  ///   6. Фото в HTML используют presigned URL из KS3 — грузятся с сервера
   ///
-  /// Пользователь всегда остаётся на localhost:4000. Сервер (8000) — только API.
+  /// URL новой вкладки строится относительно текущего origin, поэтому работает
+  /// на любом порту/домене, где развёрнут фронтенд.
   ///
   /// Если пользователь не залогинен или отчёт не сохранён — fallback на blob.
   Future<void> _viewHtmlOnWeb(String htmlContent) async {
@@ -840,15 +832,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
-    // Если отчёт ещё не сохранён на сервере — нет serverReportId, fallback
-    if (reportState.serverReportId == null) {
+    // Если отчёт ещё не сохранён на сервере — нет publicId, fallback
+    if (reportState.serverPublicId == null) {
       openHtmlInBrowser(htmlContent);
       return;
     }
 
     // Открываем новую вкладку с Flutter-маршрутом /view-report.
     // Cookie auth_token уже установлен при логине, поэтому токен не нужен в URL.
-    final viewUrl = 'http://localhost:4000/#/view-report?id=${reportState.serverReportId}';
+    final origin = Uri.base.origin;
+    final viewUrl = '$origin/#/view-report?pid=${reportState.serverPublicId}';
 
     openHtmlInBrowserUrl(viewUrl);
 
@@ -1197,7 +1190,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   } else if (value == 0) {
                     final htmlContent = reportState.generateHtmlContent();
                     if (kIsWeb) {
-                      // На web — загружаем report.html на сервер и открываем ссылку
+                      // На web — открываем серверный просмотр /view-report
                       await _viewHtmlOnWeb(htmlContent);
                     } else {
                       // На мобильных/десктопах открываем через системный диалог
@@ -3932,10 +3925,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
       if (selectedXFiles.isEmpty && selectedPlatformFiles.isEmpty) return;
 
-      _showProcessingDialog(loc.processingMedia);
-      try {
-        final reportState = context.read<ReportState>();
+      final reportState = context.read<ReportState>();
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      if (!mounted) return;
 
+      try {
         // Обрабатываем XFile (image_picker)
         for (final file in selectedXFiles) {
           final bytes = await file.readAsBytes();
@@ -3968,20 +3962,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
           );
         }
 
-        await reportState.saveReport();
-        if (mounted) {
-          setState(() {
-            _hasUnsavedChanges = false;
-          });
-        }
+        // Сохраняем отчёт в фоне, не блокируя UI.
+        reportState.saveReport().then((_) {
+          if (mounted) {
+            setState(() {
+              _hasUnsavedChanges = false;
+            });
+          }
+        });
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${loc.saveError}$e')),
-          );
-        }
-      } finally {
-        _hideProcessingDialog();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('${loc.saveError}$e')),
+        );
       }
       return;
     }
@@ -4025,10 +4017,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     if (selectedFiles.isEmpty) return;
 
-    _showProcessingDialog(loc.processingMedia);
+    final reportState = context.read<ReportState>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    if (!mounted) return;
 
     try {
-      final reportState = context.read<ReportState>();
       for (final file in selectedFiles) {
         await reportState.addMedia(
           questionIndex,
@@ -4038,20 +4031,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
         );
       }
 
-      await reportState.saveReport();
-      if (mounted) {
-        setState(() {
-          _hasUnsavedChanges = false;
-        });
-      }
+      reportState.saveReport().then((_) {
+        if (mounted) {
+          setState(() {
+            _hasUnsavedChanges = false;
+          });
+        }
+      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${loc.saveError}$e')));
-      }
-    } finally {
-      _hideProcessingDialog();
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('${loc.saveError}$e')),
+      );
     }
   }
 
