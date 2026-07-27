@@ -72,6 +72,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addMedia => 'Добавить медиа';
 
   @override
+  String get createSection => 'Создать';
+
+  @override
+  String get selectSection => 'Выбрать';
+
+  @override
   String get takePhoto => 'Сделать фото';
 
   @override
@@ -81,7 +87,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get chooseFromGallery => 'Выбрать из галереи';
 
   @override
+  String get photoFromGallery => 'Фото из галереи';
+
+  @override
   String get chooseVideoFromGallery => 'Выбрать видео из галереи';
+
+  @override
+  String get videoFromGallery => 'Видео из галереи';
 
   @override
   String get chooseFromFiles => 'Выбрать из файлов';

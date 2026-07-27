@@ -226,6 +226,18 @@ abstract class AppLocalizations {
   /// **'Add Media'**
   String get addMedia;
 
+  /// No description provided for @createSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get createSection;
+
+  /// No description provided for @selectSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get selectSection;
+
   /// No description provided for @takePhoto.
   ///
   /// In en, this message translates to:
@@ -244,11 +256,23 @@ abstract class AppLocalizations {
   /// **'Choose from Gallery'**
   String get chooseFromGallery;
 
+  /// No description provided for @photoFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo from Gallery'**
+  String get photoFromGallery;
+
   /// No description provided for @chooseVideoFromGallery.
   ///
   /// In en, this message translates to:
   /// **'Choose video from gallery'**
   String get chooseVideoFromGallery;
+
+  /// No description provided for @videoFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Video from Gallery'**
+  String get videoFromGallery;
 
   /// No description provided for @chooseFromFiles.
   ///

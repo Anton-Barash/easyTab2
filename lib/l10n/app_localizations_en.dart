@@ -72,6 +72,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addMedia => 'Add Media';
 
   @override
+  String get createSection => 'Create';
+
+  @override
+  String get selectSection => 'Select';
+
+  @override
   String get takePhoto => 'Take Photo';
 
   @override
@@ -81,7 +87,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseFromGallery => 'Choose from Gallery';
 
   @override
+  String get photoFromGallery => 'Photo from Gallery';
+
+  @override
   String get chooseVideoFromGallery => 'Choose video from gallery';
+
+  @override
+  String get videoFromGallery => 'Video from Gallery';
 
   @override
   String get chooseFromFiles => 'Choose from files';

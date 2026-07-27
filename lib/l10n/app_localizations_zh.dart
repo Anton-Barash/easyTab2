@@ -72,6 +72,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addMedia => '添加媒体';
 
   @override
+  String get createSection => '创建';
+
+  @override
+  String get selectSection => '选择';
+
+  @override
   String get takePhoto => '拍照';
 
   @override
@@ -81,7 +87,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chooseFromGallery => '从图库选择';
 
   @override
+  String get photoFromGallery => '从图库选择照片';
+
+  @override
   String get chooseVideoFromGallery => '从图库选择视频';
+
+  @override
+  String get videoFromGallery => '从图库选择视频';
 
   @override
   String get chooseFromFiles => '从文件选择';

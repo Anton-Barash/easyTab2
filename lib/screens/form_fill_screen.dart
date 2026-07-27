@@ -3863,32 +3863,66 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final loc = AppLocalizations.of(context)!;
     final action = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(loc.addMediaTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: Text(loc.takePhoto),
-              onTap: () => Navigator.pop(ctx, 'camera-photo'),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFF444444), width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.addMediaTitle,
+                  style: const TextStyle(
+                    color: Color(0xFF333333),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildSectionTitle(loc.createSection),
+                const SizedBox(height: 8),
+                _buildPickerItem(
+                  icon: Icons.camera_alt,
+                  label: loc.takePhoto,
+                  onTap: () => Navigator.pop(ctx, 'camera-photo'),
+                ),
+                const SizedBox(height: 8),
+                _buildPickerItem(
+                  icon: Icons.videocam,
+                  label: loc.takeVideo,
+                  onTap: () => Navigator.pop(ctx, 'camera-video'),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Divider(
+                    color: Color(0xFFAAAAAA),
+                    thickness: 1.5,
+                    height: 1.5,
+                  ),
+                ),
+                _buildSectionTitle(loc.selectSection),
+                const SizedBox(height: 8),
+                _buildPickerItem(
+                  icon: Icons.photo_library,
+                  label: loc.photoFromGallery,
+                  onTap: () => Navigator.pop(ctx, 'gallery-photo'),
+                ),
+                const SizedBox(height: 8),
+                _buildPickerItem(
+                  icon: Icons.video_library,
+                  label: loc.videoFromGallery,
+                  onTap: () => Navigator.pop(ctx, 'gallery-video'),
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.videocam),
-              title: Text(loc.takeVideo),
-              onTap: () => Navigator.pop(ctx, 'camera-video'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: Text(loc.chooseFromGallery),
-              onTap: () => Navigator.pop(ctx, 'gallery-photo'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.video_library),
-              title: Text(loc.chooseVideoFromGallery),
-              onTap: () => Navigator.pop(ctx, 'gallery-video'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -4043,6 +4077,50 @@ class _FormFillScreenState extends State<FormFillScreen> {
         SnackBar(content: Text('${loc.saveError}$e')),
       );
     }
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Color(0xFF333333),
+        fontSize: 15,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  Widget _buildPickerItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F0ED),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF444444), width: 2),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Icon(icon, size: 24, color: const Color(0xFF333333)),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF333333),
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildMediaGrid(
