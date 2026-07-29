@@ -26,6 +26,7 @@ dependencies:
   video_thumbnail: ^0.5.3
   video_player: ^2.8.2
   v_video_compressor: ^1.2.0
+  video_web_compressor: ^0.0.1
   image: ^4.2.0
   scrollable_positioned_list: ^0.3.8
   http: ^1.2.0
@@ -45,6 +46,7 @@ flutter_launcher_icons:
 
 dependency_overrides:
   xml: ^7.0.1
+  web: ^1.1.1
 
 flutter:
   uses-material-design: true

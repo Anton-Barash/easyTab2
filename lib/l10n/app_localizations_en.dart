@@ -622,6 +622,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get compressVideoWebWarning =>
+      'The video is larger than 10 MB. Browser compression will download about 25 MB of data on first use. Continue?';
+
+  @override
+  String get compressVideoWebInitializing => 'Loading ffmpeg.wasm (~25 MB)...';
+
+  @override
+  String compressVideoWebProgress(String percent) {
+    return 'Compressing video... $percent%';
+  }
+
+  @override
   String get importProject => 'Import project';
 
   @override

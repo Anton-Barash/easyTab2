@@ -31,6 +31,9 @@ class MediaItem {
   /// Если true — файл уже загружается, повторная загрузка пропускается.
   bool isUploading = false;
 
+  /// P3-52: Прогресс загрузки на сервер (0.0 - 1.0).
+  double uploadProgress = 0.0;
+
   MediaItem({
     required this.name,
     required this.type,
@@ -52,6 +55,9 @@ class MediaItem {
         'localPath': localPath,
         'fileSize': fileSize,
         'compressedSize': compressedSize,
+        // P3-52: runtime-поля для отображения прогресса в UI.
+        'isUploading': isUploading,
+        'uploadProgress': uploadProgress,
       };
 
   String? _toRelativePath(String? path, String? folderPath) {
@@ -70,6 +76,9 @@ class MediaItem {
         'localPath': _toRelativePath(localPath, folderPath),
         'fileSize': fileSize,
         'compressedSize': compressedSize,
+        // P3-52: runtime-поля для отображения прогресса в UI.
+        'isUploading': isUploading,
+        'uploadProgress': uploadProgress,
       };
 
   factory MediaItem.fromJson(Map<String, dynamic> json, {String? folderPath}) {
@@ -295,6 +304,10 @@ class Report {
           'localPath': m.localPath,
           'fileSize': m.fileSize,
           'compressedSize': m.compressedSize,
+          // P3-52: runtime-поля для отображения прогресса загрузки в UI
+          'isUploading': m.isUploading,
+          'uploadProgress': m.uploadProgress,
+          'serverFileId': m.serverFileId,
         };
         // Добавляем webBytes для отображения на web
         // (на mobile/desktop это поле null)

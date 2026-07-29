@@ -275,6 +275,16 @@
       }
     }
   },
+  "compressVideoWebWarning": "The video is larger than 10 MB. Browser compression will download about 25 MB of data on first use. Continue?",
+  "compressVideoWebInitializing": "Loading ffmpeg.wasm (~25 MB)...",
+  "compressVideoWebProgress": "Compressing video... {percent}%",
+  "@compressVideoWebProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
   "importProject": "Import project",
   "newReportTooltip": "New report",
   "noSavedReports": "No saved reports",

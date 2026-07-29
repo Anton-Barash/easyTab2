@@ -664,6 +664,7 @@ class ReportState extends ChangeNotifier {
     required String fileName,
     required String mimeType,
     bool isAttention = false,
+    int? compressedSize,
     void Function(double progress)? onUploadProgress,
   }) async {
     if (_currentReport == null) return;
@@ -711,6 +712,7 @@ class ReportState extends ChangeNotifier {
       originalName: fileName,
       localPath: relativePath,
       fileSize: finalBytes.length,
+      compressedSize: compressedSize,
       webBytes: finalBytes, // Байты для превью в UI
     );
 
@@ -757,8 +759,9 @@ class ReportState extends ChangeNotifier {
     }
     mediaItem.isUploading = true;
 
-    try {
-      onUploadProgress?.call(0.1);
+        try {
+      mediaItem.uploadProgress = 0.0;
+      notifyListeners();
 
       final result = await ApiService.uploadFileFromBytes(
         bytes: bytes,
@@ -766,8 +769,18 @@ class ReportState extends ChangeNotifier {
         relativePath: relativePath,
         reportId: _serverReportId,
         ks3Folder: _ks3Folder,
+        onUploadProgress: (progress) {
+          if (kDebugMode) {
+            debugPrint('Upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%');
+          }
+          mediaItem.uploadProgress = progress;
+          notifyListeners();
+          onUploadProgress?.call(progress);
+        },
       );
 
+      mediaItem.uploadProgress = 1.0;
+      notifyListeners();
       onUploadProgress?.call(1.0);
 
       if (result.success && result.data?['file'] != null) {
@@ -788,8 +801,10 @@ class ReportState extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) debugPrint('Media upload error: $fileName — $e');
     } finally {
-      // P3-45: Сбрасываем флаг загрузки в любом случае.
+      // P3-55: флаг сбрасывается только после полного ответа сервера,
+      // чтобы UI показывал "Сохранение..." пока идёт обработка на сервере.
       mediaItem.isUploading = false;
+      notifyListeners();
     }
   }
 

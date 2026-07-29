@@ -275,6 +275,16 @@
       }
     }
   },
+  "compressVideoWebWarning": "Видео больше 10 МБ. Сжатие в браузере скачает около 25 МБ данных при первом использовании. Продолжить?",
+  "compressVideoWebInitializing": "Загрузка ffmpeg.wasm (~25 МБ)...",
+  "compressVideoWebProgress": "Сжимаем видео... {percent}%",
+  "@compressVideoWebProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
   "importProject": "Импорт проекта",
   "newReportTooltip": "Новый отчёт",
   "noSavedReports": "Нет сохранённых отчётов",

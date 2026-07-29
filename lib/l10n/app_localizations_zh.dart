@@ -613,6 +613,17 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get compressVideoWebWarning => '视频超过10MB。浏览器压缩首次使用时会下载约25MB数据。继续吗？';
+
+  @override
+  String get compressVideoWebInitializing => '加载 ffmpeg.wasm (~25 MB)...';
+
+  @override
+  String compressVideoWebProgress(String percent) {
+    return '正在压缩视频... $percent%';
+  }
+
+  @override
   String get importProject => '导入项目';
 
   @override

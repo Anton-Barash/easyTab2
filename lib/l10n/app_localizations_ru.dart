@@ -623,6 +623,18 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get compressVideoWebWarning =>
+      'Видео больше 10 МБ. Сжатие в браузере скачает около 25 МБ данных при первом использовании. Продолжить?';
+
+  @override
+  String get compressVideoWebInitializing => 'Загрузка ffmpeg.wasm (~25 МБ)...';
+
+  @override
+  String compressVideoWebProgress(String percent) {
+    return 'Сжимаем видео... $percent%';
+  }
+
+  @override
   String get importProject => 'Импорт проекта';
 
   @override

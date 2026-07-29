@@ -5,6 +5,10 @@ import 'package:http_parser/http_parser.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 
+import 'api_result.dart';
+import 'upload_helper_native.dart'
+    if (dart.library.html) 'upload_helper_web.dart';
+
 /// API client for easyTab server.
 ///
 /// Адрес сервера настраивается через [setBaseUrl] — вызывается AuthProvider'ом
@@ -167,7 +171,7 @@ class ApiService {
 
       // Отправляем с увеличенным таймаутом (файлы могут быть большими)
       final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 60),
+        const Duration(seconds: 300),
       );
       final response = await http.Response.fromStream(streamedResponse);
 
@@ -193,57 +197,18 @@ class ApiService {
     required String relativePath,
     int? reportId,
     String? ks3Folder,
+    void Function(double progress)? onUploadProgress,
   }) async {
-    try {
-      final request = http.MultipartRequest('POST', _uri('/files/upload'));
-      request.headers.addAll(_authHeaders);
-
-      // Определяем MIME-тип по расширению
-      final ext = filename.split('.').last.toLowerCase();
-      String mimeType = 'application/octet-stream';
-      if (ext == 'html' || ext == 'htm') {
-        mimeType = 'text/html';
-      } else if (ext == 'json') {
-        mimeType = 'application/json';
-      } else if (ext == 'xlsx') {
-        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      } else if (ext == 'png') {
-        mimeType = 'image/png';
-      } else if (ext == 'jpg' || ext == 'jpeg') {
-        mimeType = 'image/jpeg';
-      } else if (ext == 'mp4') {
-        mimeType = 'video/mp4';
-      }
-
-      // Поля multipart ДОЛЖНЫ идти ДО файловой части — иначе сервер
-      // (Fastify @fastify/multipart) не увидит reportId/relativePath.
-      request.fields['relativePath'] = relativePath;
-      if (reportId != null) {
-        request.fields['reportId'] = reportId.toString();
-      }
-      if (ks3Folder != null) {
-        request.fields['ks3Folder'] = ks3Folder;
-      }
-
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'file',
-          bytes,
-          filename: filename,
-          contentType: MediaType.parse(mimeType),
-        ),
-      );
-
-      final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 120),
-      );
-      final response = await http.Response.fromStream(streamedResponse);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка загрузки: $e');
-    }
+    return uploadFileFromBytesWithProgress(
+      uri: _uri('/files/upload'),
+      bytes: bytes,
+      filename: filename,
+      relativePath: relativePath,
+      headers: _authHeaders,
+      reportId: reportId,
+      ks3Folder: ks3Folder,
+      onUploadProgress: onUploadProgress,
+    );
   }
 
   /// Загрузить несколько файлов на сервер.
@@ -477,6 +442,34 @@ class ApiService {
     }
   }
 
+  static ApiResult _parseResponseString(String responseText, int statusCode) {
+    try {
+      final body = jsonDecode(responseText) as Map<String, dynamic>;
+
+      if (statusCode >= 200 && statusCode < 300) {
+        return ApiResult(
+          success: body['success'] == true,
+          data: body,
+          token: body['token'] as String?,
+          user: body['user'] as Map<String, dynamic>?,
+          error: body['success'] == true
+              ? null
+              : (body['error'] as String?) ?? 'Неизвестная ошибка',
+        );
+      }
+
+      return ApiResult(
+        success: false,
+        error: (body['error'] as String?) ?? 'Ошибка $statusCode',
+      );
+    } catch (e) {
+      return ApiResult(
+        success: false,
+        error: 'Некорректный ответ сервера: $statusCode',
+      );
+    }
+  }
+
   static ApiResult _parseResponse(http.Response response) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -504,21 +497,4 @@ class ApiService {
       );
     }
   }
-}
-
-/// Результат вызова API.
-class ApiResult {
-  final bool success;
-  final Map<String, dynamic>? data;
-  final String? token;
-  final Map<String, dynamic>? user;
-  final String? error;
-
-  ApiResult({
-    required this.success,
-    this.data,
-    this.token,
-    this.user,
-    this.error,
-  });
 }

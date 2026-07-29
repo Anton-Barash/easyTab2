@@ -1246,6 +1246,24 @@ abstract class AppLocalizations {
   /// **'Compression error: {error}'**
   String compressionError(String error);
 
+  /// No description provided for @compressVideoWebWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'The video is larger than 10 MB. Browser compression will download about 25 MB of data on first use. Continue?'**
+  String get compressVideoWebWarning;
+
+  /// No description provided for @compressVideoWebInitializing.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading ffmpeg.wasm (~25 MB)...'**
+  String get compressVideoWebInitializing;
+
+  /// No description provided for @compressVideoWebProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressing video... {percent}%'**
+  String compressVideoWebProgress(String percent);
+
   /// No description provided for @importProject.
   ///
   /// In en, this message translates to:

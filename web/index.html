@@ -48,6 +48,11 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <!-- FFmpeg.wasm wrapper (должен загружаться статически, чтобы worker брался с того же origin) -->
+  <script src="/assets/ffmpeg/ffmpeg.js"></script>
+  <!-- FFmpeg.wasm loader для сжатия видео -->
+  <script src="ffmpeg-loader.js"></script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
