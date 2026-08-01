@@ -55,6 +55,22 @@ class ApiService {
         if (authToken != null) 'Authorization': 'Bearer $authToken',
       };
 
+  /// Helper-метод для унификации обработки ошибок API-вызовов.
+  /// Принимает `Future<http.Response>` и возвращает ApiResult.
+  static Future<ApiResult> _handleApiCall(
+    Future<http.Response> request, {
+    Duration? timeout,
+  }) async {
+    try {
+      final response = await request.timeout(timeout ?? _timeout);
+      return _parseResponse(response);
+    } on SocketException {
+      return ApiResult(success: false, error: 'Нет соединения с сервером');
+    } catch (e) {
+      return ApiResult(success: false, error: 'Ошибка сети: $e');
+    }
+  }
+
   /// Регистрация нового пользователя.
   /// Возвращает {success, user?, token?, error?}
   static Future<ApiResult> register({
@@ -63,26 +79,16 @@ class ApiService {
     String? email,
     String? name,
   }) async {
-    try {
-      final response = await http
-          .post(
-            _uri('/auth/register'),
-            headers: _headers,
-            body: jsonEncode({
-              'username': username,
-              'password': password,
-              if (email != null && email.isNotEmpty) 'email': email,
-              if (name != null && name.isNotEmpty) 'name': name,
-            }),
-          )
-          .timeout(_timeout);
-
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(http.post(
+      _uri('/auth/register'),
+      headers: _headers,
+      body: jsonEncode({
+        'username': username,
+        'password': password,
+        if (email != null && email.isNotEmpty) 'email': email,
+        if (name != null && name.isNotEmpty) 'name': name,
+      }),
+    ));
   }
 
   /// Вход по логину/паролю.
@@ -90,39 +96,19 @@ class ApiService {
     required String username,
     required String password,
   }) async {
-    try {
-      final response = await http
-          .post(
-            _uri('/auth/login'),
-            headers: _headers,
-            body: jsonEncode({
-              'username': username,
-              'password': password,
-            }),
-          )
-          .timeout(_timeout);
-
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(http.post(
+      _uri('/auth/login'),
+      headers: _headers,
+      body: jsonEncode({
+        'username': username,
+        'password': password,
+      }),
+    ));
   }
 
   /// Получить текущего пользователя по токену.
   static Future<ApiResult> me() async {
-    try {
-      final response = await http
-          .get(_uri('/auth/me'), headers: _headers)
-          .timeout(_timeout);
-
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(http.get(_uri('/auth/me'), headers: _headers));
   }
 
   /// Проверка доступности сервера (health check).
@@ -228,22 +214,15 @@ class ApiService {
     String? relativePath,
     int? reportId,
   }) async {
-    try {
-      final body = jsonEncode({
-        'fileName': fileName,
-        if (relativePath != null) 'relativePath': relativePath, // ignore: use_null_aware_elements
-        if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
-      });
+    final body = jsonEncode({
+      'fileName': fileName,
+      if (relativePath != null) 'relativePath': relativePath, // ignore: use_null_aware_elements
+      if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
+    });
 
-      final response = await http
-          .post(_uri('/files/presign-upload'), headers: _headers, body: body)
-          .timeout(const Duration(seconds: 30));
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(
+      http.post(_uri('/files/presign-upload'), headers: _headers, body: body),
+    );
   }
 
   /// Подтвердить прямую загрузку файла в KS3 — создать запись в БД.
@@ -259,26 +238,20 @@ class ApiService {
     required String relPath,
     int? reportId,
   }) async {
-    try {
-      final body = jsonEncode({
-        'fileId': fileId,
-        'storageKey': storageKey,
-        'fileName': fileName,
-        'size': size,
-        'mimeType': mimeType,
-        'relPath': relPath,
-        if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
-      });
+    final body = jsonEncode({
+      'fileId': fileId,
+      'storageKey': storageKey,
+      'fileName': fileName,
+      'size': size,
+      'mimeType': mimeType,
+      'relPath': relPath,
+      if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
+    });
 
-      final response = await http
-          .post(_uri('/files/confirm-upload'), headers: _headers, body: body)
-          .timeout(const Duration(seconds: 30));
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(
+      http.post(_uri('/files/confirm-upload'), headers: _headers, body: body),
+      timeout: const Duration(seconds: 30),
+    );
   }
 
   /// Загрузить несколько файлов на сервер.
@@ -335,16 +308,7 @@ class ApiService {
 
   /// Получить список всех файлов пользователя на сервере.
   static Future<ApiResult> listFiles() async {
-    try {
-      final response = await http
-          .get(_uri('/files'), headers: _headers)
-          .timeout(_timeout);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(http.get(_uri('/files'), headers: _headers));
   }
 
   /// Получить подписанный URL для скачивания/просмотра файла.
@@ -352,16 +316,8 @@ class ApiService {
   /// [fileId] — UUID файла на сервере.
   /// Возвращает ApiResult с URL в [data]['url'].
   static Future<ApiResult> getDownloadUrl(String fileId) async {
-    try {
-      final response = await http
-          .get(_uri('/files/$fileId/download'), headers: _headers)
-          .timeout(_timeout);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(
+        http.get(_uri('/files/$fileId/download'), headers: _headers));
   }
 
   /// Получить список файлов, привязанных к отчёту.
@@ -369,16 +325,8 @@ class ApiService {
   /// [reportId] — ID отчёта на сервере.
   /// Возвращает ApiResult с data['files'] — массив файлов.
   static Future<ApiResult> listFilesByReport(int reportId) async {
-    try {
-      final response = await http
-          .get(_uri('/files/by-report/$reportId'), headers: _headers)
-          .timeout(_timeout);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(
+        http.get(_uri('/files/by-report/$reportId'), headers: _headers));
   }
 
   /// Получить подписанные URL для всех файлов отчёта.
@@ -386,34 +334,17 @@ class ApiService {
   /// [reportId] — ID отчёта на сервере.
   /// Возвращает ApiResult с data['urls'] — объект { 'photos/f1_1.jpg': 'https://...', ... }.
   static Future<ApiResult> getReportFileUrls(int reportId) async {
-    try {
-      final response = await http
-          .get(_uri('/files/by-report/$reportId/urls'), headers: _headers)
-          .timeout(_timeout);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(
+        http.get(_uri('/files/by-report/$reportId/urls'), headers: _headers));
   }
 
   /// Удалить файл на сервере.
   ///
   /// [fileId] — UUID файла на сервере.
   static Future<ApiResult> deleteFile(String fileId) async {
-    try {
-      // Используем _authHeaders (без Content-Type) — DELETE не имеет тела,
-      // а Content-Type: application/json без тела вызывает 400 в Fastify.
-      final response = await http
-          .delete(_uri('/files/$fileId'), headers: _authHeaders)
-          .timeout(_timeout);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    // Используем _authHeaders (без Content-Type) — DELETE не имеет тела,
+    // а Content-Type: application/json без тела вызывает 400 в Fastify.
+    return _handleApiCall(http.delete(_uri('/files/$fileId'), headers: _authHeaders));
   }
 
   // ============================================================
@@ -433,38 +364,23 @@ class ApiService {
     required Map<String, dynamic> reportData,
     int? reportId,
   }) async {
-    try {
-      final body = jsonEncode({
-        'title': title,
-        'reportData': reportData,
-        if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
-      });
+    final body = jsonEncode({
+      'title': title,
+      'reportData': reportData,
+      if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
+    });
 
-      final response = await http
-          .post(_uri('/reports'), headers: _headers, body: body)
-          .timeout(const Duration(seconds: 30));
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(
+      http.post(_uri('/reports'), headers: _headers, body: body),
+      timeout: const Duration(seconds: 30),
+    );
   }
 
   /// Получить список отчётов пользователя с сервера.
   ///
   /// Возвращает ApiResult с data['reports'] — массив метаданных.
   static Future<ApiResult> listReports() async {
-    try {
-      final response = await http
-          .get(_uri('/reports'), headers: _headers)
-          .timeout(_timeout);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(http.get(_uri('/reports'), headers: _headers));
   }
 
   /// Получить полный JSON отчёта по ID.
@@ -472,48 +388,24 @@ class ApiService {
   /// [reportId] — ID отчёта на сервере.
   /// Возвращает ApiResult с data['report']['reportData'] — JSON отчёта.
   static Future<ApiResult> getReport(int reportId) async {
-    try {
-      final response = await http
-          .get(_uri('/reports/$reportId'), headers: _headers)
-          .timeout(_timeout);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(http.get(_uri('/reports/$reportId'), headers: _headers));
   }
 
   /// Удалить отчёт на сервере.
   ///
   /// [reportId] — ID отчёта.
   static Future<ApiResult> deleteReport(int reportId) async {
-    try {
-      // Используем _authHeaders (без Content-Type) — DELETE не имеет тела,
-      // а Content-Type: application/json без тела вызывает 400 в Fastify.
-      final response = await http
-          .delete(_uri('/reports/$reportId'), headers: _authHeaders)
-          .timeout(_timeout);
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    // Используем _authHeaders (без Content-Type) — DELETE не имеет тела,
+    // а Content-Type: application/json без тела вызывает 400 в Fastify.
+    return _handleApiCall(http.delete(_uri('/reports/$reportId'), headers: _authHeaders));
   }
 
   /// Получить HTML отчёта по публичному идентификатору (для iframe srcdoc).
   static Future<ApiResult> getReportHtmlByPublicId(String publicId) async {
-    try {
-      final response = await http
-          .get(_uri('/reports/$publicId/html'), headers: _headers)
-          .timeout(const Duration(seconds: 30));
-      return _parseResponse(response);
-    } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
-    } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
-    }
+    return _handleApiCall(
+      http.get(_uri('/reports/$publicId/html'), headers: _headers),
+      timeout: const Duration(seconds: 30),
+    );
   }
 
   static ApiResult _parseResponse(http.Response response) {
