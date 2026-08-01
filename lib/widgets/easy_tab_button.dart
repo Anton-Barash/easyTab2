@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
 
 /// P2-28: Единая кнопка в стиле easyTab.
 ///
@@ -45,14 +46,14 @@ class EasyTabButton extends StatelessWidget {
       decoration: BoxDecoration(
         color: isOutline
             ? Colors.white
-            : (disabled ? const Color(0xFFcccccc) : const Color(0xFFe0e0e0)),
+            : (disabled ? AppColors.grey300 : AppColors.surface),
         borderRadius: _borderRadius,
-        border: Border.all(width: 2.5, color: const Color(0xFF333333)),
+        border: Border.all(width: 2.5, color: AppColors.border),
         boxShadow: isOutline
             ? null
             : [
                 const BoxShadow(
-                  color: Color(0xFF333333),
+                  color: AppColors.border,
                   blurRadius: 0,
                   spreadRadius: 1.5,
                 ),
@@ -79,8 +80,8 @@ class EasyTabButton extends StatelessWidget {
                 fontSize: fontSize,
                 fontWeight: FontWeight.w500,
                 color: disabled
-                    ? const Color(0xFF999999)
-                    : const Color(0xFF424242),
+                    ? AppColors.textTertiary
+                    : AppColors.textPrimary,
                 shadows: isOutline
                     ? null
                     : const [

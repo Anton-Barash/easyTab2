@@ -11,6 +11,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
 import '../services/api_service.dart';
 import '../utils/report_html_iframe.dart';
 
@@ -81,8 +82,8 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Отчёт #${widget.publicId}'),
-        backgroundColor: const Color(0xFFe0e0e0),
-        foregroundColor: const Color(0xFF424242),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
           IconButton(

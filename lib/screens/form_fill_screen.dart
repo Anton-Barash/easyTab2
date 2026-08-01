@@ -1,3 +1,4 @@
+import 'package:easy_tab/utils/app_colors.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/utils/file_image.dart'
@@ -292,7 +293,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(loc.uploadCompleteAll),
-              backgroundColor: const Color(0xFF2e7d32),
+              backgroundColor: AppColors.success,
             ),
           );
         } else {
@@ -701,7 +702,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFdc2626),
+                              backgroundColor: AppColors.errorLight,
                               foregroundColor: Colors.white,
                             ),
                             onPressed: () {
@@ -738,7 +739,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       const SizedBox(width: 12),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFdc2626),
+                          backgroundColor: AppColors.errorLight,
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () {
@@ -802,7 +803,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               children: [
                 Text(
                   loc.lockWarningText,
-                  style: const TextStyle(color: Color(0xFFef4444)),
+                  style: const TextStyle(color: AppColors.errorLight),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -817,7 +818,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     hintText: loc.enterNewAnswerText,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
+                      borderSide: const BorderSide(color: AppColors.grey200),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -838,7 +839,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     hintText: loc.enterNewAnswerPlaceholder,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: Color(0xFFe5e7eb)),
+                      borderSide: const BorderSide(color: AppColors.grey200),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -856,7 +857,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563eb),
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
@@ -968,8 +969,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return Scaffold(
         appBar: AppBar(
           title: Text(loc.newReport),
-          backgroundColor: const Color(0xFFe0e0e0),
-          foregroundColor: const Color(0xFF424242),
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.textPrimary,
           elevation: 0,
         ),
         body: Center(child: Text(loc.noQuestions)),
@@ -1062,8 +1063,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        backgroundColor: const Color(0xFFe0e0e0),
-        foregroundColor: const Color(0xFF424242),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
           // Report language switcher
@@ -1143,8 +1144,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     Icons.save,
                     size: 24,
                     color: _hasUnsavedChanges
-                        ? const Color(0xFF3B82F6)
-                        : const Color(0xFF9CA3AF),
+                        ? AppColors.primaryLight
+                        : AppColors.greyDisabled,
                   ),
             onPressed: _hasUnsavedChanges && !_isSaving ? _doSave : null,
             tooltip: _hasUnsavedChanges ? loc.save : loc.saved,
@@ -1409,7 +1410,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             children: [
               Positioned.fill(
                 child: Container(
-                  color: const Color(0xFFf8f7f2),
+                  color: AppColors.background,
                   child: CustomPaint(painter: DottedPatternPainter()),
                 ),
               ),
@@ -1433,7 +1434,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   border: Border(
                                     right: BorderSide(
                                       width: 2,
-                                      color: const Color(0xFF333333),
+                                      color: AppColors.border,
                                     ),
                                   ),
                                 ),
@@ -1442,7 +1443,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     const SizedBox(height: 16),
                                     const Icon(
                                       Icons.chevron_right,
-                                      color: Color(0xFF424242),
+                                      color: AppColors.textPrimary,
                                     ),
                                     const SizedBox(height: 8),
                                     RotatedBox(
@@ -1452,7 +1453,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
-                                          color: Color(0xFF424242),
+                                          color: AppColors.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -1467,14 +1468,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 border: Border(
                                   right: BorderSide(
                                     width: 2,
-                                    color: const Color(0xFF333333),
+                                    color: AppColors.border,
                                   ),
                                 ),
                               ),
                               child: Column(
                                 children: [
                                   Container(
-                                    color: const Color(0xFFf3f4f6),
+                                    color: AppColors.grey100,
                                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                                     child: Row(
                                       children: [
@@ -1483,7 +1484,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16,
-                                            color: Color(0xFF424242),
+                                            color: AppColors.textPrimary,
                                           ),
                                         ),
                                         const Spacer(),
@@ -1499,7 +1500,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     ),
                                   ),
                                   Container(
-                                    color: const Color(0xFFf3f4f6),
+                                    color: AppColors.grey100,
                                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                                     child: InkWell(
                                       onTap: () {
@@ -1517,9 +1518,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                               fillColor: WidgetStateProperty.resolveWith((states) {
                                                 if (states.contains(WidgetState.selected)) {
-                                                  return const Color(0xFF424242);
+                                                  return AppColors.textPrimary;
                                                 }
-                                                return const Color(0xFF9ca3af);
+                                                return AppColors.greyDisabled;
                                               }),
                                               onChanged: (value) {
                                                 setState(() {
@@ -1534,7 +1535,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               loc.hideAnswered,
                                               style: const TextStyle(
                                                 fontSize: 12,
-                                                color: Color(0xFF666666),
+                                                color: AppColors.textSecondary,
                                               ),
                                             ),
                                           ),
@@ -1911,7 +1912,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     child: Column(
                       children: [
                         Container(
-                          color: const Color(0xFFf3f4f6),
+                          color: AppColors.grey100,
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                           child: Row(
                             children: [
@@ -1920,7 +1921,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: Color(0xFF424242),
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
                               const Spacer(),
@@ -1936,7 +1937,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           ),
                         ),
                         Container(
-                          color: const Color(0xFFf3f4f6),
+                          color: AppColors.grey100,
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                           child: InkWell(
                             onTap: () {
@@ -1954,9 +1955,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     fillColor: WidgetStateProperty.resolveWith((states) {
                                       if (states.contains(WidgetState.selected)) {
-                                        return const Color(0xFF424242);
+                                        return AppColors.textPrimary;
                                       }
-                                      return const Color(0xFF9ca3af);
+                                      return AppColors.greyDisabled;
                                     }),
                                     onChanged: (value) {
                                       setState(() {
@@ -1971,7 +1972,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     loc.hideAnswered,
                                     style: const TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF666666),
+                                      color: AppColors.textSecondary,
                                     ),
                                   ),
                                 ),
@@ -2049,8 +2050,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                           color:
                                               _viewMode == ViewMode.card &&
                                                   _currentPage == i
-                                              ? const Color(0xFF3b82f6)
-                                              : const Color(0xFFe5e7eb),
+                                              ? AppColors.primaryLight
+                                              : AppColors.grey200,
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -2091,7 +2092,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                   style: const TextStyle(
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w500,
-                                                    color: Color(0xFF424242),
+                                                    color: AppColors.textPrimary,
                                                   ),
                                                   maxLines: 2,
                                                   overflow:
@@ -2113,7 +2114,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                 bottom: 8,
                                               ),
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFFfff3cd),
+                                                color: AppColors.warningLight,
                                                 border: Border.all(
                                                   width: 1,
                                                   color: const Color(
@@ -2127,7 +2128,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                 loc.switchLanguage,
                                                 style: const TextStyle(
                                                   fontSize: 11,
-                                                  color: Color(0xFF856404),
+                                                  color: AppColors.warningDark,
                                                 ),
                                               ),
                                             ),
@@ -2141,8 +2142,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                     ),
                                                 decoration: BoxDecoration(
                                                   color: answerCount > 0
-                                                      ? const Color(0xFFd1fae5)
-                                                      : const Color(0xFFe5e7eb),
+                                                      ? AppColors.successLight
+                                                      : AppColors.grey200,
                                                   borderRadius:
                                                       BorderRadius.circular(4),
                                                 ),
@@ -2227,7 +2228,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                   child: const Icon(
                                                     Icons.edit_note,
                                                     size: 14,
-                                                    color: Color(0xFFd97706),
+                                                    color: AppColors.warningAccent,
                                                   ),
                                                 ),
                                             ],
@@ -2488,7 +2489,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(color: Color(0xFF2563eb)),
+                      CircularProgressIndicator(color: AppColors.primary),
                       SizedBox(height: 16),
                       Text('⏳', style: TextStyle(fontSize: 32)),
                     ],
@@ -2519,10 +2520,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
         color: Colors.white,
         border: isMobile
             ? Border(
-                top: BorderSide(width: 2, color: const Color(0xFF333333)),
-                bottom: BorderSide(width: 2, color: const Color(0xFF333333)),
+                top: BorderSide(width: 2, color: AppColors.border),
+                bottom: BorderSide(width: 2, color: AppColors.border),
               )
-            : Border.all(width: 2, color: const Color(0xFF333333)),
+            : Border.all(width: 2, color: AppColors.border),
         borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12),
       ),
       child: Column(
@@ -2532,9 +2533,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFf3f4f6),
+              color: AppColors.grey100,
               border: Border(
-                bottom: BorderSide(width: 1.5, color: const Color(0xFFe5e7eb)),
+                bottom: BorderSide(width: 1.5, color: AppColors.grey200),
               ),
               borderRadius: isMobile
                   ? BorderRadius.zero
@@ -2558,7 +2559,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF333333),
+                      color: AppColors.border,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Center(
@@ -2580,7 +2581,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF111827),
+                      color: AppColors.textDark,
                     ),
                   ),
                 ),
@@ -2612,17 +2613,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
             Container(
               width: double.infinity,
               height: 150,
-              color: const Color(0xFFe0e0e0),
+              color: AppColors.surface,
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.image, size: 48, color: Color(0xFF666666)),
+                    const Icon(Icons.image, size: 48, color: AppColors.textSecondary),
                     const SizedBox(height: 8),
                     Text(
                       loc.noPhoto,
                       style: const TextStyle(
-                        color: Color(0xFF666666),
+                        color: AppColors.textSecondary,
                         fontSize: 14,
                       ),
                     ),
@@ -2654,8 +2655,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   icon: const Icon(Icons.edit),
                   label: Text(loc.editHeader),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF424242),
-                    side: const BorderSide(color: Color(0xFF333333)),
+                    foregroundColor: AppColors.textPrimary,
+                    side: const BorderSide(color: AppColors.border),
                   ),
                 ),
               ],
@@ -2676,7 +2677,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             label,
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF666666),
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -2686,7 +2687,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             value.isEmpty ? '-' : value,
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF424242),
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -2747,7 +2748,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: Color(0xFFe5e7eb), width: 1),
+                      bottom: BorderSide(color: AppColors.grey200, width: 1),
                     ),
                   ),
                   child: Row(
@@ -2758,7 +2759,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF111827),
+                          color: AppColors.textDark,
                         ),
                       ),
                       IconButton(
@@ -2811,7 +2812,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             if (ctx.mounted) Navigator.pop(ctx);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF333333),
+                            backgroundColor: AppColors.border,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -2844,7 +2845,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           label,
           style: const TextStyle(
             fontWeight: FontWeight.w500,
-            color: Color(0xFF374151),
+            color: AppColors.grey800,
             fontSize: 14,
           ),
         ),
@@ -2853,18 +2854,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
           controller: controller,
           decoration: InputDecoration(
             border: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFd1d5db)),
+              borderSide: BorderSide(color: AppColors.greyBorder),
             ),
             enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFd1d5db)),
+              borderSide: BorderSide(color: AppColors.greyBorder),
             ),
             focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFF333333), width: 2),
+              borderSide: BorderSide(color: AppColors.border, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(vertical: 8),
             isDense: true,
           ),
-          style: const TextStyle(color: Color(0xFF111827), fontSize: 15),
+          style: const TextStyle(color: AppColors.textDark, fontSize: 15),
         ),
       ],
     );
@@ -2884,7 +2885,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           loc.photo,
           style: const TextStyle(
             fontWeight: FontWeight.w500,
-            color: Color(0xFF374151),
+            color: AppColors.grey800,
             fontSize: 14,
           ),
         ),
@@ -2914,7 +2915,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(3),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF1f2937),
+                      color: AppColors.grey900,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -2942,8 +2943,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 }
               },
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF374151),
-                side: const BorderSide(color: Color(0xFFd1d5db)),
+                foregroundColor: AppColors.grey800,
+                side: const BorderSide(color: AppColors.greyBorder),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
@@ -2968,9 +2969,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
               width: double.infinity,
               height: 100,
               decoration: BoxDecoration(
-                color: const Color(0xFFf9fafb),
+                color: AppColors.greyBackground,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFFd1d5db), width: 1),
+                border: Border.all(color: AppColors.greyBorder, width: 1),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -2978,13 +2979,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   const Icon(
                     Icons.add_a_photo,
                     size: 32,
-                    color: Color(0xFF9ca3af),
+                    color: AppColors.greyDisabled,
                   ),
                   const SizedBox(height: 6),
                   Text(
                     loc.addPhoto,
                     style: const TextStyle(
-                      color: Color(0xFF6b7280),
+                      color: AppColors.textLight,
                       fontSize: 13,
                     ),
                   ),
@@ -3012,8 +3013,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
       child: Container(
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(width: 2, color: const Color(0xFF333333)),
-            top: BorderSide(width: 2, color: const Color(0xFF333333)),
+            bottom: BorderSide(width: 2, color: AppColors.border),
+            top: BorderSide(width: 2, color: AppColors.border),
           ),
         ),
         child: Column(
@@ -3039,7 +3040,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF333333),
+                        color: AppColors.border,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Center(
@@ -3060,7 +3061,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF424242),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ],
@@ -3124,9 +3125,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   height: 100,
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFf5f5f5),
+                    color: AppColors.greyLight,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFFd1d5db)),
+                    border: Border.all(color: AppColors.greyBorder),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -3134,14 +3135,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       const Icon(
                         Icons.add_a_photo,
                         size: 28,
-                        color: Color(0xFF9ca3af),
+                        color: AppColors.greyDisabled,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         loc.addPhoto,
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF6b7280),
+                          color: AppColors.textLight,
                         ),
                       ),
                     ],
@@ -3204,7 +3205,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             label,
             style: const TextStyle(
               fontSize: 13,
-              color: Color(0xFF666666),
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -3213,13 +3214,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFf9fafb),
+              color: AppColors.greyBackground,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFFd1d5db)),
+              border: Border.all(color: AppColors.greyBorder),
             ),
             child: TextFormField(
               initialValue: value,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+              style: const TextStyle(fontSize: 13, color: AppColors.textDark),
               decoration: const InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
@@ -3271,7 +3272,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             decoration: BoxDecoration(
               border: Border.all(
                 width: 1.5,
-                color: const Color(0xFFe5e7eb),
+                color: AppColors.grey200,
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -3281,7 +3282,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF333333),
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Center(
@@ -3305,7 +3306,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF424242),
+                          color: AppColors.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -3318,7 +3319,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           ).toLocal().toString().substring(0, 10),
                           style: const TextStyle(
                             fontSize: 10,
-                            color: Color(0xFF666666),
+                            color: AppColors.textSecondary,
                           ),
                         ),
                     ],
@@ -3355,10 +3356,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
         color: Colors.white,
         border: isMobile
             ? Border(
-                top: BorderSide(width: 2, color: const Color(0xFF333333)),
-                bottom: BorderSide(width: 2, color: const Color(0xFF333333)),
+                top: BorderSide(width: 2, color: AppColors.border),
+                bottom: BorderSide(width: 2, color: AppColors.border),
               )
-            : Border.all(width: 2, color: const Color(0xFF333333)),
+            : Border.all(width: 2, color: AppColors.border),
         borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12),
       ),
       child: Column(
@@ -3369,9 +3370,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 ? const EdgeInsets.fromLTRB(0, 4, 4, 0)
                 : const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFf3f4f6),
+              color: AppColors.grey100,
               border: Border(
-                bottom: BorderSide(width: 1.5, color: const Color(0xFFe5e7eb)),
+                bottom: BorderSide(width: 1.5, color: AppColors.grey200),
               ),
               borderRadius: isMobile
                   ? BorderRadius.zero
@@ -3400,7 +3401,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF333333),
+                            color: AppColors.border,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Center(
@@ -3433,7 +3434,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF111827),
+                              color: AppColors.textDark,
                             ),
                             softWrap: true,
                           ),
@@ -3442,7 +3443,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       if (questionLoc?.description?.isNotEmpty ?? false)
                         IconButton(
                           icon: const Icon(Icons.help_outline, size: 20),
-                          color: const Color(0xFF6b7280),
+                          color: AppColors.textLight,
                           onPressed: () => _showEditQuestionDialog(
                             context,
                             index,
@@ -3483,13 +3484,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 const Icon(
                                   Icons.delete,
                                   size: 18,
-                                  color: Color(0xFFdc2626),
+                                  color: AppColors.errorLight,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   loc.deleteThisQuestion,
                                   style: const TextStyle(
-                                    color: Color(0xFFdc2626),
+                                    color: AppColors.errorLight,
                                   ),
                                 ),
                               ],
@@ -3564,7 +3565,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF333333),
+                          color: AppColors.border,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Center(
@@ -3602,7 +3603,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF111827),
+                                        color: AppColors.textDark,
                                       ),
                                       softWrap: true,
                                     ),
@@ -3615,7 +3616,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       Icons.help_outline,
                                       size: 20,
                                     ),
-                                    color: const Color(0xFF6b7280),
+                                    color: AppColors.textLight,
                                     onPressed: () => _showEditQuestionDialog(
                                       context,
                                       index,
@@ -3656,13 +3657,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                           const Icon(
                                             Icons.delete,
                                             size: 18,
-                                            color: Color(0xFFdc2626),
+                                            color: AppColors.errorLight,
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
                                             loc.deleteThisQuestion,
                                             style: const TextStyle(
-                                              color: Color(0xFFdc2626),
+                                              color: AppColors.errorLight,
                                             ),
                                           ),
                                         ],
@@ -3747,7 +3748,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   '${questionLoc?.example}',
                                   style: const TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xFF0369a1),
+                                    color: AppColors.primary,
                                     fontStyle: FontStyle.italic,
                                   ),
                                 ),
@@ -3781,11 +3782,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.add, size: 20),
-                      color: const Color(0xFF424242),
+                      color: AppColors.textPrimary,
                       style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFFf3f4f6),
+                        backgroundColor: AppColors.grey100,
                         side: const BorderSide(
-                          color: Color(0xFFe5e7eb),
+                          color: AppColors.grey200,
                           width: 1.5,
                         ),
                       ),
@@ -3829,10 +3830,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
       margin: EdgeInsets.only(bottom: isMobile ? 6 : 12),
       padding: EdgeInsets.all(isMobile ? 8 : 12),
       decoration: BoxDecoration(
-        color: attention ? const Color(0xFFfff7ed) : const Color(0xFFf9fafb),
+        color: attention ? AppColors.attentionBackground : AppColors.greyBackground,
         border: Border.all(
           width: 1.5,
-          color: attention ? const Color(0xFFfed7aa) : const Color(0xFFe5e7eb),
+          color: attention ? AppColors.attentionBorder : AppColors.grey200,
         ),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -3846,7 +3847,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 exampleText!,
                 style: TextStyle(
                   fontSize: isMobile ? 12 : 13,
-                  color: const Color(0xFF6b7280),
+                  color: AppColors.textLight,
                   fontStyle: FontStyle.italic,
                 ),
                 softWrap: true,
@@ -3858,8 +3859,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
             enabled: _enabledAnswers[qid]?[j] ?? true,
             style: TextStyle(
               color: (_enabledAnswers[qid]?[j] ?? true)
-                  ? Color(0xFF111827)
-                  : Color(0xFF6b7280),
+                  ? AppColors.textDark
+                  : AppColors.textLight,
             ),
             decoration: InputDecoration(
               hintText: loc.enterAnswer,
@@ -3891,7 +3892,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.camera_alt),
-                  color: const Color(0xFF424242),
+                  color: AppColors.textPrimary,
                   onPressed: () => _showMediaPicker(context, i, j, false),
                 ),
                 Tooltip(
@@ -3899,8 +3900,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   child: IconButton(
                     icon: const Icon(Icons.edit_note),
                     color: _needsWorkMap[i] == true
-                        ? const Color(0xFFf59e0b)
-                        : const Color(0xFF9ca3af),
+                        ? AppColors.warning
+                        : AppColors.greyDisabled,
                     onPressed: () {
                       final newValue = !(_needsWorkMap[i] ?? false);
                       setState(() {
@@ -3919,8 +3920,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     icon: Icon(
                       Icons.warning_amber,
                       color: attention
-                          ? const Color(0xFFf97316)
-                          : const Color(0xFFd1d5db),
+                          ? AppColors.warning
+                          : AppColors.greyBorder,
                     ),
                     onPressed: () {
                       reportState.updateAnswerAttention(i, j, !attention);
@@ -3930,14 +3931,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 ),
                 if (reportState.hasAnswersInOtherLanguages(i, j))
                   IconButton(
-                    icon: const Icon(Icons.lock, color: Color(0xFF6b7280)),
+                    icon: const Icon(Icons.lock, color: AppColors.textLight),
                     onPressed: () =>
                         _showLockDialog(context, i, j, qid, reportState),
                     tooltip: loc.lockAnswerTooltip,
                   ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Color(0xFFef4444)),
+                  icon: const Icon(Icons.delete, color: AppColors.errorLight),
                   onPressed:
                       (reportState
                                   .currentReport
@@ -3973,7 +3974,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFF444444), width: 2),
+          side: const BorderSide(color: AppColors.border, width: 2),
         ),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -3986,7 +3987,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 Text(
                   loc.addMediaTitle,
                   style: const TextStyle(
-                    color: Color(0xFF333333),
+                    color: AppColors.border,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -4008,7 +4009,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: Divider(
-                    color: Color(0xFFAAAAAA),
+                    color: AppColors.grey300,
                     thickness: 1.5,
                     height: 1.5,
                   ),
@@ -4185,7 +4186,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     return Text(
       title,
       style: const TextStyle(
-        color: Color(0xFF333333),
+        color: AppColors.border,
         fontSize: 15,
         fontWeight: FontWeight.bold,
       ),
@@ -4203,19 +4204,19 @@ class _FormFillScreenState extends State<FormFillScreen> {
       child: Container(
         height: 56,
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F0ED),
+          color: AppColors.background,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF444444), width: 2),
+          border: Border.all(color: AppColors.border, width: 2),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            Icon(icon, size: 24, color: const Color(0xFF333333)),
+            Icon(icon, size: 24, color: AppColors.border),
             const SizedBox(width: 12),
             Text(
               label,
               style: const TextStyle(
-                color: Color(0xFF333333),
+                color: AppColors.border,
                 fontSize: 16,
               ),
             ),
@@ -4258,9 +4259,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
               width: 70,
               height: 70,
               decoration: BoxDecoration(
-                color: const Color(0xFFf3f4f6),
+                color: AppColors.grey100,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(width: 2, color: const Color(0xFFe5e7eb)),
+                border: Border.all(width: 2, color: AppColors.grey200),
               ),
               child: Center(
                 child: Text(
@@ -4268,7 +4269,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF424242),
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -4575,9 +4576,9 @@ class _SyncDialogState extends State<_SyncDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3CD),
+                  color: AppColors.warningLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFFFC107)),
+                  border: Border.all(color: AppColors.warning),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -4616,10 +4617,10 @@ class _SyncDialogState extends State<_SyncDialog> {
                       icon: const Icon(Icons.copy),
                       label: Text(loc.copyButton),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFe0e0e0),
-                        foregroundColor: const Color(0xFF424242),
+                        backgroundColor: AppColors.surface,
+                        foregroundColor: AppColors.textPrimary,
                         side: const BorderSide(
-                          color: Color(0xFF333333),
+                          color: AppColors.border,
                           width: 2,
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -4633,10 +4634,10 @@ class _SyncDialogState extends State<_SyncDialog> {
                       icon: const Icon(Icons.download),
                       label: Text(loc.downloadButton),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFe0e0e0),
-                        foregroundColor: const Color(0xFF424242),
+                        backgroundColor: AppColors.surface,
+                        foregroundColor: AppColors.textPrimary,
                         side: const BorderSide(
-                          color: Color(0xFF333333),
+                          color: AppColors.border,
                           width: 2,
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -4659,7 +4660,7 @@ class _SyncDialogState extends State<_SyncDialog> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(
-                      color: Color(0xFF333333),
+                      color: AppColors.border,
                       width: 2,
                     ),
                   ),
@@ -4673,9 +4674,9 @@ class _SyncDialogState extends State<_SyncDialog> {
                 icon: const Icon(Icons.upload_file),
                 label: Text(loc.loadFromFileButton),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFe0e0e0),
-                  foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(color: Color(0xFF333333), width: 2),
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.border, width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -4691,15 +4692,15 @@ class _SyncDialogState extends State<_SyncDialog> {
           },
           child: Text(
             loc.cancel,
-            style: const TextStyle(color: Color(0xFF64748b)),
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         ),
         ElevatedButton(
           onPressed: _applySync,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563eb),
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
-            side: const BorderSide(color: Color(0xFF333333), width: 2),
+            side: const BorderSide(color: AppColors.border, width: 2),
           ),
           child: Text(loc.syncButton),
         ),
@@ -4838,9 +4839,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF3CD),
+              color: AppColors.warningLight,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFFFC107)),
+              border: Border.all(color: AppColors.warning),
             ),
             child: Text(
               loc.unsyncedQuestionsCount(unsyncCount),
@@ -4852,15 +4853,15 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFD4EDDA),
+              color: AppColors.successLight,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF28A745)),
+              border: Border.all(color: AppColors.success),
             ),
             child: Text(
               loc.allAnswersSynced,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF155724),
+                color: AppColors.success,
               ),
             ),
           ),
@@ -4869,9 +4870,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8F9FA),
+            color: AppColors.greyBackground,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFDEE2E6)),
+            border: Border.all(color: AppColors.greyBorder),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -4899,7 +4900,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFFDEE2E6)),
+            border: Border.all(color: AppColors.greyBorder),
           ),
           child: Text(
             loc.aiPromptContent,
@@ -4915,9 +4916,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                 icon: const Icon(Icons.copy),
                 label: Text(loc.copyJsonButton),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFe0e0e0),
-                  foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(color: Color(0xFF333333), width: 2),
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.border, width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -4929,9 +4930,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                 icon: const Icon(Icons.download),
                 label: Text(loc.downloadButton),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFe0e0e0),
-                  foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(color: Color(0xFF333333), width: 2),
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.border, width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -4951,7 +4952,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
             hintText: loc.pasteJsonHere,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
+              borderSide: const BorderSide(color: AppColors.border, width: 2),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -4963,9 +4964,9 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
           icon: const Icon(Icons.upload_file),
           label: Text(loc.loadFromFileButton),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFe0e0e0),
-            foregroundColor: const Color(0xFF424242),
-            side: const BorderSide(color: Color(0xFF333333), width: 2),
+            backgroundColor: AppColors.surface,
+            foregroundColor: AppColors.textPrimary,
+            side: const BorderSide(color: AppColors.border, width: 2),
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
@@ -5012,7 +5013,7 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                       onPressed: () => Navigator.pop(context),
                       child: Text(
                         loc.close,
-                        style: const TextStyle(color: Color(0xFF64748b)),
+                        style: const TextStyle(color: AppColors.textSecondary),
                       ),
                     ),
                   ),
@@ -5021,10 +5022,10 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
                     child: ElevatedButton(
                       onPressed: _applySync,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563eb),
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         side: const BorderSide(
-                          color: Color(0xFF333333),
+                          color: AppColors.border,
                           width: 2,
                         ),
                       ),
@@ -5049,15 +5050,15 @@ class _SyncMenuDialogState extends State<_SyncMenuDialog> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               loc.close,
-              style: const TextStyle(color: Color(0xFF64748b)),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
           ),
           ElevatedButton(
             onPressed: _applySync,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563eb),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              side: const BorderSide(color: Color(0xFF333333), width: 2),
+              side: const BorderSide(color: AppColors.border, width: 2),
             ),
             child: Text(loc.syncButton),
           ),

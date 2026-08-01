@@ -11,6 +11,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
 class VideoThumbnailWidget extends StatefulWidget {
@@ -98,7 +99,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
           )
         else
           const Center(
-            child: Icon(Icons.videocam, size: 30, color: Color(0xFF999999)),
+            child: Icon(Icons.videocam, size: 30, color: AppColors.textTertiary),
           ),
         Positioned(
           top: 2,

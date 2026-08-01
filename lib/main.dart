@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import './providers/report_provider.dart';
 import './providers/settings_provider.dart';
 import './providers/locale_provider.dart';
+import './utils/app_colors.dart';
 import './providers/auth_provider.dart';
 import './l10n/app_localizations.dart';
 import './screens/template_select_screen.dart';
@@ -76,7 +77,7 @@ class EasyTabApp extends StatelessWidget {
             supportedLocales: const [Locale('en'), Locale('ru'), Locale('zh')],
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF2563eb),
+                seedColor: AppColors.primary,
               ),
               useMaterial3: true,
             ),
@@ -158,7 +159,7 @@ class _StartScreenState extends State<StartScreen> {
         children: [
           Positioned.fill(
             child: Container(
-              color: const Color(0xFFf8f7f2),
+              color: AppColors.background,
               child: CustomPaint(painter: DottedPatternPainter()),
             ),
           ),
@@ -170,7 +171,7 @@ class _StartScreenState extends State<StartScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(width: 2, color: const Color(0xFF333333)),
+                border: Border.all(width: 2, color: AppColors.border),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -197,7 +198,7 @@ class _StartScreenState extends State<StartScreen> {
                   const SizedBox(height: 15),
                   const Text(
                     'easyTab',
-                    style: TextStyle(fontSize: 16, color: Color(0xFF424242)),
+                    style: TextStyle(fontSize: 16, color: AppColors.textPrimary),
                   ),
                   const SizedBox(height: 30),
                   EasyTabButton(
@@ -244,7 +245,7 @@ class _StartScreenState extends State<StartScreen> {
                   Text(
                     loc.instructionsText,
                     style: const TextStyle(
-                      color: Color(0xFF424242),
+                      color: AppColors.textPrimary,
                       fontSize: 12,
                     ),
                     textAlign: TextAlign.center,
@@ -260,7 +261,7 @@ class _StartScreenState extends State<StartScreen> {
                       return Text(
                         'v$version',
                         style: const TextStyle(
-                          color: Color(0xFF999999),
+                          color: AppColors.textTertiary,
                           fontSize: 10,
                         ),
                         textAlign: TextAlign.center,

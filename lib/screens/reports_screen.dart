@@ -1,3 +1,4 @@
+import 'package:easy_tab/utils/app_colors.dart';
 import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
 import 'package:easy_tab/utils/open_html_stub.dart'
@@ -127,15 +128,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(loc.myReports),
-        backgroundColor: const Color(0xFFe0e0e0),
-        foregroundColor: const Color(0xFF424242),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
       body: Stack(
         children: [
           Positioned.fill(
             child: Container(
-              color: const Color(0xFFf8f7f2),
+              color: AppColors.background,
               child: CustomPaint(painter: DottedPatternPainter()),
             ),
           ),
@@ -154,7 +155,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     hintText: loc.searchReports,
                     prefixIcon: const Icon(
                       Icons.search,
-                      color: Color(0xFF666666),
+                      color: AppColors.textSecondary,
                     ),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
@@ -171,16 +172,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFcccccc)),
+                      borderSide: const BorderSide(color: AppColors.grey300),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFcccccc)),
+                      borderSide: const BorderSide(color: AppColors.grey300),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(
-                        color: Color(0xFF333333),
+                        color: AppColors.border,
                         width: 2,
                       ),
                     ),
@@ -215,7 +216,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ? loc.noReportsYet
                               : loc.reportsNotFound,
                           style: const TextStyle(
-                            color: Color(0xFF666666),
+                            color: AppColors.textSecondary,
                             fontSize: 16,
                           ),
                         ),
@@ -252,7 +253,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             onPressed: _isSyncingAll ? null : _syncAllReports,
             tooltip: loc.syncToCloud,
             backgroundColor:
-                _isSyncingAll ? const Color(0xFFcccccc) : const Color(0xFF2563eb),
+                _isSyncingAll ? AppColors.grey300 : AppColors.primary,
             child: _isSyncingAll
                 ? const SizedBox(
                     width: 20,
@@ -356,7 +357,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(width: 2, color: const Color(0xFF333333)),
+        border: Border.all(width: 2, color: AppColors.border),
       ),
       child: InkWell(
         onTap: () async {
@@ -377,9 +378,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFe0e0e0),
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(width: 2, color: const Color(0xFF333333)),
+                      border: Border.all(width: 2, color: AppColors.border),
                     ),
                     child: hasThumbnail
                         ? ClipRRect(
@@ -392,7 +393,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   child: Icon(
                                     Icons.note,
                                     size: 32,
-                                    color: Color(0xFF424242),
+                                    color: AppColors.textPrimary,
                                   ),
                                 );
                               },
@@ -402,7 +403,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             child: Icon(
                               Icons.note,
                               size: 32,
-                              color: Color(0xFF424242),
+                              color: AppColors.textPrimary,
                             ),
                           ),
                   ),
@@ -416,7 +417,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF424242),
+                              color: AppColors.textPrimary,
                             ),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
@@ -434,15 +435,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Color(0xFF2563eb),
+                                color: AppColors.primary,
                               ),
                             )
                           else ...[
                             Icon(
                               isSynced ? Icons.cloud_done : Icons.cloud_upload,
                               color: isSynced
-                                  ? const Color(0xFF2563eb)
-                                  : const Color(0xFF9e9e9e),
+                                  ? AppColors.primary
+                                  : AppColors.greyMuted,
                               size: 20,
                             ),
                             // Стрелки по кругу показываем, когда нужна синхронизация.
@@ -451,7 +452,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               IconButton(
                                 icon: const Icon(
                                   Icons.sync,
-                                  color: Color(0xFF666666),
+                                  color: AppColors.textSecondary,
                                   size: 18,
                                 ),
                                 padding: EdgeInsets.zero,
@@ -475,13 +476,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     report.dateTime.toLocal().toString().substring(0, 16),
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF666666),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 8),
                   if (kIsWeb && report.publicId != null)
                     IconButton(
-                      icon: const Icon(Icons.open_in_new, color: Color(0xFF2563eb)),
+                      icon: const Icon(Icons.open_in_new, color: AppColors.primary),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       tooltip: 'Открыть HTML',
@@ -493,7 +494,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   if (kIsWeb && report.publicId != null) const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Color(0xFFdc2626)),
+                    icon: const Icon(Icons.delete, color: AppColors.errorLight),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () async {
@@ -577,7 +578,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ? SnackBar(content: Text(loc.reportDeleted))
                               : SnackBar(
                                   content: Text(loc.reportDeleteError),
-                                  backgroundColor: const Color(0xFFc62828),
+                                  backgroundColor: AppColors.error,
                                 ),
                         );
                       }

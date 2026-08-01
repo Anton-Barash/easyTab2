@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -91,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(ok ? loc.connectionOk : loc.connectionFailed),
-        backgroundColor: ok ? const Color(0xFF2e7d32) : const Color(0xFFc62828),
+        backgroundColor: ok ? AppColors.success : AppColors.error,
       ),
     );
   }
@@ -157,19 +158,19 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isOutline ? Colors.white : const Color(0xFFe0e0e0),
+        color: isOutline ? Colors.white : AppColors.surface,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
           topRight: Radius.circular(10),
           bottomLeft: Radius.circular(9),
           bottomRight: Radius.circular(11),
         ),
-        border: Border.all(width: 2.5, color: const Color(0xFF333333)),
+        border: Border.all(width: 2.5, color: AppColors.border),
         boxShadow: isOutline
             ? null
             : [
                 BoxShadow(
-                  color: const Color(0xFF333333),
+                  color: AppColors.border,
                   blurRadius: 0,
                   spreadRadius: 1.5,
                 ),
@@ -202,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF424242),
+                color: AppColors.textPrimary,
                 shadows: [
                   Shadow(
                     color: Color.fromRGBO(66, 66, 66, 0.45),
@@ -225,20 +226,20 @@ class _LoginScreenState extends State<LoginScreen> {
   InputDecoration _fieldDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Color(0xFF666666)),
+      labelStyle: const TextStyle(color: AppColors.textSecondary),
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
+        borderSide: const BorderSide(color: AppColors.border, width: 2),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
+        borderSide: const BorderSide(color: AppColors.border, width: 2),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
+        borderSide: const BorderSide(color: AppColors.border, width: 2),
       ),
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -256,7 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(width: 2, color: const Color(0xFF333333)),
+          border: Border.all(width: 2, color: AppColors.border),
         ),
         child: SingleChildScrollView(
           child: Padding(
@@ -269,7 +270,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF424242),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -290,12 +291,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? Icons.expand_less
                               : Icons.expand_more,
                           size: 18,
-                          color: const Color(0xFF666666),
+                          color: AppColors.textSecondary,
                         ),
                         Text(
                           loc.serverSettings,
                           style: const TextStyle(
-                            color: Color(0xFF666666),
+                            color: AppColors.textSecondary,
                             fontSize: 13,
                           ),
                         ),
@@ -326,10 +327,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ? Icons.check_circle
                                         : Icons.error_outline),
                                 color: _connectionStatus == null
-                                    ? const Color(0xFF666666)
+                                    ? AppColors.textSecondary
                                     : (_connectionStatus == true
-                                        ? const Color(0xFF2e7d32)
-                                        : const Color(0xFFc62828)),
+                                        ? AppColors.success
+                                        : AppColors.error),
                                 size: 20,
                               ),
                               onPressed: _isTestingConnection
@@ -388,7 +389,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Text(
                       loc.cancelAction,
                       style: const TextStyle(
-                        color: Color(0xFF666666),
+                        color: AppColors.textSecondary,
                         fontSize: 14,
                       ),
                     ),
@@ -425,18 +426,18 @@ Future<void> showSettingsDialog(BuildContext context) {
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF333333), width: 2),
+        side: const BorderSide(color: AppColors.border, width: 2),
       ),
       title: Row(
         children: [
-          const Icon(Icons.settings, size: 24, color: Color(0xFF424242)),
+          const Icon(Icons.settings, size: 24, color: AppColors.textPrimary),
           const SizedBox(width: 8),
           Text(
             loc.settingsTitle,
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF424242),
+              color: AppColors.textPrimary,
             ),
           ),
         ],
@@ -451,19 +452,19 @@ Future<void> showSettingsDialog(BuildContext context) {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF666666),
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '${loc.usernameLabel}: ${authProvider.username ?? "-"}',
-            style: const TextStyle(fontSize: 14, color: Color(0xFF424242)),
+            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
           ),
           if (authProvider.email != null) ...[
             const SizedBox(height: 4),
             Text(
               '${loc.emailLabel}: ${authProvider.email}',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF666666)),
+              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
           ],
           const SizedBox(height: 16),
@@ -473,13 +474,13 @@ Future<void> showSettingsDialog(BuildContext context) {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF666666),
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '${authProvider.serverHost}:${authProvider.serverPort}',
-            style: const TextStyle(fontSize: 14, color: Color(0xFF424242)),
+            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -498,7 +499,7 @@ Future<void> showSettingsDialog(BuildContext context) {
             );
           },
           style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFFdc2626),
+            foregroundColor: AppColors.errorLight,
           ),
           child: Text(loc.logoutAction),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
 
 /// P2-28: Вынесен из 4 файлов (main.dart, form_fill_screen.dart,
 /// template_select_screen.dart, reports_screen.dart).
@@ -8,7 +9,7 @@ class DottedPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFcbc7bc)
+      ..color = AppColors.dottedPattern
       ..style = PaintingStyle.fill;
 
     const dotSize = 1.0;

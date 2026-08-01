@@ -13,6 +13,7 @@ import 'package:easy_tab/utils/platform_io.dart'
 import 'package:easy_tab/widgets/video_thumbnail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
 
 class MediaItemWidget extends StatelessWidget {
   final Map<String, dynamic> media;
@@ -50,13 +51,13 @@ class MediaItemWidget extends StatelessWidget {
             width: 70,
             height: 70,
             decoration: BoxDecoration(
-              color: const Color(0xFFf3f4f6),
+              color: AppColors.grey100,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 width: 2,
                 color: (media['attention'] == true)
-                    ? const Color(0xFFf59e0b)
-                    : const Color(0xFFe5e7eb),
+                    ? AppColors.warning
+                    : AppColors.grey200,
               ),
             ),
             child: ClipRRect(
@@ -154,7 +155,7 @@ class MediaItemWidget extends StatelessWidget {
                       child: Icon(
                         Icons.image,
                         size: 30,
-                        color: Color(0xFF999999),
+                        color: AppColors.textTertiary,
                       ),
                     );
                   }

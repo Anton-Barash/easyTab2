@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:easy_tab/utils/app_colors.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/utils/file_image.dart'
@@ -106,15 +107,15 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(loc.createReportTitle),
-        backgroundColor: const Color(0xFFe0e0e0),
-        foregroundColor: const Color(0xFF424242),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
       body: Stack(
         children: [
           Positioned.fill(
             child: Container(
-              color: const Color(0xFFf8f7f2),
+              color: AppColors.background,
               child: CustomPaint(painter: DottedPatternPainter()),
             ),
           ),
@@ -131,7 +132,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         loc.productType,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF424242),
+                          color: AppColors.textPrimary,
                           fontSize: 16,
                         ),
                       ),
@@ -142,28 +143,28 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2,
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2.5,
                             ),
                           ),
                           filled: true,
                           fillColor: Colors.white,
                         ),
-                        style: const TextStyle(color: Color(0xFF424242)),
+                        style: const TextStyle(color: AppColors.textPrimary),
                         onChanged: (_) => _updateReportName(),
                       ),
                     ],
@@ -178,7 +179,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         loc.factory,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF424242),
+                          color: AppColors.textPrimary,
                           fontSize: 16,
                         ),
                       ),
@@ -189,28 +190,28 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2,
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2.5,
                             ),
                           ),
                           filled: true,
                           fillColor: Colors.white,
                         ),
-                        style: const TextStyle(color: Color(0xFF424242)),
+                        style: const TextStyle(color: AppColors.textPrimary),
                         onChanged: (_) => _updateReportName(),
                       ),
                     ],
@@ -225,7 +226,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         loc.model,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF424242),
+                          color: AppColors.textPrimary,
                           fontSize: 16,
                         ),
                       ),
@@ -236,28 +237,28 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2,
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: const BorderSide(
-                              color: Color(0xFF333333),
+                              color: AppColors.border,
                               width: 2.5,
                             ),
                           ),
                           filled: true,
                           fillColor: Colors.white,
                         ),
-                        style: const TextStyle(color: Color(0xFF424242)),
+                        style: const TextStyle(color: AppColors.textPrimary),
                         onChanged: (_) => _updateReportName(),
                       ),
                     ],
@@ -272,7 +273,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         loc.photo,
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF424242),
+                          color: AppColors.textPrimary,
                           fontSize: 16,
                         ),
                       ),
@@ -286,7 +287,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: const Color(0xFF333333),
+                                  color: AppColors.border,
                                   width: 2,
                                 ),
                                 image: DecorationImage(
@@ -326,8 +327,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           icon: const Icon(Icons.photo_library),
                           label: Text(loc.changePhoto),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF424242),
-                            side: const BorderSide(color: Color(0xFF333333)),
+                            foregroundColor: AppColors.textPrimary,
+                            side: const BorderSide(color: AppColors.border),
                           ),
                         ),
                       ] else ...[
@@ -337,10 +338,10 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                             width: double.infinity,
                             height: 120,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFe0e0e0),
+                              color: AppColors.surface,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: const Color(0xFF333333),
+                                color: AppColors.border,
                                 width: 2,
                                 style: BorderStyle.solid,
                               ),
@@ -351,13 +352,13 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                 const Icon(
                                   Icons.add_a_photo,
                                   size: 40,
-                                  color: Color(0xFF666666),
+                                  color: AppColors.textSecondary,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   loc.addPhoto,
                                   style: TextStyle(
-                                    color: Color(0xFF666666),
+                                    color: AppColors.textSecondary,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -375,7 +376,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF424242),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -399,7 +400,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           loc.preview,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF424242),
+                            color: AppColors.textPrimary,
                             fontSize: 16,
                           ),
                         ),
@@ -415,7 +416,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: const BorderSide(
-                                      color: Color(0xFF333333),
+                                      color: AppColors.border,
                                       width: 2,
                                     ),
                                   ),
@@ -433,7 +434,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                       child: Text(
                                         lang,
                                         style: const TextStyle(
-                                          color: Color(0xFF424242),
+                                          color: AppColors.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -443,7 +444,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                     child: Text(
                                       loc.addTranslationButton,
                                       style: const TextStyle(
-                                        color: Color(0xFF2563eb),
+                                        color: AppColors.primary,
                                       ),
                                     ),
                                   ),
@@ -472,7 +473,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             child: Text(
                               '${entry.key + 1}. ${questionLoc?.name ?? entry.value.getDisplayName(lang) ?? loc.noName}',
-                              style: const TextStyle(color: Color(0xFF424242)),
+                              style: const TextStyle(color: AppColors.textPrimary),
                             ),
                           );
                         }),
@@ -513,22 +514,22 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: onTap == null
-            ? const Color(0xFFcccccc)
-            : const Color(0xFFe0e0e0),
+            ? AppColors.grey300
+            : AppColors.surface,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
           topRight: Radius.circular(10),
           bottomLeft: Radius.circular(9),
           bottomRight: Radius.circular(11),
         ),
-        border: Border.all(width: 2.5, color: const Color(0xFF333333)),
+        border: Border.all(width: 2.5, color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF333333),
+            color: AppColors.border,
             blurRadius: 0,
             spreadRadius: 1.5,
           ),
-          BoxShadow(color: const Color(0x21000000), offset: const Offset(2, 2)),
+          BoxShadow(color: AppColors.shadow, offset: const Offset(2, 2)),
         ],
       ),
       child: Material(
@@ -555,8 +556,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: onTap == null
-                    ? const Color(0xFF999999)
-                    : const Color(0xFF424242),
+                    ? AppColors.textTertiary
+                    : AppColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -571,7 +572,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(width: 2, color: const Color(0xFF333333)),
+        border: Border.all(width: 2, color: AppColors.border),
       ),
       padding: const EdgeInsets.all(16),
       child: child,
@@ -594,7 +595,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           width: isSelected ? 2.5 : 2,
-          color: isSelected ? const Color(0xFF2563eb) : const Color(0xFF333333),
+          color: isSelected ? AppColors.primary : AppColors.border,
         ),
       ),
       child: Material(
@@ -617,12 +618,12 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         title,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF424242),
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       Text(
                         subtitle,
-                        style: const TextStyle(color: Color(0xFF64748b)),
+                        style: const TextStyle(color: AppColors.textLight),
                       ),
                     ],
                   ),
@@ -634,11 +635,11 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2563eb),
+                      color: AppColors.primary,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         width: 1.5,
-                        color: const Color(0xFF333333),
+                        color: AppColors.border,
                       ),
                     ),
                     child: Text(
@@ -660,7 +661,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(width: 2, color: const Color(0xFF333333)),
+        border: Border.all(width: 2, color: AppColors.border),
       ),
       child: Material(
         color: Colors.transparent,
@@ -678,7 +679,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                 Expanded(
                   child: Text(
                     loc.uploadYourTemplate,
-                    style: const TextStyle(color: Color(0xFF64748b)),
+                    style: const TextStyle(color: AppColors.textLight),
                   ),
                 ),
               ],
@@ -1002,7 +1003,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       children: [
         Text(
           loc.copyTemplateInstructions,
-          style: const TextStyle(color: Color(0xFF64748b)),
+          style: const TextStyle(color: AppColors.textLight),
         ),
         const SizedBox(height: 16),
         Text(
@@ -1015,7 +1016,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
           decoration: InputDecoration(
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
+              borderSide: const BorderSide(color: AppColors.border, width: 2),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -1026,7 +1027,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                   value: lang,
                   child: Text(
                     lang,
-                    style: const TextStyle(color: Color(0xFF424242)),
+                    style: const TextStyle(color: AppColors.textPrimary),
                   ),
                 ),
               )
@@ -1048,9 +1049,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                 icon: const Icon(Icons.copy),
                 label: Text(loc.copyTemplateButton),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFe0e0e0),
-                  foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(color: Color(0xFF333333), width: 2),
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.border, width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -1062,9 +1063,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                 icon: const Icon(Icons.download),
                 label: Text(loc.downloadButton),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFe0e0e0),
-                  foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(color: Color(0xFF333333), width: 2),
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.border, width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -1086,7 +1087,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
             hintText: loc.pasteTranslatedTemplateHint,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF333333), width: 2),
+              borderSide: const BorderSide(color: AppColors.border, width: 2),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -1101,9 +1102,9 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                 icon: const Icon(Icons.upload_file),
                 label: Text(loc.loadFromFileButton),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFe0e0e0),
-                  foregroundColor: const Color(0xFF424242),
-                  side: const BorderSide(color: Color(0xFF333333), width: 2),
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.border, width: 2),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -1153,7 +1154,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                       onPressed: () => Navigator.pop(context),
                       child: Text(
                         loc.cancel,
-                        style: const TextStyle(color: Color(0xFF64748b)),
+                        style: const TextStyle(color: AppColors.textLight),
                       ),
                     ),
                   ),
@@ -1162,10 +1163,10 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                     child: ElevatedButton(
                       onPressed: _importTemplate,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563eb),
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         side: const BorderSide(
-                          color: Color(0xFF333333),
+                          color: AppColors.border,
                           width: 2,
                         ),
                       ),
@@ -1192,15 +1193,15 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               loc.cancel,
-              style: const TextStyle(color: Color(0xFF64748b)),
+              style: const TextStyle(color: AppColors.textLight),
             ),
           ),
           ElevatedButton(
             onPressed: _importTemplate,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563eb),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              side: const BorderSide(color: Color(0xFF333333), width: 2),
+              side: const BorderSide(color: AppColors.border, width: 2),
             ),
             child: Text(loc.addTranslationButton),
           ),
