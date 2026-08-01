@@ -13,6 +13,10 @@ external JSPromise<JSUint8Array> _compressVideoInWorker(
   JSFunction onProgress,
 );
 
+/// JS-функция: проверка, загружен ли ffmpeg.wasm в память.
+@JS('isFfmpegLoaded')
+external bool _isFfmpegLoaded();
+
 /// Web-реализация сжатия видео через ffmpeg.wasm в Dedicated Worker.
 ///
 /// Сжатие выполняется в фоновом потоке, поэтому UI Flutter не блокируется.
@@ -24,6 +28,15 @@ class WebVideoCompressorImpl implements WebVideoCompressor {
 
   @override
   Stream<double> get progressStream => _progressController.stream;
+
+  @override
+  bool get isLoaded {
+    try {
+      return _isFfmpegLoaded();
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Future<void> initialize() async {

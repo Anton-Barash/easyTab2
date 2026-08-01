@@ -67,6 +67,7 @@ class Platform {
 
 class FileMode {
   const FileMode(this._mode);
+  // ignore: unused_field
   final int _mode;
   static const FileMode read = FileMode(0);
   static const FileMode write = FileMode(1);
@@ -77,6 +78,7 @@ class FileMode {
 
 class FileLock {
   const FileLock(this._type);
+  // ignore: unused_field
   final int _type;
   static const FileLock shared = FileLock(1);
   static const FileLock exclusive = FileLock(2);
@@ -329,6 +331,7 @@ class Process {
 
 class RunMode {
   const RunMode(this._mode);
+  // ignore: unused_field
   final String _mode;
   static const RunMode normal = RunMode('normal');
   static const RunMode inProcess = RunMode('inProcess');

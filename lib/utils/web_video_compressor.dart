@@ -17,6 +17,10 @@ abstract class WebVideoCompressor {
   /// Сжать видео. Возвращает сжатые байты или null при ошибке.
   Future<Uint8List?> compressVideo(Uint8List videoBytes);
 
+  /// true, если ffmpeg.wasm уже загружен в память (не нужно скачивать).
+  /// Используется для пропуска диалога-предупреждения о трафике.
+  bool get isLoaded;
+
   /// Освободить ресурсы.
   void dispose();
 

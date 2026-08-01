@@ -333,7 +333,9 @@ class _StartScreenState extends State<StartScreen> {
   Future<void> _continueLastReport(BuildContext context) async {
     final reportState = Provider.of<ReportState>(context, listen: false);
     final reports = await reportState.loadReportList();
-    
+
+    if (!context.mounted) return;
+
     if (reports.isEmpty) {
       final loc = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -341,11 +343,12 @@ class _StartScreenState extends State<StartScreen> {
       );
       return;
     }
-    
+
     reports.sort((a, b) => b.dateTime.compareTo(a.dateTime));
     final lastReport = reports.first;
-    
+
     await reportState.loadReport(lastReport.folderName);
+    if (!context.mounted) return;
     Navigator.of(context).pushNamed('/fill');
   }
 }

@@ -4,36 +4,10 @@ import 'dart:html' as html;
 import 'dart:typed_data';
 
 import 'api_result.dart';
+import 'api_response_parser.dart';
+import 'mime_utils.dart';
 
-String _mimeTypeFromFilename(String filename) {
-  final ext = filename.split('.').last.toLowerCase();
-  switch (ext) {
-    case 'html':
-    case 'htm':
-      return 'text/html';
-    case 'json':
-      return 'application/json';
-    case 'xlsx':
-      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    case 'png':
-      return 'image/png';
-    case 'jpg':
-    case 'jpeg':
-      return 'image/jpeg';
-    case 'mp4':
-      return 'video/mp4';
-    case 'mov':
-      return 'video/quicktime';
-    case 'avi':
-      return 'video/x-msvideo';
-    case 'mkv':
-      return 'video/x-matroska';
-    case 'webm':
-      return 'video/webm';
-    default:
-      return 'application/octet-stream';
-  }
-}
+// Примечание: dart:convert всё ещё нужен для utf8.encode при сборке multipart-тела.
 
 Future<ApiResult> uploadFileFromBytesWithProgress({
   required Uri uri,
@@ -50,10 +24,10 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   // P3-55: формируем multipart/form-data вручную, чтобы браузер знал
   // Content-Length и отдавал корректный прогресс загрузки.
   final boundary = '----dart-boundary-${DateTime.now().millisecondsSinceEpoch}';
-  final mimeType = _mimeTypeFromFilename(filename);
+  final mimeType = mimeTypeFromFilename(filename);
   final builder = BytesBuilder();
 
-  void _addField(String name, String value) {
+  void addField(String name, String value) {
     builder.add(utf8.encode('--$boundary\r\n'));
     builder.add(utf8.encode('Content-Disposition: form-data; name="$name"\r\n\r\n'));
     builder.add(utf8.encode(value));
@@ -68,12 +42,12 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   builder.add(utf8.encode('\r\n'));
 
   // text fields
-  _addField('relativePath', relativePath);
+  addField('relativePath', relativePath);
   if (reportId != null) {
-    _addField('reportId', reportId.toString());
+    addField('reportId', reportId.toString());
   }
   if (ks3Folder != null) {
-    _addField('ks3Folder', ks3Folder);
+    addField('ks3Folder', ks3Folder);
   }
 
   builder.add(utf8.encode('--$boundary--\r\n'));
@@ -101,7 +75,7 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
     if (request.status != null &&
         request.status! >= 200 &&
         request.status! < 300) {
-      completer.complete(_parseResponseString(
+      completer.complete(parseApiResponse(
         request.responseText ?? '',
         request.status!,
       ));
@@ -125,30 +99,53 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   return completer.future.timeout(const Duration(seconds: 300));
 }
 
-ApiResult _parseResponseString(String responseText, int statusCode) {
-  try {
-    final body = jsonDecode(responseText) as Map<String, dynamic>;
+/// Прямая загрузка файла в KS3 по presigned PUT URL.
+///
+/// Браузер отправляет PUT-запрос напрямую в KS3, минуя сервер.
+/// Прогресс отслеживается через XMLHttpRequest.upload.onProgress.
+///
+/// [uploadUrl] — presigned PUT URL, полученный через ApiService.presignUpload().
+/// [bytes] — содержимое файла.
+/// [onUploadProgress] — callback с прогрессом (0.0 - 1.0).
+///
+/// Возвращает true при успехе, String с ошибкой при неудаче.
+Future<dynamic> uploadToPresignedUrl({
+  required String uploadUrl,
+  required Uint8List bytes,
+  void Function(double progress)? onUploadProgress,
+}) async {
+  final completer = Completer<dynamic>();
 
-    if (statusCode >= 200 && statusCode < 300) {
-      return ApiResult(
-        success: body['success'] == true,
-        data: body,
-        token: body['token'] as String?,
-        user: body['user'] as Map<String, dynamic>?,
-        error: body['success'] == true
-            ? null
-            : (body['error'] as String?) ?? 'Неизвестная ошибка',
-      );
+  final request = html.HttpRequest();
+  request.open('PUT', uploadUrl);
+
+  // Не устанавливаем Content-Type — KS3 presigned URL подписан без него.
+  // Установка Content-Type приведёт к ошибке подписи (SignatureDoesNotMatch).
+
+  request.upload.onProgress.listen((event) {
+    if (event.lengthComputable && onUploadProgress != null && event.total != null && event.total! > 0) {
+      final progress = event.loaded!.toDouble() / event.total!.toDouble();
+      onUploadProgress(progress);
     }
+  });
 
-    return ApiResult(
-      success: false,
-      error: (body['error'] as String?) ?? 'Ошибка $statusCode',
-    );
-  } catch (e) {
-    return ApiResult(
-      success: false,
-      error: 'Некорректный ответ сервера: $statusCode',
-    );
-  }
+  request.onLoadEnd.listen((_) {
+    if (request.status != null && request.status! >= 200 && request.status! < 300) {
+      completer.complete(true);
+    } else {
+      final errMsg = request.responseText ?? '';
+      completer.complete('KS3 upload failed: ${request.status} ${request.statusText} $errMsg');
+    }
+  });
+
+  request.onError.listen((_) {
+    completer.complete('KS3 upload network error');
+  });
+
+  request.onTimeout.listen((_) {
+    completer.complete('KS3 upload timeout');
+  });
+
+  request.send(bytes);
+  return completer.future.timeout(const Duration(seconds: 300));
 }

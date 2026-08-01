@@ -1,11 +1,11 @@
-import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import 'api_result.dart';
+import 'api_response_parser.dart';
+import 'mime_utils.dart';
 
 Future<ApiResult> uploadFileFromBytesWithProgress({
   required Uri uri,
@@ -21,21 +21,7 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
     final request = http.MultipartRequest('POST', uri);
     request.headers.addAll(headers);
 
-    final ext = filename.split('.').last.toLowerCase();
-    String mimeType = 'application/octet-stream';
-    if (ext == 'html' || ext == 'htm') {
-      mimeType = 'text/html';
-    } else if (ext == 'json') {
-      mimeType = 'application/json';
-    } else if (ext == 'xlsx') {
-      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    } else if (ext == 'png') {
-      mimeType = 'image/png';
-    } else if (ext == 'jpg' || ext == 'jpeg') {
-      mimeType = 'image/jpeg';
-    } else if (ext == 'mp4') {
-      mimeType = 'video/mp4';
-    }
+    final mimeType = mimeTypeFromFilename(filename);
 
     request.fields['relativePath'] = relativePath;
     if (reportId != null) {
@@ -54,6 +40,8 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
       ),
     );
 
+    // Native-клиент (dart:io) не даёт прогресса отправки через http API,
+    // поэтому сообщаем только старт и завершение.
     onUploadProgress?.call(0.1);
     final streamedResponse = await request.send().timeout(
       const Duration(seconds: 300),
@@ -61,7 +49,7 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
     final response = await http.Response.fromStream(streamedResponse);
     onUploadProgress?.call(1.0);
 
-    return _parseResponse(response);
+    return parseApiResponse(response.body, response.statusCode);
   } on SocketException {
     return const ApiResult(success: false, error: 'Нет соединения с сервером');
   } catch (e) {
@@ -69,30 +57,12 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   }
 }
 
-ApiResult _parseResponse(http.Response response) {
-  try {
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return ApiResult(
-        success: body['success'] == true,
-        data: body,
-        token: body['token'] as String?,
-        user: body['user'] as Map<String, dynamic>?,
-        error: body['success'] == true
-            ? null
-            : (body['error'] as String?) ?? 'Неизвестная ошибка',
-      );
-    }
-
-    return ApiResult(
-      success: false,
-      error: (body['error'] as String?) ?? 'Ошибка ${response.statusCode}',
-    );
-  } catch (e) {
-    return ApiResult(
-      success: false,
-      error: 'Некорректный ответ сервера: ${response.statusCode}',
-    );
-  }
+/// Stub для native — прямая загрузка в KS3 не поддерживается.
+/// На native всегда используется серверная загрузка через multipart.
+Future<dynamic> uploadToPresignedUrl({
+  required String uploadUrl,
+  required Uint8List bytes,
+  void Function(double progress)? onUploadProgress,
+}) async {
+  throw UnsupportedError('uploadToPresignedUrl is only available on web');
 }

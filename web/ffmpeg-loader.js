@@ -83,11 +83,24 @@
         }
       });
 
-      await ffmpeg.writeFile(inputName, bytes);
+      // P3-56: сохраняем размер ДО передачи в FFmpeg.
+      // ffmpeg.writeFile() transfer'ит ArrayBuffer — после вызова bytes.length может стать 0.
+      const originalSize = bytes.length;
 
+      // Проверка исходного размера
+      if (originalSize === 0) {
+        throw new Error('Исходный файл пустой (0 байт). Невозможно сжать.');
+      }
+
+      // P3-56: передаём копию bytes в writeFile, т.к. он может transfer'ить буфер
+      await ffmpeg.writeFile(inputName, new Uint8Array(bytes));
+
+      // P3-56: force_divisible_by=2 обязателен! Без него libx264 падает
+      // с "width not divisible by 2" на видео с нечётными размерами
+      // (например 592x1280 → scale даёт 333x720 → 333 нечётное → Conversion failed! → 0 байт).
       const scaleFilter =
         width > 0 && height > 0
-          ? `scale=${width}:${height}:force_original_aspect_ratio=decrease`
+          ? `scale=${width}:${height}:force_original_aspect_ratio=decrease:force_divisible_by=2`
           : `scale=-2:${height}`;
 
       const args = [
@@ -108,6 +121,11 @@
       const data = await ffmpeg.readFile(outputName);
       const resultBytes = data instanceof Uint8Array ? data : new Uint8Array(data);
 
+      // Проверка на пустой результат
+      if (resultBytes.length === 0) {
+        throw new Error('Результат сжатия пустой (0 байт). FFmpeg не смог обработать файл.');
+      }
+
       // Очистка виртуальной файловой системы.
       try {
         await ffmpeg.deleteFile(inputName);
@@ -121,6 +139,14 @@
 
     window.dispatchEvent(new Event('ffmpeg-ready'));
     console.log('FFmpeg ready');
+
+    /**
+     * Проверить, загружен ли ffmpeg.wasm в память.
+     * Используется для пропуска диалога-предупреждения о скачивании ~25 МБ.
+     */
+    window.isFfmpegLoaded = function() {
+      return !!(sharedFfmpeg && sharedFfmpeg.loaded);
+    };
   } else {
     console.error('FFmpegWASM not found');
   }

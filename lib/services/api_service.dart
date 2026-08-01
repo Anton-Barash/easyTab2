@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 
 import 'api_result.dart';
+import 'api_response_parser.dart';
 import 'upload_helper_native.dart'
     if (dart.library.html) 'upload_helper_web.dart';
 
@@ -33,9 +33,13 @@ class ApiService {
 
   /// Токен авторизации (устанавливается AuthProvider'ом после входа).
   // H-20: приватное хранилище с accessor — токен нельзя прочитать/перезаписать
-  // извне произвольно, только через контролируемый setter.
+  // извне произвольно, только через контролируемый setter. Accessor оставлен
+  // намеренно (точка расширения для будущей валидации), поэтому геттер/сеттер
+  // не сворачиваются в открытое поле.
   static String? _authToken;
+  // ignore: unnecessary_getters_setters
   static String? get authToken => _authToken;
+  // ignore: unnecessary_getters_setters
   static set authToken(String? value) => _authToken = value;
 
   /// Заголовки для JSON-запросов (с токеном авторизации).
@@ -211,6 +215,72 @@ class ApiService {
     );
   }
 
+  /// Получить presigned PUT URL для прямой загрузки в KS3.
+  ///
+  /// Возвращает ApiResult с:
+  ///   data['uploadUrl'] — presigned PUT URL
+  ///   data['fileId'] — UUID файла
+  ///   data['storageKey'] — ключ в KS3
+  ///   data['mimeType'] — MIME-тип
+  ///   data['relPath'] — относительный путь
+  static Future<ApiResult> presignUpload({
+    required String fileName,
+    String? relativePath,
+    int? reportId,
+  }) async {
+    try {
+      final body = jsonEncode({
+        'fileName': fileName,
+        if (relativePath != null) 'relativePath': relativePath,
+        if (reportId != null) 'reportId': reportId,
+      });
+
+      final response = await http
+          .post(_uri('/files/presign-upload'), headers: _headers, body: body)
+          .timeout(const Duration(seconds: 30));
+      return _parseResponse(response);
+    } on SocketException {
+      return ApiResult(success: false, error: 'Нет соединения с сервером');
+    } catch (e) {
+      return ApiResult(success: false, error: 'Ошибка сети: $e');
+    }
+  }
+
+  /// Подтвердить прямую загрузку файла в KS3 — создать запись в БД.
+  ///
+  /// Вызывается после успешного PUT по presigned URL.
+  /// Возвращает ApiResult с data['file'] — метаданные файла (включая id).
+  static Future<ApiResult> confirmUpload({
+    required String fileId,
+    required String storageKey,
+    required String fileName,
+    required int size,
+    required String mimeType,
+    required String relPath,
+    int? reportId,
+  }) async {
+    try {
+      final body = jsonEncode({
+        'fileId': fileId,
+        'storageKey': storageKey,
+        'fileName': fileName,
+        'size': size,
+        'mimeType': mimeType,
+        'relPath': relPath,
+        if (reportId != null) 'reportId': reportId,
+      });
+
+      final response = await http
+          .post(_uri('/files/confirm-upload'), headers: _headers, body: body)
+          .timeout(const Duration(seconds: 30));
+      return _parseResponse(response);
+    } on SocketException {
+      return ApiResult(success: false, error: 'Нет соединения с сервером');
+    } catch (e) {
+      return ApiResult(success: false, error: 'Ошибка сети: $e');
+    }
+  }
+
   /// Загрузить несколько файлов на сервер.
   ///
   /// [files] — список карт с ключами:
@@ -333,8 +403,10 @@ class ApiService {
   /// [fileId] — UUID файла на сервере.
   static Future<ApiResult> deleteFile(String fileId) async {
     try {
+      // Используем _authHeaders (без Content-Type) — DELETE не имеет тела,
+      // а Content-Type: application/json без тела вызывает 400 в Fastify.
       final response = await http
-          .delete(_uri('/files/$fileId'), headers: _headers)
+          .delete(_uri('/files/$fileId'), headers: _authHeaders)
           .timeout(_timeout);
       return _parseResponse(response);
     } on SocketException {
@@ -417,8 +489,10 @@ class ApiService {
   /// [reportId] — ID отчёта.
   static Future<ApiResult> deleteReport(int reportId) async {
     try {
+      // Используем _authHeaders (без Content-Type) — DELETE не имеет тела,
+      // а Content-Type: application/json без тела вызывает 400 в Fastify.
       final response = await http
-          .delete(_uri('/reports/$reportId'), headers: _headers)
+          .delete(_uri('/reports/$reportId'), headers: _authHeaders)
           .timeout(_timeout);
       return _parseResponse(response);
     } on SocketException {
@@ -442,59 +516,7 @@ class ApiService {
     }
   }
 
-  static ApiResult _parseResponseString(String responseText, int statusCode) {
-    try {
-      final body = jsonDecode(responseText) as Map<String, dynamic>;
-
-      if (statusCode >= 200 && statusCode < 300) {
-        return ApiResult(
-          success: body['success'] == true,
-          data: body,
-          token: body['token'] as String?,
-          user: body['user'] as Map<String, dynamic>?,
-          error: body['success'] == true
-              ? null
-              : (body['error'] as String?) ?? 'Неизвестная ошибка',
-        );
-      }
-
-      return ApiResult(
-        success: false,
-        error: (body['error'] as String?) ?? 'Ошибка $statusCode',
-      );
-    } catch (e) {
-      return ApiResult(
-        success: false,
-        error: 'Некорректный ответ сервера: $statusCode',
-      );
-    }
-  }
-
   static ApiResult _parseResponse(http.Response response) {
-    try {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return ApiResult(
-          success: body['success'] == true,
-          data: body,
-          token: body['token'] as String?,
-          user: body['user'] as Map<String, dynamic>?,
-          error: body['success'] == true
-              ? null
-              : (body['error'] as String?) ?? 'Неизвестная ошибка',
-        );
-      }
-
-      return ApiResult(
-        success: false,
-        error: (body['error'] as String?) ?? 'Ошибка ${response.statusCode}',
-      );
-    } catch (e) {
-      return ApiResult(
-        success: false,
-        error: 'Некорректный ответ сервера: ${response.statusCode}',
-      );
-    }
+    return parseApiResponse(response.body, response.statusCode);
   }
 }

@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _connectionStatus = ok;
     });
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     final loc = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = false;
     });
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (success) {
       Navigator.of(context).pop();

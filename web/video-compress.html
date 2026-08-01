@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Сжатие видео (FFmpeg.wasm)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 1100px; margin: 0 auto; padding: 20px;
+    background: #f5f5f5; color: #222;
+  }
+  h1 { margin-top: 0; }
+  .info { background: #e7f3ff; border-left: 4px solid #2196F3; padding: 12px 16px; margin: 12px 0; border-radius: 4px; }
+  .config { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin: 12px 0; }
+  .config-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+  .config-field label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+  .config-field select { width: 200px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; }
+  .actions { margin: 16px 0; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .btn-primary { background: #2196F3; color: #fff; }
+  .btn-primary:hover { background: #1976D2; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .file-card {
+    background: #fff; border: 1px solid #ddd; border-radius: 8px;
+    padding: 16px; margin: 12px 0;
+  }
+  .file-card .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .file-card .name { font-weight: 600; word-break: break-all; }
+  .file-card .size { color: #666; font-size: 13px; white-space: nowrap; }
+  .status { font-size: 13px; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
+  .status-idle { background: #eee; color: #666; }
+  .status-working { background: #fff3cd; color: #856404; }
+  .status-ok { background: #d4edda; color: #155724; }
+  .status-error { background: #f8d7da; color: #721c24; }
+  .status-empty { background: #f8d7da; color: #721c24; }
+  .result-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
+  .result-row .metric { background: #f9f9f9; padding: 6px 12px; border-radius: 4px; }
+  .result-row .metric b { color: #333; }
+  .log {
+    margin-top: 10px; background: #1e1e1e; color: #d4d4d4;
+    font-family: 'Consolas', 'Courier New', monospace; font-size: 12px;
+    padding: 12px; border-radius: 6px; max-height: 240px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-all; display: none;
+  }
+  .log.visible { display: block; }
+  .log-toggle { font-size: 12px; color: #2196F3; cursor: pointer; margin-top: 8px; user-select: none; }
+  .download-link { display: inline-block; margin-top: 10px; padding: 8px 14px; background: #4CAF50; color: #fff; text-decoration: none; border-radius: 4px; font-size: 13px; }
+  .download-link:hover { background: #388E3C; }
+  .warn { background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px 12px; margin-top: 8px; border-radius: 4px; font-size: 13px; }
+  #ffmpeg-status { font-size: 13px; padding: 6px 12px; border-radius: 4px; }
+  .progress-bar { height: 8px; background: #e0e0e0; border-radius: 4px; margin-top: 8px; overflow: hidden; }
+  .progress-bar > div { height: 100%; background: #2196F3; width: 0%; transition: width 0.2s; }
+</style>
+</head>
+<body>
+
+<h1>Сжатие видео (FFmpeg.wasm)</h1>
+
+<div class="info">
+  Сжатие выполняется на вашем компьютере через FFmpeg.wasm в браузере.
+  Сервер не используется для обработки видео.
+</div>
+
+<div id="ffmpeg-status" class="status status-idle">FFmpeg: загрузка...</div>
+
+<div class="config">
+  <div class="config-row">
+    <div class="config-field">
+      <label>Режим сжатия</label>
+      <select id="cfg-mode">
+        <option value="fast">Быстрое сжатие (ultrafast, CRF 28)</option>
+        <option value="quality">Максимальное качество (medium, CRF 23)</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="actions">
+  <input type="file" id="file-input" accept="video/*" multiple style="display:none;">
+  <button class="btn btn-primary" id="select-btn">Выбрать видеофайлы</button>
+  <button class="btn btn-primary" id="compress-all-btn" disabled>Сжать все</button>
+  <button class="btn" id="save-dir-btn" style="background:#607D8B;color:#fff;">Выбрать папку для сохранения</button>
+  <span id="dir-name" style="font-size:13px;color:#666;"></span>
+</div>
+
+<div id="files-list"></div>
+
+<!-- FFmpeg WASM скрипты (те же, что в основном приложении) -->
+<script src="/assets/ffmpeg/ffmpeg.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const CORE_URL = '/assets/ffmpeg/ffmpeg-core.js';
+  const WASM_URL = '/assets/ffmpeg/ffmpeg-core.wasm';
+
+  const statusEl = document.getElementById('ffmpeg-status');
+  const fileInput = document.getElementById('file-input');
+  const selectBtn = document.getElementById('select-btn');
+  const compressAllBtn = document.getElementById('compress-all-btn');
+  const filesList = document.getElementById('files-list');
+  const saveDirBtn = document.getElementById('save-dir-btn');
+  const dirNameEl = document.getElementById('dir-name');
+
+  let ffmpeg = null;
+  let ffmpegReady = false;
+  let selectedFiles = [];
+  let saveDirectory = null;
+
+  // ---- Инициализация FFmpeg ----
+  async function initFfmpeg() {
+    if (typeof FFmpegWASM === 'undefined' || !FFmpegWASM.FFmpeg) {
+      statusEl.textContent = 'FFmpeg: FFmpegWASM не найден';
+      statusEl.className = 'status status-error';
+      return;
+    }
+    try {
+      ffmpeg = new FFmpegWASM.FFmpeg();
+      ffmpeg.on('log', (event) => {
+        const msg = (event && event.message) ? event.message : JSON.stringify(event);
+        console.log('[FFmpeg]', msg);
+        if (currentLogFile) {
+          currentLogFile.textContent += msg + '\n';
+          currentLogFile.scrollTop = currentLogFile.scrollHeight;
+        }
+      });
+      statusEl.textContent = 'FFmpeg: загрузка core + wasm (~25 МБ)...';
+      statusEl.className = 'status status-working';
+      await ffmpeg.load({ coreURL: CORE_URL, wasmURL: WASM_URL });
+      ffmpegReady = true;
+      statusEl.textContent = 'FFmpeg: готов';
+      statusEl.className = 'status status-ok';
+    } catch (err) {
+      statusEl.textContent = 'FFmpeg: ошибка загрузки — ' + (err.message || err);
+      statusEl.className = 'status status-error';
+      console.error('FFmpeg load error:', err);
+    }
+  }
+
+  let currentLogFile = null;
+
+  // ---- Выбор папки для сохранения ----
+  saveDirBtn.addEventListener('click', async () => {
+    if (!window.showDirectoryPicker) {
+      alert('File System Access API не поддерживается. Используйте Chrome/Edge. Файлы будут скачиваться обычным способом.');
+      return;
+    }
+    try {
+      saveDirectory = await window.showDirectoryPicker({ mode: 'readwrite' });
+      dirNameEl.textContent = 'Папка: ' + saveDirectory.name;
+    } catch (e) {
+      // Пользователь отменил
+    }
+  });
+
+  // ---- Выбор файлов ----
+  selectBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    for (const file of fileInput.files) {
+      addFileCard(file);
+    }
+    fileInput.value = '';
+    compressAllBtn.disabled = selectedFiles.length === 0 || !ffmpegReady;
+  });
+
+  function fmtSize(bytes) {
+    if (bytes < 1024) return bytes + ' Б';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' МБ';
+  }
+
+  function addFileCard(file) {
+    const item = { file, result: null, resultName: null };
+    const card = document.createElement('div');
+    card.className = 'file-card';
+
+    card.innerHTML = `
+      <div class="head">
+        <span class="name">${file.name}</span>
+        <span class="size">${fmtSize(file.size)}</span>
+        <span class="status status-idle">ожидание</span>
+      </div>
+      <div class="actions" style="margin:8px 0 0 0;">
+        <button class="btn btn-primary compress-one-btn">Сжать</button>
+      </div>
+      <div class="progress-bar" style="display:none;"><div></div></div>
+      <div class="result-row" style="display:none;"></div>
+      <div class="warn" style="display:none;"></div>
+      <div class="download-area"></div>
+      <span class="log-toggle">Показать лог FFmpeg ▾</span>
+      <div class="log"></div>
+    `;
+    filesList.appendChild(card);
+
+    item.cardEl = card;
+    item.statusEl = card.querySelector('.status');
+    item.logEl = card.querySelector('.log');
+    item.logToggle = card.querySelector('.log-toggle');
+    item.resultRow = card.querySelector('.result-row');
+    item.warnEl = card.querySelector('.warn');
+    item.downloadArea = card.querySelector('.download-area');
+    item.progressWrap = card.querySelector('.progress-bar');
+    item.progressBar = card.querySelector('.progress-bar > div');
+    item.compressBtn = card.querySelector('.compress-one-btn');
+
+    item.logToggle.addEventListener('click', () => {
+      item.logEl.classList.toggle('visible');
+      item.logToggle.textContent = item.logEl.classList.contains('visible')
+        ? 'Скрыть лог FFmpeg ▴' : 'Показать лог FFmpeg ▾';
+    });
+
+    item.compressBtn.addEventListener('click', () => compressFile(item));
+
+    selectedFiles.push(item);
+  }
+
+  // ---- Сжатие одного файла ----
+  async function compressFile(item) {
+    if (!ffmpegReady) {
+      alert('FFmpeg ещё не загружен. Подождите.');
+      return;
+    }
+
+    const bytes = new Uint8Array(await item.file.arrayBuffer());
+    const cfg = readConfig();
+
+    const originalSize = bytes.length;
+
+    if (originalSize === 0) {
+      item.statusEl.textContent = 'ошибка: пустой исходный файл';
+      item.statusEl.className = 'status status-error';
+      item.warnEl.style.display = 'block';
+      item.warnEl.textContent = 'Исходный файл пустой (0 байт). Невозможно сжать.';
+      return;
+    }
+
+    item.compressBtn.disabled = true;
+    item.statusEl.textContent = 'сжатие...';
+    item.statusEl.className = 'status status-working';
+    item.logEl.textContent = '';
+    item.resultRow.style.display = 'none';
+    item.warnEl.style.display = 'none';
+    item.downloadArea.innerHTML = '';
+    item.progressWrap.style.display = 'block';
+    item.progressBar.style.width = '0%';
+
+    currentLogFile = item.logEl;
+    item.logEl.textContent += '>>> Исходный размер: ' + fmtSize(originalSize) + ' (' + originalSize + ' байт)\n';
+    item.logEl.textContent += '>>> file.size: ' + fmtSize(item.file.size) + '\n';
+    item.logEl.textContent += '>>> Команда: ffmpeg -i input ' + cfg.args.join(' ') + ' output.mp4\n\n';
+
+    const progressHandler = (event) => {
+      if (event && typeof event.progress === 'number') {
+        const pct = Math.max(0, Math.min(1, event.progress)) * 100;
+        item.progressBar.style.width = pct + '%';
+      }
+    };
+    ffmpeg.on('progress', progressHandler);
+
+    const inputName = 'input_' + Date.now() + '.mp4';
+    const outputName = 'output_' + Date.now() + '.mp4';
+
+    try {
+      await ffmpeg.writeFile(inputName, new Uint8Array(bytes));
+
+      const fullArgs = ['-i', inputName].concat(cfg.args).concat([outputName]);
+      await ffmpeg.exec(fullArgs);
+
+      const data = await ffmpeg.readFile(outputName);
+      const resultBytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+
+      try { await ffmpeg.deleteFile(inputName); } catch (_) {}
+      try { await ffmpeg.deleteFile(outputName); } catch (_) {}
+
+      item.progressBar.style.width = '100%';
+
+      const baseName = item.file.name.replace(/\.[^.]+$/, '');
+      item.resultName = baseName + '_compressed.mp4';
+      item.result = resultBytes;
+
+      if (resultBytes.length === 0) {
+        item.statusEl.textContent = 'ошибка: результат 0 байт';
+        item.statusEl.className = 'status status-empty';
+        item.warnEl.style.display = 'block';
+        item.warnEl.textContent =
+          'ВНИМАНИЕ: результат сжатия пустой (0 байт)! ' +
+          'FFmpeg не смог обработать файл. Возможные причины: ' +
+          'видео в кодеке HEVC/H.265 (ffmpeg.wasm core поддерживает только H.264/H.263), ' +
+          'повреждённый файл, или нехватка памяти. Смотрите лог выше.';
+      } else if (resultBytes.length >= originalSize) {
+        item.statusEl.textContent = 'сжатие неэффективно';
+        item.statusEl.className = 'status status-idle';
+        item.warnEl.style.display = 'block';
+        item.warnEl.textContent =
+          'Сжатый файл (' + fmtSize(resultBytes.length) + ') больше или равен оригиналу (' +
+          fmtSize(originalSize) + '). В приложении будет использован оригинал.';
+      } else {
+        item.statusEl.textContent = 'готово';
+        item.statusEl.className = 'status status-ok';
+      }
+
+      const ratio = originalSize > 0
+        ? ((1 - resultBytes.length / originalSize) * 100).toFixed(1)
+        : '—';
+      item.resultRow.style.display = 'flex';
+      item.resultRow.innerHTML = `
+        <div class="metric">Было: <b>${fmtSize(originalSize)}</b></div>
+        <div class="metric">Стало: <b>${fmtSize(resultBytes.length)}</b></div>
+        <div class="metric">Экономия: <b>${ratio}%</b></div>
+      `;
+
+      if (resultBytes.length > 0) {
+        addDownloadButton(item, resultBytes);
+      }
+    } catch (err) {
+      item.statusEl.textContent = 'ошибка';
+      item.statusEl.className = 'status status-error';
+      item.logEl.textContent += '\n>>> ОШИБКА: ' + (err.message || err) + '\n';
+      console.error('Compress error for', item.file.name, err);
+    } finally {
+      try { ffmpeg.off('progress', progressHandler); } catch (_) {}
+      currentLogFile = null;
+      item.compressBtn.disabled = false;
+    }
+  }
+
+  function addDownloadButton(item, bytes) {
+    if (saveDirectory) {
+      const btn = document.createElement('button');
+      btn.className = 'download-link';
+      btn.textContent = 'Сохранить в папку: ' + item.resultName;
+      btn.style.border = 'none';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', async () => {
+        try {
+          const fileHandle = await saveDirectory.getFileHandle(item.resultName, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write(bytes);
+          await writable.close();
+          btn.textContent = '✓ Сохранено: ' + item.resultName;
+          btn.style.background = '#388E3C';
+        } catch (e) {
+          alert('Не удалось сохранить: ' + (e.message || e));
+        }
+      });
+      item.downloadArea.appendChild(btn);
+    } else {
+      const a = document.createElement('a');
+      a.className = 'download-link';
+      a.href = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+      a.download = item.resultName;
+      a.textContent = 'Скачать: ' + item.resultName;
+      item.downloadArea.appendChild(a);
+    }
+  }
+
+  // ---- Чтение настроек ----
+  function readConfig() {
+    const mode = document.getElementById('cfg-mode').value;
+    
+    const config = {
+      fast: { preset: 'ultrafast', crf: 28 },
+      quality: { preset: 'medium', crf: 23 }
+    };
+    
+    const selected = config[mode] || config.fast;
+    const width = 1280;
+    const height = 720;
+    const fps = 24;
+
+    const scaleFilter =
+      width > 0 && height > 0
+        ? `scale=${width}:${height}:force_original_aspect_ratio=decrease:force_divisible_by=2`
+        : `scale=-2:${height}`;
+
+    const args = [
+      '-c:v', 'libx264',
+      '-preset', selected.preset,
+      '-crf', String(selected.crf),
+      '-vf', scaleFilter,
+      '-r', String(fps),
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
+    ];
+
+    return { ...selected, width, height, fps, args };
+  }
+
+  // ---- Сжать все ----
+  compressAllBtn.addEventListener('click', async () => {
+    compressAllBtn.disabled = true;
+    for (const item of selectedFiles) {
+      if (!item.result) {
+        await compressFile(item);
+      }
+    }
+    compressAllBtn.disabled = false;
+  });
+
+  // ---- Старт ----
+  initFfmpeg();
+})();
+</script>
+</body>
+</html>

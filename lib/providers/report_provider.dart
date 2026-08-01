@@ -13,6 +13,10 @@ import 'package:easy_tab/utils/native_file_ops.dart'
     if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import '../models/report_models.dart';
 import '../services/api_service.dart';
+import '../services/api_result.dart';
+import '../services/mime_utils.dart';
+import '../services/upload_helper_native.dart'
+    if (dart.library.html) '../services/upload_helper_web.dart';
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
@@ -346,7 +350,7 @@ class ReportState extends ChangeNotifier {
       }
     }
 
-    final mimeType = _getMimeType(file.path);
+    final mimeType = mimeTypeFromFilename(file.path);
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
       final compressed = _compressImage(Uint8List.fromList(bytes), 2000);
@@ -605,7 +609,7 @@ class ReportState extends ChangeNotifier {
     }
     final counter = _currentReport!.mediaCounter[counterKey]!;
     final ext = file.path.split('.').last;
-    final mimeType = _getMimeType(file.path);
+    final mimeType = mimeTypeFromFilename(file.path);
     final typePrefix = mimeType.startsWith('video/') ? 'v' : 'f';
     final fileName =
         '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
@@ -657,7 +661,10 @@ class ReportState extends ChangeNotifier {
   /// - [mimeType] — MIME-тип (например, 'image/jpeg', 'video/mp4')
   /// - [isAttention] — true для папки X (внимание), false для photos
   /// - [onUploadProgress] — callback для отслеживания прогресса (0.0 - 1.0)
-  Future<void> addMediaFromBytes({
+  /// - [deferUpload] — отложить загрузку на сервер (например, пока идёт
+  ///   фоновое сжатие видео). Вызовите [updateMediaCompressed] после сжатия —
+  ///   он запустит загрузку сжатых байтов.
+  Future<String?> addMediaFromBytes({
     required int questionIndex,
     required int answerIndex,
     required Uint8List bytes,
@@ -666,8 +673,9 @@ class ReportState extends ChangeNotifier {
     bool isAttention = false,
     int? compressedSize,
     void Function(double progress)? onUploadProgress,
+    bool deferUpload = false,
   }) async {
-    if (_currentReport == null) return;
+    if (_currentReport == null) return null;
 
     final qid = questionIndex.toString();
 
@@ -716,6 +724,11 @@ class ReportState extends ChangeNotifier {
       webBytes: finalBytes, // Байты для превью в UI
     );
 
+    // Если загрузка отложена (идёт фоновое сжатие) — отмечаем это.
+    if (deferUpload) {
+      mediaItem.isCompressing = true;
+    }
+
     _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
     _currentReport!.mediaCounter[counterKey] = counter + 1;
 
@@ -724,7 +737,8 @@ class ReportState extends ChangeNotifier {
     // ===== Загрузка на сервер в фоне (если отчёт уже сохранён) =====
     // Все медиа загружаются асинхронно — UI не блокируется.
     // Пользователь может сразу добавлять следующие фото/видео.
-    if (_serverReportId != null && _ks3Folder != null) {
+    // При deferUpload=false запуск откладывается до updateMediaCompressed.
+    if (!deferUpload && _serverReportId != null && _ks3Folder != null) {
       _uploadMediaToServer(
         mediaItem,
         finalBytes,
@@ -735,6 +749,94 @@ class ReportState extends ChangeNotifier {
       ).catchError((e) {
         if (kDebugMode) debugPrint('Background upload failed: $e');
       });
+    }
+
+    return generatedName;
+  }
+
+  /// Обновить медиафайл после фонового сжатия видео (web).
+  ///
+  /// Вызывается после завершения ffmpeg.wasm. Заменяет [MediaItem.webBytes]
+  /// сжатыми байтами, сбрасывает [MediaItem.isCompressing] и запускает
+  /// отложенную загрузку на сервер (если отчёт уже сохранён и файл ещё
+  /// не загружен).
+  ///
+  /// [mediaName] — сгенерированное имя (например, 'v6_1_001.mp4').
+  /// [compressedBytes] — сжатое содержимое.
+  /// [onUploadProgress] — callback прогресса загрузки (0.0 - 1.0).
+  Future<void> updateMediaCompressed(
+    String mediaName,
+    Uint8List compressedBytes, {
+    void Function(double progress)? onUploadProgress,
+  }) async {
+    if (_currentReport == null) return;
+
+    MediaItem? found;
+    for (final markersList in _currentReport!.markers.values) {
+      for (final markers in markersList) {
+        for (final m in markers.media) {
+          if (m.name == mediaName) {
+            found = m;
+            break;
+          }
+        }
+      }
+      if (found != null) break;
+    }
+    if (found == null) return;
+
+    final media = found;
+
+    // Если файл уже загружен или загружается — просто обновляем локальные байты
+    // для превью, повторная загрузка не нужна.
+    media.webBytes = compressedBytes;
+    media.compressedSize = compressedBytes.length;
+    media.isCompressing = false;
+    media.compressProgress = 1.0;
+    notifyListeners();
+
+    if (kDebugMode) {
+      debugPrint(
+        'Video compressed: $mediaName — '
+        '${media.fileSize ?? 0} → ${compressedBytes.length} bytes',
+      );
+    }
+
+    // Запускаем отложенную загрузку, если отчёт сохранён и файл ещё не на сервере.
+    if (_serverReportId != null &&
+        _ks3Folder != null &&
+        media.serverFileId == null &&
+        !media.isUploading) {
+      _uploadMediaToServer(
+        media,
+        compressedBytes,
+        media.name,
+        media.localPath ?? media.name,
+        media.type,
+        onUploadProgress,
+      ).catchError((e) {
+        if (kDebugMode) debugPrint('Post-compression upload failed: $e');
+      });
+    }
+  }
+
+  /// Установить прогресс сжатия видео для отображения в UI.
+  ///
+  /// Вызывается из callback'а ffmpeg.wasm для обновления индикатора
+  /// на миниатюре видео. Не запускает загрузку — только обновляет UI.
+  void setCompressProgress(String mediaName, double progress) {
+    if (_currentReport == null) return;
+
+    for (final markersList in _currentReport!.markers.values) {
+      for (final markers in markersList) {
+        for (final m in markers.media) {
+          if (m.name == mediaName) {
+            m.compressProgress = progress;
+            notifyListeners();
+            return;
+          }
+        }
+      }
     }
   }
 
@@ -763,21 +865,46 @@ class ReportState extends ChangeNotifier {
       mediaItem.uploadProgress = 0.0;
       notifyListeners();
 
-      final result = await ApiService.uploadFileFromBytes(
-        bytes: bytes,
-        filename: fileName,
-        relativePath: relativePath,
-        reportId: _serverReportId,
-        ks3Folder: _ks3Folder,
-        onUploadProgress: (progress) {
-          if (kDebugMode) {
-            debugPrint('Upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%');
-          }
-          mediaItem.uploadProgress = progress;
-          notifyListeners();
-          onUploadProgress?.call(progress);
-        },
-      );
+      final uploadStart = DateTime.now();
+      if (kDebugMode) {
+        debugPrint('Upload start: $fileName (${bytes.length} bytes)');
+      }
+
+      // Web: прямая загрузка в KS3 через presigned URL (быстрее в 2 раза).
+      // Native: серверная загрузка через multipart (fallback).
+      ApiResult result;
+      if (kIsWeb) {
+        result = await _uploadViaPresignedUrl(
+          mediaItem: mediaItem,
+          bytes: bytes,
+          fileName: fileName,
+          relativePath: relativePath,
+          mimeType: mimeType,
+          onUploadProgress: onUploadProgress,
+        );
+      } else {
+        result = await ApiService.uploadFileFromBytes(
+          bytes: bytes,
+          filename: fileName,
+          relativePath: relativePath,
+          reportId: _serverReportId,
+          ks3Folder: _ks3Folder,
+          onUploadProgress: (progress) {
+            if (kDebugMode) {
+              debugPrint('Upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%');
+            }
+            mediaItem.uploadProgress = progress;
+            notifyListeners();
+            onUploadProgress?.call(progress);
+          },
+        );
+      }
+
+      final uploadEnd = DateTime.now();
+      final uploadDuration = uploadEnd.difference(uploadStart).inSeconds;
+      if (kDebugMode) {
+        debugPrint('Upload complete: $fileName in ${uploadDuration}s');
+      }
 
       mediaItem.uploadProgress = 1.0;
       notifyListeners();
@@ -801,11 +928,72 @@ class ReportState extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) debugPrint('Media upload error: $fileName — $e');
     } finally {
-      // P3-55: флаг сбрасывается только после полного ответа сервера,
-      // чтобы UI показывал "Сохранение..." пока идёт обработка на сервере.
       mediaItem.isUploading = false;
       notifyListeners();
     }
+  }
+
+  /// Прямая загрузка в KS3 через presigned PUT URL (web only).
+  ///
+  /// Flow:
+  ///   1. POST /files/presign-upload → получаем presigned URL + fileId
+  ///   2. PUT directly to KS3 → загружаем байты
+  ///   3. POST /files/confirm-upload → создаём запись в БД
+  Future<ApiResult> _uploadViaPresignedUrl({
+    required MediaItem mediaItem,
+    required Uint8List bytes,
+    required String fileName,
+    required String relativePath,
+    required String mimeType,
+    void Function(double progress)? onUploadProgress,
+  }) async {
+    // Шаг 1: presign
+    final presignResult = await ApiService.presignUpload(
+      fileName: fileName,
+      relativePath: relativePath,
+      reportId: _serverReportId,
+    );
+
+    if (!presignResult.success) {
+      return presignResult;
+    }
+
+    final uploadUrl = presignResult.data!['uploadUrl'] as String;
+    final fileId = presignResult.data!['fileId'] as String;
+    final storageKey = presignResult.data!['storageKey'] as String;
+    final serverMimeType = presignResult.data!['mimeType'] as String? ?? mimeType;
+    final relPath = presignResult.data!['relPath'] as String? ?? relativePath;
+
+    // Шаг 2: прямая загрузка в KS3
+    final uploadResult = await uploadToPresignedUrl(
+      uploadUrl: uploadUrl,
+      bytes: bytes,
+      onUploadProgress: (progress) {
+        if (kDebugMode) {
+          debugPrint('KS3 direct upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%');
+        }
+        mediaItem.uploadProgress = progress;
+        notifyListeners();
+        onUploadProgress?.call(progress);
+      },
+    );
+
+    if (uploadResult != true) {
+      return ApiResult(success: false, error: uploadResult.toString());
+    }
+
+    // Шаг 3: подтвердить загрузку — создать запись в БД
+    final confirmResult = await ApiService.confirmUpload(
+      fileId: fileId,
+      storageKey: storageKey,
+      fileName: fileName,
+      size: bytes.length,
+      mimeType: serverMimeType,
+      relPath: relPath,
+      reportId: _serverReportId,
+    );
+
+    return confirmResult;
   }
 
   /// Загрузить все медиа, у которых ещё нет serverFileId.
@@ -837,6 +1025,10 @@ class ReportState extends ChangeNotifier {
 
           // Пропускаем медиа без байтов (не web)
           if (media.webBytes == null) continue;
+
+          // Пропускаем медиа, которые ещё сжимаются (видео)
+          // Загрузка запустится после завершения сжатия в updateMediaCompressed
+          if (media.isCompressing) continue;
 
           // Загружаем на сервер
           if (kDebugMode) {
@@ -977,16 +1169,6 @@ class ReportState extends ChangeNotifier {
         false;
   }
 
-  String _getMimeType(String path) {
-    final ext = path.split('.').last.toLowerCase();
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(ext)) {
-      return 'image/$ext';
-    } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext)) {
-      return 'video/$ext';
-    }
-    return 'application/octet-stream';
-  }
-
   Future<String> _getReportsDir() async {
     final appDir = await getApplicationDocumentsDirectory();
     final reportsDir = Directory('${appDir.path}/$exportDir');
@@ -1055,7 +1237,11 @@ class ReportState extends ChangeNotifier {
           // Replace original with compressed video
           final compressedFile = File(result.compressedFilePath);
           if (await compressedFile.exists()) {
-            await compressedFile.copy(absolutePath);
+            // P3-56: не заменяем оригинал пустым сжатым файлом (0 байт).
+            final compressedSize = await compressedFile.length();
+            if (compressedSize > 0) {
+              await compressedFile.copy(absolutePath);
+            }
             await compressedFile.delete();
           }
         }
@@ -1133,20 +1319,23 @@ class ReportState extends ChangeNotifier {
           final compressedFile = File(result.compressedFilePath);
           if (await compressedFile.exists()) {
             final compressedSize = await compressedFile.length();
-            await compressedFile.copy(absolutePath);
-            await compressedFile.delete();
-            _compressedVideoPaths.add(relativePath);
-            compressedVideos.add(relativePath);
+            // P3-56: не заменяем оригинал пустым сжатым файлом (0 байт).
+            if (compressedSize > 0) {
+              await compressedFile.copy(absolutePath);
+              _compressedVideoPaths.add(relativePath);
+              compressedVideos.add(relativePath);
 
-            for (final markerEntry in _currentReport!.markers.entries) {
-              for (final answerMarker in markerEntry.value) {
-                for (final media in answerMarker.media) {
-                  if (media.localPath == relativePath) {
-                    media.compressedSize = compressedSize;
+              for (final markerEntry in _currentReport!.markers.entries) {
+                for (final answerMarker in markerEntry.value) {
+                  for (final media in answerMarker.media) {
+                    if (media.localPath == relativePath) {
+                      media.compressedSize = compressedSize;
+                    }
                   }
                 }
               }
             }
+            await compressedFile.delete();
           }
         }
       } catch (e) {

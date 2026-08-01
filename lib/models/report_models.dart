@@ -34,6 +34,13 @@ class MediaItem {
   /// P3-52: Прогресс загрузки на сервер (0.0 - 1.0).
   double uploadProgress = 0.0;
 
+  /// Флаг фонового сжатия видео (web, ffmpeg.wasm).
+  /// Если true — сжатие идёт, UI показывает индикатор на миниатюре.
+  bool isCompressing = false;
+
+  /// Прогресс сжатия видео (0.0 - 1.0).
+  double compressProgress = 0.0;
+
   MediaItem({
     required this.name,
     required this.type,
@@ -47,18 +54,7 @@ class MediaItem {
     this.serverFileId,
   });
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'type': type,
-        'attention': attention,
-        'originalName': originalName,
-        'localPath': localPath,
-        'fileSize': fileSize,
-        'compressedSize': compressedSize,
-        // P3-52: runtime-поля для отображения прогресса в UI.
-        'isUploading': isUploading,
-        'uploadProgress': uploadProgress,
-      };
+  Map<String, dynamic> toJson() => _toMap(localPath);
 
   String? _toRelativePath(String? path, String? folderPath) {
     if (path == null || folderPath == null) return path;
@@ -68,18 +64,37 @@ class MediaItem {
     return path;
   }
 
-  Map<String, dynamic> toJsonWithRelativePaths(String? folderPath) => {
+  Map<String, dynamic> toJsonWithRelativePaths(String? folderPath) =>
+      _toMap(_toRelativePath(localPath, folderPath));
+
+  /// Базовый Map для сериализации (toJson / toJsonWithRelativePaths).
+  /// Не включает web-поля (webBytes, webUrl) и serverFileId —
+  /// они runtime-only и не персистятся в JSON отчёта.
+  /// P3-52: isUploading/uploadProgress включены для отображения прогресса в UI.
+  Map<String, dynamic> _toMap(String? resolvedLocalPath) => {
         'name': name,
         'type': type,
         'attention': attention,
         'originalName': originalName,
-        'localPath': _toRelativePath(localPath, folderPath),
+        'localPath': resolvedLocalPath,
         'fileSize': fileSize,
         'compressedSize': compressedSize,
-        // P3-52: runtime-поля для отображения прогресса в UI.
         'isUploading': isUploading,
         'uploadProgress': uploadProgress,
+        'isCompressing': isCompressing,
+        'compressProgress': compressProgress,
       };
+
+  /// Map для отображения в UI (используется Report.getAnswersForQuestion).
+  /// В отличие от [_toMap], добавляет web-поля (webBytes, webUrl) и
+  /// serverFileId, которые нужны UI, но не сохраняются в JSON.
+  Map<String, dynamic> toAnswerMap() {
+    final map = _toMap(localPath);
+    map['serverFileId'] = serverFileId;
+    if (webBytes != null) map['webBytes'] = webBytes;
+    if (webUrl != null) map['webUrl'] = webUrl;
+    return map;
+  }
 
   factory MediaItem.fromJson(Map<String, dynamic> json, {String? folderPath}) {
     String? localPath = json['localPath'] as String?;
@@ -295,36 +310,7 @@ class Report {
       final needsWork = i < langMarkers.length ? langMarkers[i].needsWork : false;
 
       final mediaList = i < langMarkers.length ? langMarkers[i].media : [];
-      final mediaMaps = mediaList.map((m) {
-        final map = <String, dynamic>{
-          'name': m.name,
-          'type': m.type,
-          'attention': m.attention,
-          'originalName': m.originalName,
-          'localPath': m.localPath,
-          'fileSize': m.fileSize,
-          'compressedSize': m.compressedSize,
-          // P3-52: runtime-поля для отображения прогресса загрузки в UI
-          'isUploading': m.isUploading,
-          'uploadProgress': m.uploadProgress,
-          'serverFileId': m.serverFileId,
-        };
-        // Добавляем webBytes для отображения на web
-        // (на mobile/desktop это поле null)
-        if (m.webBytes != null) {
-          map['webBytes'] = m.webBytes;
-        }
-        // Добавляем webUrl (presigned URL с KS3) для отображения
-        // уже загруженных на сервер фото на web.
-        if (m.webUrl != null) {
-          map['webUrl'] = m.webUrl;
-        }
-        // Добавляем serverFileId для получения URL
-        if (m.serverFileId != null) {
-          map['serverFileId'] = m.serverFileId;
-        }
-        return map;
-      }).toList();
+      final mediaMaps = mediaList.map((m) => m.toAnswerMap()).toList();
 
       result.add({
         'text': text,

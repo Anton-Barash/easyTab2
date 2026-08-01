@@ -2,16 +2,14 @@ import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
-import 'package:easy_tab/utils/native_file_ops.dart'
-    if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
+import 'package:easy_tab/services/mime_utils.dart';
 import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
+import 'package:easy_tab/widgets/media_item_widget.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'package:video_player/video_player.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as path;
@@ -23,6 +21,7 @@ import '../l10n/app_localizations.dart';
 import '../models/report_models.dart';
 import '../utils/open_html.dart';
 import '../utils/web_video_compressor.dart';
+import 'full_media_viewer_screen.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'dart:async';
@@ -63,17 +62,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   /// Компрессор видео для web (ffmpeg.wasm).
   final WebVideoCompressor _webVideoCompressor = WebVideoCompressor.create();
-
-  /// Определить MIME-тип по расширению файла.
-  String _getMimeType(String path) {
-    final ext = path.split('.').last.toLowerCase();
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].contains(ext)) {
-      return 'image/$ext';
-    } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext)) {
-      return 'video/$ext';
-    }
-    return 'application/octet-stream';
-  }
 
   void _resetControllers() {
     _answerControllers.values
@@ -558,7 +546,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  /// Обработать один web-файл: для видео > 10 МБ предложить сжатие.
+  /// Обработать один web-файл: для видео > 10 МБ запустить фоновое сжатие.
+  ///
+  /// Медиа добавляется в отчёт НЕМЕДЛЕННО с оригинальными байтами —
+  /// пользователь может продолжать работу. Сжатие выполняется в фоне,
+  /// прогресс отображается на миниатюре. По завершении байты заменяются
+  /// на сжатые и запускается загрузка на сервер.
   Future<void> _processWebMediaFile({
     required PlatformFile file,
     required int questionIndex,
@@ -568,31 +561,82 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }) async {
     final bytes = file.bytes!;
     final fileName = file.name;
-    final mimeType = _getMimeType(fileName);
+    final mimeType = mimeTypeFromFilename(fileName);
 
-    Uint8List finalBytes = bytes;
-    int? compressedSize;
+    final shouldCompress =
+        mimeType.startsWith('video/') && bytes.length > 10 * 1024 * 1024;
 
-    if (mimeType.startsWith('video/') && bytes.length > 10 * 1024 * 1024) {
-      final shouldCompress = await _showWebCompressionWarningDialog();
-      if (shouldCompress) {
-        final compressed = await _compressVideoOnWeb(bytes);
-        if (compressed != null) {
-          finalBytes = compressed;
-          compressedSize = compressed.length;
-        }
-      }
-    }
-
-    await reportState.addMediaFromBytes(
+    // Добавляем медиа сразу — пользователь видит результат.
+    // При shouldCompress откладываем загрузку до завершения сжатия.
+    final mediaName = await reportState.addMediaFromBytes(
       questionIndex: questionIndex,
       answerIndex: answerIndex,
-      bytes: finalBytes,
+      bytes: bytes,
       fileName: fileName,
       mimeType: mimeType,
       isAttention: isAttention,
-      compressedSize: compressedSize,
+      deferUpload: shouldCompress,
     );
+
+    // Если сжатие не нужно — загрузка уже запущена (или запустится при save).
+    if (!shouldCompress || mediaName == null) return;
+
+    // Если ffmpeg.wasm уже загружен — пропускаем предупреждение о трафике.
+    if (!_webVideoCompressor.isLoaded) {
+      final confirmed = await _showWebCompressionWarningDialog();
+      if (!confirmed) {
+        // Пользователь отказался — запускаем загрузку с оригинальными байтами.
+        await reportState.updateMediaCompressed(mediaName, bytes);
+        return;
+      }
+    }
+
+    // Запускаем сжатие в фоне — без модального диалога.
+    // Прогресс обновляется через reportState.setCompressProgress() и
+    // отображается на миниатюре (см. VideoThumbnailWidget).
+    _compressVideoInBackground(
+      reportState: reportState,
+      mediaName: mediaName,
+      videoBytes: bytes,
+    );
+  }
+
+  /// Фоновое сжатие видео через ffmpeg.wasm без блокировки UI.
+  ///
+  /// Прогресс передаётся в [ReportState.setCompressProgress] для отображения
+  /// на миниатюре. По завершении вызывается [ReportState.updateMediaCompressed],
+  /// которая заменяет байты и запускает загрузку на сервер.
+  Future<void> _compressVideoInBackground({
+    required ReportState reportState,
+    required String mediaName,
+    required Uint8List videoBytes,
+  }) async {
+    try {
+      await _webVideoCompressor.initialize();
+
+      // Передаём прогресс в ReportState для индикатора на миниатюре.
+      final progressSub = _webVideoCompressor.progressStream.listen((progress) {
+        reportState.setCompressProgress(mediaName, progress);
+      });
+
+      final result = await _webVideoCompressor.compressVideo(videoBytes);
+      await progressSub.cancel();
+
+      // P3-56: проверяем, что результат сжатия не пустой.
+      // FFmpeg.wasm при ошибке может вернуть пустой Uint8List (length=0) —
+      // без этой проверки пустой файл сохранится как "сжатый" (0 байт),
+      // и на KS3 появится пустое видео.
+      if (result != null && result.isNotEmpty && result.length < videoBytes.length) {
+        await reportState.updateMediaCompressed(mediaName, result);
+      } else {
+        // Сжатие не дало результата, файл пустой или стал больше — загружаем оригинал.
+        await reportState.updateMediaCompressed(mediaName, videoBytes);
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Background compression failed: $e');
+      // При ошибке — загружаем оригинальные байты.
+      await reportState.updateMediaCompressed(mediaName, videoBytes);
+    }
   }
 
   /// Диалог с предупреждением о повышенном трафике при первом сжатии.
@@ -616,67 +660,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
       ),
     );
     return result ?? false;
-  }
-
-  /// Сжать видео на web через ffmpeg.wasm с индикацией прогресса.
-  Future<Uint8List?> _compressVideoOnWeb(Uint8List videoBytes) async {
-    final loc = AppLocalizations.of(context)!;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(loc.compressVideoTitle),
-        content: StreamBuilder<double>(
-          stream: _webVideoCompressor.progressStream,
-          initialData: 0.0,
-          builder: (context, snapshot) {
-            final progress = snapshot.data ?? 0.0;
-            final isInitializing = progress == 0.0;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isInitializing
-                      ? loc.compressVideoWebInitializing
-                      : loc.compressingVideo,
-                ),
-                const SizedBox(height: 16),
-                if (isInitializing)
-                  const LinearProgressIndicator()
-                else
-                  LinearProgressIndicator(value: progress),
-                const SizedBox(height: 8),
-                if (!isInitializing)
-                  Text(
-                    loc.compressVideoWebProgress(
-                      (progress * 100).toStringAsFixed(0),
-                    ),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-
-    try {
-      await _webVideoCompressor.initialize();
-      final result = await _webVideoCompressor.compressVideo(videoBytes);
-      return result;
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.compressionError(e.toString()))),
-        );
-      }
-      return null;
-    } finally {
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-    }
   }
 
   void _showDeleteAnswerDialog(
@@ -1326,13 +1309,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     final excelHtml = reportState.generateExcelHtmlContent();
                     try {
                       await Clipboard.setData(ClipboardData(text: excelHtml));
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(loc.excelHtmlCopied)),
                         );
                       }
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('${loc.copyError}$e')),
                         );
@@ -1340,7 +1323,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     }
                   } else if (value == 1) {
                     if (kIsWeb) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(
                           context,
                         ).showSnackBar(SnackBar(content: Text(loc.saveZipWeb)));
@@ -1376,7 +1359,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           customFileName: path.basename(result),
                         );
                         _hideProcessingDialog();
-                        if (zipPath != null && mounted) {
+                        if (zipPath != null && context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('${loc.zipSaved}$zipPath')),
                           );
@@ -1384,7 +1367,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       }
                     } catch (e) {
                       _hideProcessingDialog();
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('${loc.saveZipError}$e')),
                         );
@@ -2828,7 +2811,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               debugPrint('Header image error: $e');
                             }
                             await reportState.saveReport();
-                            if (mounted) Navigator.pop(ctx);
+                            if (ctx.mounted) Navigator.pop(ctx);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF333333),
@@ -4085,16 +4068,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
       if (selectedXFiles.isEmpty && selectedPlatformFiles.isEmpty) return;
 
+      if (!context.mounted) return;
       final reportState = context.read<ReportState>();
       final scaffoldMessenger = ScaffoldMessenger.of(context);
-      if (!mounted) return;
 
       try {
         // Обрабатываем XFile (image_picker)
         for (final file in selectedXFiles) {
           final bytes = await file.readAsBytes();
           final fileName = file.name;
-          final mimeType = _getMimeType(file.name);
+          final mimeType = mimeTypeFromFilename(file.name);
 
           await reportState.addMediaFromBytes(
             questionIndex: questionIndex,
@@ -4173,9 +4156,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     if (selectedFiles.isEmpty) return;
 
+    if (!context.mounted) return;
     final reportState = context.read<ReportState>();
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    if (!mounted) return;
 
     try {
       for (final file in selectedFiles) {
@@ -4298,7 +4281,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       } else {
         // Обычный медиа‑элемент
         items.add(
-          _MediaItemWidget(
+          MediaItemWidget(
             media: media,
             reportPath: reportState.currentReportPath,
             onTap: () => _showFullMediaViewer(
@@ -4341,7 +4324,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (ctx) => _FullMediaViewerScreen(
+        builder: (ctx) => FullMediaViewerScreen(
           mediaList: mediaList,
           initialIndex: initialIndex,
           reportPath: reportState?.currentReportPath,
@@ -4362,763 +4345,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
           },
           startInSelectionMode: startInSelectionMode,
         ),
-      ),
-    );
-  }
-}
-
-class _VideoThumbnailWidget extends StatefulWidget {
-  final String? localPath;
-  final int size;
-  final int? fileSize;
-  final int? compressedSize;
-  final Uint8List? webBytes;
-  final bool isUploading;
-  final double uploadProgress;
-
-  const _VideoThumbnailWidget({
-    this.localPath,
-    this.size = 80,
-    this.fileSize,
-    this.compressedSize,
-    this.webBytes,
-    this.isUploading = false,
-    this.uploadProgress = 0.0,
-  });
-
-  @override
-  State<_VideoThumbnailWidget> createState() => _VideoThumbnailWidgetState();
-}
-
-class _VideoThumbnailWidgetState extends State<_VideoThumbnailWidget> {
-  Uint8List? _thumbnailBytes;
-
-  @override
-  void initState() {
-    super.initState();
-    _generateThumbnail();
-  }
-
-  Future<void> _generateThumbnail() async {
-    if (kIsWeb || widget.localPath == null) return;
-    try {
-      final bytes = await VideoThumbnail.thumbnailData(
-        video: widget.localPath!,
-        imageFormat: ImageFormat.JPEG,
-        maxWidth: widget.size,
-        maxHeight: widget.size,
-        quality: 50,
-      );
-      if (mounted) {
-        setState(() {
-          _thumbnailBytes = bytes;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error generating thumbnail: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final sizeToShow = widget.compressedSize ?? widget.fileSize;
-    final isCompressed = widget.compressedSize != null;
-    final needsCompression =
-        widget.fileSize != null && widget.fileSize! > 5 * 1024 * 1024;
-
-    Color dotColor;
-    if (isCompressed) {
-      dotColor = Colors.green;
-    } else if (needsCompression) {
-      dotColor = Colors.red;
-    } else {
-      dotColor = Colors.grey;
-    }
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (_thumbnailBytes != null)
-          Image.memory(
-            _thumbnailBytes!,
-            width: widget.size.toDouble(),
-            height: widget.size.toDouble(),
-            fit: BoxFit.cover,
-          )
-        else
-          const Center(
-            child: Icon(Icons.videocam, size: 30, color: Color(0xFF999999)),
-          ),
-        Positioned(
-          top: 2,
-          right: 2,
-          child: Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: dotColor,
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
-            ),
-          ),
-        ),
-        if (sizeToShow != null && !widget.isUploading)
-          Positioned(
-            bottom: 2,
-            right: 2,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(
-                _formatFileSize(sizeToShow),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        // P3-52: индикатор загрузки видео на сервер.
-        if (widget.isUploading)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black54,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 48,
-                    child: LinearProgressIndicator(
-                      value: widget.uploadProgress > 0 ? widget.uploadProgress : null,
-                      backgroundColor: Colors.white24,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.uploadProgress >= 1.0
-                        ? 'Сохранение...'
-                        : widget.uploadProgress > 0
-                            ? '${(widget.uploadProgress * 100).toStringAsFixed(0)}%'
-                            : 'Загрузка...',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-}
-
-class _MediaItemWidget extends StatelessWidget {
-  final Map<String, dynamic> media;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-  final VoidCallback onDelete;
-  final String? reportPath;
-
-  const _MediaItemWidget({
-    required this.media,
-    required this.onTap,
-    required this.onLongPress,
-    required this.onDelete,
-    this.reportPath,
-  });
-
-  String? _getAbsolutePath(String? relativePath) {
-    if (relativePath == null || relativePath.isEmpty) return null;
-    if (reportPath == null) return relativePath;
-    if (relativePath.startsWith('/') || relativePath.contains(':\\')) {
-      return relativePath;
-    }
-    return '$reportPath/$relativePath';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          child: Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: const Color(0xFFf3f4f6),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                width: 2,
-                color: (media['attention'] == true)
-                    ? const Color(0xFFf59e0b)
-                    : const Color(0xFFe5e7eb),
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Builder(
-                builder: (context) {
-                  final localPath = _getAbsolutePath(
-                    media['localPath'] as String?,
-                  );
-                  final isImage = (media['type'] as String? ?? '').startsWith('image');
-                  final webBytes = media['webBytes'] as Uint8List?;
-
-                  if (isImage) {
-                    // Web: отображаем из webBytes (freshly загруженные фото)
-                    if (kIsWeb && webBytes != null) {
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.memory(
-                            webBytes,
-                            width: 70,
-                            height: 70,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.broken_image,
-                              color: Colors.red,
-                            ),
-                          ),
-                          // Индикатор загрузки на сервер (если serverFileId ещё нет)
-                          if (media['serverFileId'] == null)
-                            Container(
-                              color: Colors.black45,
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    }
-                    // Web: отображаем через presigned URL (фото с сервера)
-                    final webUrl = media['webUrl'] as String?;
-                    if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.network(
-                            webUrl,
-                            width: 70,
-                            height: 70,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return const Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.broken_image,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                    // Mobile/Desktop: отображаем из файла
-                    if (!kIsWeb && localPath != null) {
-                      if (!File(localPath).existsSync()) {
-                        return const Icon(
-                          Icons.broken_image,
-                          color: Colors.red,
-                        );
-                      }
-                      return fileImageWidget(
-                        localPath,
-                        width: 70,
-                        height: 70,
-                        fit: BoxFit.cover,
-                      );
-                    }
-                    // Нет данных для отображения
-                    return const Center(
-                      child: Icon(
-                        Icons.image,
-                        size: 30,
-                        color: Color(0xFF999999),
-                      ),
-                    );
-                  }
-
-                  // Видео
-                  return _VideoThumbnailWidget(
-                    localPath: localPath,
-                    size: 70,
-                    fileSize: media['fileSize'] as int?,
-                    compressedSize: media['compressedSize'] as int?,
-                    webBytes: webBytes,
-                    isUploading: media['isUploading'] == true,
-                    uploadProgress: (media['uploadProgress'] as num?)?.toDouble() ?? 0.0,
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FullMediaViewerScreen extends StatefulWidget {
-  final List mediaList;
-  final int initialIndex;
-  final Function(List<int>)? onDelete;
-  final String? reportPath;
-  final bool startInSelectionMode;
-
-  const _FullMediaViewerScreen({
-    required this.mediaList,
-    this.initialIndex = 0,
-    this.onDelete,
-    this.reportPath,
-    this.startInSelectionMode = false,
-  });
-
-  @override
-  State<_FullMediaViewerScreen> createState() => _FullMediaViewerScreenState();
-}
-
-class _FullMediaViewerScreenState extends State<_FullMediaViewerScreen> {
-  late final PageController _pageController;
-  late int _currentIndex;
-  bool _showGrid = false;
-  final Set<int> _selectedIndices = {};
-  VideoPlayerController? _videoController;
-  bool _isPlaying = false;
-
-  String? _getAbsolutePath(String? relativePath) {
-    if (relativePath == null || relativePath.isEmpty) return null;
-    if (widget.reportPath == null) return relativePath;
-    if (relativePath.startsWith('/') || relativePath.contains(':\\')) {
-      return relativePath;
-    }
-    return '${widget.reportPath}/$relativePath';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: _currentIndex);
-
-    if (widget.startInSelectionMode) {
-      _showGrid = true;
-      _selectedIndices.add(widget.initialIndex);
-    } else {
-      _initializeVideo(widget.initialIndex);
-    }
-
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
-
-  void _initializeVideo(int index) {
-    if (_videoController != null) {
-      _videoController!.dispose();
-      _videoController = null;
-    }
-
-    if (index >= 0 && index < widget.mediaList.length) {
-      final media = widget.mediaList[index] as Map<String, dynamic>;
-      final localPath = _getAbsolutePath(media['localPath'] as String?);
-      final webUrl = media['webUrl'] as String?;
-      final isVideo =
-          (media['type'] as String? ?? '').startsWith('video');
-
-      if (isVideo) {
-        if (!kIsWeb && localPath != null) {
-          _videoController = createFileVideoController(localPath)
-            ..initialize().then((_) {
-              // P3-48: проверка mounted — виджет мог быть удалён
-              // к моменту завершения async initialize().
-              if (mounted) {
-                setState(() {});
-              }
-            });
-        } else if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
-          _videoController = VideoPlayerController.networkUrl(Uri.parse(webUrl))
-            ..initialize().then((_) {
-              if (mounted) {
-                setState(() {});
-              }
-            });
-        }
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    _videoController?.dispose();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    super.dispose();
-  }
-
-  void _toggleSelect(int index) {
-    setState(() {
-      if (_selectedIndices.contains(index)) {
-        _selectedIndices.remove(index);
-      } else {
-        _selectedIndices.add(index);
-      }
-    });
-  }
-
-  void _deleteSelected() {
-    if (widget.onDelete != null && _selectedIndices.isNotEmpty) {
-      widget.onDelete!(List.from(_selectedIndices));
-    }
-    Navigator.pop(context);
-  }
-
-  void _deleteCurrent() {
-    if (widget.onDelete != null) {
-      widget.onDelete!([_currentIndex]);
-    }
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text('${_currentIndex + 1}/${widget.mediaList.length}'),
-        actions: [
-          if (_showGrid && _selectedIndices.isNotEmpty)
-            TextButton(
-              onPressed: _deleteSelected,
-              child: Text(
-                '${loc.delete} (${_selectedIndices.length})',
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
-          if (!_showGrid)
-            IconButton(
-              icon: const Icon(Icons.grid_view),
-              onPressed: () {
-                setState(() {
-                  _showGrid = true;
-                });
-              },
-            ),
-          if (!_showGrid)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: _deleteCurrent,
-            ),
-        ],
-      ),
-      body: _showGrid ? _buildGrid() : _buildViewer(),
-    );
-  }
-
-  Widget _buildGrid() {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
-      ),
-      padding: const EdgeInsets.all(4),
-      itemCount: widget.mediaList.length,
-      itemBuilder: (ctx, index) {
-        final media = widget.mediaList[index] as Map<String, dynamic>;
-        final isSelected = _selectedIndices.contains(index);
-        final isVideo = (media['type'] as String? ?? '').startsWith('video');
-
-        return Stack(
-          children: [
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _currentIndex = index;
-                  _showGrid = false;
-                });
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (_pageController.hasClients) {
-                    _pageController.jumpToPage(index);
-                  }
-                });
-                _initializeVideo(index);
-              },
-              onLongPress: () => _toggleSelect(index),
-              child: isVideo
-                  ? (!kIsWeb && media['localPath'] != null
-                        ? _VideoThumbnailWidget(
-                            localPath: _getAbsolutePath(media['localPath']),
-                            size: 100,
-                            fileSize: media['fileSize'] as int?,
-                            compressedSize: media['compressedSize'] as int?,
-                          )
-                        : (kIsWeb && (media['webUrl'] as String?) != null
-                              ? Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Image.network(
-                                      media['webUrl'] as String,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          const Icon(Icons.broken_image,
-                                              color: Colors.grey),
-                                    ),
-                                    const Positioned(
-                                      bottom: 4,
-                                      right: 4,
-                                      child: Icon(Icons.play_circle,
-                                          color: Colors.white, size: 20),
-                                    ),
-                                  ],
-                                )
-                              : const Icon(Icons.videocam, color: Colors.grey)))
-                  : (!kIsWeb && media['localPath'] != null
-                        ? fileImageWidget(
-                            _getAbsolutePath(media['localPath']) ??
-                                media['localPath'],
-                            fit: BoxFit.cover,
-                          )
-                        : (kIsWeb && (media['webUrl'] as String?) != null
-                              ? Image.network(
-                                  media['webUrl'] as String,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return const Center(
-                                      child: SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.broken_image,
-                                      color: Colors.grey),
-                                )
-                              : const Icon(Icons.image, color: Colors.grey))),
-            ),
-            if (isSelected)
-              const Positioned(
-                top: 4,
-                right: 4,
-                child: Icon(Icons.check_circle, color: Colors.blue, size: 20),
-              ),
-            if (isVideo)
-              const Positioned(
-                bottom: 4,
-                right: 4,
-                child: Icon(Icons.play_circle, color: Colors.white, size: 20),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildViewer() {
-    return Column(
-      children: [
-        Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: widget.mediaList.length,
-            onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-              _initializeVideo(index);
-            },
-            itemBuilder: (ctx, index) {
-              final media = widget.mediaList[index] as Map<String, dynamic>;
-              final isVideo = (media['type'] as String? ?? '').startsWith(
-                'video',
-              );
-
-              if (isVideo) {
-                return _buildVideoPlayer(index);
-              } else {
-                final localPath = _getAbsolutePath(
-                  media['localPath'] as String?,
-                );
-                final webUrl = media['webUrl'] as String?;
-                return Center(
-                  child: (!kIsWeb && localPath != null)
-                      ? fileImageWidget(localPath, fit: BoxFit.contain)
-                      : (kIsWeb && webUrl != null && webUrl.isNotEmpty
-                            ? InteractiveViewer(
-                                child: Image.network(
-                                  webUrl,
-                                  fit: BoxFit.contain,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return const Center(
-                                      child: SizedBox(
-                                        width: 40,
-                                        height: 40,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 3,
-                                            color: Colors.white),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.broken_image,
-                                      size: 60,
-                                      color: Colors.white),
-                                ),
-                              )
-                            : const Icon(Icons.image,
-                                size: 60, color: Colors.white)),
-                );
-              }
-            },
-          ),
-        ),
-        // Video controls
-        if (_videoController != null && _videoController!.value.isInitialized)
-          _buildVideoControls(),
-      ],
-    );
-  }
-
-  Widget _buildVideoPlayer(int index) {
-    final media = widget.mediaList[index] as Map<String, dynamic>;
-    final localPath = _getAbsolutePath(media['localPath'] as String?);
-    final webUrl = media['webUrl'] as String?;
-
-    final bool isInitialized =
-        _videoController != null && _videoController!.value.isInitialized;
-
-    if (!kIsWeb && localPath != null && isInitialized) {
-      return Center(
-        child: Stack(
-          children: [
-            AspectRatio(
-              aspectRatio: _videoController!.value.aspectRatio,
-              child: VideoPlayer(_videoController!),
-            ),
-            if (!_isPlaying)
-              Center(
-                child: IconButton(
-                  icon: const Icon(Icons.play_circle_filled, size: 60),
-                  color: Colors.white,
-                  onPressed: () {
-                    setState(() {
-                      _isPlaying = true;
-                      _videoController!.play();
-                    });
-                  },
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
-    if (kIsWeb && webUrl != null && webUrl.isNotEmpty && isInitialized) {
-      return Center(
-        child: Stack(
-          children: [
-            AspectRatio(
-              aspectRatio: _videoController!.value.aspectRatio,
-              child: VideoPlayer(_videoController!),
-            ),
-            if (!_isPlaying)
-              Center(
-                child: IconButton(
-                  icon: const Icon(Icons.play_circle_filled, size: 60),
-                  color: Colors.white,
-                  onPressed: () {
-                    setState(() {
-                      _isPlaying = true;
-                      _videoController!.play();
-                    });
-                  },
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-
-    return const Center(
-      child: Icon(Icons.videocam, size: 60, color: Colors.white),
-    );
-  }
-
-  Widget _buildVideoControls() {
-    return Container(
-      color: Colors.black,
-      padding: const EdgeInsets.all(8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-            color: Colors.white,
-            onPressed: () {
-              setState(() {
-                if (_isPlaying) {
-                  _videoController!.pause();
-                } else {
-                  _videoController!.play();
-                }
-                _isPlaying = !_isPlaying;
-              });
-            },
-          ),
-          Expanded(
-            child: VideoProgressIndicator(
-              _videoController!,
-              allowScrubbing: true,
-              colors: const VideoProgressColors(
-                playedColor: Colors.blue,
-                bufferedColor: Colors.grey,
-                backgroundColor: Colors.black,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.fullscreen),
-            color: Colors.white,
-            onPressed: () {},
-          ),
-        ],
       ),
     );
   }
