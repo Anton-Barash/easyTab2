@@ -4,6 +4,7 @@
 // чтобы iframe мог загружать фото с авторизацией.
 // ============================================================
 
+// ignore: deprecated_member_use, avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 
 /// Установить cookie auth_token.

@@ -395,38 +395,33 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 const SizedBox(height: 8),
                 Text(loc.compressVideoTitle),
                 const SizedBox(height: 16),
-                RadioListTile<int>(
-                  title: Text(loc.highQuality),
-                  subtitle: Text(loc.highQualityDesc),
-                  value: 1,
+                RadioGroup<int>(
                   groupValue: selectedQuality,
                   onChanged: (value) {
                     setState(() {
-                      selectedQuality = value!;
+                      selectedQuality = value ?? 2;
                     });
                   },
-                ),
-                RadioListTile<int>(
-                  title: Text(loc.mediumQuality),
-                  subtitle: Text(loc.mediumQualityDesc),
-                  value: 2,
-                  groupValue: selectedQuality,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedQuality = value!;
-                    });
-                  },
-                ),
-                RadioListTile<int>(
-                  title: Text(loc.lowQuality),
-                  subtitle: Text(loc.lowQualityDesc),
-                  value: 3,
-                  groupValue: selectedQuality,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedQuality = value!;
-                    });
-                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RadioListTile<int>(
+                        title: Text(loc.highQuality),
+                        subtitle: Text(loc.highQualityDesc),
+                        value: 1,
+                      ),
+                      RadioListTile<int>(
+                        title: Text(loc.mediumQuality),
+                        subtitle: Text(loc.mediumQualityDesc),
+                        value: 2,
+                      ),
+                      RadioListTile<int>(
+                        title: Text(loc.lowQuality),
+                        subtitle: Text(loc.lowQualityDesc),
+                        value: 3,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             );
@@ -563,8 +558,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final fileName = file.name;
     final mimeType = mimeTypeFromFilename(fileName);
 
-    final shouldCompress =
-        mimeType.startsWith('video/') && bytes.length > 10 * 1024 * 1024;
+    // P3-57: сжимаем ВСЕ видео (без порога по размеру).
+    // Раньше сжимались только видео > 10 МБ, но мелкие файлы тоже загружались
+    // без сжатия, и на KS3 появлялись несжатые видео.
+    final shouldCompress = mimeType.startsWith('video/');
 
     // Добавляем медиа сразу — пользователь видит результат.
     // При shouldCompress откладываем загрузку до завершения сжатия.

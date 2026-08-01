@@ -231,8 +231,8 @@ class ApiService {
     try {
       final body = jsonEncode({
         'fileName': fileName,
-        if (relativePath != null) 'relativePath': relativePath,
-        if (reportId != null) 'reportId': reportId,
+        if (relativePath != null) 'relativePath': relativePath, // ignore: use_null_aware_elements
+        if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
       });
 
       final response = await http
@@ -267,7 +267,7 @@ class ApiService {
         'size': size,
         'mimeType': mimeType,
         'relPath': relPath,
-        if (reportId != null) 'reportId': reportId,
+        if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
       });
 
       final response = await http
@@ -437,7 +437,7 @@ class ApiService {
       final body = jsonEncode({
         'title': title,
         'reportData': reportData,
-        if (reportId != null) 'reportId': reportId,
+        if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
       });
 
       final response = await http
