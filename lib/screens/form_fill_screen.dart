@@ -21,7 +21,6 @@ import '../services/api_service.dart';
 import '../l10n/app_localizations.dart';
 import '../models/report_models.dart';
 import '../utils/open_html.dart';
-import '../utils/web_video_compressor.dart';
 import 'full_media_viewer_screen.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -61,9 +60,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   bool _checkedSyncAfterLoad = false;
 
-  /// Компрессор видео для web (ffmpeg.wasm).
-  final WebVideoCompressor _webVideoCompressor = WebVideoCompressor.create();
-
   void _resetControllers() {
     _answerControllers.values
         .expand((map) => map.values)
@@ -101,7 +97,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
         .expand((map) => map.values)
         .forEach((timer) => timer?.cancel());
     _pageController.dispose();
-    _webVideoCompressor.dispose();
     super.dispose();
   }
 
@@ -379,287 +374,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  void _showCompressVideoDialog() {
-    final loc = AppLocalizations.of(context)!;
-    int selectedQuality = 2;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(loc.compressVideoTitle),
-        content: StatefulBuilder(
-          builder: (dialogCtx, setState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 8),
-                Text(loc.compressVideoTitle),
-                const SizedBox(height: 16),
-                RadioGroup<int>(
-                  groupValue: selectedQuality,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedQuality = value ?? 2;
-                    });
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      RadioListTile<int>(
-                        title: Text(loc.highQuality),
-                        subtitle: Text(loc.highQualityDesc),
-                        value: 1,
-                      ),
-                      RadioListTile<int>(
-                        title: Text(loc.mediumQuality),
-                        subtitle: Text(loc.mediumQualityDesc),
-                        value: 2,
-                      ),
-                      RadioListTile<int>(
-                        title: Text(loc.lowQuality),
-                        subtitle: Text(loc.lowQualityDesc),
-                        value: 3,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(loc.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _compressVideosWithQuality(selectedQuality);
-            },
-            child: Text(loc.ok),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _compressVideosWithQuality(int quality) async {
-    final reportState = context.read<ReportState>();
-    final loc = AppLocalizations.of(context)!;
-    int currentProgress = 0;
-    int totalVideos = 0;
-    List<String> compressedVideos = [];
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setState) {
-          return AlertDialog(
-            title: Text(loc.compressVideoTitle),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(loc.compressingVideo),
-                const SizedBox(height: 16),
-                LinearProgressIndicator(
-                  value: totalVideos > 0 ? currentProgress / totalVideos : 0,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  totalVideos > 0 ? '$currentProgress / $totalVideos' : '',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-
-    try {
-      compressedVideos = await reportState.compressVideosWithSettings(
-        qualityLevel: quality,
-        onProgress: (current, total) {
-          currentProgress = current;
-          totalVideos = total;
-        },
-      );
-
-      if (mounted) {
-        Navigator.of(context).pop();
-
-        if (compressedVideos.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(loc.noVideoToCompress),
-            ),
-          );
-        } else {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: Text(loc.compressionComplete),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(loc.compressedVideoCount(compressedVideos.length)),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 200,
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: compressedVideos.length,
-                      itemBuilder: (_, index) {
-                        return Text(
-                          compressedVideos[index].split('/').last,
-                          style: const TextStyle(fontSize: 12),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(loc.ok),
-                ),
-              ],
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.compressionError(e.toString()))));
-      }
-    }
-  }
-
-  /// Обработать один web-файл: для видео > 10 МБ запустить фоновое сжатие.
-  ///
-  /// Медиа добавляется в отчёт НЕМЕДЛЕННО с оригинальными байтами —
-  /// пользователь может продолжать работу. Сжатие выполняется в фоне,
-  /// прогресс отображается на миниатюре. По завершении байты заменяются
-  /// на сжатые и запускается загрузка на сервер.
-  Future<void> _processWebMediaFile({
-    required PlatformFile file,
-    required int questionIndex,
-    required int answerIndex,
-    required bool isAttention,
-    required ReportState reportState,
-  }) async {
-    final bytes = file.bytes!;
-    final fileName = file.name;
-    final mimeType = mimeTypeFromFilename(fileName);
-
-    // P3-57: сжимаем ВСЕ видео (без порога по размеру).
-    // Раньше сжимались только видео > 10 МБ, но мелкие файлы тоже загружались
-    // без сжатия, и на KS3 появлялись несжатые видео.
-    final shouldCompress = mimeType.startsWith('video/');
-
-    // Добавляем медиа сразу — пользователь видит результат.
-    // При shouldCompress откладываем загрузку до завершения сжатия.
-    final mediaName = await reportState.addMediaFromBytes(
-      questionIndex: questionIndex,
-      answerIndex: answerIndex,
-      bytes: bytes,
-      fileName: fileName,
-      mimeType: mimeType,
-      isAttention: isAttention,
-      deferUpload: shouldCompress,
-    );
-
-    // Если сжатие не нужно — загрузка уже запущена (или запустится при save).
-    if (!shouldCompress || mediaName == null) return;
-
-    // Если ffmpeg.wasm уже загружен — пропускаем предупреждение о трафике.
-    if (!_webVideoCompressor.isLoaded) {
-      final confirmed = await _showWebCompressionWarningDialog();
-      if (!confirmed) {
-        // Пользователь отказался — запускаем загрузку с оригинальными байтами.
-        await reportState.updateMediaCompressed(mediaName, bytes);
-        return;
-      }
-    }
-
-    // Запускаем сжатие в фоне — без модального диалога.
-    // Прогресс обновляется через reportState.setCompressProgress() и
-    // отображается на миниатюре (см. VideoThumbnailWidget).
-    _compressVideoInBackground(
-      reportState: reportState,
-      mediaName: mediaName,
-      videoBytes: bytes,
-    );
-  }
-
-  /// Фоновое сжатие видео через ffmpeg.wasm без блокировки UI.
-  ///
-  /// Прогресс передаётся в [ReportState.setCompressProgress] для отображения
-  /// на миниатюре. По завершении вызывается [ReportState.updateMediaCompressed],
-  /// которая заменяет байты и запускает загрузку на сервер.
-  Future<void> _compressVideoInBackground({
-    required ReportState reportState,
-    required String mediaName,
-    required Uint8List videoBytes,
-  }) async {
-    try {
-      await _webVideoCompressor.initialize();
-
-      // Передаём прогресс в ReportState для индикатора на миниатюре.
-      final progressSub = _webVideoCompressor.progressStream.listen((progress) {
-        reportState.setCompressProgress(mediaName, progress);
-      });
-
-      final result = await _webVideoCompressor.compressVideo(videoBytes);
-      await progressSub.cancel();
-
-      // P3-56: проверяем, что результат сжатия не пустой.
-      // FFmpeg.wasm при ошибке может вернуть пустой Uint8List (length=0) —
-      // без этой проверки пустой файл сохранится как "сжатый" (0 байт),
-      // и на KS3 появится пустое видео.
-      if (result != null && result.isNotEmpty && result.length < videoBytes.length) {
-        await reportState.updateMediaCompressed(mediaName, result);
-      } else {
-        // Сжатие не дало результата, файл пустой или стал больше — загружаем оригинал.
-        await reportState.updateMediaCompressed(mediaName, videoBytes);
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('Background compression failed: $e');
-      // При ошибке — загружаем оригинальные байты.
-      await reportState.updateMediaCompressed(mediaName, videoBytes);
-    }
-  }
-
-  /// Диалог с предупреждением о повышенном трафике при первом сжатии.
-  Future<bool> _showWebCompressionWarningDialog() async {
-    final loc = AppLocalizations.of(context)!;
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(loc.compressVideoTitle),
-        content: Text(loc.compressVideoWebWarning),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(loc.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(loc.compressVideoTitle),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
-
   void _showDeleteAnswerDialog(
     BuildContext context,
     int i,
@@ -705,16 +419,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               backgroundColor: AppColors.errorLight,
                               foregroundColor: Colors.white,
                             ),
-                            onPressed: () {
+                            onPressed: () async {
                               final qid = i.toString();
                               _debounceTimers[qid]?[j]?.cancel();
                               _debounceTimers[qid]?.remove(j);
                               _answerControllers[qid]?[j]?.dispose();
                               _answerControllers[qid]?.remove(j);
                               _enabledAnswers[qid]?.remove(j);
-                              reportState.removeAnswer(i, j);
+                              await reportState.removeAnswer(i, j);
                               _markAsUnsaved();
-                              Navigator.pop(ctx);
+                              if (context.mounted) Navigator.pop(ctx);
                             },
                             child: Text(loc.delete),
                           ),
@@ -742,16 +456,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           backgroundColor: AppColors.errorLight,
                           foregroundColor: Colors.white,
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           final qid = i.toString();
                           _debounceTimers[qid]?[j]?.cancel();
                           _debounceTimers[qid]?.remove(j);
                           _answerControllers[qid]?[j]?.dispose();
                           _answerControllers[qid]?.remove(j);
                           _enabledAnswers[qid]?.remove(j);
-                          reportState.removeAnswer(i, j);
+                          await reportState.removeAnswer(i, j);
                           _markAsUnsaved();
-                          Navigator.pop(ctx);
+                          if (context.mounted) Navigator.pop(ctx);
                         },
                         child: Text(loc.delete),
                       ),
@@ -1199,18 +913,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ],
                       ),
                     ),
-                  // P3-46: «Сжать видео» — только на native, на web недоступно.
-                  if (!kIsWeb)
-                    PopupMenuItem(
-                      value: 6,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.video_call),
-                          const SizedBox(width: 8),
-                          Text(loc.compressVideoTitle),
-                        ],
-                      ),
-                    ),
                   PopupMenuItem(
                     value: 3,
                     child: Row(
@@ -1391,8 +1093,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     _showSyncMenuDialog();
                   } else if (value == 5) {
                     Navigator.pushReplacementNamed(context, '/');
-                  } else if (value == 6) {
-                    _showCompressVideoDialog();
                   } else if (value == 7) {
                     // Залить отчёт на сервер (только для залогиненных)
                     await _uploadReportToServer();
@@ -1897,7 +1597,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       });
                     },
                     child: Container(
-                      color: Colors.black.withValues(alpha: 0.5),
+                      color: const Color(0x80000000), // black 50% opacity
                     ),
                   ),
                 ),
@@ -3537,7 +3237,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             if (confirm == true &&
                                 report.questions.length > 1) {
                               _resetControllers();
-                              reportState.removeQuestion(index);
+                              await reportState.removeQuestion(index);
                               if (_currentPage >= report.questions.length) {
                                 _currentPage = report.questions.isNotEmpty
                                     ? report.questions.length - 1
@@ -3718,7 +3418,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       if (confirm == true &&
                                           report.questions.length > 1) {
                                         _resetControllers();
-                                        reportState.removeQuestion(index);
+                                        await reportState.removeQuestion(index);
                                         if (_currentPage >=
                                             report.questions.length) {
                                           _currentPage =
@@ -4070,43 +3770,77 @@ class _FormFillScreenState extends State<FormFillScreen> {
       final reportState = context.read<ReportState>();
       final scaffoldMessenger = ScaffoldMessenger.of(context);
 
+      void onVideoError(String code) {
+        if (!mounted) return;
+        final loc = AppLocalizations.of(context)!;
+        String message;
+        switch (code) {
+          case 'ffmpegTrafficWarning':
+            message = loc.ffmpegTrafficWarning;
+            break;
+          case 'compression_ineffective':
+            message = loc.videoCompressionIneffective;
+            break;
+          case 'compression_failed':
+            message = loc.videoCompressionFailed;
+            break;
+          case 'upload_failed':
+          default:
+            message = loc.videoUploadFailed;
+            break;
+        }
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text(message)));
+      }
+
       try {
-        // Обрабатываем XFile (image_picker)
+        var anyAdded = false;
+
+        // Обрабатываем XFile (image_picker) — преобразуем в PlatformFile
+        // для единообразной обработки (включая сжатие видео).
         for (final file in selectedXFiles) {
           final bytes = await file.readAsBytes();
-          final fileName = file.name;
-          final mimeType = mimeTypeFromFilename(file.name);
-
+          final platformFile = PlatformFile(
+            name: file.name,
+            size: bytes.length,
+            bytes: bytes,
+          );
           await reportState.addMediaFromBytes(
             questionIndex: questionIndex,
             answerIndex: answerIndex,
             bytes: bytes,
-            fileName: fileName,
-            mimeType: mimeType,
+            fileName: platformFile.name,
+            mimeType: mimeTypeFromFilename(platformFile.name),
             isAttention: isAttention,
+            onVideoError: onVideoError,
           );
+          anyAdded = true;
         }
 
         // Обрабатываем PlatformFile (file_picker)
         for (final file in selectedPlatformFiles) {
           if (file.bytes == null) continue;
-          await _processWebMediaFile(
-            file: file,
+          await reportState.addMediaFromBytes(
             questionIndex: questionIndex,
             answerIndex: answerIndex,
+            bytes: file.bytes!,
+            fileName: file.name,
+            mimeType: mimeTypeFromFilename(file.name),
             isAttention: isAttention,
-            reportState: reportState,
+            onVideoError: onVideoError,
           );
+          anyAdded = true;
         }
 
-        // Сохраняем отчёт в фоне, не блокируя UI.
-        reportState.saveReport().then((_) {
-          if (mounted) {
-            setState(() {
-              _hasUnsavedChanges = false;
-            });
-          }
-        });
+        // Сохраняем отчёт в фоне, не блокируя UI, только если что-то добавлено.
+        if (anyAdded) {
+          reportState.saveReport().then((_) {
+            if (mounted) {
+              setState(() {
+                _hasUnsavedChanges = false;
+              });
+            }
+          });
+        }
       } catch (e) {
         scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('${loc.saveError}$e')),
@@ -4300,8 +4034,30 @@ class _FormFillScreenState extends State<FormFillScreen> {
               startInSelectionMode: true,
             ),
             onDelete: () async {
-              await reportState.removeMedia(questionIndex, answerIndex, idx);
-              await reportState.saveReport();
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Удалить?'),
+                  content: const Text('Файл будет удален без возможности восстановления.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Отмена'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
+                      child: const Text('Удалить'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                await reportState.removeMedia(questionIndex, answerIndex, idx);
+                await reportState.saveReport();
+              }
             },
           ),
         );

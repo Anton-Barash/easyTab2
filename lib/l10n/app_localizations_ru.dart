@@ -114,9 +114,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get share => 'Поделиться';
 
   @override
-  String get compressVideo => 'Сжать видео';
-
-  @override
   String get syncTranslations => 'Синхронизировать переводы';
 
   @override
@@ -583,56 +580,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get fillAllFields => 'Пожалуйста, заполните все поля';
 
   @override
-  String get compressVideoTitle => 'Сжать видео';
+  String get videoCompressionFailed => 'Не удалось сжать видео';
 
   @override
-  String get highQuality => 'Высокое качество';
+  String get videoCompressionIneffective => 'Сжатие не уменьшило размер видео';
 
   @override
-  String get highQualityDesc => 'Меньшее сжатие, лучше качество';
+  String get videoUploadFailed => 'Не удалось загрузить видео';
 
   @override
-  String get mediumQuality => 'Среднее качество';
-
-  @override
-  String get mediumQualityDesc => 'Сбалансированное сжатие';
-
-  @override
-  String get lowQuality => 'Низкое качество';
-
-  @override
-  String get lowQualityDesc => 'Максимальное сжатие';
-
-  @override
-  String get compressingVideo => 'Сжимаем видео...';
-
-  @override
-  String get noVideoToCompress => 'Нет видео для сжатия или все уже сжаты';
-
-  @override
-  String get compressionComplete => 'Сжатие завершено';
-
-  @override
-  String compressedVideoCount(int count) {
-    return 'Сжато видео: $count';
-  }
-
-  @override
-  String compressionError(String error) {
-    return 'Ошибка сжатия: $error';
-  }
-
-  @override
-  String get compressVideoWebWarning =>
-      'Видео больше 10 МБ. Сжатие в браузере скачает около 25 МБ данных при первом использовании. Продолжить?';
-
-  @override
-  String get compressVideoWebInitializing => 'Загрузка ffmpeg.wasm (~25 МБ)...';
-
-  @override
-  String compressVideoWebProgress(String percent) {
-    return 'Сжимаем видео... $percent%';
-  }
+  String get ffmpegTrafficWarning =>
+      'Видео сжимается в браузере. Первый запуск загружает ~25 МБ.';
 
   @override
   String get importProject => 'Импорт проекта';

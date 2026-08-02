@@ -35,7 +35,6 @@
   "viewHtml": "View HTML",
   "saveZip": "Save ZIP",
   "share": "Share",
-  "compressVideo": "Compress Video",
   "syncTranslations": "Sync Translations",
   "exportExcel": "Export Excel",
   "exit": "← Back",
@@ -249,42 +248,10 @@
   "photo": "Photo",
   "addPhoto": "Add photo",
   "fillAllFields": "Please fill in all fields",
-  "compressVideoTitle": "Compress Video",
-  "highQuality": "High quality",
-  "highQualityDesc": "Less compression, better quality",
-  "mediumQuality": "Medium quality",
-  "mediumQualityDesc": "Balanced compression",
-  "lowQuality": "Low quality",
-  "lowQualityDesc": "Maximum compression",
-  "compressingVideo": "Compressing video...",
-  "noVideoToCompress": "No video to compress or all already compressed",
-  "compressionComplete": "Compression complete",
-  "compressedVideoCount": "Compressed videos: {count}",
-  "@compressedVideoCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "compressionError": "Compression error: {error}",
-  "@compressionError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "compressVideoWebWarning": "The video is larger than 10 MB. Browser compression will download about 25 MB of data on first use. Continue?",
-  "compressVideoWebInitializing": "Loading ffmpeg.wasm (~25 MB)...",
-  "compressVideoWebProgress": "Compressing video... {percent}%",
-  "@compressVideoWebProgress": {
-    "placeholders": {
-      "percent": {
-        "type": "String"
-      }
-    }
-  },
+  "videoCompressionFailed": "Failed to compress video",
+  "videoCompressionIneffective": "Compression did not reduce video size",
+  "videoUploadFailed": "Failed to upload video",
+  "ffmpegTrafficWarning": "Video is being compressed in the browser. First use downloads ~25 MB.",
   "importProject": "Import project",
   "newReportTooltip": "New report",
   "noSavedReports": "No saved reports",

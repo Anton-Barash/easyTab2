@@ -114,9 +114,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get share => '分享';
 
   @override
-  String get compressVideo => '压缩视频';
-
-  @override
   String get syncTranslations => '同步翻译';
 
   @override
@@ -573,55 +570,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fillAllFields => '请填写所有字段';
 
   @override
-  String get compressVideoTitle => '压缩视频';
+  String get videoCompressionFailed => '视频压缩失败';
 
   @override
-  String get highQuality => '高质量';
+  String get videoCompressionIneffective => '压缩未减小视频大小';
 
   @override
-  String get highQualityDesc => '较少压缩，更好质量';
+  String get videoUploadFailed => '视频上传失败';
 
   @override
-  String get mediumQuality => '中等质量';
-
-  @override
-  String get mediumQualityDesc => '平衡压缩';
-
-  @override
-  String get lowQuality => '低质量';
-
-  @override
-  String get lowQualityDesc => '最大压缩';
-
-  @override
-  String get compressingVideo => '正在压缩视频...';
-
-  @override
-  String get noVideoToCompress => '没有视频可压缩或已全部压缩';
-
-  @override
-  String get compressionComplete => '压缩完成';
-
-  @override
-  String compressedVideoCount(int count) {
-    return '已压缩视频：$count';
-  }
-
-  @override
-  String compressionError(String error) {
-    return '压缩错误：$error';
-  }
-
-  @override
-  String get compressVideoWebWarning => '视频超过10MB。浏览器压缩首次使用时会下载约25MB数据。继续吗？';
-
-  @override
-  String get compressVideoWebInitializing => '加载 ffmpeg.wasm (~25 MB)...';
-
-  @override
-  String compressVideoWebProgress(String percent) {
-    return '正在压缩视频... $percent%';
-  }
+  String get ffmpegTrafficWarning => '视频正在浏览器中压缩。首次使用将下载约25MB。';
 
   @override
   String get importProject => '导入项目';

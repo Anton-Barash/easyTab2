@@ -169,14 +169,14 @@ class _LoginScreenState extends State<LoginScreen> {
         boxShadow: isOutline
             ? null
             : [
-                BoxShadow(
+                const BoxShadow(
                   color: AppColors.border,
                   blurRadius: 0,
                   spreadRadius: 1.5,
                 ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.13),
-                  offset: const Offset(2, 2),
+                const BoxShadow(
+                  color: AppColors.shadowOverlay,
+                  offset: Offset(2, 2),
                 ),
               ],
       ),
@@ -206,11 +206,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 color: AppColors.textPrimary,
                 shadows: [
                   Shadow(
-                    color: Color.fromRGBO(66, 66, 66, 0.45),
+                    color: AppColors.textShadowDark,
                     blurRadius: 1.2,
                   ),
                   Shadow(
-                    color: Color.fromRGBO(255, 255, 255, 0.9),
+                    color: AppColors.textShadowLight,
                     blurRadius: 0.8,
                   ),
                 ],

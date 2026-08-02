@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
@@ -7,8 +8,6 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:image/image.dart' as img;
-import 'package:v_video_compressor/v_video_compressor.dart';
 import 'package:easy_tab/utils/native_file_ops.dart'
     if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import '../models/report_models.dart';
@@ -17,72 +16,13 @@ import '../services/api_result.dart';
 import '../services/mime_utils.dart';
 import '../services/upload_helper_native.dart'
     if (dart.library.html) '../services/upload_helper_web.dart';
+import '../utils/image_compressor.dart';
+import '../services/video_upload_queue.dart';
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
 
 const int maxLanguages = 5;
-
-bool _isPng(Uint8List bytes) {
-  if (bytes.length < 8) return false;
-  return bytes[0] == 0x89 &&
-      bytes[1] == 0x50 &&
-      bytes[2] == 0x4E &&
-      bytes[3] == 0x47;
-}
-
-bool _isWebp(Uint8List bytes) {
-  if (bytes.length < 12) return false;
-  return bytes[8] == 0x57 &&
-      bytes[9] == 0x45 &&
-      bytes[10] == 0x42 &&
-      bytes[11] == 0x50;
-}
-
-Uint8List _compressImage(Uint8List bytes, int maxSize) {
-  try {
-    final image = img.decodeImage(bytes);
-    if (image == null) {
-      if (kDebugMode) debugPrint('Error: Could not decode image');
-      return bytes;
-    }
-
-    int width = image.width;
-    int height = image.height;
-
-    if (width <= maxSize && height <= maxSize) {
-      return bytes;
-    }
-
-    double scale = maxSize / (width > height ? width : height);
-    width = (width * scale).toInt();
-    height = (height * scale).toInt();
-
-    if (width < 1) width = 1;
-    if (height < 1) height = 1;
-
-    final resized = img.copyResize(image, width: width, height: height);
-
-    Uint8List result;
-    if (_isPng(bytes)) {
-      result = img.encodePng(resized);
-    } else if (_isWebp(bytes)) {
-      result = img.encodeJpg(resized, quality: 90);
-    } else {
-      result = img.encodeJpg(resized, quality: 90);
-    }
-
-    if (result.isEmpty) {
-      if (kDebugMode) debugPrint('Error: Compressed image is empty');
-      return bytes;
-    }
-
-    return result;
-  } catch (e) {
-    if (kDebugMode) debugPrint('Error compressing image: $e');
-    return bytes;
-  }
-}
 
 const Map<String, int> languagePriority = {'RU': 0, 'EN': 1, 'ZH': 2};
 
@@ -239,11 +179,32 @@ class ReportInfo {
 class ReportState extends ChangeNotifier {
   Report? _currentReport;
   String? _currentReportPath;
-  final Set<String> _compressedVideoPaths = {};
+
+  /// Фоновая очередь сжатия и загрузки видео (web only).
+  final VideoUploadQueue _videoQueue = VideoUploadQueue();
+  StreamSubscription<VideoUploadProgress>? _videoProgressSub;
+
+  /// Медиа, которые нужно удалить с сервера после завершения фоновой
+  /// обработки. Используется в removeQuestion/removeAnswer/removeMedia,
+  /// когда пользователь удаляет медиа, которое в данный момент сжимается
+  /// или загружается.
+  final Set<MediaItem> _pendingDeletion = <MediaItem>{};
+
+  ReportState() {
+    _videoProgressSub = _videoQueue.progressStream.listen((_) {
+      // Прогресс хранится внутри MediaItem; UI сам его отрисовывает.
+      notifyListeners();
+      _flushPendingDeletions();
+    });
+  }
 
   Report? get currentReport => _currentReport;
   String? get currentReportPath => _currentReportPath;
 
+  /// Создать новый отчёт по шаблону.
+  ///
+  /// Инициализирует структуру вопросов, переводов и маркеров.
+  /// Сбрасывает серверные идентификаторы — новый отчёт ещё не сохранён.
   void newReport(
     String name,
     List<Question> questions,
@@ -353,7 +314,7 @@ class ReportState extends ChangeNotifier {
     final mimeType = mimeTypeFromFilename(file.path);
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = _compressImage(Uint8List.fromList(bytes), 2000);
+      final compressed = ImageCompressor.compress(Uint8List.fromList(bytes), 2000);
       await destPath.writeAsBytes(compressed);
     } else {
       await file.copy(destPath.path);
@@ -422,9 +383,28 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removeQuestion(int index) {
+  Future<void> removeQuestion(int index) async {
     if (_currentReport == null) return;
     if (index < 0 || index >= _currentReport!.questions.length) return;
+
+    // P3-59: перед удалением вопроса удаляем все его медиафайлы с сервера/диска
+    // и отменяем фоновую обработку видео.
+    final qid = index.toString();
+    final markersList = _currentReport!.markers[qid];
+    if (markersList != null) {
+      for (final markers in markersList) {
+        for (final media in markers.media) {
+          _videoQueue.cancel(media);
+          if (media.isCompressing || media.isUploading) {
+            // Фоновая обработка ещё идёт — удалим с сервера/диска,
+            // как только задача завершится.
+            _pendingDeletion.add(media);
+          } else {
+            await _deleteMediaItem(media);
+          }
+        }
+      }
+    }
 
     _currentReport!.questions.removeAt(index);
 
@@ -499,7 +479,7 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removeAnswer(int questionIndex, int answerIndex) {
+  Future<void> removeAnswer(int questionIndex, int answerIndex) async {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
 
@@ -514,16 +494,14 @@ class ReportState extends ChangeNotifier {
     if (_currentReport!.markers.containsKey(qid) &&
         _currentReport!.markers[qid]!.length > 1) {
       final markers = _currentReport!.markers[qid]![answerIndex];
+      // P3-59: удаляем все медиафайлы ответа с сервера (web) или диска (native)
+      // и отменяем фоновую обработку видео.
       for (final media in markers.media) {
-        if (media.localPath != null && !kIsWeb) {
-          try {
-            final file = File(media.localPath!);
-            if (file.existsSync()) {
-              file.deleteSync();
-            }
-          } catch (e) {
-            if (kDebugMode) debugPrint('Error deleting media file: $e');
-          }
+        _videoQueue.cancel(media);
+        if (media.isCompressing || media.isUploading) {
+          _pendingDeletion.add(media);
+        } else {
+          await _deleteMediaItem(media);
         }
       }
       _currentReport!.markers[qid]!.removeAt(answerIndex);
@@ -624,7 +602,7 @@ class ReportState extends ChangeNotifier {
 
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = _compressImage(Uint8List.fromList(bytes), 2000);
+      final compressed = ImageCompressor.compress(Uint8List.fromList(bytes), 2000);
       await destPath.writeAsBytes(compressed);
     } else {
       await file.copy(destPath.path);
@@ -661,9 +639,9 @@ class ReportState extends ChangeNotifier {
   /// - [mimeType] — MIME-тип (например, 'image/jpeg', 'video/mp4')
   /// - [isAttention] — true для папки X (внимание), false для photos
   /// - [onUploadProgress] — callback для отслеживания прогресса (0.0 - 1.0)
-  /// - [deferUpload] — отложить загрузку на сервер (например, пока идёт
-  ///   фоновое сжатие видео). Вызовите [updateMediaCompressed] после сжатия —
-  ///   он запустит загрузку сжатых байтов.
+  /// - [originalSize] — размер оригинального файла (для видео, когда в
+  ///   [bytes] переданы уже сжатые байты). Используется для проверки
+  ///   реального сжатия и отображения в UI.
   Future<String?> addMediaFromBytes({
     required int questionIndex,
     required int answerIndex,
@@ -671,9 +649,10 @@ class ReportState extends ChangeNotifier {
     required String fileName,
     required String mimeType,
     bool isAttention = false,
+    int? originalSize,
     int? compressedSize,
     void Function(double progress)? onUploadProgress,
-    bool deferUpload = false,
+    void Function(String errorCode)? onVideoError,
   }) async {
     if (_currentReport == null) return null;
 
@@ -709,10 +688,11 @@ class ReportState extends ChangeNotifier {
     // Сжимаем изображение, если нужно
     Uint8List finalBytes = bytes;
     if (mimeType.startsWith('image/')) {
-      finalBytes = _compressImage(bytes, 2000);
+      finalBytes = ImageCompressor.compress(bytes, 2000);
     }
 
-    // Создаём MediaItem с байтами для web
+    // Создаём MediaItem с байтами для web.
+    final isVideo = mimeType.startsWith('video/');
     final mediaItem = MediaItem(
       name: generatedName,
       type: mimeType,
@@ -720,25 +700,33 @@ class ReportState extends ChangeNotifier {
       originalName: fileName,
       localPath: relativePath,
       fileSize: finalBytes.length,
-      compressedSize: compressedSize,
+      compressedSize: isVideo ? null : finalBytes.length,
       webBytes: finalBytes, // Байты для превью в UI
     );
-
-    // Если загрузка отложена (идёт фоновое сжатие) — отмечаем это.
-    if (deferUpload) {
-      mediaItem.isCompressing = true;
-    }
 
     _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
     _currentReport!.mediaCounter[counterKey] = counter + 1;
 
     notifyListeners();
 
-    // ===== Загрузка на сервер в фоне (если отчёт уже сохранён) =====
-    // Все медиа загружаются асинхронно — UI не блокируется.
-    // Пользователь может сразу добавлять следующие фото/видео.
-    // При deferUpload=false запуск откладывается до updateMediaCompressed.
-    if (!deferUpload && _serverReportId != null && _ks3Folder != null) {
+    // ===== Загрузка на сервер в фоне =====
+    if (isVideo && kIsWeb) {
+      // На web видео сжимается и загружается через фоновую очередь.
+      // Оригинальные байты передаются в очередь; UI показывает прогресс.
+      _videoQueue.enqueue(
+        media: mediaItem,
+        originalBytes: bytes,
+        fileName: generatedName,
+        mimeType: mimeType,
+        relativePath: relativePath,
+        reportId: _serverReportId,
+        onError: (code) {
+          if (kDebugMode) debugPrint('Video queue error ($code): $generatedName');
+          onVideoError?.call(code);
+        },
+      );
+    } else if (_serverReportId != null && _ks3Folder != null) {
+      // Фото (и native видео без сжатия) загружаем сразу, если отчёт сохранён.
       _uploadMediaToServer(
         mediaItem,
         finalBytes,
@@ -752,92 +740,6 @@ class ReportState extends ChangeNotifier {
     }
 
     return generatedName;
-  }
-
-  /// Обновить медиафайл после фонового сжатия видео (web).
-  ///
-  /// Вызывается после завершения ffmpeg.wasm. Заменяет [MediaItem.webBytes]
-  /// сжатыми байтами, сбрасывает [MediaItem.isCompressing] и запускает
-  /// отложенную загрузку на сервер (если отчёт уже сохранён и файл ещё
-  /// не загружен).
-  ///
-  /// [mediaName] — сгенерированное имя (например, 'v6_1_001.mp4').
-  /// [compressedBytes] — сжатое содержимое.
-  /// [onUploadProgress] — callback прогресса загрузки (0.0 - 1.0).
-  Future<void> updateMediaCompressed(
-    String mediaName,
-    Uint8List compressedBytes, {
-    void Function(double progress)? onUploadProgress,
-  }) async {
-    if (_currentReport == null) return;
-
-    MediaItem? found;
-    for (final markersList in _currentReport!.markers.values) {
-      for (final markers in markersList) {
-        for (final m in markers.media) {
-          if (m.name == mediaName) {
-            found = m;
-            break;
-          }
-        }
-      }
-      if (found != null) break;
-    }
-    if (found == null) return;
-
-    final media = found;
-
-    // Если файл уже загружен или загружается — просто обновляем локальные байты
-    // для превью, повторная загрузка не нужна.
-    media.webBytes = compressedBytes;
-    media.compressedSize = compressedBytes.length;
-    media.isCompressing = false;
-    media.compressProgress = 1.0;
-    notifyListeners();
-
-    if (kDebugMode) {
-      debugPrint(
-        'Video compressed: $mediaName — '
-        '${media.fileSize ?? 0} → ${compressedBytes.length} bytes',
-      );
-    }
-
-    // Запускаем отложенную загрузку, если отчёт сохранён и файл ещё не на сервере.
-    if (_serverReportId != null &&
-        _ks3Folder != null &&
-        media.serverFileId == null &&
-        !media.isUploading) {
-      _uploadMediaToServer(
-        media,
-        compressedBytes,
-        media.name,
-        media.localPath ?? media.name,
-        media.type,
-        onUploadProgress,
-      ).catchError((e) {
-        if (kDebugMode) debugPrint('Post-compression upload failed: $e');
-      });
-    }
-  }
-
-  /// Установить прогресс сжатия видео для отображения в UI.
-  ///
-  /// Вызывается из callback'а ffmpeg.wasm для обновления индикатора
-  /// на миниатюре видео. Не запускает загрузку — только обновляет UI.
-  void setCompressProgress(String mediaName, double progress) {
-    if (_currentReport == null) return;
-
-    for (final markersList in _currentReport!.markers.values) {
-      for (final markers in markersList) {
-        for (final m in markers.media) {
-          if (m.name == mediaName) {
-            m.compressProgress = progress;
-            notifyListeners();
-            return;
-          }
-        }
-      }
-    }
   }
 
   /// Загрузить медиафайл на сервер KS3.
@@ -859,6 +761,24 @@ class ReportState extends ChangeNotifier {
       if (kDebugMode) debugPrint('Upload skipped (already uploading): $fileName');
       return;
     }
+
+    // P3-58: для web-видео загрузка разрешена только после реального сжатия.
+    // На native платформах видео не сжимается через ffmpeg.wasm, поэтому
+    // guard применяем только на web.
+    if (mediaItem.type.startsWith('video/') && kIsWeb) {
+      final compressed = mediaItem.compressedSize;
+      final original = mediaItem.fileSize;
+      if (compressed == null || original == null || compressed >= original) {
+        if (kDebugMode) {
+          debugPrint(
+            'Upload BLOCKED (video not compressed): $fileName '
+            '(compressed=$compressed, original=$original)',
+          );
+        }
+        return;
+      }
+    }
+
     mediaItem.isUploading = true;
 
         try {
@@ -1023,12 +943,8 @@ class ReportState extends ChangeNotifier {
           // Пропускаем уже загруженные
           if (media.serverFileId != null) continue;
 
-          // Пропускаем медиа без байтов (не web)
+          // Пропускаем медиа без байтов (не web).
           if (media.webBytes == null) continue;
-
-          // Пропускаем медиа, которые ещё сжимаются (видео)
-          // Загрузка запустится после завершения сжатия в updateMediaCompressed
-          if (media.isCompressing) continue;
 
           // Загружаем на сервер
           if (kDebugMode) {
@@ -1056,6 +972,56 @@ class ReportState extends ChangeNotifier {
     }
   }
 
+  /// Удалить медиафайлы, ожидающие завершения фоновой обработки.
+  ///
+  /// Вызывается при каждом событии прогресса очереди. Как только
+  /// обработка медиа завершена (не сжимается и не загружается),
+  /// пытаемся удалить его с сервера/диска.
+  Future<void> _flushPendingDeletions() async {
+    final ready = _pendingDeletion.where((media) {
+      return !media.isCompressing && !media.isUploading;
+    }).toList();
+
+    for (final media in ready) {
+      _pendingDeletion.remove(media);
+      await _deleteMediaItem(media);
+    }
+  }
+
+  /// Удалить медиафайл с сервера (web) или с диска (native).
+  ///
+  /// Используется в removeMedia, removeAnswer и removeQuestion.
+  Future<void> _deleteMediaItem(MediaItem media) async {
+    if (kIsWeb) {
+      // На web удаляем файл с сервера, если он уже туда загружен.
+      if (media.serverFileId != null) {
+        try {
+          final result = await ApiService.deleteFile(media.serverFileId!);
+          if (result.success) {
+            if (kDebugMode) {
+              debugPrint('Media deleted from server: ${media.serverFileId}');
+            }
+          } else if (kDebugMode) {
+            debugPrint(
+              'Server returned error when deleting media: ${result.error}',
+            );
+          }
+        } catch (e) {
+          if (kDebugMode) debugPrint('Failed to delete media from server: $e');
+        }
+      }
+    } else {
+      // На нативных платформах удаляем локальный файл.
+      if (_currentReportPath != null && media.localPath != null) {
+        final absolutePath = '$_currentReportPath/${media.localPath}';
+        final file = File(absolutePath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    }
+  }
+
   /// Удалить медиафайл.
   ///
   /// На web: если файл уже загружен на сервер (serverFileId) — удаляем с сервера.
@@ -1077,32 +1043,13 @@ class ReportState extends ChangeNotifier {
 
     final media = _currentReport!.markers[qid]![answerIndex].media[mediaIndex];
 
-    if (kIsWeb) {
-      // На web удаляем файл с сервера, если он уже туда загружен.
-      if (media.serverFileId != null) {
-        try {
-          final result = await ApiService.deleteFile(media.serverFileId!);
-          if (result.success) {
-            if (kDebugMode) {
-              debugPrint('Media deleted from server: ${media.serverFileId}');
-            }
-          } else if (kDebugMode) {
-            debugPrint(
-                'Server returned error when deleting media: ${result.error}');
-          }
-        } catch (e) {
-          if (kDebugMode) debugPrint('Failed to delete media from server: $e');
-        }
-      }
+    // Отменяем фоновую обработку видео, если она ещё в очереди.
+    _videoQueue.cancel(media);
+
+    if (media.isCompressing || media.isUploading) {
+      _pendingDeletion.add(media);
     } else {
-      // На нативных платформах удаляем локальный файл.
-      if (_currentReportPath != null && media.localPath != null) {
-        final absolutePath = '$_currentReportPath/${media.localPath}';
-        final file = File(absolutePath);
-        if (await file.exists()) {
-          await file.delete();
-        }
-      }
+      await _deleteMediaItem(media);
     }
 
     _currentReport!.markers[qid]![answerIndex].media.removeAt(mediaIndex);
@@ -1183,171 +1130,6 @@ class ReportState extends ChangeNotifier {
     final baseName = 'report_${now.millisecondsSinceEpoch}';
     final reportsDir = await _getReportsDir();
     return '$reportsDir/$baseName';
-  }
-
-  Future<void> compressAllVideos({
-    required Function(int current, int total) onProgress,
-  }) async {
-    if (_currentReport == null || _currentReportPath == null) return;
-
-    final List<String> videoPaths = [];
-
-    // Collect all video paths
-    for (final markerEntry in _currentReport!.markers.entries) {
-      for (final answerMarker in markerEntry.value) {
-        for (final media in answerMarker.media) {
-          if (media.type.startsWith('video/') && media.localPath != null) {
-            if (!videoPaths.contains(media.localPath)) {
-              videoPaths.add(media.localPath!);
-            }
-          }
-        }
-      }
-    }
-
-    if (videoPaths.isEmpty) return;
-
-    final compressor = VVideoCompressor();
-
-    // Compress each video
-    for (int i = 0; i < videoPaths.length; i++) {
-      onProgress(i + 1, videoPaths.length);
-
-      try {
-        final relativePath = videoPaths[i];
-        final absolutePath = '$_currentReportPath/$relativePath';
-        final file = File(absolutePath);
-
-        if (!await file.exists()) continue;
-
-        final fileStat = await file.stat();
-        // Skip if video is smaller than 5 MB
-        if (fileStat.size < 5 * 1024 * 1024) continue;
-
-        // Compress the video with stronger compression
-        final result = await compressor.compressVideo(
-          absolutePath,
-          const VVideoCompressionConfig.low(),
-          onProgress: (progress) {
-            // We'll handle progress in the UI
-          },
-        );
-
-        if (result != null) {
-          // Replace original with compressed video
-          final compressedFile = File(result.compressedFilePath);
-          if (await compressedFile.exists()) {
-            // P3-56: не заменяем оригинал пустым сжатым файлом (0 байт).
-            final compressedSize = await compressedFile.length();
-            if (compressedSize > 0) {
-              await compressedFile.copy(absolutePath);
-            }
-            await compressedFile.delete();
-          }
-        }
-      } catch (e) {
-        if (kDebugMode) debugPrint('Error compressing video: $e');
-      }
-    }
-  }
-
-  Future<List<String>> compressVideosWithSettings({
-    required int qualityLevel,
-    required Function(int current, int total) onProgress,
-  }) async {
-    if (_currentReport == null || _currentReportPath == null) return [];
-
-    final List<String> compressedVideos = [];
-    final List<String> videoPaths = [];
-
-    for (final markerEntry in _currentReport!.markers.entries) {
-      for (final answerMarker in markerEntry.value) {
-        for (final media in answerMarker.media) {
-          if (media.type.startsWith('video/') && media.localPath != null) {
-            if (!videoPaths.contains(media.localPath)) {
-              videoPaths.add(media.localPath!);
-            }
-          }
-        }
-      }
-    }
-
-    if (videoPaths.isEmpty) return [];
-
-    final compressor = VVideoCompressor();
-    VVideoCompressionConfig config;
-
-    switch (qualityLevel) {
-      case 1:
-        config = const VVideoCompressionConfig.high();
-        break;
-      case 2:
-        config = const VVideoCompressionConfig.medium();
-        break;
-      case 3:
-      default:
-        config = const VVideoCompressionConfig.low();
-        break;
-    }
-
-    for (int i = 0; i < videoPaths.length; i++) {
-      onProgress(i + 1, videoPaths.length);
-
-      try {
-        final relativePath = videoPaths[i];
-        final absolutePath = '$_currentReportPath/$relativePath';
-
-        if (_compressedVideoPaths.contains(relativePath)) {
-          continue;
-        }
-
-        final file = File(absolutePath);
-        if (!await file.exists()) continue;
-
-        final fileSize = await file.length();
-        if (fileSize <= 5 * 1024 * 1024) {
-          continue;
-        }
-
-        final result = await compressor.compressVideo(
-          absolutePath,
-          config,
-          onProgress: (progress) {},
-        );
-
-        if (result != null) {
-          final compressedFile = File(result.compressedFilePath);
-          if (await compressedFile.exists()) {
-            final compressedSize = await compressedFile.length();
-            // P3-56: не заменяем оригинал пустым сжатым файлом (0 байт).
-            if (compressedSize > 0) {
-              await compressedFile.copy(absolutePath);
-              _compressedVideoPaths.add(relativePath);
-              compressedVideos.add(relativePath);
-
-              for (final markerEntry in _currentReport!.markers.entries) {
-                for (final answerMarker in markerEntry.value) {
-                  for (final media in answerMarker.media) {
-                    if (media.localPath == relativePath) {
-                      media.compressedSize = compressedSize;
-                    }
-                  }
-                }
-              }
-            }
-            await compressedFile.delete();
-          }
-        }
-      } catch (e) {
-        if (kDebugMode) debugPrint('Error compressing video: $e');
-      }
-    }
-
-    return compressedVideos;
-  }
-
-  void resetCompressedVideos() {
-    _compressedVideoPaths.clear();
   }
 
   Future<bool> saveReport() async {
@@ -1482,7 +1264,6 @@ class ReportState extends ChangeNotifier {
       final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
       _currentReport = Report.fromJson(jsonData, folderPath: folderName);
       _currentReportPath = folderName;
-      resetCompressedVideos();
       notifyListeners();
       return true;
     } catch (e) {
@@ -1530,7 +1311,6 @@ class ReportState extends ChangeNotifier {
         debugPrint('loadReport (web): ID=$_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder');
       }
 
-      resetCompressedVideos();
       notifyListeners();
       return true;
     } catch (e) {
@@ -4169,5 +3949,13 @@ class ReportState extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _videoProgressSub?.cancel();
+    _pendingDeletion.clear();
+    _videoQueue.dispose();
+    super.dispose();
   }
 }

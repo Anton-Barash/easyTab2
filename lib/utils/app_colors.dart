@@ -49,4 +49,9 @@ class AppColors {
   // Специальные цвета
   static const Color shadow = Color(0x21000000);
   static const Color dottedPattern = Color(0xFFcbc7bc);
+  
+  // Прозрачные цвета для эффектов
+  static const Color textShadowDark = Color(0x73424242); // 46,66,66,0.45
+  static const Color textShadowLight = Color(0xE6FFFFFF); // 255,255,255,0.9
+  static const Color shadowOverlay = Color(0x21000000); // black 13% opacity
 }

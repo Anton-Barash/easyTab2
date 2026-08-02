@@ -1,12 +1,17 @@
 // ============================================================
-// VideoThumbnailWidget — миниатюра видео с индикатором загрузки.
+// VideoThumbnailWidget — миниатюра видео с индикатором обработки.
 //
 // Вынесен из form_fill_screen.dart при рефакторинге.
 // Отображает:
 //   - кадр видео (через video_thumbnail на native)
 //   - цветную точку статуса сжатия (зелёная/красная/серая)
 //   - размер файла
-//   - индикатор прогресса загрузки на сервер (P3-52)
+//   - индикатор фонового сжатия (ffmpeg.wasm)
+//   - индикатор загрузки на сервер (P3-52)
+//
+// Примечание: сжатие и загрузка видео теперь выполняются в фоновой
+// очереди (VideoUploadQueue), поэтому UI отображает прогресс прямо
+// на миниатюре, не блокируя интерфейс модальными диалогами.
 // ============================================================
 
 import 'package:flutter/foundation.dart';
@@ -74,7 +79,11 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   @override
   Widget build(BuildContext context) {
     final sizeToShow = widget.compressedSize ?? widget.fileSize;
-    final isCompressed = widget.compressedSize != null;
+    // P3-58: зелёная точка = файл РЕАЛЬНО сжат (compressedSize < fileSize).
+    // Проверяем строгое неравенство, чтобы не показывать зелёную точку,
+    // если сжатие не дало уменьшения размера.
+    final isCompressed = widget.compressedSize != null &&
+        (widget.fileSize == null || widget.compressedSize! < widget.fileSize!);
     final needsCompression =
         widget.fileSize != null && widget.fileSize! > 5 * 1024 * 1024;
 
@@ -134,8 +143,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
               ),
             ),
           ),
-        // Индикатор фонового сжатия видео (ffmpeg.wasm).
-        // Не блокирует UI — пользователь может работать с приложением.
+        // Индикатор фонового сжатия видео.
         if (widget.isCompressing)
           Positioned.fill(
             child: Container(
@@ -146,13 +154,11 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                   SizedBox(
                     width: 48,
                     child: LinearProgressIndicator(
-                      value: widget.compressProgress > 0 &&
-                              widget.compressProgress < 1.0
+                      value: widget.compressProgress > 0 && widget.compressProgress < 1.0
                           ? widget.compressProgress
                           : null,
                       backgroundColor: Colors.white24,
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(Colors.amber),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
                     ),
                   ),
                   const SizedBox(height: 6),

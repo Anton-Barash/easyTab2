@@ -10,12 +10,27 @@
 // ============================================================
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:video_player/video_player.dart';
 
 /// Создаёт VideoPlayerController.file (native only).
 /// На web .file-конструктор недоступен (требует dart:io.File).
 VideoPlayerController createFileVideoController(String path) =>
     VideoPlayerController.file(File(path));
+
+/// Создаёт VideoPlayerController из байтов (web: blob URL, native: unsupported).
+/// Используется для просмотра видео до загрузки на KS3.
+VideoPlayerController createVideoControllerFromBytes(
+  Uint8List bytes,
+  String mimeType,
+) =>
+    throw UnsupportedError('createVideoControllerFromBytes не доступно на native');
+
+/// Освобождает ресурсы, связанные с видео-контроллером из байтов.
+/// На web — revoke blob URL. На native — no-op.
+void disposeVideoBytesController(VideoPlayerController? controller) {
+  // no-op на native
+}
 
 /// Добавляет файл в ZIP-архив (native only).
 /// encoder — ZipFileEncoder из package:archive/archive_io.dart.

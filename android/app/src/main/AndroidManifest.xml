@@ -3,7 +3,7 @@
          иначе release-сборка не сможет обращаться к серверу. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Permissions for v_video_compressor -->
+    <!-- Permissions for media picker (image_picker / file_picker). -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"

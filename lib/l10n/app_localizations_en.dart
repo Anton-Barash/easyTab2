@@ -114,9 +114,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get share => 'Share';
 
   @override
-  String get compressVideo => 'Compress Video';
-
-  @override
   String get syncTranslations => 'Sync Translations';
 
   @override
@@ -581,57 +578,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fillAllFields => 'Please fill in all fields';
 
   @override
-  String get compressVideoTitle => 'Compress Video';
+  String get videoCompressionFailed => 'Failed to compress video';
 
   @override
-  String get highQuality => 'High quality';
+  String get videoCompressionIneffective =>
+      'Compression did not reduce video size';
 
   @override
-  String get highQualityDesc => 'Less compression, better quality';
+  String get videoUploadFailed => 'Failed to upload video';
 
   @override
-  String get mediumQuality => 'Medium quality';
-
-  @override
-  String get mediumQualityDesc => 'Balanced compression';
-
-  @override
-  String get lowQuality => 'Low quality';
-
-  @override
-  String get lowQualityDesc => 'Maximum compression';
-
-  @override
-  String get compressingVideo => 'Compressing video...';
-
-  @override
-  String get noVideoToCompress =>
-      'No video to compress or all already compressed';
-
-  @override
-  String get compressionComplete => 'Compression complete';
-
-  @override
-  String compressedVideoCount(int count) {
-    return 'Compressed videos: $count';
-  }
-
-  @override
-  String compressionError(String error) {
-    return 'Compression error: $error';
-  }
-
-  @override
-  String get compressVideoWebWarning =>
-      'The video is larger than 10 MB. Browser compression will download about 25 MB of data on first use. Continue?';
-
-  @override
-  String get compressVideoWebInitializing => 'Loading ffmpeg.wasm (~25 MB)...';
-
-  @override
-  String compressVideoWebProgress(String percent) {
-    return 'Compressing video... $percent%';
-  }
+  String get ffmpegTrafficWarning =>
+      'Video is being compressed in the browser. First use downloads ~25 MB.';
 
   @override
   String get importProject => 'Import project';

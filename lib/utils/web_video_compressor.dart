@@ -5,8 +5,8 @@ import 'web_video_compressor_stub.dart'
 
 /// Абстракция для сжатия видео на вебе через ffmpeg.wasm.
 ///
-/// На mobile/desktop реализация — заглушка, чтобы пакет video_web_compressor,
-/// который поддерживает только web, не попадал в сборку.
+/// На mobile/desktop реализация — заглушка, чтобы web-only код не попадал
+/// в нативную сборку.
 abstract class WebVideoCompressor {
   /// Поток прогресса сжатия (0.0–1.0).
   Stream<double> get progressStream;

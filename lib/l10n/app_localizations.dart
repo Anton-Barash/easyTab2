@@ -310,12 +310,6 @@ abstract class AppLocalizations {
   /// **'Share'**
   String get share;
 
-  /// No description provided for @compressVideo.
-  ///
-  /// In en, this message translates to:
-  /// **'Compress Video'**
-  String get compressVideo;
-
   /// No description provided for @syncTranslations.
   ///
   /// In en, this message translates to:
@@ -1174,95 +1168,29 @@ abstract class AppLocalizations {
   /// **'Please fill in all fields'**
   String get fillAllFields;
 
-  /// No description provided for @compressVideoTitle.
+  /// No description provided for @videoCompressionFailed.
   ///
   /// In en, this message translates to:
-  /// **'Compress Video'**
-  String get compressVideoTitle;
+  /// **'Failed to compress video'**
+  String get videoCompressionFailed;
 
-  /// No description provided for @highQuality.
+  /// No description provided for @videoCompressionIneffective.
   ///
   /// In en, this message translates to:
-  /// **'High quality'**
-  String get highQuality;
+  /// **'Compression did not reduce video size'**
+  String get videoCompressionIneffective;
 
-  /// No description provided for @highQualityDesc.
+  /// No description provided for @videoUploadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Less compression, better quality'**
-  String get highQualityDesc;
+  /// **'Failed to upload video'**
+  String get videoUploadFailed;
 
-  /// No description provided for @mediumQuality.
+  /// No description provided for @ffmpegTrafficWarning.
   ///
   /// In en, this message translates to:
-  /// **'Medium quality'**
-  String get mediumQuality;
-
-  /// No description provided for @mediumQualityDesc.
-  ///
-  /// In en, this message translates to:
-  /// **'Balanced compression'**
-  String get mediumQualityDesc;
-
-  /// No description provided for @lowQuality.
-  ///
-  /// In en, this message translates to:
-  /// **'Low quality'**
-  String get lowQuality;
-
-  /// No description provided for @lowQualityDesc.
-  ///
-  /// In en, this message translates to:
-  /// **'Maximum compression'**
-  String get lowQualityDesc;
-
-  /// No description provided for @compressingVideo.
-  ///
-  /// In en, this message translates to:
-  /// **'Compressing video...'**
-  String get compressingVideo;
-
-  /// No description provided for @noVideoToCompress.
-  ///
-  /// In en, this message translates to:
-  /// **'No video to compress or all already compressed'**
-  String get noVideoToCompress;
-
-  /// No description provided for @compressionComplete.
-  ///
-  /// In en, this message translates to:
-  /// **'Compression complete'**
-  String get compressionComplete;
-
-  /// No description provided for @compressedVideoCount.
-  ///
-  /// In en, this message translates to:
-  /// **'Compressed videos: {count}'**
-  String compressedVideoCount(int count);
-
-  /// No description provided for @compressionError.
-  ///
-  /// In en, this message translates to:
-  /// **'Compression error: {error}'**
-  String compressionError(String error);
-
-  /// No description provided for @compressVideoWebWarning.
-  ///
-  /// In en, this message translates to:
-  /// **'The video is larger than 10 MB. Browser compression will download about 25 MB of data on first use. Continue?'**
-  String get compressVideoWebWarning;
-
-  /// No description provided for @compressVideoWebInitializing.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading ffmpeg.wasm (~25 MB)...'**
-  String get compressVideoWebInitializing;
-
-  /// No description provided for @compressVideoWebProgress.
-  ///
-  /// In en, this message translates to:
-  /// **'Compressing video... {percent}%'**
-  String compressVideoWebProgress(String percent);
+  /// **'Video is being compressed in the browser. First use downloads ~25 MB.'**
+  String get ffmpegTrafficWarning;
 
   /// No description provided for @importProject.
   ///

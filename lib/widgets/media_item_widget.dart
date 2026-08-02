@@ -43,6 +43,7 @@ class MediaItemWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         GestureDetector(
           onTap: onTap,
@@ -173,6 +174,28 @@ class MediaItemWidget extends StatelessWidget {
                     compressProgress: (media['compressProgress'] as num?)?.toDouble() ?? 0.0,
                   );
                 },
+              ),
+            ),
+          ),
+        ),
+        // Кнопка удаления (крестик в правом верхнем углу)
+        Positioned(
+          top: -6,
+          right: -6,
+          child: GestureDetector(
+            onTap: () => onDelete(),
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: Colors.white,
               ),
             ),
           ),

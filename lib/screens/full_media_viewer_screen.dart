@@ -73,6 +73,8 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
   }
 
   void _initializeVideo(int index) {
+    // Очищаем предыдущий blob URL (если был)
+    disposeVideoBytesController(_videoController);
     if (_videoController != null) {
       _videoController!.dispose();
       _videoController = null;
@@ -89,8 +91,6 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
         if (!kIsWeb && localPath != null) {
           _videoController = createFileVideoController(localPath)
             ..initialize().then((_) {
-              // P3-48: проверка mounted — виджет мог быть удалён
-              // к моменту завершения async initialize().
               if (mounted) {
                 setState(() {});
               }
@@ -102,6 +102,20 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                 setState(() {});
               }
             });
+        } else if (kIsWeb) {
+          // P3-58: webUrl отсутствует (видео ещё не загружено на KS3).
+          // Создаём blob URL из webBytes для локального просмотра.
+          final webBytes = media['webBytes'] as Uint8List?;
+          if (webBytes != null && webBytes.isNotEmpty) {
+            _videoController = createVideoControllerFromBytes(
+              webBytes,
+              media['type'] as String? ?? 'video/mp4',
+            )..initialize().then((_) {
+              if (mounted) {
+                setState(() {});
+              }
+            });
+          }
         }
       }
     }
@@ -110,6 +124,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    disposeVideoBytesController(_videoController);
     _videoController?.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();

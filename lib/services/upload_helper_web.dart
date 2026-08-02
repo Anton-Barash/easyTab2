@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'api_result.dart';
 import 'api_response_parser.dart';
+import 'api_service.dart';
 import 'mime_utils.dart';
 
 // Примечание: dart:convert всё ещё нужен для utf8.encode при сборке multipart-тела.
@@ -149,4 +150,100 @@ Future<dynamic> uploadToPresignedUrl({
 
   request.send(bytes);
   return completer.future.timeout(const Duration(seconds: 300));
+}
+
+/// Результат загрузки файла через [UploadHelperWeb.uploadWithProgress].
+class UploadResult {
+  final bool success;
+  final String? error;
+  final String? serverFileId;
+  final String? webUrl;
+
+  UploadResult({
+    required this.success,
+    this.error,
+    this.serverFileId,
+    this.webUrl,
+  });
+}
+
+/// Прямая загрузка файла в KS3 через presigned URL (web only).
+///
+/// Flow:
+///   1. POST /files/presign-upload → получаем presigned URL + fileId
+///   2. PUT directly to KS3 → загружаем байты
+///   3. POST /files/confirm-upload → создаём запись в БД
+///
+/// Возвращает [UploadResult] с [serverFileId] при успехе.
+Future<UploadResult> uploadWithProgress({
+  required Uint8List fileBytes,
+  required String fileName,
+  required String mimeType,
+  required String relativePath,
+  int? reportId,
+  void Function(double progress)? onProgress,
+  void Function(String fileId)? onPresigned,
+}) async {
+  // Шаг 1: presign
+  final presignResult = await ApiService.presignUpload(
+    fileName: fileName,
+    relativePath: relativePath,
+    reportId: reportId,
+  );
+
+  if (!presignResult.success) {
+    return UploadResult(
+      success: false,
+      error: presignResult.error ?? 'presign failed',
+    );
+  }
+
+  final data = presignResult.data!;
+  final uploadUrl = data['uploadUrl'] as String;
+  final fileId = data['fileId'] as String;
+  final storageKey = data['storageKey'] as String;
+  final serverMimeType = data['mimeType'] as String? ?? mimeType;
+  final relPath = data['relPath'] as String? ?? relativePath;
+
+  // Сообщаем вызывающему коду fileId как можно раньше — это позволяет
+  // удалить файл с сервера, если пользователь отменит загрузку.
+  onPresigned?.call(fileId);
+
+  // Шаг 2: прямая загрузка в KS3
+  final uploadResult = await uploadToPresignedUrl(
+    uploadUrl: uploadUrl,
+    bytes: fileBytes,
+    onUploadProgress: onProgress,
+  );
+
+  if (uploadResult != true) {
+    return UploadResult(
+      success: false,
+      error: uploadResult.toString(),
+    );
+  }
+
+  // Шаг 3: подтвердить загрузку — создать запись в БД
+  final confirmResult = await ApiService.confirmUpload(
+    fileId: fileId,
+    storageKey: storageKey,
+    fileName: fileName,
+    size: fileBytes.length,
+    mimeType: serverMimeType,
+    relPath: relPath,
+    reportId: reportId,
+  );
+
+  if (!confirmResult.success) {
+    return UploadResult(
+      success: false,
+      error: confirmResult.error ?? 'confirm failed',
+    );
+  }
+
+  return UploadResult(
+    success: true,
+    serverFileId: fileId,
+    webUrl: confirmResult.data?['url'] as String?,
+  );
 }

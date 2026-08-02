@@ -34,8 +34,7 @@ class MediaItem {
   /// P3-52: Прогресс загрузки на сервер (0.0 - 1.0).
   double uploadProgress = 0.0;
 
-  /// Флаг фонового сжатия видео (web, ffmpeg.wasm).
-  /// Если true — сжатие идёт, UI показывает индикатор на миниатюре.
+  /// Флаг фонового сжатия видео (ffmpeg.wasm).
   bool isCompressing = false;
 
   /// Прогресс сжатия видео (0.0 - 1.0).
@@ -115,8 +114,11 @@ class MediaItem {
       fileSize: json['fileSize'] as int?,
       compressedSize: json['compressedSize'] as int?,
       serverFileId: json['serverFileId'] as String?,
-      // webBytes не сохраняется в JSON, т.к. это временные данные
-    );
+    )
+      ..isUploading = json['isUploading'] as bool? ?? false
+      ..uploadProgress = (json['uploadProgress'] as num?)?.toDouble() ?? 0.0
+      ..isCompressing = json['isCompressing'] as bool? ?? false
+      ..compressProgress = (json['compressProgress'] as num?)?.toDouble() ?? 0.0;
   }
 }
 
