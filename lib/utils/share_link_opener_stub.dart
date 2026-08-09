@@ -1,5 +1,5 @@
-/// Заглушка для открытия share-ссылок на non-web платформах.
-/// На web используется share_link_opener_web.dart.
+// Заглушка для открытия share-ссылок на non-web платформах.
+// На web используется share_link_opener_web.dart.
 
 void openShareLink(String url) {
   throw UnsupportedError('openShareLink доступен только на web');

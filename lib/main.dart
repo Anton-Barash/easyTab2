@@ -65,24 +65,23 @@ class EasyTabApp extends StatelessWidget {
       ],
       child: Consumer<LocaleProvider>(
         builder: (context, localeProvider, child) {
-          return SelectionArea(
-            child: MaterialApp(
-              title: 'EasyTab',
-              debugShowCheckedModeBanner: false,
-              locale: localeProvider.locale,
-              localizationsDelegates: const [
-                AppLocalizations.delegate,
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
-              supportedLocales: const [Locale('en'), Locale('ru'), Locale('zh')],
-              theme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(
-                  seedColor: AppColors.primary,
-                ),
-                useMaterial3: true,
+          return MaterialApp(
+            title: 'EasyTab',
+            debugShowCheckedModeBanner: false,
+            locale: localeProvider.locale,
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [Locale('en'), Locale('ru'), Locale('zh')],
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: AppColors.primary,
               ),
+              useMaterial3: true,
+            ),
             initialRoute: '/',
             routes: {
               '/': (context) => const StartScreen(),
@@ -127,10 +126,9 @@ class EasyTabApp extends StatelessWidget {
               }
               return null;
             },
-          ),
-        );
-      },
-    ),
+          );
+        },
+      ),
     );
   }
 }

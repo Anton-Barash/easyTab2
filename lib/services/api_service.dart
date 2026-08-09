@@ -490,7 +490,9 @@ class ApiService {
     String? permissions,
   }) async {
     final body = <String, dynamic>{
+      // ignore: use_null_aware_elements
       if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
+      // ignore: use_null_aware_elements
       if (permissions != null) 'permissions': permissions,
     };
     return _handleApiCall(http.post(

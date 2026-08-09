@@ -8,6 +8,9 @@ import 'api_result.dart';
 import 'api_response_parser.dart';
 import 'api_service.dart';
 import 'mime_utils.dart';
+import 'upload_result.dart';
+
+export 'upload_result.dart';
 
 // Примечание: dart:convert всё ещё нужен для utf8.encode при сборке multipart-тела.
 
@@ -150,21 +153,6 @@ Future<dynamic> uploadToPresignedUrl({
 
   request.send(bytes);
   return completer.future.timeout(const Duration(seconds: 300));
-}
-
-/// Результат загрузки файла через [UploadHelperWeb.uploadWithProgress].
-class UploadResult {
-  final bool success;
-  final String? error;
-  final String? serverFileId;
-  final String? webUrl;
-
-  UploadResult({
-    required this.success,
-    this.error,
-    this.serverFileId,
-    this.webUrl,
-  });
 }
 
 /// Прямая загрузка файла в KS3 через presigned URL (web only).

@@ -1,19 +1,8 @@
 import 'dart:typed_data';
 
-/// Результат загрузки файла.
-class UploadResult {
-  final bool success;
-  final String? error;
-  final String? serverFileId;
-  final String? webUrl;
+import 'upload_result.dart';
 
-  UploadResult({
-    required this.success,
-    this.error,
-    this.serverFileId,
-    this.webUrl,
-  });
-}
+export 'upload_result.dart';
 
 /// Заглушка для загрузки файлов на non-web платформах.
 ///
