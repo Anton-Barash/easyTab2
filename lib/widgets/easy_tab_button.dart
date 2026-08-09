@@ -76,7 +76,8 @@ class EasyTabButton extends StatelessWidget {
               vertical: verticalPadding,
               horizontal: horizontalPadding,
             ),
-            child: child ??
+            child:
+                child ??
                 Text(
                   label,
                   style: TextStyle(

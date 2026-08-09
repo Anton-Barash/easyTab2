@@ -51,9 +51,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (!authProvider.isLoggedIn) {
       final loc = AppLocalizations.of(context)!;
       // P2-36: loginRequired ("Сначала войдите") вместо loginError ("Ошибка входа").
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.loginRequired)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
       return;
     }
 
@@ -84,9 +84,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     if (!mounted) return;
     final loc = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.syncCompleteMessage)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.syncCompleteMessage)));
   }
 
   Future<void> _syncReport(dynamic report) async {
@@ -95,9 +95,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (!authProvider.isLoggedIn) {
       final loc = AppLocalizations.of(context)!;
       // P2-36: loginRequired вместо loginError.
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.loginRequired)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
       return;
     }
 
@@ -117,9 +117,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     if (!mounted) return;
     final loc = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.syncCompleteMessage)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.syncCompleteMessage)));
   }
 
   @override
@@ -252,8 +252,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             heroTag: 'sync_all_btn',
             onPressed: _isSyncingAll ? null : _syncAllReports,
             tooltip: loc.syncToCloud,
-            backgroundColor:
-                _isSyncingAll ? AppColors.grey300 : AppColors.primary,
+            backgroundColor: _isSyncingAll
+                ? AppColors.grey300
+                : AppColors.primary,
             child: _isSyncingAll
                 ? const SizedBox(
                     width: 20,
@@ -482,17 +483,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   const SizedBox(width: 8),
                   if (kIsWeb && report.publicId != null)
                     IconButton(
-                      icon: const Icon(Icons.open_in_new, color: AppColors.primary),
+                      icon: const Icon(
+                        Icons.open_in_new,
+                        color: AppColors.primary,
+                      ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       tooltip: 'Открыть HTML',
                       onPressed: () {
                         final origin = Uri.base.origin;
-                        final viewUrl = '$origin/#/view-report?pid=${report.publicId}';
+                        final viewUrl =
+                            '$origin/#/view-report?pid=${report.publicId}';
                         openHtmlInBrowserUrl(viewUrl);
                       },
                     ),
-                  if (kIsWeb && report.publicId != null) const SizedBox(width: 8),
+                  if (kIsWeb && report.publicId != null)
+                    const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.delete, color: AppColors.errorLight),
                     padding: EdgeInsets.zero,
@@ -558,7 +564,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                         ),
                                         const SizedBox(width: 12),
                                         TextButton(
-                                          onPressed: () => Navigator.pop(ctx, true),
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, true),
                                           child: Text(loc.delete),
                                         ),
                                       ],
@@ -568,7 +575,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                       );
                       if (confirm == true) {
-                        final deleted = await reportState.deleteReport(report.folderName);
+                        final deleted = await reportState.deleteReport(
+                          report.folderName,
+                        );
                         setState(() {
                           _loadReports();
                         });

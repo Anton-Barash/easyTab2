@@ -68,7 +68,9 @@ class MediaItemWidget extends StatelessWidget {
                   final localPath = _getAbsolutePath(
                     media['localPath'] as String?,
                   );
-                  final isImage = (media['type'] as String? ?? '').startsWith('image');
+                  final isImage = (media['type'] as String? ?? '').startsWith(
+                    'image',
+                  );
                   final webBytes = media['webBytes'] as Uint8List?;
 
                   if (isImage) {
@@ -170,9 +172,11 @@ class MediaItemWidget extends StatelessWidget {
                     webBytes: webBytes,
                     webUrl: media['webUrl'] as String?,
                     isUploading: media['isUploading'] == true,
-                    uploadProgress: (media['uploadProgress'] as num?)?.toDouble() ?? 0.0,
+                    uploadProgress:
+                        (media['uploadProgress'] as num?)?.toDouble() ?? 0.0,
                     isCompressing: media['isCompressing'] == true,
-                    compressProgress: (media['compressProgress'] as num?)?.toDouble() ?? 0.0,
+                    compressProgress:
+                        (media['compressProgress'] as num?)?.toDouble() ?? 0.0,
                   );
                 },
               ),
@@ -193,11 +197,7 @@ class MediaItemWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
               ),
-              child: const Icon(
-                Icons.close,
-                size: 14,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.close, size: 14, color: Colors.white),
             ),
           ),
         ),

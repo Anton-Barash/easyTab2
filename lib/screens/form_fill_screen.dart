@@ -57,7 +57,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
   bool _hideAnsweredQuestions = false;
   final PageController _pageController = PageController();
   final ItemScrollController _listItemScrollController = ItemScrollController();
-  final ItemScrollController _sidePanelItemScrollController = ItemScrollController();
+  final ItemScrollController _sidePanelItemScrollController =
+      ItemScrollController();
   int _currentPage = -1;
   final Map<int, bool> _needsWorkMap = {};
   Set<int> _blockedQuestionIndices = {};
@@ -170,9 +171,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
       if (!mounted) return;
       if (reportState.serverReportId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.shareLinkSaveFirst)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.shareLinkSaveFirst)));
         return;
       }
     }
@@ -208,9 +209,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               setDialogState(() => createdLink = result.data!['share']['url']);
             } else {
               ScaffoldMessenger.of(ctx).showSnackBar(
-                SnackBar(
-                  content: Text(result.error ?? loc.shareLinkError),
-                ),
+                SnackBar(content: Text(result.error ?? loc.shareLinkError)),
               );
             }
           }
@@ -236,8 +235,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           // Ссылка создана
                           Row(
                             children: [
-                              const Icon(Icons.check_circle,
-                                  color: AppColors.grey700, size: 28),
+                              const Icon(
+                                Icons.check_circle,
+                                color: AppColors.grey700,
+                                size: 28,
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -288,10 +290,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       ClipboardData(text: createdLink!),
                                     );
                                     if (ctx.mounted) {
-                                      ScaffoldMessenger.of(ctx)
-                                          .showSnackBar(
+                                      ScaffoldMessenger.of(ctx).showSnackBar(
                                         SnackBar(
-                                            content: Text(loc.shareLinkCopied)),
+                                          content: Text(loc.shareLinkCopied),
+                                        ),
                                       );
                                       Navigator.of(ctx).pop();
                                     }
@@ -307,8 +309,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           // Заголовок
                           Row(
                             children: [
-                              const Icon(Icons.share,
-                                  color: AppColors.grey700, size: 24),
+                              const Icon(
+                                Icons.share,
+                                color: AppColors.grey700,
+                                size: 24,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -345,7 +350,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                     onTap: isCreating
                                         ? null
                                         : () => setDialogState(
-                                            () => selectedDays = days),
+                                            () => selectedDays = days,
+                                          ),
                                     borderRadius: BorderRadius.circular(8),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
@@ -403,7 +409,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 onTap: isCreating
                                     ? null
                                     : () => setDialogState(
-                                        () => selectedPermission = 'edit'),
+                                        () => selectedPermission = 'edit',
+                                      ),
                               ),
                               const SizedBox(width: 8),
                               _buildPermissionOption(
@@ -415,7 +422,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 onTap: isCreating
                                     ? null
                                     : () => setDialogState(
-                                        () => selectedPermission = 'view'),
+                                        () => selectedPermission = 'view',
+                                      ),
                               ),
                             ],
                           ),
@@ -566,9 +574,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
     // Проверяем, что пользователь залогинен
     if (!authProvider.isLoggedIn) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.loginRequired)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
       }
       return;
     }
@@ -584,9 +592,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       final reportId = reportState.serverReportId;
       if (!saved || reportId == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(loc.uploadError)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(loc.uploadError)));
         }
         return;
       }
@@ -597,9 +605,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       final reportPath = reportState.currentReportPath;
       if (reportPath == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(loc.uploadError)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(loc.uploadError)));
         }
         return;
       }
@@ -656,9 +664,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
       if (filesToUpload.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(loc.noFilesToUpload)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(loc.noFilesToUpload)));
         }
         return;
       }
@@ -710,9 +718,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
     } catch (e) {
       _hideProcessingDialog();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loc.uploadError}: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${loc.uploadError}: $e')));
       }
     }
   }
@@ -1072,9 +1080,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final shareToken = reportState.shareToken;
     if (shareToken != null && shareToken.isNotEmpty) {
       final anonymousId = await AnonymousIdService.getId();
-      final uri = Uri.http(ApiService.baseUrl, '/reports/shares/$shareToken/html', {
-        'anonymous_id': anonymousId,
-      });
+      final uri = Uri.http(
+        ApiService.baseUrl,
+        '/reports/shares/$shareToken/html',
+        {'anonymous_id': anonymousId},
+      );
       openHtmlInBrowserUrl(uri.toString());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1489,18 +1499,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         );
                         downloadShareZip(uri.toString(), zipName);
                       } else if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(loc.saveZipWeb)),
-                        );
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(loc.saveZipWeb)));
                       }
                       return;
                     }
                     // Show hint on mobile devices - only hint, no action
                     if (Platform.isAndroid || Platform.isIOS) {
                       if (mounted) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(loc.saveZipMobileHint),
                             duration: const Duration(seconds: 3),
@@ -1641,7 +1649,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 children: [
                                   Container(
                                     color: AppColors.grey100,
-                                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      4,
+                                    ),
                                     child: Row(
                                       children: [
                                         Text(
@@ -1666,11 +1679,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   ),
                                   Container(
                                     color: AppColors.grey100,
-                                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      0,
+                                      12,
+                                      8,
+                                    ),
                                     child: InkWell(
                                       onTap: () {
                                         setState(() {
-                                          _hideAnsweredQuestions = !_hideAnsweredQuestions;
+                                          _hideAnsweredQuestions =
+                                              !_hideAnsweredQuestions;
                                         });
                                       },
                                       child: Row(
@@ -1680,16 +1699,26 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                             height: 20,
                                             child: Checkbox(
                                               value: _hideAnsweredQuestions,
-                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                              fillColor: WidgetStateProperty.resolveWith((states) {
-                                                if (states.contains(WidgetState.selected)) {
-                                                  return AppColors.textPrimary;
-                                                }
-                                                return AppColors.greyDisabled;
-                                              }),
+                                              materialTapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              fillColor:
+                                                  WidgetStateProperty.resolveWith(
+                                                    (states) {
+                                                      if (states.contains(
+                                                        WidgetState.selected,
+                                                      )) {
+                                                        return AppColors
+                                                            .textPrimary;
+                                                      }
+                                                      return AppColors
+                                                          .greyDisabled;
+                                                    },
+                                                  ),
                                               onChanged: (value) {
                                                 setState(() {
-                                                  _hideAnsweredQuestions = value ?? false;
+                                                  _hideAnsweredQuestions =
+                                                      value ?? false;
                                                 });
                                               },
                                             ),
@@ -1710,10 +1739,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   ),
                                   Expanded(
                                     child: ScrollablePositionedList.builder(
-                                      itemScrollController: _sidePanelItemScrollController,
-                                      itemCount: _getFilteredQuestionCount(report) + 1,
+                                      itemScrollController:
+                                          _sidePanelItemScrollController,
+                                      itemCount:
+                                          _getFilteredQuestionCount(report) + 1,
                                       itemBuilder: (ctx, index) {
-                                        if (index == _getFilteredQuestionCount(report)) {
+                                        if (index ==
+                                            _getFilteredQuestionCount(report)) {
                                           return const SizedBox(height: 80);
                                         }
                                         if (index == 0) {
@@ -1723,8 +1755,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                             reportState,
                                           );
                                         }
-                                        final i = _getFilteredQuestionIndex(index - 1, report);
-                                        if (i == -1) return const SizedBox.shrink();
+                                        final i = _getFilteredQuestionIndex(
+                                          index - 1,
+                                          report,
+                                        );
+                                        if (i == -1) {
+                                          return const SizedBox.shrink();
+                                        }
                                         final lang = report.currentLanguage;
                                         final answers = report
                                             .getAnswersForQuestion(i, lang);
@@ -1748,10 +1785,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         );
 
                                         return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 4,
-                                            ),
-                                            child: Material(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 4,
+                                          ),
+                                          child: Material(
                                             color: Colors.white,
                                             borderRadius: BorderRadius.circular(
                                               8,
@@ -1763,15 +1800,22 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                 });
                                                 if (_viewMode ==
                                                     ViewMode.card) {
-                                                  final page = _getPageForQuestion(i, report);
+                                                  final page =
+                                                      _getPageForQuestion(
+                                                        i,
+                                                        report,
+                                                      );
                                                   if (page >= 0) {
-                                                    _pageController.animateToPage(
-                                                      page,
-                                                      duration: const Duration(
-                                                        milliseconds: 300,
-                                                      ),
-                                                      curve: Curves.ease,
-                                                    );
+                                                    _pageController
+                                                        .animateToPage(
+                                                          page,
+                                                          duration:
+                                                              const Duration(
+                                                                milliseconds:
+                                                                    300,
+                                                              ),
+                                                          curve: Curves.ease,
+                                                        );
                                                   }
                                                 } else {
                                                   _scrollToQuestion(i);
@@ -2032,7 +2076,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                               ),
                                             ),
                                           ),
-                                      );
+                                        );
                                       },
                                     ),
                                   ),
@@ -2107,7 +2151,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           child: InkWell(
                             onTap: () {
                               setState(() {
-                                _hideAnsweredQuestions = !_hideAnsweredQuestions;
+                                _hideAnsweredQuestions =
+                                    !_hideAnsweredQuestions;
                               });
                             },
                             child: Row(
@@ -2117,9 +2162,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   height: 20,
                                   child: Checkbox(
                                     value: _hideAnsweredQuestions,
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    fillColor: WidgetStateProperty.resolveWith((states) {
-                                      if (states.contains(WidgetState.selected)) {
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    fillColor: WidgetStateProperty.resolveWith((
+                                      states,
+                                    ) {
+                                      if (states.contains(
+                                        WidgetState.selected,
+                                      )) {
                                         return AppColors.textPrimary;
                                       }
                                       return AppColors.greyDisabled;
@@ -2147,7 +2197,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ),
                         Expanded(
                           child: ScrollablePositionedList.builder(
-                            itemScrollController: _sidePanelItemScrollController,
+                            itemScrollController:
+                                _sidePanelItemScrollController,
                             itemCount: _getFilteredQuestionCount(report) + 1,
                             itemBuilder: (ctx, index) {
                               if (index == _getFilteredQuestionCount(report)) {
@@ -2160,7 +2211,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   reportState,
                                 );
                               }
-                              final i = _getFilteredQuestionIndex(index - 1, report);
+                              final i = _getFilteredQuestionIndex(
+                                index - 1,
+                                report,
+                              );
                               if (i == -1) return const SizedBox.shrink();
                               final lang = report.currentLanguage;
                               final answers = report.getAnswersForQuestion(
@@ -2179,12 +2233,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               final hasTranslation = q.hasTranslation(lang);
 
                               return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
-                                  child: Material(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Material(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
                                   child: InkWell(
                                     onTap: () {
                                       setState(() {
@@ -2192,7 +2246,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         _isSidePanelCollapsed = true;
                                       });
                                       if (_viewMode == ViewMode.card) {
-                                        final page = _getPageForQuestion(i, report);
+                                        final page = _getPageForQuestion(
+                                          i,
+                                          report,
+                                        );
                                         if (page >= 0) {
                                           _pageController.animateToPage(
                                             page,
@@ -2257,7 +2314,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                   style: const TextStyle(
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w500,
-                                                    color: AppColors.textPrimary,
+                                                    color:
+                                                        AppColors.textPrimary,
                                                   ),
                                                   maxLines: 2,
                                                   overflow:
@@ -2393,7 +2451,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                                   child: const Icon(
                                                     Icons.edit_note,
                                                     size: 14,
-                                                    color: AppColors.warningAccent,
+                                                    color:
+                                                        AppColors.warningAccent,
                                                   ),
                                                 ),
                                             ],
@@ -2783,7 +2842,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.image, size: 48, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.image,
+                      size: 48,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       loc.noPhoto,
@@ -3435,10 +3498,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              border: Border.all(
-                width: 1.5,
-                color: AppColors.grey200,
-              ),
+              border: Border.all(width: 1.5, color: AppColors.grey200),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -3711,7 +3771,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               if (_currentPage == -1) {
                                 _pageController.jumpToPage(0);
                               } else {
-                                final page = _getPageForQuestion(_currentPage, report);
+                                final page = _getPageForQuestion(
+                                  _currentPage,
+                                  report,
+                                );
                                 if (page >= 0) {
                                   _pageController.jumpToPage(page);
                                 }
@@ -3894,7 +3957,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         if (_currentPage == -1) {
                                           _pageController.jumpToPage(0);
                                         } else {
-                                          final page = _getPageForQuestion(_currentPage, report);
+                                          final page = _getPageForQuestion(
+                                            _currentPage,
+                                            report,
+                                          );
                                           if (page >= 0) {
                                             _pageController.jumpToPage(page);
                                           }
@@ -3995,7 +4061,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       margin: EdgeInsets.only(bottom: isMobile ? 6 : 12),
       padding: EdgeInsets.all(isMobile ? 8 : 12),
       decoration: BoxDecoration(
-        color: attention ? AppColors.attentionBackground : AppColors.greyBackground,
+        color: attention
+            ? AppColors.attentionBackground
+            : AppColors.greyBackground,
         border: Border.all(
           width: 1.5,
           color: attention ? AppColors.attentionBorder : AppColors.grey200,
@@ -4414,10 +4482,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             const SizedBox(width: 12),
             Text(
               label,
-              style: const TextStyle(
-                color: AppColors.border,
-                fontSize: 16,
-              ),
+              style: const TextStyle(color: AppColors.border, fontSize: 16),
             ),
           ],
         ),
@@ -4503,7 +4568,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Удалить?'),
-                  content: const Text('Файл будет удален без возможности восстановления.'),
+                  content: const Text(
+                    'Файл будет удален без возможности восстановления.',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -4511,9 +4578,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                      ),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
                       child: const Text('Удалить'),
                     ),
                   ],

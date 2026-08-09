@@ -137,9 +137,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.loginSuccess)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.loginSuccess)));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -205,14 +205,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 fontWeight: FontWeight.w500,
                 color: AppColors.textPrimary,
                 shadows: [
-                  Shadow(
-                    color: AppColors.textShadowDark,
-                    blurRadius: 1.2,
-                  ),
-                  Shadow(
-                    color: AppColors.textShadowLight,
-                    blurRadius: 0.8,
-                  ),
+                  Shadow(color: AppColors.textShadowDark, blurRadius: 1.2),
+                  Shadow(color: AppColors.textShadowLight, blurRadius: 0.8),
                 ],
               ),
               textAlign: TextAlign.center,
@@ -241,8 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: AppColors.border, width: 2),
       ),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 
@@ -316,7 +309,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : IconButton(
@@ -324,13 +319,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _connectionStatus == null
                                     ? Icons.wifi_find
                                     : (_connectionStatus == true
-                                        ? Icons.check_circle
-                                        : Icons.error_outline),
+                                          ? Icons.check_circle
+                                          : Icons.error_outline),
                                 color: _connectionStatus == null
                                     ? AppColors.textSecondary
                                     : (_connectionStatus == true
-                                        ? AppColors.success
-                                        : AppColors.error),
+                                          ? AppColors.success
+                                          : AppColors.error),
                                 size: 20,
                               ),
                               onPressed: _isTestingConnection
@@ -415,10 +410,7 @@ Future<void> showLoginDialog(BuildContext context) {
 /// Диалог настроек пользователя: показывает данные аккаунта,
 /// адрес сервера и кнопку выхода.
 Future<void> showSettingsDialog(BuildContext context) {
-  final authProvider = Provider.of<AuthProvider>(
-    context,
-    listen: false,
-  );
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
   final loc = AppLocalizations.of(context)!;
 
   return showDialog(
@@ -464,7 +456,10 @@ Future<void> showSettingsDialog(BuildContext context) {
             const SizedBox(height: 4),
             Text(
               '${loc.emailLabel}: ${authProvider.email}',
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
           const SizedBox(height: 16),
@@ -494,13 +489,11 @@ Future<void> showSettingsDialog(BuildContext context) {
             await authProvider.logout();
             if (!ctx.mounted) return;
             Navigator.of(ctx).pop();
-            ScaffoldMessenger.of(ctx).showSnackBar(
-              SnackBar(content: Text(loc.logoutAction)),
-            );
+            ScaffoldMessenger.of(
+              ctx,
+            ).showSnackBar(SnackBar(content: Text(loc.logoutAction)));
           },
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.errorLight,
-          ),
+          style: TextButton.styleFrom(foregroundColor: AppColors.errorLight),
           child: Text(loc.logoutAction),
         ),
       ],

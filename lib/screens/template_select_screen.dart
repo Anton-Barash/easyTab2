@@ -473,7 +473,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             child: Text(
                               '${entry.key + 1}. ${questionLoc?.name ?? entry.value.getDisplayName(lang) ?? loc.noName}',
-                              style: const TextStyle(color: AppColors.textPrimary),
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           );
                         }),
@@ -513,9 +515,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: onTap == null
-            ? AppColors.grey300
-            : AppColors.surface,
+        color: onTap == null ? AppColors.grey300 : AppColors.surface,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
           topRight: Radius.circular(10),
@@ -524,11 +524,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
         ),
         border: Border.all(width: 2.5, color: AppColors.border),
         boxShadow: [
-          BoxShadow(
-            color: AppColors.border,
-            blurRadius: 0,
-            spreadRadius: 1.5,
-          ),
+          BoxShadow(color: AppColors.border, blurRadius: 0, spreadRadius: 1.5),
           BoxShadow(color: AppColors.shadow, offset: const Offset(2, 2)),
         ],
       ),
@@ -637,10 +633,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        width: 1.5,
-                        color: AppColors.border,
-                      ),
+                      border: Border.all(width: 1.5, color: AppColors.border),
                     ),
                     child: Text(
                       loc.selected,
@@ -723,11 +716,14 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     final productType = _productTypeController.text.trim();
     final factory = _factoryController.text.trim();
     final model = _modelController.text.trim();
-    
-    if (productType.isEmpty || factory.isEmpty || model.isEmpty || _selectedReport == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.fillAllFields)),
-      );
+
+    if (productType.isEmpty ||
+        factory.isEmpty ||
+        model.isEmpty ||
+        _selectedReport == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.fillAllFields)));
       return;
     }
 

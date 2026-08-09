@@ -85,7 +85,8 @@ class _Strings {
       retry: 'Обновить',
       loadError: 'Не удалось загрузить ссылку',
       appLinksStub: 'Ссылки на приложения будут здесь',
-      viewOnlyWarning: 'Доступен только просмотр. Для редактирования запросите доступ у владельца отчёта.',
+      viewOnlyWarning:
+          'Доступен только просмотр. Для редактирования запросите доступ у владельца отчёта.',
     ),
     'EN': _Strings(
       appName: 'EasyTab',
@@ -104,7 +105,8 @@ class _Strings {
       retry: 'Retry',
       loadError: 'Failed to load link',
       appLinksStub: 'App download links will be here',
-      viewOnlyWarning: 'View only access. To edit, request access from the report owner.',
+      viewOnlyWarning:
+          'View only access. To edit, request access from the report owner.',
     ),
     'CN': _Strings(
       appName: 'EasyTab',
@@ -178,7 +180,8 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
 
       setState(() {
         _isLoading = false;
-        _reportTitle = (reportData['reportName'] ?? report['title'] ?? 'Отчёт').toString();
+        _reportTitle = (reportData['reportName'] ?? report['title'] ?? 'Отчёт')
+            .toString();
         _permissions = share['permissions']?.toString() ?? 'edit';
         final expiresRaw = share['expiresAt'];
         if (expiresRaw != null) {
@@ -226,9 +229,9 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
 
   void _showDownloadAppsStub() {
     final s = _Strings.get(_uiLanguage);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(s.appLinksStub)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(s.appLinksStub)));
   }
 
   String _formatExpiresAt() {
@@ -288,10 +291,7 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
             style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 24),
-          EasyTabButton(
-            label: s.retry,
-            onTap: _loadShareInfo,
-          ),
+          EasyTabButton(label: s.retry, onTap: _loadShareInfo),
         ],
       );
     }
@@ -343,12 +343,19 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.lock_outline, size: 20, color: Color(0xFFE65100)),
+                const Icon(
+                  Icons.lock_outline,
+                  size: 20,
+                  color: Color(0xFFE65100),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: SelectableText(
                     s.viewOnlyWarning,
-                    style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -423,19 +430,21 @@ class _LanguageSwitcher extends StatelessWidget {
         ],
       ),
       itemBuilder: (ctx) => _languages
-          .map((lang) => PopupMenuItem(
-                value: lang,
-                child: Row(
-                  children: [
-                    Text(lang),
-                    if (lang == current)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: Icon(Icons.check, size: 16),
-                      ),
-                  ],
-                ),
-              ))
+          .map(
+            (lang) => PopupMenuItem(
+              value: lang,
+              child: Row(
+                children: [
+                  Text(lang),
+                  if (lang == current)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: Icon(Icons.check, size: 16),
+                    ),
+                ],
+              ),
+            ),
+          )
           .toList(),
       onSelected: onChanged,
     );

@@ -23,8 +23,9 @@ VideoPlayerController createFileVideoController(String path) =>
 VideoPlayerController createVideoControllerFromBytes(
   Uint8List bytes,
   String mimeType,
-) =>
-    throw UnsupportedError('createVideoControllerFromBytes не доступно на native');
+) => throw UnsupportedError(
+  'createVideoControllerFromBytes не доступно на native',
+);
 
 /// Освобождает ресурсы, связанные с видео-контроллером из байтов.
 /// На web — revoke blob URL. На native — no-op.

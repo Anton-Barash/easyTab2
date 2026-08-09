@@ -16,8 +16,7 @@ import '../services/share_token_storage.dart';
 import '../services/api_result.dart';
 import '../services/anonymous_id_service.dart';
 import '../services/mime_utils.dart';
-import '../services/upload_helper_native.dart'
-    if (dart.library.html) '../services/upload_helper_web.dart';
+import '../services/upload_helper.dart';
 import '../utils/image_compressor.dart';
 import '../services/video_upload_queue.dart';
 
@@ -316,7 +315,10 @@ class ReportState extends ChangeNotifier {
     final mimeType = mimeTypeFromFilename(file.path);
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = ImageCompressor.compress(Uint8List.fromList(bytes), 2000);
+      final compressed = ImageCompressor.compress(
+        Uint8List.fromList(bytes),
+        2000,
+      );
       await destPath.writeAsBytes(compressed);
     } else {
       await file.copy(destPath.path);
@@ -523,13 +525,15 @@ class ReportState extends ChangeNotifier {
       _currentReport!.translations[qid]![lang]![answerIndex].text = text;
       _currentReport!.translations[qid]![lang]![answerIndex].isEmpty =
           text.isEmpty;
-      
+
       for (final otherLang in _currentReport!.availableLanguages) {
         if (otherLang != lang &&
             _currentReport!.translations[qid]!.containsKey(otherLang) &&
-            answerIndex < _currentReport!.translations[qid]![otherLang]!.length) {
+            answerIndex <
+                _currentReport!.translations[qid]![otherLang]!.length) {
           _currentReport!.translations[qid]![otherLang]![answerIndex].text = '';
-          _currentReport!.translations[qid]![otherLang]![answerIndex].isEmpty = true;
+          _currentReport!.translations[qid]![otherLang]![answerIndex].isEmpty =
+              true;
         }
       }
     }
@@ -604,7 +608,10 @@ class ReportState extends ChangeNotifier {
 
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = ImageCompressor.compress(Uint8List.fromList(bytes), 2000);
+      final compressed = ImageCompressor.compress(
+        Uint8List.fromList(bytes),
+        2000,
+      );
       await destPath.writeAsBytes(compressed);
     } else {
       await file.copy(destPath.path);
@@ -724,12 +731,15 @@ class ReportState extends ChangeNotifier {
         reportId: _serverReportId,
         shareToken: _shareToken,
         onError: (code) {
-          if (kDebugMode) debugPrint('Video queue error ($code): $generatedName');
+          if (kDebugMode) {
+            debugPrint('Video queue error ($code): $generatedName');
+          }
           onVideoError?.call(code);
         },
       );
     } else if (_serverReportId != null &&
-        (_ks3Folder != null || (_shareToken != null && _shareToken!.isNotEmpty))) {
+        (_ks3Folder != null ||
+            (_shareToken != null && _shareToken!.isNotEmpty))) {
       // Фото (и native видео без сжатия) загружаем сразу, если отчёт сохранён.
       // В share-режиме _ks3Folder может быть null — сервер найдёт его сам.
       _uploadMediaToServer(
@@ -763,7 +773,9 @@ class ReportState extends ChangeNotifier {
   ) async {
     // P3-45: Защита от race condition — если файл уже загружается, пропускаем.
     if (mediaItem.isUploading) {
-      if (kDebugMode) debugPrint('Upload skipped (already uploading): $fileName');
+      if (kDebugMode) {
+        debugPrint('Upload skipped (already uploading): $fileName');
+      }
       return;
     }
 
@@ -786,7 +798,7 @@ class ReportState extends ChangeNotifier {
 
     mediaItem.isUploading = true;
 
-        try {
+    try {
       mediaItem.uploadProgress = 0.0;
       notifyListeners();
 
@@ -813,10 +825,11 @@ class ReportState extends ChangeNotifier {
           filename: fileName,
           relativePath: relativePath,
           reportId: _serverReportId,
-          ks3Folder: _ks3Folder,
           onUploadProgress: (progress) {
             if (kDebugMode) {
-              debugPrint('Upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%');
+              debugPrint(
+                'Upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%',
+              );
             }
             mediaItem.uploadProgress = progress;
             notifyListeners();
@@ -900,7 +913,8 @@ class ReportState extends ChangeNotifier {
     final uploadUrl = presignResult.data!['uploadUrl'] as String;
     final fileId = presignResult.data!['fileId'] as String;
     final storageKey = presignResult.data!['storageKey'] as String;
-    final serverMimeType = presignResult.data!['mimeType'] as String? ?? mimeType;
+    final serverMimeType =
+        presignResult.data!['mimeType'] as String? ?? mimeType;
     final relPath = presignResult.data!['relPath'] as String? ?? relativePath;
 
     // Шаг 2: прямая загрузка в KS3
@@ -909,7 +923,9 @@ class ReportState extends ChangeNotifier {
       bytes: bytes,
       onUploadProgress: (progress) {
         if (kDebugMode) {
-          debugPrint('KS3 direct upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%');
+          debugPrint(
+            'KS3 direct upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%',
+          );
         }
         mediaItem.uploadProgress = progress;
         notifyListeners();
@@ -951,11 +967,15 @@ class ReportState extends ChangeNotifier {
   /// уже установлены. Проходит по всем медиа отчёта и загружает те,
   /// у которых serverFileId == null и есть webBytes.
   Future<void> _uploadPendingMedia() async {
-    if (_currentReport == null || _ks3Folder == null || _serverReportId == null) {
+    if (_currentReport == null ||
+        _ks3Folder == null ||
+        _serverReportId == null) {
       return;
     }
 
-    if (kDebugMode) debugPrint('_uploadPendingMedia: scanning for pending media...');
+    if (kDebugMode) {
+      debugPrint('_uploadPendingMedia: scanning for pending media...');
+    }
 
     int uploadedCount = 0;
 
@@ -1191,12 +1211,18 @@ class ReportState extends ChangeNotifier {
       await jsonFile.writeAsString(jsonEncode(jsonData));
 
       if (kDebugMode) {
-      debugPrint('saveReport: availableLanguages=${_currentReport!.availableLanguages}');
-      debugPrint('saveReport: translations keys=${_currentReport!.translations.keys}');
-      for (final qid in _currentReport!.translations.keys) {
-        debugPrint('saveReport: translations[$qid] keys=${_currentReport!.translations[qid]!.keys}');
+        debugPrint(
+          'saveReport: availableLanguages=${_currentReport!.availableLanguages}',
+        );
+        debugPrint(
+          'saveReport: translations keys=${_currentReport!.translations.keys}',
+        );
+        for (final qid in _currentReport!.translations.keys) {
+          debugPrint(
+            'saveReport: translations[$qid] keys=${_currentReport!.translations[qid]!.keys}',
+          );
+        }
       }
-    }
 
       await _saveHtmlPreview(folderPath);
       return true;
@@ -1275,7 +1301,9 @@ class ReportState extends ChangeNotifier {
           _ks3Folder = folder;
         }
         if (kDebugMode) {
-          debugPrint('saveReport (web): saved as ID $_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder');
+          debugPrint(
+            'saveReport (web): saved as ID $_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder',
+          );
         }
 
         // После сохранения отчёта — запускаем загрузку всех медиа,
@@ -1369,8 +1397,12 @@ class ReportState extends ChangeNotifier {
         return false;
       }
 
-      final reportData = result.data!['report']['reportData'] as Map<String, dynamic>;
-      _currentReport = Report.fromJson(reportData, folderPath: reportId.toString());
+      final reportData =
+          result.data!['report']['reportData'] as Map<String, dynamic>;
+      _currentReport = Report.fromJson(
+        reportData,
+        folderPath: reportId.toString(),
+      );
       _currentReportPath = reportId.toString();
       _serverReportId = reportId; // запоминаем для будущих сохранений
 
@@ -1400,7 +1432,9 @@ class ReportState extends ChangeNotifier {
       _sanitizeMediaState();
 
       if (kDebugMode) {
-        debugPrint('loadReport (web): ID=$_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder');
+        debugPrint(
+          'loadReport (web): ID=$_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder',
+        );
       }
 
       notifyListeners();
@@ -1431,11 +1465,14 @@ class ReportState extends ChangeNotifier {
       // Решение: расширяем getShareInfo, чтобы включать reportData.
       // TODO: добавить reportData в ответ getShareInfo.
       if (result.data!['report']['reportData'] == null) {
-        if (kDebugMode) debugPrint('loadSharedReport: reportData not in share info');
+        if (kDebugMode) {
+          debugPrint('loadSharedReport: reportData not in share info');
+        }
         return false;
       }
 
-      final reportData = result.data!['report']['reportData'] as Map<String, dynamic>;
+      final reportData =
+          result.data!['report']['reportData'] as Map<String, dynamic>;
       _currentReport = Report.fromJson(reportData, folderPath: token);
       _currentReportPath = token;
       _serverReportId = result.data!['report']['id'] is int
@@ -1450,7 +1487,9 @@ class ReportState extends ChangeNotifier {
       _sanitizeMediaState();
 
       if (kDebugMode) {
-        debugPrint('loadSharedReport: token=$token, ID=$_serverReportId, folder=$_ks3Folder');
+        debugPrint(
+          'loadSharedReport: token=$token, ID=$_serverReportId, folder=$_ks3Folder',
+        );
       }
 
       notifyListeners();
@@ -1584,7 +1623,9 @@ class ReportState extends ChangeNotifier {
         return {
           'id': r['id'].toString(),
           'name': r['title'] as String? ?? 'Untitled',
-          'modified': DateTime.tryParse(r['createdAt'] as String? ?? '') ?? DateTime.now(),
+          'modified':
+              DateTime.tryParse(r['createdAt'] as String? ?? '') ??
+              DateTime.now(),
         };
       }).toList();
     } catch (e) {
@@ -1764,15 +1805,19 @@ class ReportState extends ChangeNotifier {
           final idStr = id is int ? id.toString() : id.toString();
           final publicId = r['publicId'] as String?;
           final title = r['title'] as String? ?? 'Untitled';
-          final createdAt = DateTime.tryParse(r['createdAt'] as String? ?? '') ?? DateTime.now();
+          final createdAt =
+              DateTime.tryParse(r['createdAt'] as String? ?? '') ??
+              DateTime.now();
 
-          reportInfos.add(ReportInfo(
-            folderName: idStr,
-            name: title,
-            dateTime: createdAt,
-            thumbnailPath: null,
-            publicId: publicId,
-          ));
+          reportInfos.add(
+            ReportInfo(
+              folderName: idStr,
+              name: title,
+              dateTime: createdAt,
+              thumbnailPath: null,
+              publicId: publicId,
+            ),
+          );
         }
       }
 
@@ -1791,24 +1836,30 @@ class ReportState extends ChangeNotifier {
             final id = report['id'];
             final idStr = id is int ? id.toString() : id.toString();
             final publicId = report['publicId'] as String?;
-            final title = (reportData['reportName'] ?? report['title'] ?? 'Отчёт').toString();
-            final createdAt = DateTime.tryParse(
-                    report['createdAt'] as String? ?? '') ??
+            final title =
+                (reportData['reportName'] ?? report['title'] ?? 'Отчёт')
+                    .toString();
+            final createdAt =
+                DateTime.tryParse(report['createdAt'] as String? ?? '') ??
                 DateTime.now();
 
             // Не дублируем, если отчёт уже есть в списке
             if (!reportInfos.any((r) => r.folderName == idStr)) {
-              reportInfos.add(ReportInfo(
-                folderName: idStr,
-                name: title,
-                dateTime: createdAt,
-                thumbnailPath: null,
-                publicId: publicId,
-              ));
+              reportInfos.add(
+                ReportInfo(
+                  folderName: idStr,
+                  name: title,
+                  dateTime: createdAt,
+                  thumbnailPath: null,
+                  publicId: publicId,
+                ),
+              );
             }
           }
         } catch (e) {
-          if (kDebugMode) debugPrint('loadReportList: share token $token error: $e');
+          if (kDebugMode) {
+            debugPrint('loadReportList: share token $token error: $e');
+          }
         }
       }
 
@@ -2313,7 +2364,9 @@ class ReportState extends ChangeNotifier {
           final isImage = media['type'].startsWith('image');
           // P0-5: escapeHtml для media-аттрибутов — защита от XSS.
           // Имена файлов могут содержать кавычки и спецсимволы.
-          final escapedLocalPath = escapeHtml(media['localPath'] as String? ?? '');
+          final escapedLocalPath = escapeHtml(
+            media['localPath'] as String? ?? '',
+          );
           final escapedName = escapeHtml(media['name'] as String? ?? '');
 
           if (isImage) {
@@ -2343,7 +2396,9 @@ class ReportState extends ChangeNotifier {
         for (int mi = visibleCount; mi < mediaList.length; mi++) {
           final media = mediaList[mi];
           final isImage = media['type'].startsWith('image');
-          final escapedLocalPath = escapeHtml(media['localPath'] as String? ?? '');
+          final escapedLocalPath = escapeHtml(
+            media['localPath'] as String? ?? '',
+          );
           final escapedName = escapeHtml(media['name'] as String? ?? '');
           if (isImage) {
             parts.add(
@@ -2888,7 +2943,9 @@ class ReportState extends ChangeNotifier {
         final loc = q.getLocalization(lang);
         // P2-40: экранируем имя вопроса от XSS/formula injection.
         questionNames.add(
-          _sanitizeExcelCell(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}'),
+          _sanitizeExcelCell(
+            loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
+          ),
         );
       }
 
@@ -2949,7 +3006,9 @@ class ReportState extends ChangeNotifier {
         final parts = <String>[];
         for (int li = 0; li < languages.length; li++) {
           if (ai < answersByLang[li].length) {
-            final text = _sanitizeExcelCell(answersByLang[li][ai]['text'] ?? '');
+            final text = _sanitizeExcelCell(
+              answersByLang[li][ai]['text'] ?? '',
+            );
             if (li == 0) {
               parts.add('<div>$text</div>');
             } else {
@@ -3709,7 +3768,9 @@ class ReportState extends ChangeNotifier {
       final excelFile = File('$_currentReportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
       if (kDebugMode) {
-        debugPrint('Excel saved to: ${excelFile.path}, bytes: ${excelBytes.length}');
+        debugPrint(
+          'Excel saved to: ${excelFile.path}, bytes: ${excelBytes.length}',
+        );
       }
 
       // Сохраняем HTML
@@ -3722,7 +3783,10 @@ class ReportState extends ChangeNotifier {
 
       final folderPath = _currentReportPath!;
       final safeName = _currentReport!.reportName
-          .replaceAll(RegExp(r'[^\w\sа-яА-ЯёЁ\u4e00-\u9fff-]'), '') // Allow Russian, Chinese, and alphanumeric
+          .replaceAll(
+            RegExp(r'[^\w\sа-яА-ЯёЁ\u4e00-\u9fff-]'),
+            '',
+          ) // Allow Russian, Chinese, and alphanumeric
           .replaceAll(' ', '_');
 
       String zipPath;
@@ -3811,7 +3875,9 @@ class ReportState extends ChangeNotifier {
         final zipArchive = ZipDecoder().decodeBytes(
           await zipFile.readAsBytes(),
         );
-        debugPrint('ZIP content: ${zipArchive.files.map((f) => f.name).toList()}');
+        debugPrint(
+          'ZIP content: ${zipArchive.files.map((f) => f.name).toList()}',
+        );
       }
 
       return zipPath;
@@ -4063,7 +4129,9 @@ class ReportState extends ChangeNotifier {
     if (_currentReport == null) return;
     final data = validateSyncJson(jsonStr);
     if (data == null) {
-      if (kDebugMode) debugPrint('applySyncAnswers: validateSyncJson returned null');
+      if (kDebugMode) {
+        debugPrint('applySyncAnswers: validateSyncJson returned null');
+      }
       return;
     }
 
@@ -4074,9 +4142,9 @@ class ReportState extends ChangeNotifier {
     final questions = data['questions'] as List;
 
     if (kDebugMode) {
-    debugPrint('applySyncAnswers START: jsonLanguages=$jsonLanguages');
-    debugPrint('applySyncAnswers START: reportLanguages=$languages');
-    debugPrint('applySyncAnswers START: questions count=${questions.length}');
+      debugPrint('applySyncAnswers START: jsonLanguages=$jsonLanguages');
+      debugPrint('applySyncAnswers START: reportLanguages=$languages');
+      debugPrint('applySyncAnswers START: questions count=${questions.length}');
     }
 
     for (final qData in questions) {
@@ -4130,14 +4198,20 @@ class ReportState extends ChangeNotifier {
         final texts = (answerData['variants'] as List).cast<String>();
 
         if (kDebugMode) {
-        debugPrint('applySyncAnswers: qid=$qid, answerId=$answerId, texts=$texts');
+          debugPrint(
+            'applySyncAnswers: qid=$qid, answerId=$answerId, texts=$texts',
+          );
         }
 
         for (final lang in languages) {
           // Найдем индекс языка в JSON языках
           final jsonLangIndex = jsonLanguages.indexOf(lang);
           if (jsonLangIndex == -1) {
-            if (kDebugMode) debugPrint('applySyncAnswers: lang=$lang not found in jsonLanguages');
+            if (kDebugMode) {
+              debugPrint(
+                'applySyncAnswers: lang=$lang not found in jsonLanguages',
+              );
+            }
             continue; // Язык не найден в JSON, пропускаем
           }
 
@@ -4156,9 +4230,7 @@ class ReportState extends ChangeNotifier {
             while (answersList.length < answerId) {
               answersList.add(TranslationAnswer());
             }
-            answersList.add(
-              TranslationAnswer(text: text, isEmpty: false),
-            );
+            answersList.add(TranslationAnswer(text: text, isEmpty: false));
           }
         }
       }

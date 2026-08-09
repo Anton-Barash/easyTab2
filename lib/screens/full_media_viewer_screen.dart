@@ -84,8 +84,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
       final media = widget.mediaList[index] as Map<String, dynamic>;
       final localPath = _getAbsolutePath(media['localPath'] as String?);
       final webUrl = media['webUrl'] as String?;
-      final isVideo =
-          (media['type'] as String? ?? '').startsWith('video');
+      final isVideo = (media['type'] as String? ?? '').startsWith('video');
 
       if (isVideo) {
         if (!kIsWeb && localPath != null) {
@@ -107,14 +106,16 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
           // Создаём blob URL из webBytes для локального просмотра.
           final webBytes = media['webBytes'] as Uint8List?;
           if (webBytes != null && webBytes.isNotEmpty) {
-            _videoController = createVideoControllerFromBytes(
-              webBytes,
-              media['type'] as String? ?? 'video/mp4',
-            )..initialize().then((_) {
-              if (mounted) {
-                setState(() {});
-              }
-            });
+            _videoController =
+                createVideoControllerFromBytes(
+                    webBytes,
+                    media['type'] as String? ?? 'video/mp4',
+                  )
+                  ..initialize().then((_) {
+                    if (mounted) {
+                      setState(() {});
+                    }
+                  });
           }
         }
       }
@@ -238,15 +239,19 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                                     Image.network(
                                       media['webUrl'] as String,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) =>
-                                          const Icon(Icons.broken_image,
-                                              color: Colors.grey),
+                                      errorBuilder: (_, _, _) => const Icon(
+                                        Icons.broken_image,
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                     const Positioned(
                                       bottom: 4,
                                       right: 4,
-                                      child: Icon(Icons.play_circle,
-                                          color: Colors.white, size: 20),
+                                      child: Icon(
+                                        Icons.play_circle,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
                                     ),
                                   ],
                                 )
@@ -268,13 +273,15 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                                         width: 20,
                                         height: 20,
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 2),
+                                          strokeWidth: 2,
+                                        ),
                                       ),
                                     );
                                   },
                                   errorBuilder: (_, _, _) => const Icon(
-                                      Icons.broken_image,
-                                      color: Colors.grey),
+                                    Icons.broken_image,
+                                    color: Colors.grey,
+                                  ),
                                 )
                               : const Icon(Icons.image, color: Colors.grey))),
             ),
@@ -337,19 +344,24 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                                         width: 40,
                                         height: 40,
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 3,
-                                            color: Colors.white),
+                                          strokeWidth: 3,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     );
                                   },
                                   errorBuilder: (_, _, _) => const Icon(
-                                      Icons.broken_image,
-                                      size: 60,
-                                      color: Colors.white),
+                                    Icons.broken_image,
+                                    size: 60,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               )
-                            : const Icon(Icons.image,
-                                size: 60, color: Colors.white)),
+                            : const Icon(
+                                Icons.image,
+                                size: 60,
+                                color: Colors.white,
+                              )),
                 );
               }
             },

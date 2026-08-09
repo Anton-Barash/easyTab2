@@ -44,7 +44,8 @@ const Map<String, String> _mimeTypes = {
   '.pdf': 'application/pdf',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.xls': 'application/vnd.ms-excel',
-  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.docx':
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.doc': 'application/msword',
 
   // Архивы

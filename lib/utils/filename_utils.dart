@@ -14,7 +14,5 @@ String buildShareZipName(String reportName, String shareToken) {
   final suffix = shareToken.length >= 8
       ? shareToken.substring(0, 8)
       : shareToken;
-  return safeName.isNotEmpty
-      ? '${safeName}_$suffix.zip'
-      : 'report_$suffix.zip';
+  return safeName.isNotEmpty ? '${safeName}_$suffix.zip' : 'report_$suffix.zip';
 }

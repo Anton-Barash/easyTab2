@@ -93,7 +93,8 @@ class RandomAccessFile {
   int readByteSync() => _unsupported('RandomAccessFile.readByteSync');
   Future<int> writeByte(int value) async =>
       _unsupported('RandomAccessFile.writeByte');
-  int writeByteSync(int value) => _unsupported('RandomAccessFile.writeByteSync');
+  int writeByteSync(int value) =>
+      _unsupported('RandomAccessFile.writeByteSync');
   Future<int> position() async => _unsupported('RandomAccessFile.position');
   int positionSync() => _unsupported('RandomAccessFile.positionSync');
   Future<int> length() async => _unsupported('RandomAccessFile.length');
@@ -108,11 +109,22 @@ class FileStat {
   final int size;
   // НЕ const — DateTime.utc в этом SDK не const-callable в анализаторе.
   // Используем фабрику с предопределёнными значениями.
-  FileStat._internal(this.changed, this.modified, this.accessed, this.mode, this.size);
+  FileStat._internal(
+    this.changed,
+    this.modified,
+    this.accessed,
+    this.mode,
+    this.size,
+  );
   static FileStat statSync(String path) => _empty;
   static Future<FileStat> stat(String path) async => _empty;
   static final FileStat _empty = FileStat._internal(
-      _Epoch.zero, _Epoch.zero, _Epoch.zero, 0, 0);
+    _Epoch.zero,
+    _Epoch.zero,
+    _Epoch.zero,
+    0,
+    0,
+  );
   bool get isFile => false;
   bool get isDirectory => false;
   bool get isLink => false;
@@ -120,7 +132,10 @@ class FileStat {
 }
 
 class _Epoch {
-  static final DateTime zero = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+  static final DateTime zero = DateTime.fromMillisecondsSinceEpoch(
+    0,
+    isUtc: true,
+  );
 }
 
 /// Базовый класс для файловых сущностей. На web все операции бросают
@@ -212,27 +227,35 @@ class File implements FileSystemEntity {
   List<String> readAsLinesSync({Encoding encoding = utf8}) =>
       _unsupported('File.readAsLinesSync');
 
-  Future<File> writeAsBytes(List<int> bytes,
-          {FileMode mode = FileMode.write, bool flush = false}) async =>
-      _unsupported('File.writeAsBytes');
-  void writeAsBytesSync(List<int> bytes,
-          {FileMode mode = FileMode.write, bool flush = false}) =>
-      _unsupported('File.writeAsBytesSync');
+  Future<File> writeAsBytes(
+    List<int> bytes, {
+    FileMode mode = FileMode.write,
+    bool flush = false,
+  }) async => _unsupported('File.writeAsBytes');
+  void writeAsBytesSync(
+    List<int> bytes, {
+    FileMode mode = FileMode.write,
+    bool flush = false,
+  }) => _unsupported('File.writeAsBytesSync');
 
-  Future<File> writeAsString(String contents,
-          {FileMode mode = FileMode.write,
-          Encoding encoding = utf8,
-          bool flush = false}) async =>
-      _unsupported('File.writeAsString');
-  void writeAsStringSync(String contents,
-          {FileMode mode = FileMode.write,
-          Encoding encoding = utf8,
-          bool flush = false}) =>
-      _unsupported('File.writeAsStringSync');
+  Future<File> writeAsString(
+    String contents, {
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+    bool flush = false,
+  }) async => _unsupported('File.writeAsString');
+  void writeAsStringSync(
+    String contents, {
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+    bool flush = false,
+  }) => _unsupported('File.writeAsStringSync');
 
   Stream<List<int>> openRead([int? start, int? end]) => const Stream.empty();
-  IOSink openWrite({FileMode mode = FileMode.write, Encoding encoding = utf8}) =>
-      _unsupported('File.openWrite');
+  IOSink openWrite({
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+  }) => _unsupported('File.openWrite');
 
   RandomAccessFile openSync({FileMode mode = FileMode.read}) =>
       _unsupported('File.openSync');
@@ -277,13 +300,15 @@ class Directory implements FileSystemEntity {
   void deleteSync({bool recursive = false}) =>
       _unsupported('Directory.deleteSync');
 
-  Stream<FileSystemEntity> list(
-          {bool recursive = false, bool followLinks = true}) =>
-      _unsupported('Directory.list');
+  Stream<FileSystemEntity> list({
+    bool recursive = false,
+    bool followLinks = true,
+  }) => _unsupported('Directory.list');
 
-  List<FileSystemEntity> listSync(
-          {bool recursive = false, bool followLinks = true}) =>
-      _unsupported('Directory.listSync');
+  List<FileSystemEntity> listSync({
+    bool recursive = false,
+    bool followLinks = true,
+  }) => _unsupported('Directory.listSync');
 
   FileStat statSync() => FileStat.notFound;
   Future<FileStat> stat() async => statSync();
@@ -298,7 +323,12 @@ class ProcessResult {
   final int exitCode;
   final dynamic stdout;
   final dynamic stderr;
-  const ProcessResult._internal(this.pid, this.exitCode, this.stdout, this.stderr);
+  const ProcessResult._internal(
+    this.pid,
+    this.exitCode,
+    this.stdout,
+    this.stderr,
+  );
 }
 
 class Process {
@@ -312,8 +342,7 @@ class Process {
     Map<String, String>? environment,
     bool runInShell = false,
     Directory? workingDirectory,
-  }) async =>
-      _unsupported('Process.run');
+  }) async => _unsupported('Process.run');
 
   static ProcessResult runSync(
     String executable,
@@ -325,8 +354,7 @@ class Process {
     Map<String, String>? environment,
     bool runInShell = false,
     Directory? workingDirectory,
-  }) =>
-      _unsupported('Process.runSync');
+  }) => _unsupported('Process.runSync');
 }
 
 class RunMode {

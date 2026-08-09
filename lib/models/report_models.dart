@@ -72,19 +72,19 @@ class MediaItem {
   /// получать presigned-ссылки на медиа при загрузке отчёта.
   /// P3-52: isUploading/uploadProgress включены для отображения прогресса в UI.
   Map<String, dynamic> _toMap(String? resolvedLocalPath) => {
-        'name': name,
-        'type': type,
-        'attention': attention,
-        'originalName': originalName,
-        'localPath': resolvedLocalPath,
-        'fileSize': fileSize,
-        'compressedSize': compressedSize,
-        'serverFileId': serverFileId,
-        'isUploading': isUploading,
-        'uploadProgress': uploadProgress,
-        'isCompressing': isCompressing,
-        'compressProgress': compressProgress,
-      };
+    'name': name,
+    'type': type,
+    'attention': attention,
+    'originalName': originalName,
+    'localPath': resolvedLocalPath,
+    'fileSize': fileSize,
+    'compressedSize': compressedSize,
+    'serverFileId': serverFileId,
+    'isUploading': isUploading,
+    'uploadProgress': uploadProgress,
+    'isCompressing': isCompressing,
+    'compressProgress': compressProgress,
+  };
 
   /// Map для отображения в UI (используется Report.getAnswersForQuestion).
   /// В отличие от [_toMap], добавляет web-поля (webBytes, webUrl) и
@@ -108,19 +108,20 @@ class MediaItem {
       }
     }
     return MediaItem(
-      name: json['name'] ?? '',
-      type: json['type'] ?? 'image/jpeg',
-      attention: json['attention'] ?? false,
-      originalName: json['originalName'] ?? '',
-      localPath: localPath,
-      fileSize: json['fileSize'] as int?,
-      compressedSize: json['compressedSize'] as int?,
-      serverFileId: json['serverFileId'] as String?,
-    )
+        name: json['name'] ?? '',
+        type: json['type'] ?? 'image/jpeg',
+        attention: json['attention'] ?? false,
+        originalName: json['originalName'] ?? '',
+        localPath: localPath,
+        fileSize: json['fileSize'] as int?,
+        compressedSize: json['compressedSize'] as int?,
+        serverFileId: json['serverFileId'] as String?,
+      )
       ..isUploading = json['isUploading'] as bool? ?? false
       ..uploadProgress = (json['uploadProgress'] as num?)?.toDouble() ?? 0.0
       ..isCompressing = json['isCompressing'] as bool? ?? false
-      ..compressProgress = (json['compressProgress'] as num?)?.toDouble() ?? 0.0;
+      ..compressProgress =
+          (json['compressProgress'] as num?)?.toDouble() ?? 0.0;
   }
 }
 
@@ -136,42 +137,41 @@ class AnswerMarkers {
   }) : media = media ?? [];
 
   Map<String, dynamic> toJson() => {
-        'attention': attention,
-        'media': media.map((m) => m.toJson()).toList(),
-        'needsWork': needsWork,
-      };
+    'attention': attention,
+    'media': media.map((m) => m.toJson()).toList(),
+    'needsWork': needsWork,
+  };
 
   Map<String, dynamic> toJsonWithRelativePaths(String? folderPath) => {
-        'attention': attention,
-        'media': media.map((m) => m.toJsonWithRelativePaths(folderPath)).toList(),
-        'needsWork': needsWork,
-      };
+    'attention': attention,
+    'media': media.map((m) => m.toJsonWithRelativePaths(folderPath)).toList(),
+    'needsWork': needsWork,
+  };
 
-  factory AnswerMarkers.fromJson(Map<String, dynamic> json, {String? folderPath}) => AnswerMarkers(
-        attention: json['attention'] ?? false,
-        media: (json['media'] as List<dynamic>?)
-                ?.map((m) => MediaItem.fromJson(m, folderPath: folderPath))
-                .toList() ??
-            [],
-        needsWork: json['needsWork'] ?? false,
-      );
+  factory AnswerMarkers.fromJson(
+    Map<String, dynamic> json, {
+    String? folderPath,
+  }) => AnswerMarkers(
+    attention: json['attention'] ?? false,
+    media:
+        (json['media'] as List<dynamic>?)
+            ?.map((m) => MediaItem.fromJson(m, folderPath: folderPath))
+            .toList() ??
+        [],
+    needsWork: json['needsWork'] ?? false,
+  );
 }
 
 class TranslationAnswer {
   String text;
   bool isEmpty;
 
-  TranslationAnswer({
-    this.text = '',
-    this.isEmpty = true,
-  });
+  TranslationAnswer({this.text = '', this.isEmpty = true});
 
-  Map<String, dynamic> toJson() => {
-        'text': text,
-        '_empty': isEmpty,
-      };
+  Map<String, dynamic> toJson() => {'text': text, '_empty': isEmpty};
 
-  factory TranslationAnswer.fromJson(Map<String, dynamic> json) => TranslationAnswer(
+  factory TranslationAnswer.fromJson(Map<String, dynamic> json) =>
+      TranslationAnswer(
         text: json['text'] ?? '',
         isEmpty: json['_empty'] ?? true,
       );
@@ -182,23 +182,24 @@ class QuestionLocalization {
   String? description;
   String? example;
 
-  QuestionLocalization({
-    this.name,
-    this.description,
-    this.example,
-  });
+  QuestionLocalization({this.name, this.description, this.example});
 
-  bool get isEmpty => (name?.isEmpty ?? true) && (description?.isEmpty ?? true) && (example?.isEmpty ?? true);
+  bool get isEmpty =>
+      (name?.isEmpty ?? true) &&
+      (description?.isEmpty ?? true) &&
+      (example?.isEmpty ?? true);
 
-  bool get isComplete => (name?.isNotEmpty ?? false) && (description?.isNotEmpty ?? false);
+  bool get isComplete =>
+      (name?.isNotEmpty ?? false) && (description?.isNotEmpty ?? false);
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'description': description,
-        'example': example,
-      };
+    'name': name,
+    'description': description,
+    'example': example,
+  };
 
-  factory QuestionLocalization.fromJson(Map<String, dynamic> json) => QuestionLocalization(
+  factory QuestionLocalization.fromJson(Map<String, dynamic> json) =>
+      QuestionLocalization(
         name: json['name'],
         description: json['description'],
         example: json['example'],
@@ -209,12 +210,10 @@ class Question {
   int id;
   Map<String, QuestionLocalization> localizations; // lang code -> localization
 
-  Question({
-    required this.id,
-    this.localizations = const {},
-  });
+  Question({required this.id, this.localizations = const {}});
 
-  QuestionLocalization? getLocalization(String langCode) => localizations[langCode];
+  QuestionLocalization? getLocalization(String langCode) =>
+      localizations[langCode];
 
   String? getDisplayName(String langCode) {
     final loc = localizations[langCode];
@@ -237,13 +236,16 @@ class Question {
   }
 
   List<String> getAvailableLanguages() {
-    return localizations.entries.where((e) => !e.value.isEmpty).map((e) => e.key).toList();
+    return localizations.entries
+        .where((e) => !e.value.isEmpty)
+        .map((e) => e.key)
+        .toList();
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'localizations': localizations.map((k, v) => MapEntry(k, v.toJson())),
-      };
+    'id': id,
+    'localizations': localizations.map((k, v) => MapEntry(k, v.toJson())),
+  };
 
   Question copyWith({
     int? id,
@@ -256,12 +258,13 @@ class Question {
   }
 
   factory Question.fromJson(Map<String, dynamic> json) => Question(
-        id: json['id'] ?? 0,
-        localizations: (json['localizations'] as Map<String, dynamic>?)?.map(
-              (k, v) => MapEntry(k, QuestionLocalization.fromJson(v)),
-            ) ??
-            {},
-      );
+    id: json['id'] ?? 0,
+    localizations:
+        (json['localizations'] as Map<String, dynamic>?)?.map(
+          (k, v) => MapEntry(k, QuestionLocalization.fromJson(v)),
+        ) ??
+        {},
+  );
 }
 
 class Report {
@@ -299,19 +302,28 @@ class Report {
     mediaCounter = Map<String, int>.from(mediaCounter);
   }
 
-  List<Map<String, dynamic>> getAnswersForQuestion(int questionIndex, String langCode) {
+  List<Map<String, dynamic>> getAnswersForQuestion(
+    int questionIndex,
+    String langCode,
+  ) {
     final qid = questionIndex.toString();
     final langAnswers = translations[qid]?[langCode] ?? [];
     final langMarkers = markers[qid] ?? [];
 
     final result = <Map<String, dynamic>>[];
-    final maxLength = langAnswers.length > langMarkers.length ? langAnswers.length : langMarkers.length;
+    final maxLength = langAnswers.length > langMarkers.length
+        ? langAnswers.length
+        : langMarkers.length;
 
     for (int i = 0; i < maxLength; i++) {
       final text = i < langAnswers.length ? langAnswers[i].text : '';
       final isEmpty = i >= langAnswers.length || langAnswers[i].isEmpty;
-      final attention = i < langMarkers.length ? langMarkers[i].attention : false;
-      final needsWork = i < langMarkers.length ? langMarkers[i].needsWork : false;
+      final attention = i < langMarkers.length
+          ? langMarkers[i].attention
+          : false;
+      final needsWork = i < langMarkers.length
+          ? langMarkers[i].needsWork
+          : false;
 
       final mediaList = i < langMarkers.length ? langMarkers[i].media : [];
       final mediaMaps = mediaList.map((m) => m.toAnswerMap()).toList();
@@ -328,7 +340,11 @@ class Report {
     return result;
   }
 
-  TranslationAnswer? getTranslationAnswer(int questionIndex, String langCode, int answerIndex) {
+  TranslationAnswer? getTranslationAnswer(
+    int questionIndex,
+    String langCode,
+    int answerIndex,
+  ) {
     final qid = questionIndex.toString();
     return translations[qid]?[langCode]?[answerIndex];
   }
@@ -352,11 +368,12 @@ class Report {
     final qid = questionIndex.toString();
     final currentLangAnswers = translations[qid]?[currentLanguage] ?? [];
     if (answerIndex >= currentLangAnswers.length) return false;
-    
+
     for (final lang in availableLanguages) {
       if (lang == currentLanguage) continue;
       final langAnswers = translations[qid]?[lang] ?? [];
-      if (answerIndex < langAnswers.length && !langAnswers[answerIndex].isEmpty) {
+      if (answerIndex < langAnswers.length &&
+          !langAnswers[answerIndex].isEmpty) {
         return true;
       }
     }
@@ -364,25 +381,35 @@ class Report {
   }
 
   Map<String, dynamic> toJson() => {
-        'reportName': reportName,
-        'availableLanguages': availableLanguages,
-        'currentLanguage': currentLanguage,
-        'questions': questions.map((q) => q.toJson()).toList(),
-        'translations': translations.map((k, v) => MapEntry(k, v.map((lk, lva) => MapEntry(lk, lva.map((a) => a.toJson()).toList())))),
-        'markers': markers.map((k, v) => MapEntry(k, v.map((m) => m.toJsonWithRelativePaths(folderPath)).toList())),
-        'mediaCounter': mediaCounter,
-        'timestamp': timestamp,
-        'productType': productType,
-        'factory': factory,
-        'model': model,
-        'dateTimestamp': dateTimestamp,
-        'headerImagePath': headerImagePath,
-      };
+    'reportName': reportName,
+    'availableLanguages': availableLanguages,
+    'currentLanguage': currentLanguage,
+    'questions': questions.map((q) => q.toJson()).toList(),
+    'translations': translations.map(
+      (k, v) => MapEntry(
+        k,
+        v.map((lk, lva) => MapEntry(lk, lva.map((a) => a.toJson()).toList())),
+      ),
+    ),
+    'markers': markers.map(
+      (k, v) => MapEntry(
+        k,
+        v.map((m) => m.toJsonWithRelativePaths(folderPath)).toList(),
+      ),
+    ),
+    'mediaCounter': mediaCounter,
+    'timestamp': timestamp,
+    'productType': productType,
+    'factory': factory,
+    'model': model,
+    'dateTimestamp': dateTimestamp,
+    'headerImagePath': headerImagePath,
+  };
 
   factory Report.fromJson(Map<String, dynamic> json, {String? folderPath}) {
     final translationsJson = json['translations'] as Map<String, dynamic>?;
     final markersJson = json['markers'] as Map<String, dynamic>?;
-    
+
     final translations = <String, Map<String, List<TranslationAnswer>>>{};
     final markers = <String, List<AnswerMarkers>>{};
 
@@ -392,7 +419,9 @@ class Report {
           translations[qid] = {};
           (langMap as Map<String, dynamic>).forEach((langCode, answersList) {
             if (answersList is List) {
-              translations[qid]![langCode] = answersList.map((a) => TranslationAnswer.fromJson(a)).toList();
+              translations[qid]![langCode] = answersList
+                  .map((a) => TranslationAnswer.fromJson(a))
+                  .toList();
             }
           });
         }
@@ -402,19 +431,22 @@ class Report {
     if (markersJson != null) {
       markersJson.forEach((qid, markersList) {
         if (markersList is List) {
-          markers[qid] = markersList.map((m) => AnswerMarkers.fromJson(m, folderPath: folderPath)).toList();
+          markers[qid] = markersList
+              .map((m) => AnswerMarkers.fromJson(m, folderPath: folderPath))
+              .toList();
         }
       });
     }
 
-    final availableLanguages = (json['availableLanguages'] as List<dynamic>?)?.cast<String>() ?? [];
+    final availableLanguages =
+        (json['availableLanguages'] as List<dynamic>?)?.cast<String>() ?? [];
 
     final questionsList = json['questions'] as List?;
     final questionsCount = questionsList?.length ?? 0;
-    
+
     for (int i = 0; i < questionsCount; i++) {
       final qid = i.toString();
-      
+
       if (!translations.containsKey(qid)) {
         translations[qid] = {};
       }
@@ -423,7 +455,7 @@ class Report {
           translations[qid]![lang] = [TranslationAnswer()];
         }
       }
-      
+
       if (!markers.containsKey(qid)) {
         markers[qid] = [AnswerMarkers()];
       }
@@ -433,13 +465,16 @@ class Report {
       reportName: json['reportName'] ?? '',
       availableLanguages: availableLanguages,
       currentLanguage: json['currentLanguage'] ?? 'RU',
-      questions: (json['questions'] as List<dynamic>?)
+      questions:
+          (json['questions'] as List<dynamic>?)
               ?.map((q) => Question.fromJson(q))
               .toList() ??
           [],
       translations: translations,
       markers: markers,
-      mediaCounter: Map<String, int>.from(json['mediaCounter'] ?? {'photos': 1, 'X': 1}),
+      mediaCounter: Map<String, int>.from(
+        json['mediaCounter'] ?? {'photos': 1, 'X': 1},
+      ),
       timestamp: json['timestamp'],
       folderPath: folderPath,
       productType: json['productType'] ?? 'Аэрогриль',

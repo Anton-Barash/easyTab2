@@ -23,36 +23,46 @@ import './widgets/easy_tab_button.dart';
 void main() async {
   // P3: runZonedGuarded перехватывает необработанные async-ошибки,
   // предотвращая тихое падение приложения.
-  runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-    // Перехват ошибок Flutter-фреймворка (build, layout и т.д.)
-    FlutterError.onError = (details) {
-      FlutterError.presentError(details);
-      debugPrint('FlutterError: ${details.exception}\n${details.stack}');
-    };
+      // Перехват ошибок Flutter-фреймворка (build, layout и т.д.)
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        debugPrint('FlutterError: ${details.exception}\n${details.stack}');
+      };
 
-    final localeProvider = LocaleProvider();
-    await localeProvider.init();
-    final authProvider = AuthProvider();
-    await authProvider.init();
-    final settingsProvider = SettingsState();
-    await settingsProvider.init();
-    runApp(EasyTabApp(
-      localeProvider: localeProvider,
-      authProvider: authProvider,
-      settingsProvider: settingsProvider,
-    ));
-  }, (error, stackTrace) {
-    debugPrint('Unhandled async error: $error\n$stackTrace');
-  });
+      final localeProvider = LocaleProvider();
+      await localeProvider.init();
+      final authProvider = AuthProvider();
+      await authProvider.init();
+      final settingsProvider = SettingsState();
+      await settingsProvider.init();
+      runApp(
+        EasyTabApp(
+          localeProvider: localeProvider,
+          authProvider: authProvider,
+          settingsProvider: settingsProvider,
+        ),
+      );
+    },
+    (error, stackTrace) {
+      debugPrint('Unhandled async error: $error\n$stackTrace');
+    },
+  );
 }
 
 class EasyTabApp extends StatelessWidget {
   final LocaleProvider localeProvider;
   final AuthProvider authProvider;
   final SettingsState settingsProvider;
-  const EasyTabApp({super.key, required this.localeProvider, required this.authProvider, required this.settingsProvider});
+  const EasyTabApp({
+    super.key,
+    required this.localeProvider,
+    required this.authProvider,
+    required this.settingsProvider,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -77,9 +87,7 @@ class EasyTabApp extends StatelessWidget {
             ],
             supportedLocales: const [Locale('en'), Locale('ru'), Locale('zh')],
             theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: AppColors.primary,
-              ),
+              colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
               useMaterial3: true,
             ),
             initialRoute: '/',
@@ -218,7 +226,10 @@ class _StartScreenState extends State<StartScreen> {
                   const SizedBox(height: 15),
                   const Text(
                     'easyTab',
-                    style: TextStyle(fontSize: 16, color: AppColors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 30),
                   EasyTabButton(
@@ -359,9 +370,9 @@ class _StartScreenState extends State<StartScreen> {
 
     if (reports.isEmpty) {
       final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.noSavedReports)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.noSavedReports)));
       return;
     }
 

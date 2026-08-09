@@ -137,7 +137,8 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
     // P3-58: зелёная точка = файл РЕАЛЬНО сжат (compressedSize < fileSize).
     // Проверяем строгое неравенство, чтобы не показывать зелёную точку,
     // если сжатие не дало уменьшения размера.
-    final isCompressed = widget.compressedSize != null &&
+    final isCompressed =
+        widget.compressedSize != null &&
         (widget.fileSize == null || widget.compressedSize! < widget.fileSize!);
     final needsCompression =
         widget.fileSize != null && widget.fileSize! > 5 * 1024 * 1024;
@@ -163,7 +164,11 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
           )
         else
           const Center(
-            child: Icon(Icons.videocam, size: 30, color: AppColors.textTertiary),
+            child: Icon(
+              Icons.videocam,
+              size: 30,
+              color: AppColors.textTertiary,
+            ),
           ),
         Positioned(
           top: 2,
@@ -174,7 +179,9 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
             decoration: BoxDecoration(
               color: dotColor,
               borderRadius: BorderRadius.circular(4),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 2),
+              ],
             ),
           ),
         ),
@@ -209,11 +216,15 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                   SizedBox(
                     width: 48,
                     child: LinearProgressIndicator(
-                      value: widget.compressProgress > 0 && widget.compressProgress < 1.0
+                      value:
+                          widget.compressProgress > 0 &&
+                              widget.compressProgress < 1.0
                           ? widget.compressProgress
                           : null,
                       backgroundColor: Colors.white24,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.orange,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -246,11 +257,15 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                   SizedBox(
                     width: 48,
                     child: LinearProgressIndicator(
-                      value: (widget.uploadProgress > 0 && widget.uploadProgress < 1.0)
+                      value:
+                          (widget.uploadProgress > 0 &&
+                              widget.uploadProgress < 1.0)
                           ? widget.uploadProgress
                           : null,
                       backgroundColor: Colors.white24,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -258,8 +273,8 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                     widget.uploadProgress >= 1.0
                         ? 'Завершение...'
                         : widget.uploadProgress > 0
-                            ? '${(widget.uploadProgress * 100).toStringAsFixed(0)}%'
-                            : 'Загрузка...',
+                        ? '${(widget.uploadProgress * 100).toStringAsFixed(0)}%'
+                        : 'Загрузка...',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,

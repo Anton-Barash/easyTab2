@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
@@ -107,15 +108,23 @@ class VideoThumbnailGeneratorImpl implements VideoThumbnailGenerator {
       }
     }
 
-    _addEventListener(video as JSObject, 'loadeddata', () {
-      video.currentTime = seekTime;
-    }.toJS);
+    _addEventListener(
+      video as JSObject,
+      'loadeddata',
+      () {
+        video.currentTime = seekTime;
+      }.toJS,
+    );
 
     _addEventListener(video as JSObject, 'seeked', captureFrame.toJS);
 
-    _addEventListener(video as JSObject, 'error', () {
-      completer.complete(null);
-    }.toJS);
+    _addEventListener(
+      video as JSObject,
+      'error',
+      () {
+        completer.complete(null);
+      }.toJS,
+    );
 
     // Таймаут на случай, если видео не загрузится.
     Future.delayed(const Duration(seconds: 5), () {
@@ -242,51 +251,4 @@ void _drawImage(
 
 void _addEventListener(JSObject element, String event, JSFunction handler) {
   element.callMethod('addEventListener'.toJS, [event.toJS, handler].toJS);
-}
-
-// base64 decode helper (dart:convert нельзя использовать напрямую в некоторых
-// конфигурациях, реализуем простой decoder)
-Uint8List base64Decode(String input) {
-  const codec = _Base64Codec();
-  return codec.decode(input);
-}
-
-class _Base64Codec {
-  const _Base64Codec();
-
-  Uint8List decode(String input) {
-    final normalized = input.replaceAll(RegExp(r'[^A-Za-z0-9+/=]'), '');
-    final length = normalized.length;
-    if (length % 4 != 0) return Uint8List(0);
-
-    final outputLength = (length * 3 ~/ 4) -
-        (normalized.endsWith('==') ? 2 : (normalized.endsWith('=') ? 1 : 0));
-    final result = Uint8List(outputLength);
-
-    var j = 0;
-    for (var i = 0; i < length; i += 4) {
-      final a = _decodeChar(normalized[i]);
-      final b = _decodeChar(normalized[i + 1]);
-      final c = _decodeChar(normalized[i + 2]);
-      final d = _decodeChar(normalized[i + 3]);
-
-      final triple = (a << 18) | (b << 12) | (c << 6) | d;
-
-      if (j < outputLength) result[j++] = (triple >> 16) & 0xFF;
-      if (c != 64 && j < outputLength) result[j++] = (triple >> 8) & 0xFF;
-      if (d != 64 && j < outputLength) result[j++] = triple & 0xFF;
-    }
-
-    return result;
-  }
-
-  int _decodeChar(String ch) {
-    final code = ch.codeUnitAt(0);
-    if (code >= 65 && code <= 90) return code - 65; // A-Z
-    if (code >= 97 && code <= 122) return code - 97 + 26; // a-z
-    if (code >= 48 && code <= 57) return code - 48 + 52; // 0-9
-    if (ch == '+') return 62;
-    if (ch == '/') return 63;
-    return 64; // padding '='
-  }
 }

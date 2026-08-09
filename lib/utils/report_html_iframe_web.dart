@@ -17,20 +17,17 @@ int _viewCounter = 0;
 String createIframeView(String htmlContent) {
   final viewType = 'report-html-iframe-${_viewCounter++}';
 
-  ui_web.platformViewRegistry.registerViewFactory(
-    viewType,
-    (int viewId) {
-      final iframe = html.IFrameElement()
-        ..srcdoc = htmlContent
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..style.border = 'none'
-        ..style.display = 'block';
-      // Не используем sandbox - доверяем содержимому (генерируется нашим сервером)
-      // Sandbox блокирует загрузку ресурсов из других origins (localhost:8000)
-      return iframe;
-    },
-  );
+  ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
+    final iframe = html.IFrameElement()
+      ..srcdoc = htmlContent
+      ..style.width = '100%'
+      ..style.height = '100%'
+      ..style.border = 'none'
+      ..style.display = 'block';
+    // Не используем sandbox - доверяем содержимому (генерируется нашим сервером)
+    // Sandbox блокирует загрузку ресурсов из других origins (localhost:8000)
+    return iframe;
+  });
 
   return viewType;
 }

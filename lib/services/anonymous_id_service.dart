@@ -16,11 +16,26 @@ class AnonymousIdService {
     bytes[6] = (bytes[6] & 0x0F) | 0x40;
     bytes[8] = (bytes[8] & 0x3F) | 0x80;
     final parts = [
-      bytes.sublist(0, 4).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
-      bytes.sublist(4, 6).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
-      bytes.sublist(6, 8).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
-      bytes.sublist(8, 10).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
-      bytes.sublist(10, 16).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+      bytes
+          .sublist(0, 4)
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join(),
+      bytes
+          .sublist(4, 6)
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join(),
+      bytes
+          .sublist(6, 8)
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join(),
+      bytes
+          .sublist(8, 10)
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join(),
+      bytes
+          .sublist(10, 16)
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join(),
     ];
     return parts.join('-');
   }

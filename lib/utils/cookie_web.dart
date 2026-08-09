@@ -14,7 +14,8 @@ void setAuthTokenCookie(String token) {
   // Cookie действует 7 дней (как и JWT)
   // SameSite=None нужен для кросс-порт запросов (iframe localhost:4000 -> сервер localhost:8000)
   // Для localhost Secure не требуется (исключение для localhost)
-  html.document.cookie = 'auth_token=$token; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=None';
+  html.document.cookie =
+      'auth_token=$token; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=None';
 }
 
 /// Удалить cookie auth_token (при logout).

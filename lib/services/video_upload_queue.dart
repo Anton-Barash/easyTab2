@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/report_models.dart';
 import '../utils/web_video_compressor.dart';
-import 'upload_helper_web.dart' if (dart.library.io) 'upload_helper_stub.dart';
+import 'upload_helper.dart';
 
 // ============================================================
 // VideoUploadQueue — фоновая очередь сжатия и загрузки видео.
@@ -207,7 +207,9 @@ class VideoUploadQueue {
       media.webBytes = null;
       _notifyProgress(media);
       if (kDebugMode) {
-        debugPrint('Video upload cancelled after compression: ${task.fileName}');
+        debugPrint(
+          'Video upload cancelled after compression: ${task.fileName}',
+        );
       }
       return;
     }
@@ -265,10 +267,8 @@ class VideoUploadQueue {
     final value = media.isCompressing
         ? media.compressProgress
         : media.uploadProgress;
-    _progressController.add(VideoUploadProgress(
-      mediaId: media.name,
-      phase: phase,
-      value: value,
-    ));
+    _progressController.add(
+      VideoUploadProgress(mediaId: media.name, phase: phase, value: value),
+    );
   }
 }

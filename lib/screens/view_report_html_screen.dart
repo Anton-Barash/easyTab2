@@ -19,11 +19,7 @@ class ViewReportHtmlScreen extends StatefulWidget {
   final String publicId;
   final String? token;
 
-  const ViewReportHtmlScreen({
-    super.key,
-    required this.publicId,
-    this.token,
-  });
+  const ViewReportHtmlScreen({super.key, required this.publicId, this.token});
 
   @override
   State<ViewReportHtmlScreen> createState() => _ViewReportHtmlScreenState();

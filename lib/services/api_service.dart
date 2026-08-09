@@ -6,8 +6,7 @@ import 'package:easy_tab/utils/platform_io.dart'
 
 import 'api_result.dart';
 import 'api_response_parser.dart';
-import 'upload_helper_native.dart'
-    if (dart.library.html) 'upload_helper_web.dart';
+import 'upload_helper.dart';
 
 /// API client for easyTab server.
 ///
@@ -54,16 +53,16 @@ class ApiService {
 
   /// Заголовки для JSON-запросов (с токеном авторизации).
   static Map<String, String> get _headers => {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept': 'application/json',
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
-      };
+    'Content-Type': 'application/json; charset=utf-8',
+    'Accept': 'application/json',
+    if (authToken != null) 'Authorization': 'Bearer $authToken',
+  };
 
   /// Заголовки для multipart-запросов (только токен, без Content-Type —
   /// его установит MultipartRequest с boundary).
   static Map<String, String> get _authHeaders => {
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
-      };
+    if (authToken != null) 'Authorization': 'Bearer $authToken',
+  };
 
   /// Helper-метод для унификации обработки ошибок API-вызовов.
   /// Принимает `Future<http.Response>` и возвращает ApiResult.
@@ -89,16 +88,18 @@ class ApiService {
     String? email,
     String? name,
   }) async {
-    return _handleApiCall(http.post(
-      _uri('/auth/register'),
-      headers: _headers,
-      body: jsonEncode({
-        'username': username,
-        'password': password,
-        if (email != null && email.isNotEmpty) 'email': email,
-        if (name != null && name.isNotEmpty) 'name': name,
-      }),
-    ));
+    return _handleApiCall(
+      http.post(
+        _uri('/auth/register'),
+        headers: _headers,
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+          if (email != null && email.isNotEmpty) 'email': email,
+          if (name != null && name.isNotEmpty) 'name': name,
+        }),
+      ),
+    );
   }
 
   /// Вход по логину/паролю.
@@ -106,14 +107,13 @@ class ApiService {
     required String username,
     required String password,
   }) async {
-    return _handleApiCall(http.post(
-      _uri('/auth/login'),
-      headers: _headers,
-      body: jsonEncode({
-        'username': username,
-        'password': password,
-      }),
-    ));
+    return _handleApiCall(
+      http.post(
+        _uri('/auth/login'),
+        headers: _headers,
+        body: jsonEncode({'username': username, 'password': password}),
+      ),
+    );
   }
 
   /// Получить текущего пользователя по токену.
@@ -166,11 +166,7 @@ class ApiService {
 
       // Добавляем файл
       request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          filePath,
-          filename: fileName,
-        ),
+        await http.MultipartFile.fromPath('file', filePath, filename: fileName),
       );
 
       // Отправляем с увеличенным таймаутом (файлы могут быть большими)
@@ -200,7 +196,6 @@ class ApiService {
     required String filename,
     required String relativePath,
     int? reportId,
-    String? ks3Folder,
     void Function(double progress)? onUploadProgress,
   }) async {
     return uploadFileFromBytesWithProgress(
@@ -210,7 +205,6 @@ class ApiService {
       relativePath: relativePath,
       headers: _authHeaders,
       reportId: reportId,
-      ks3Folder: ks3Folder,
       onUploadProgress: onUploadProgress,
     );
   }
@@ -230,8 +224,8 @@ class ApiService {
   }) async {
     final body = jsonEncode({
       'fileName': fileName,
-      if (relativePath != null) 'relativePath': relativePath, // ignore: use_null_aware_elements
-      if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
+      'relativePath': ?relativePath, // ignore: use_null_aware_elements
+      'reportId': ?reportId, // ignore: use_null_aware_elements
     });
 
     return _handleApiCall(
@@ -259,7 +253,7 @@ class ApiService {
       'size': size,
       'mimeType': mimeType,
       'relPath': relPath,
-      if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
+      'reportId': ?reportId, // ignore: use_null_aware_elements
     });
 
     return _handleApiCall(
@@ -286,12 +280,16 @@ class ApiService {
     final body = jsonEncode({
       'fileName': fileName,
       'shareToken': shareToken,
-      if (relativePath != null) 'relativePath': relativePath, // ignore: use_null_aware_elements
-      if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
+      'relativePath': ?relativePath, // ignore: use_null_aware_elements
+      'reportId': ?reportId, // ignore: use_null_aware_elements
     });
 
     return _handleApiCall(
-      http.post(_uri('/files/presign-upload-share'), headers: _headers, body: body),
+      http.post(
+        _uri('/files/presign-upload-share'),
+        headers: _headers,
+        body: body,
+      ),
     );
   }
 
@@ -318,7 +316,11 @@ class ApiService {
     });
 
     return _handleApiCall(
-      http.post(_uri('/files/confirm-upload-share'), headers: _headers, body: body),
+      http.post(
+        _uri('/files/confirm-upload-share'),
+        headers: _headers,
+        body: body,
+      ),
       timeout: const Duration(seconds: 30),
     );
   }
@@ -388,7 +390,8 @@ class ApiService {
   /// Возвращает ApiResult с URL в [data]['url'].
   static Future<ApiResult> getDownloadUrl(String fileId) async {
     return _handleApiCall(
-        http.get(_uri('/files/$fileId/download'), headers: _headers));
+      http.get(_uri('/files/$fileId/download'), headers: _headers),
+    );
   }
 
   /// Получить список файлов, привязанных к отчёту.
@@ -397,7 +400,8 @@ class ApiService {
   /// Возвращает ApiResult с data['files'] — массив файлов.
   static Future<ApiResult> listFilesByReport(int reportId) async {
     return _handleApiCall(
-        http.get(_uri('/files/by-report/$reportId'), headers: _headers));
+      http.get(_uri('/files/by-report/$reportId'), headers: _headers),
+    );
   }
 
   /// Получить подписанные URL для всех файлов отчёта.
@@ -406,7 +410,8 @@ class ApiService {
   /// Возвращает ApiResult с data['urls'] — объект { 'photos/f1_1.jpg': 'https://...', ... }.
   static Future<ApiResult> getReportFileUrls(int reportId) async {
     return _handleApiCall(
-        http.get(_uri('/files/by-report/$reportId/urls'), headers: _headers));
+      http.get(_uri('/files/by-report/$reportId/urls'), headers: _headers),
+    );
   }
 
   /// Удалить файл на сервере.
@@ -415,7 +420,9 @@ class ApiService {
   static Future<ApiResult> deleteFile(String fileId) async {
     // Используем _authHeaders (без Content-Type) — DELETE не имеет тела,
     // а Content-Type: application/json без тела вызывает 400 в Fastify.
-    return _handleApiCall(http.delete(_uri('/files/$fileId'), headers: _authHeaders));
+    return _handleApiCall(
+      http.delete(_uri('/files/$fileId'), headers: _authHeaders),
+    );
   }
 
   // ============================================================
@@ -438,7 +445,7 @@ class ApiService {
     final body = jsonEncode({
       'title': title,
       'reportData': reportData,
-      if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
+      'reportId': ?reportId, // ignore: use_null_aware_elements
     });
 
     return _handleApiCall(
@@ -459,7 +466,9 @@ class ApiService {
   /// [reportId] — ID отчёта на сервере.
   /// Возвращает ApiResult с data['report']['reportData'] — JSON отчёта.
   static Future<ApiResult> getReport(int reportId) async {
-    return _handleApiCall(http.get(_uri('/reports/$reportId'), headers: _headers));
+    return _handleApiCall(
+      http.get(_uri('/reports/$reportId'), headers: _headers),
+    );
   }
 
   /// Удалить отчёт на сервере.
@@ -468,7 +477,9 @@ class ApiService {
   static Future<ApiResult> deleteReport(int reportId) async {
     // Используем _authHeaders (без Content-Type) — DELETE не имеет тела,
     // а Content-Type: application/json без тела вызывает 400 в Fastify.
-    return _handleApiCall(http.delete(_uri('/reports/$reportId'), headers: _authHeaders));
+    return _handleApiCall(
+      http.delete(_uri('/reports/$reportId'), headers: _authHeaders),
+    );
   }
 
   /// Получить HTML отчёта по публичному идентификатору (для iframe srcdoc).
@@ -495,11 +506,13 @@ class ApiService {
       // ignore: use_null_aware_elements
       if (permissions != null) 'permissions': permissions,
     };
-    return _handleApiCall(http.post(
-      _uri('/reports/$reportId/shares'),
-      headers: _headers,
-      body: jsonEncode(body),
-    ));
+    return _handleApiCall(
+      http.post(
+        _uri('/reports/$reportId/shares'),
+        headers: _headers,
+        body: jsonEncode(body),
+      ),
+    );
   }
 
   /// Получить мета-информацию share-ссылки (welcome-экран).
@@ -507,10 +520,12 @@ class ApiService {
     required String token,
     String? anonymousId,
   }) async {
-    return _handleApiCall(http.get(
-      _uriQuery('/reports/shares/$token', {'anonymous_id': anonymousId}),
-      headers: _headers,
-    ));
+    return _handleApiCall(
+      http.get(
+        _uriQuery('/reports/shares/$token', {'anonymous_id': anonymousId}),
+        headers: _headers,
+      ),
+    );
   }
 
   /// Сохранить отчёт, открытый по share-ссылке.
@@ -519,14 +534,16 @@ class ApiService {
     required Map<String, dynamic> reportData,
     String? anonymousId,
   }) async {
-    return _handleApiCall(http.post(
-      _uri('/reports/shares/$token/save'),
-      headers: _headers,
-      body: jsonEncode({
-        'reportData': reportData,
-        'anonymousId': anonymousId,
-      }),
-    ));
+    return _handleApiCall(
+      http.post(
+        _uri('/reports/shares/$token/save'),
+        headers: _headers,
+        body: jsonEncode({
+          'reportData': reportData,
+          'anonymousId': anonymousId,
+        }),
+      ),
+    );
   }
 
   /// Получить HTML отчёта по share-ссылке.
@@ -560,13 +577,15 @@ class ApiService {
     required String shareToken,
     int expires = 300,
   }) async {
-    return _handleApiCall(http.get(
-      _uriQuery('/files/$fileId/presign', {
-        'share_token': shareToken,
-        'expires': expires.toString(),
-      }),
-      headers: _headers,
-    ));
+    return _handleApiCall(
+      http.get(
+        _uriQuery('/files/$fileId/presign', {
+          'share_token': shareToken,
+          'expires': expires.toString(),
+        }),
+        headers: _headers,
+      ),
+    );
   }
 
   static ApiResult _parseResponse(http.Response response) {

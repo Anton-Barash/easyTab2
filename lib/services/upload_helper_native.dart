@@ -14,7 +14,6 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   required String relativePath,
   required Map<String, String> headers,
   int? reportId,
-  String? ks3Folder,
   void Function(double progress)? onUploadProgress,
 }) async {
   try {
@@ -27,10 +26,6 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
     if (reportId != null) {
       request.fields['reportId'] = reportId.toString();
     }
-    if (ks3Folder != null) {
-      request.fields['ks3Folder'] = ks3Folder;
-    }
-
     request.files.add(
       http.MultipartFile.fromBytes(
         'file',

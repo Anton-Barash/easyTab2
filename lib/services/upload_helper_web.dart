@@ -21,7 +21,6 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   required String relativePath,
   required Map<String, String> headers,
   int? reportId,
-  String? ks3Folder,
   void Function(double progress)? onUploadProgress,
 }) async {
   final completer = Completer<ApiResult>();
@@ -34,14 +33,20 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
 
   void addField(String name, String value) {
     builder.add(utf8.encode('--$boundary\r\n'));
-    builder.add(utf8.encode('Content-Disposition: form-data; name="$name"\r\n\r\n'));
+    builder.add(
+      utf8.encode('Content-Disposition: form-data; name="$name"\r\n\r\n'),
+    );
     builder.add(utf8.encode(value));
     builder.add(utf8.encode('\r\n'));
   }
 
   // file field
   builder.add(utf8.encode('--$boundary\r\n'));
-  builder.add(utf8.encode('Content-Disposition: form-data; name="file"; filename="$filename"\r\n'));
+  builder.add(
+    utf8.encode(
+      'Content-Disposition: form-data; name="file"; filename="$filename"\r\n',
+    ),
+  );
   builder.add(utf8.encode('Content-Type: $mimeType\r\n\r\n'));
   builder.add(bytes);
   builder.add(utf8.encode('\r\n'));
@@ -51,10 +56,6 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   if (reportId != null) {
     addField('reportId', reportId.toString());
   }
-  if (ks3Folder != null) {
-    addField('ks3Folder', ks3Folder);
-  }
-
   builder.add(utf8.encode('--$boundary--\r\n'));
 
   final body = builder.toBytes();
@@ -62,17 +63,27 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   final request = html.HttpRequest();
   request.open('POST', uri.toString());
   headers.forEach(request.setRequestHeader);
-  request.setRequestHeader('Content-Type', 'multipart/form-data; boundary=$boundary');
+  request.setRequestHeader(
+    'Content-Type',
+    'multipart/form-data; boundary=$boundary',
+  );
 
   request.upload.onProgress.listen((event) {
-    if (event.lengthComputable && onUploadProgress != null && event.total != null && event.total! > 0) {
+    if (event.lengthComputable &&
+        onUploadProgress != null &&
+        event.total != null &&
+        event.total! > 0) {
       final progress = event.loaded!.toDouble() / event.total!.toDouble();
       // ignore: avoid_print
-      print('[UploadHelperWeb] progress $progress (${event.loaded}/${event.total})');
+      print(
+        '[UploadHelperWeb] progress $progress (${event.loaded}/${event.total})',
+      );
       onUploadProgress(progress);
     } else {
       // ignore: avoid_print
-      print('[UploadHelperWeb] progress event not computable: loaded=${event.loaded}, total=${event.total}');
+      print(
+        '[UploadHelperWeb] progress event not computable: loaded=${event.loaded}, total=${event.total}',
+      );
     }
   });
 
@@ -80,15 +91,16 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
     if (request.status != null &&
         request.status! >= 200 &&
         request.status! < 300) {
-      completer.complete(parseApiResponse(
-        request.responseText ?? '',
-        request.status!,
-      ));
+      completer.complete(
+        parseApiResponse(request.responseText ?? '', request.status!),
+      );
     } else {
-      completer.complete(ApiResult(
-        success: false,
-        error: request.statusText ?? 'Upload failed (${request.status})',
-      ));
+      completer.complete(
+        ApiResult(
+          success: false,
+          error: request.statusText ?? 'Upload failed (${request.status})',
+        ),
+      );
     }
   });
 
@@ -97,7 +109,9 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   });
 
   request.onTimeout.listen((_) {
-    completer.complete(const ApiResult(success: false, error: 'Upload timeout'));
+    completer.complete(
+      const ApiResult(success: false, error: 'Upload timeout'),
+    );
   });
 
   request.send(body);
@@ -128,18 +142,25 @@ Future<dynamic> uploadToPresignedUrl({
   // Установка Content-Type приведёт к ошибке подписи (SignatureDoesNotMatch).
 
   request.upload.onProgress.listen((event) {
-    if (event.lengthComputable && onUploadProgress != null && event.total != null && event.total! > 0) {
+    if (event.lengthComputable &&
+        onUploadProgress != null &&
+        event.total != null &&
+        event.total! > 0) {
       final progress = event.loaded!.toDouble() / event.total!.toDouble();
       onUploadProgress(progress);
     }
   });
 
   request.onLoadEnd.listen((_) {
-    if (request.status != null && request.status! >= 200 && request.status! < 300) {
+    if (request.status != null &&
+        request.status! >= 200 &&
+        request.status! < 300) {
       completer.complete(true);
     } else {
       final errMsg = request.responseText ?? '';
-      completer.complete('KS3 upload failed: ${request.status} ${request.statusText} $errMsg');
+      completer.complete(
+        'KS3 upload failed: ${request.status} ${request.statusText} $errMsg',
+      );
     }
   });
 
@@ -216,10 +237,7 @@ Future<UploadResult> uploadWithProgress({
   );
 
   if (uploadResult != true) {
-    return UploadResult(
-      success: false,
-      error: uploadResult.toString(),
-    );
+    return UploadResult(success: false, error: uploadResult.toString());
   }
 
   // Шаг 3: подтвердить загрузку — создать запись в БД
