@@ -289,5 +289,18 @@
   },
   "uploadError": "Upload error",
   "noFilesToUpload": "No files to upload",
-  "loginRequired": "Please login first"
+  "loginRequired": "Please login first",
+  "createShareLink": "Create share link",
+  "shareLinkCreated": "Share link created",
+  "shareLinkLabel": "Link",
+  "shareLinkExpiresIn": "Expires in",
+  "sharePermissionEdit": "Editing",
+  "sharePermissionView": "View only",
+  "shareLinkCopy": "Copy",
+  "shareLinkClose": "Close",
+  "shareLinkDays": "days",
+  "shareLinkSaveFirst": "Save the report to the server first",
+  "shareLinkError": "Failed to create share link",
+  "shareAccess": "Access",
+  "shareLinkCopied": "Copied"
 }

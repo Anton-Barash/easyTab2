@@ -47,6 +47,7 @@ class _VideoUploadTask {
   final String mimeType;
   final String relativePath;
   final int? reportId;
+  final String? shareToken;
 
   _VideoUploadTask({
     required this.media,
@@ -55,6 +56,7 @@ class _VideoUploadTask {
     required this.mimeType,
     required this.relativePath,
     this.reportId,
+    this.shareToken,
   });
 }
 
@@ -81,6 +83,7 @@ class VideoUploadQueue {
     required String mimeType,
     required String relativePath,
     int? reportId,
+    String? shareToken,
     void Function(String error)? onError,
   }) async {
     // Если медиа ранее помечалось отменённым — снимаем отметку,
@@ -94,6 +97,7 @@ class VideoUploadQueue {
       mimeType: mimeType,
       relativePath: relativePath,
       reportId: reportId,
+      shareToken: shareToken,
     );
     _tasks.add(task);
 
@@ -220,6 +224,7 @@ class VideoUploadQueue {
         mimeType: task.mimeType,
         relativePath: task.relativePath,
         reportId: task.reportId,
+        shareToken: task.shareToken,
         onProgress: (progress) {
           media.uploadProgress = progress;
           _notifyProgress(media);

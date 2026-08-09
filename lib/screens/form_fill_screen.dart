@@ -6,6 +6,7 @@ import 'package:easy_tab/utils/file_image.dart'
 import 'package:easy_tab/services/mime_utils.dart';
 import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
 import 'package:easy_tab/widgets/media_item_widget.dart';
+import 'package:easy_tab/widgets/easy_tab_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,10 @@ import '../services/api_service.dart';
 import '../l10n/app_localizations.dart';
 import '../models/report_models.dart';
 import '../utils/open_html.dart';
+import '../utils/filename_utils.dart';
+import '../services/anonymous_id_service.dart';
+import '../utils/share_link_opener_stub.dart'
+    if (dart.library.html) '../utils/share_link_opener_web.dart';
 import 'full_media_viewer_screen.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -29,7 +34,10 @@ import 'dart:async';
 enum ViewMode { list, card }
 
 class FormFillScreen extends StatefulWidget {
-  const FormFillScreen({super.key});
+  /// Если задан, отчёт открывается по share-ссылке, без авторизации.
+  final String? shareToken;
+
+  const FormFillScreen({super.key, this.shareToken});
 
   @override
   State<FormFillScreen> createState() => _FormFillScreenState();
@@ -39,6 +47,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   final Map<String, Map<int, TextEditingController>> _answerControllers = {};
   final Map<String, Map<int, Timer?>> _debounceTimers = {};
   ViewMode _viewMode = ViewMode.list;
+  bool _isLoadingSharedReport = false;
 
   TextEditingController? _getSafeController(String qid, int j) {
     return _answerControllers[qid]?[j];
@@ -75,7 +84,29 @@ class _FormFillScreenState extends State<FormFillScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkSyncAfterLoad());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSharedReportIfNeeded();
+      _checkSyncAfterLoad();
+    });
+  }
+
+  /// Загрузить отчёт по share-ссылке, если экран открыт с token.
+  Future<void> _loadSharedReportIfNeeded() async {
+    if (widget.shareToken == null || widget.shareToken!.isEmpty) return;
+
+    final reportState = context.read<ReportState>();
+    if (reportState.currentReport != null) return;
+
+    setState(() => _isLoadingSharedReport = true);
+    final ok = await reportState.loadSharedReport(widget.shareToken!);
+    if (!mounted) return;
+    setState(() => _isLoadingSharedReport = false);
+
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось загрузить отчёт по ссылке')),
+      );
+    }
   }
 
   void _checkSyncAfterLoad() {
@@ -108,7 +139,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   Future<void> _doSave() async {
     if (!_hasUnsavedChanges) return;
-    
+
     setState(() => _isSaving = true);
     try {
       final reportState = context.read<ReportState>();
@@ -125,6 +156,361 @@ class _FormFillScreenState extends State<FormFillScreen> {
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  /// Обработчик создания share-ссылки из меню отчёта.
+  /// Если отчёт ещё не сохранён на сервере — сначала сохраняет.
+  Future<void> _handleCreateShareLink() async {
+    final loc = AppLocalizations.of(context)!;
+    final reportState = context.read<ReportState>();
+
+    if (reportState.serverReportId == null) {
+      if (_hasUnsavedChanges) {
+        await _doSave();
+      }
+      if (!mounted) return;
+      if (reportState.serverReportId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.shareLinkSaveFirst)),
+        );
+        return;
+      }
+    }
+
+    await _showCreateShareLinkDialog();
+  }
+
+  /// Показывает диалог создания share-ссылки в стиле easyTab.
+  Future<void> _showCreateShareLinkDialog() async {
+    final loc = AppLocalizations.of(context)!;
+    final reportState = context.read<ReportState>();
+
+    int selectedDays = 7;
+    String selectedPermission = 'edit';
+    bool isCreating = false;
+    String? createdLink;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> doCreate() async {
+            setDialogState(() => isCreating = true);
+            final expiresAt = DateTime.now().add(Duration(days: selectedDays));
+            final result = await reportState.createShareLink(
+              expiresAt: expiresAt,
+              permissions: selectedPermission,
+            );
+            if (!ctx.mounted) return;
+            setDialogState(() => isCreating = false);
+            if (result.success && result.data?['share']?['url'] is String) {
+              setDialogState(() => createdLink = result.data!['share']['url']);
+            } else {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(
+                  content: Text(result.error ?? loc.shareLinkError),
+                ),
+              );
+            }
+          }
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Container(
+              width: 420,
+              constraints: const BoxConstraints(maxWidth: 420),
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(width: 2, color: AppColors.border),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: createdLink != null
+                      ? [
+                          // Ссылка создана
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle,
+                                  color: AppColors.grey700, size: 28),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  loc.shareLinkCreated,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: SelectableText(
+                              createdLink!,
+                              style: const TextStyle(
+                                color: AppColors.textDark,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: EasyTabButton(
+                                  label: loc.shareLinkClose,
+                                  onTap: () => Navigator.of(ctx).pop(),
+                                  fontSize: 14,
+                                  verticalPadding: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: EasyTabButton(
+                                  label: loc.shareLinkCopy,
+                                  onTap: () async {
+                                    await Clipboard.setData(
+                                      ClipboardData(text: createdLink!),
+                                    );
+                                    if (ctx.mounted) {
+                                      ScaffoldMessenger.of(ctx)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content: Text(loc.shareLinkCopied)),
+                                      );
+                                      Navigator.of(ctx).pop();
+                                    }
+                                  },
+                                  fontSize: 14,
+                                  verticalPadding: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ]
+                      : [
+                          // Заголовок
+                          Row(
+                            children: [
+                              const Icon(Icons.share,
+                                  color: AppColors.grey700, size: 24),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  loc.createShareLink,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Срок действия
+                          Text(
+                            loc.shareLinkExpiresIn,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [1, 7, 30].map((days) {
+                              final isSelected = selectedDays == days;
+                              return Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    right: days == 30 ? 0 : 8,
+                                  ),
+                                  child: InkWell(
+                                    onTap: isCreating
+                                        ? null
+                                        : () => setDialogState(
+                                            () => selectedDays = days),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? AppColors.grey700
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? AppColors.grey700
+                                              : AppColors.border,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '$days ${loc.shareLinkDays}',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Права доступа
+                          Text(
+                            loc.shareAccess,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              _buildPermissionOption(
+                                ctx: ctx,
+                                label: loc.sharePermissionEdit,
+                                icon: Icons.edit,
+                                value: 'edit',
+                                groupValue: selectedPermission,
+                                onTap: isCreating
+                                    ? null
+                                    : () => setDialogState(
+                                        () => selectedPermission = 'edit'),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildPermissionOption(
+                                ctx: ctx,
+                                label: loc.sharePermissionView,
+                                icon: Icons.visibility,
+                                value: 'view',
+                                groupValue: selectedPermission,
+                                onTap: isCreating
+                                    ? null
+                                    : () => setDialogState(
+                                        () => selectedPermission = 'view'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 28),
+
+                          // Кнопки
+                          Row(
+                            children: [
+                              Expanded(
+                                child: EasyTabButton(
+                                  label: loc.cancel,
+                                  onTap: isCreating
+                                      ? null
+                                      : () => Navigator.of(ctx).pop(),
+                                  fontSize: 14,
+                                  verticalPadding: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: EasyTabButton(
+                                  label: isCreating ? '' : loc.createShareLink,
+                                  onTap: isCreating ? null : doCreate,
+                                  fontSize: 14,
+                                  verticalPadding: 12,
+                                  child: isCreating
+                                      ? const Center(
+                                          child: SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPermissionOption({
+    required BuildContext ctx,
+    required String label,
+    required IconData icon,
+    required String value,
+    required String groupValue,
+    required VoidCallback? onTap,
+  }) {
+    final isSelected = value == groupValue;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.grey700 : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? AppColors.grey700 : AppColors.border,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showProcessingDialog(String message) {
@@ -187,16 +573,27 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
-    // Сначала сохраняем отчёт локально (чтобы файлы были актуальны)
+    // 1. Сохраняем отчёт локально (на нативных — чтобы файлы были на диске).
     await reportState.saveReport();
 
-    // Генерируем HTML и Excel для загрузки
     try {
-      // Собираем список файлов для загрузки
-      // Каждый элемент: {'filePath': абсолютный путь, 'relativePath': путь в отчёте}
+      // 2. Создаём/обновляем запись отчёта в БД, чтобы получить reportId
+      //    и ks3Folder. Без reportId файлы не привяжутся к отчёту и
+      //    загрузятся в общую папку files/{uuid}/, а не в папку отчёта.
+      final saved = await reportState.saveReportToServer();
+      final reportId = reportState.serverReportId;
+      if (!saved || reportId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(loc.uploadError)),
+          );
+        }
+        return;
+      }
+
+      // 3. Собираем файлы для загрузки с диска.
       final filesToUpload = <Map<String, String>>[];
 
-      // Папка отчёта
       final reportPath = reportState.currentReportPath;
       if (reportPath == null) {
         if (mounted) {
@@ -207,7 +604,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         return;
       }
 
-      // 1. report.json — основной файл данных
+      // report.json — основной файл данных
       final jsonFile = File('$reportPath/report.json');
       if (await jsonFile.exists()) {
         filesToUpload.add({
@@ -216,7 +613,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         });
       }
 
-      // 2. report.xlsx — Excel-экспорт
+      // report.xlsx — Excel-экспорт
       final excelBytes = reportState.generateExcelBytes();
       final excelFile = File('$reportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
@@ -225,7 +622,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         'relativePath': 'report.xlsx',
       });
 
-      // 4. Заголовочное фото (если есть)
+      // Заголовочное фото (если есть)
       final headerPath = reportState.currentReport?.headerImagePath;
       if (headerPath != null && headerPath.isNotEmpty) {
         final hFile = File('$reportPath/$headerPath');
@@ -237,7 +634,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         }
       }
 
-      // 5. Медиафайлы из ответов (фото, видео)
+      // Медиафайлы из ответов (фото, видео)
       final report = reportState.currentReport;
       if (report != null) {
         for (final markerEntry in report.markers.entries) {
@@ -266,19 +663,20 @@ class _FormFillScreenState extends State<FormFillScreen> {
         return;
       }
 
-      // Показываем диалог с прогрессом
+      // 4. Загружаем файлы на сервер с reportId — сервер привяжет их
+      //    к отчёту и сложит в папку reports/{ks3Folder}/{relativePath}.
       _showProcessingDialog(loc.uploadingFiles);
 
-      // Загружаем файлы на сервер
       final result = await ApiService.uploadFiles(
         files: filesToUpload,
+        reportId: reportId,
       );
 
       _hideProcessingDialog();
 
       if (!mounted) return;
 
-      // Показываем результат
+      // 5. Показываем результат
       if (result.success) {
         final total = result.data?['total'] ?? 0;
         final successCount = result.data?['successCount'] ?? 0;
@@ -647,30 +1045,48 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final authProvider = context.read<AuthProvider>();
     final reportState = context.read<ReportState>();
 
-    // Если не залогинен — нет смысла открывать серверный прокси, blob
-    if (!authProvider.isLoggedIn) {
-      openHtmlInBrowser(htmlContent);
-      return;
-    }
-
-    // Если отчёт ещё не сохранён на сервере — нет publicId, fallback
+    // Если отчёт ещё не сохранён на сервере — нет publicId, fallback на blob
     if (reportState.serverPublicId == null) {
       openHtmlInBrowser(htmlContent);
       return;
     }
 
-    // Открываем новую вкладку с Flutter-маршрутом /view-report.
-    // Cookie auth_token уже установлен при логине, поэтому токен не нужен в URL.
     final origin = Uri.base.origin;
-    final viewUrl = '$origin/#/view-report?pid=${reportState.serverPublicId}';
 
-    openHtmlInBrowserUrl(viewUrl);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('HTML отчёт открыт в новой вкладке')),
-      );
+    // Залогиненный пользователь: открываем Flutter-маршрут /view-report.
+    // Cookie auth_token уже установлен при логине, поэтому токен не нужен в URL.
+    if (authProvider.isLoggedIn) {
+      final viewUrl = '$origin/#/view-report?pid=${reportState.serverPublicId}';
+      openHtmlInBrowserUrl(viewUrl);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HTML отчёт открыт в новой вкладке')),
+        );
+      }
+      return;
     }
+
+    // Анонимный пользователь по share-ссылке: открываем тот же серверный
+    // endpoint, что и на welcome-странице — /reports/shares/:token/html.
+    // Сервер генерирует HTML с proxy URL медиа, содержащими share_token.
+    final shareToken = reportState.shareToken;
+    if (shareToken != null && shareToken.isNotEmpty) {
+      final anonymousId = await AnonymousIdService.getId();
+      final uri = Uri.http(ApiService.baseUrl, '/reports/shares/$shareToken/html', {
+        'anonymous_id': anonymousId,
+      });
+      openHtmlInBrowserUrl(uri.toString());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HTML отчёт открыт в новой вкладке')),
+        );
+      }
+      return;
+    }
+
+    // Нет ни логина, ни share-токена — fallback на blob (медиа не будут видны,
+    // т.к. относительные пути photos/... не резолвятся для blob URL).
+    openHtmlInBrowser(htmlContent);
   }
 
   @override
@@ -687,7 +1103,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
           foregroundColor: AppColors.textPrimary,
           elevation: 0,
         ),
-        body: Center(child: Text(loc.noQuestions)),
+        body: Center(
+          child: _isLoadingSharedReport
+              ? const CircularProgressIndicator()
+              : Text(loc.noQuestions),
+        ),
       );
     }
 
@@ -900,9 +1320,22 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       ],
                     ),
                   ),
-                  // "Залить на сервер" — только для залогиненных пользователей.
-                  // Загружает файлы отчёта на KS3 (по отдельности, не ZIP).
+                  // Создать share-ссылку — только для залогиненных пользователей.
                   if (authProvider.isLoggedIn)
+                    PopupMenuItem(
+                      value: 8,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link),
+                          const SizedBox(width: 8),
+                          Text(loc.createShareLink),
+                        ],
+                      ),
+                    ),
+                  // "Залить на сервер" — только для залогиненных пользователей
+                  // на нативных платформах. На web медиа грузятся через
+                  // presigned сразу при добавлении, кнопка не нужна.
+                  if (authProvider.isLoggedIn && !kIsWeb)
                     PopupMenuItem(
                       value: 7,
                       child: Row(
@@ -1023,10 +1456,42 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     }
                   } else if (value == 1) {
                     if (kIsWeb) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(loc.saveZipWeb)));
+                      final shareToken = reportState.shareToken;
+                      final publicId = reportState.serverPublicId;
+                      if (shareToken != null && shareToken.isNotEmpty) {
+                        // Аноним / share-ссылка: скачиваем ZIP через share endpoint.
+                        final anonymousId = await AnonymousIdService.getId();
+                        final uri = Uri.http(
+                          ApiService.baseUrl,
+                          '/reports/shares/$shareToken/zip',
+                          {'anonymous_id': anonymousId},
+                        );
+                        final zipName = buildShareZipName(
+                          reportState.currentReport?.reportName ?? 'report',
+                          shareToken,
+                        );
+                        downloadShareZip(uri.toString(), zipName);
+                      } else if (publicId != null && publicId.isNotEmpty) {
+                        // Залогиненный владелец: скачиваем ZIP через
+                        // авторизованный endpoint с токеном в query.
+                        final token = ApiService.authToken;
+                        final query = token != null && token.isNotEmpty
+                            ? {'token': token}
+                            : <String, String>{};
+                        final uri = Uri.http(
+                          ApiService.baseUrl,
+                          '/reports/$publicId/zip',
+                          query,
+                        );
+                        final zipName = buildShareZipName(
+                          reportState.currentReport?.reportName ?? 'report',
+                          publicId,
+                        );
+                        downloadShareZip(uri.toString(), zipName);
+                      } else if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(loc.saveZipWeb)),
+                        );
                       }
                       return;
                     }
@@ -1075,19 +1540,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     }
                   } else if (value == 2) {
                     if (kIsWeb) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(loc.shareWeb)));
+                      // На web кнопка «Поделиться» создаёт share-ссылку
+                      await _showCreateShareLinkDialog();
+                    } else {
+                      await reportState.saveReport();
+                      _showProcessingDialog(loc.processingZip);
+                      final zipPath = await reportState.exportZip();
+                      _hideProcessingDialog();
+                      if (zipPath != null && mounted) {
+                        await reportState.shareZip(zipPath);
                       }
-                      return;
-                    }
-                    await reportState.saveReport();
-                    _showProcessingDialog(loc.processingZip);
-                    final zipPath = await reportState.exportZip();
-                    _hideProcessingDialog();
-                    if (zipPath != null && mounted) {
-                      await reportState.shareZip(zipPath);
                     }
                   } else if (value == 3) {
                     _showSyncMenuDialog();
@@ -1096,6 +1558,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   } else if (value == 7) {
                     // Залить отчёт на сервер (только для залогиненных)
                     await _uploadReportToServer();
+                  } else if (value == 8) {
+                    // Создать share-ссылку
+                    await _handleCreateShareLink();
                   }
                 },
               );

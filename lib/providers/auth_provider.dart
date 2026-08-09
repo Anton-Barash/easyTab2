@@ -38,7 +38,7 @@ class AuthProvider extends ChangeNotifier {
     _email = prefs.getString(_emailKey);
     _userId = prefs.getInt(_userIdKey);
     _serverHost = prefs.getString(_serverHostKey) ?? 'localhost';
-    _serverPort = prefs.getInt(_serverPortKey) ?? 3000;
+    _serverPort = prefs.getInt(_serverPortKey) ?? 8000;
     _isLoggedIn = _userToken != null && _userToken!.isNotEmpty;
 
     // Применяем сохранённый адрес сервера и токен к API-клиенту.

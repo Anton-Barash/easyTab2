@@ -289,5 +289,18 @@
   },
   "uploadError": "上传错误",
   "noFilesToUpload": "没有可上传的文件",
-  "loginRequired": "请先登录"
+  "loginRequired": "请先登录",
+  "createShareLink": "创建分享链接",
+  "shareLinkCreated": "链接已创建",
+  "shareLinkLabel": "链接",
+  "shareLinkExpiresIn": "有效期",
+  "sharePermissionEdit": "编辑",
+  "sharePermissionView": "仅查看",
+  "shareLinkCopy": "复制",
+  "shareLinkClose": "关闭",
+  "shareLinkDays": "天",
+  "shareLinkSaveFirst": "请先保存报告到服务器",
+  "shareLinkError": "创建链接失败",
+  "shareAccess": "访问权限",
+  "shareLinkCopied": "已复制"
 }

@@ -689,4 +689,43 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get loginRequired => 'Сначала войдите в аккаунт';
+
+  @override
+  String get createShareLink => 'Создать share-ссылку';
+
+  @override
+  String get shareLinkCreated => 'Ссылка создана';
+
+  @override
+  String get shareLinkLabel => 'Ссылка';
+
+  @override
+  String get shareLinkExpiresIn => 'Срок действия';
+
+  @override
+  String get sharePermissionEdit => 'Редактирование';
+
+  @override
+  String get sharePermissionView => 'Только просмотр';
+
+  @override
+  String get shareLinkCopy => 'Копировать';
+
+  @override
+  String get shareLinkClose => 'Закрыть';
+
+  @override
+  String get shareLinkDays => 'дней';
+
+  @override
+  String get shareLinkSaveFirst => 'Сначала сохраните отчёт на сервере';
+
+  @override
+  String get shareLinkError => 'Не удалось создать ссылку';
+
+  @override
+  String get shareAccess => 'Доступ';
+
+  @override
+  String get shareLinkCopied => 'Скопировано';
 }

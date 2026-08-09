@@ -25,6 +25,7 @@ Future<UploadResult> uploadWithProgress({
   required String mimeType,
   required String relativePath,
   int? reportId,
+  String? shareToken,
   void Function(double progress)? onProgress,
   void Function(String fileId)? onPresigned,
 }) async {

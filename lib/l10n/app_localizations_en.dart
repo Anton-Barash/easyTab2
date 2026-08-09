@@ -688,4 +688,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginRequired => 'Please login first';
+
+  @override
+  String get createShareLink => 'Create share link';
+
+  @override
+  String get shareLinkCreated => 'Share link created';
+
+  @override
+  String get shareLinkLabel => 'Link';
+
+  @override
+  String get shareLinkExpiresIn => 'Expires in';
+
+  @override
+  String get sharePermissionEdit => 'Editing';
+
+  @override
+  String get sharePermissionView => 'View only';
+
+  @override
+  String get shareLinkCopy => 'Copy';
+
+  @override
+  String get shareLinkClose => 'Close';
+
+  @override
+  String get shareLinkDays => 'days';
+
+  @override
+  String get shareLinkSaveFirst => 'Save the report to the server first';
+
+  @override
+  String get shareLinkError => 'Failed to create share link';
+
+  @override
+  String get shareAccess => 'Access';
+
+  @override
+  String get shareLinkCopied => 'Copied';
 }

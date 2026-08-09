@@ -1383,6 +1383,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please login first'**
   String get loginRequired;
+
+  /// No description provided for @createShareLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Create share link'**
+  String get createShareLink;
+
+  /// No description provided for @shareLinkCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Share link created'**
+  String get shareLinkCreated;
+
+  /// No description provided for @shareLinkLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Link'**
+  String get shareLinkLabel;
+
+  /// No description provided for @shareLinkExpiresIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in'**
+  String get shareLinkExpiresIn;
+
+  /// No description provided for @sharePermissionEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing'**
+  String get sharePermissionEdit;
+
+  /// No description provided for @sharePermissionView.
+  ///
+  /// In en, this message translates to:
+  /// **'View only'**
+  String get sharePermissionView;
+
+  /// No description provided for @shareLinkCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get shareLinkCopy;
+
+  /// No description provided for @shareLinkClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get shareLinkClose;
+
+  /// No description provided for @shareLinkDays.
+  ///
+  /// In en, this message translates to:
+  /// **'days'**
+  String get shareLinkDays;
+
+  /// No description provided for @shareLinkSaveFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Save the report to the server first'**
+  String get shareLinkSaveFirst;
+
+  /// No description provided for @shareLinkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create share link'**
+  String get shareLinkError;
+
+  /// No description provided for @shareAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Access'**
+  String get shareAccess;
+
+  /// No description provided for @shareLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get shareLinkCopied;
 }
 
 class _AppLocalizationsDelegate

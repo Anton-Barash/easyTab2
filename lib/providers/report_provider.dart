@@ -12,7 +12,9 @@ import 'package:easy_tab/utils/native_file_ops.dart'
     if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import '../models/report_models.dart';
 import '../services/api_service.dart';
+import '../services/share_token_storage.dart';
 import '../services/api_result.dart';
+import '../services/anonymous_id_service.dart';
 import '../services/mime_utils.dart';
 import '../services/upload_helper_native.dart'
     if (dart.library.html) '../services/upload_helper_web.dart';
@@ -720,13 +722,16 @@ class ReportState extends ChangeNotifier {
         mimeType: mimeType,
         relativePath: relativePath,
         reportId: _serverReportId,
+        shareToken: _shareToken,
         onError: (code) {
           if (kDebugMode) debugPrint('Video queue error ($code): $generatedName');
           onVideoError?.call(code);
         },
       );
-    } else if (_serverReportId != null && _ks3Folder != null) {
+    } else if (_serverReportId != null &&
+        (_ks3Folder != null || (_shareToken != null && _shareToken!.isNotEmpty))) {
       // Фото (и native видео без сжатия) загружаем сразу, если отчёт сохранён.
+      // В share-режиме _ks3Folder может быть null — сервер найдёт его сам.
       _uploadMediaToServer(
         mediaItem,
         finalBytes,
@@ -856,9 +861,11 @@ class ReportState extends ChangeNotifier {
   /// Прямая загрузка в KS3 через presigned PUT URL (web only).
   ///
   /// Flow:
-  ///   1. POST /files/presign-upload → получаем presigned URL + fileId
+  ///   1. POST /files/presign-upload (или /files/presign-upload-share для share-ссылки)
+  ///      → получаем presigned URL + fileId
   ///   2. PUT directly to KS3 → загружаем байты
-  ///   3. POST /files/confirm-upload → создаём запись в БД
+  ///   3. POST /files/confirm-upload (или /files/confirm-upload-share)
+  ///      → создаём запись в БД
   Future<ApiResult> _uploadViaPresignedUrl({
     required MediaItem mediaItem,
     required Uint8List bytes,
@@ -867,12 +874,24 @@ class ReportState extends ChangeNotifier {
     required String mimeType,
     void Function(double progress)? onUploadProgress,
   }) async {
+    final isShare = _shareToken != null && _shareToken!.isNotEmpty;
+
     // Шаг 1: presign
-    final presignResult = await ApiService.presignUpload(
-      fileName: fileName,
-      relativePath: relativePath,
-      reportId: _serverReportId,
-    );
+    final ApiResult presignResult;
+    if (isShare) {
+      presignResult = await ApiService.presignUploadForShare(
+        fileName: fileName,
+        shareToken: _shareToken!,
+        relativePath: relativePath,
+        reportId: _serverReportId,
+      );
+    } else {
+      presignResult = await ApiService.presignUpload(
+        fileName: fileName,
+        relativePath: relativePath,
+        reportId: _serverReportId,
+      );
+    }
 
     if (!presignResult.success) {
       return presignResult;
@@ -903,7 +922,19 @@ class ReportState extends ChangeNotifier {
     }
 
     // Шаг 3: подтвердить загрузку — создать запись в БД
-    final confirmResult = await ApiService.confirmUpload(
+    if (isShare) {
+      return ApiService.confirmUploadForShare(
+        fileId: fileId,
+        storageKey: storageKey,
+        fileName: fileName,
+        size: bytes.length,
+        mimeType: serverMimeType,
+        relPath: relPath,
+        shareToken: _shareToken!,
+      );
+    }
+
+    return ApiService.confirmUpload(
       fileId: fileId,
       storageKey: storageKey,
       fileName: fileName,
@@ -912,8 +943,6 @@ class ReportState extends ChangeNotifier {
       relPath: relPath,
       reportId: _serverReportId,
     );
-
-    return confirmResult;
   }
 
   /// Загрузить все медиа, у которых ещё нет serverFileId.
@@ -1177,6 +1206,16 @@ class ReportState extends ChangeNotifier {
     }
   }
 
+  /// Сохранить отчёт на сервер (создать/обновить запись в БД).
+  ///
+  /// Возвращает true при успехе. Заполняет [serverReportId], [ks3Folder],
+  /// [serverPublicId]. Используется кнопкой «Залить на сервер» на нативных
+  /// платформах, а также вызывается из [saveReport] на web.
+  Future<bool> saveReportToServer() async {
+    if (_currentReport == null) return false;
+    return await _saveReportToServer();
+  }
+
   /// ID отчёта на сервере (используется на web для обновления существующего отчёта).
   int? _serverReportId;
 
@@ -1188,15 +1227,21 @@ class ReportState extends ChangeNotifier {
   /// Используется для загрузки медиафайлов в правильную папку.
   String? _ks3Folder;
 
+  /// Токен share-ссылки. Если задан — отчёт работает в режиме
+  /// публичной ссылки, без авторизации.
+  String? _shareToken;
+
   /// Геттеры для внешнего доступа
   int? get serverReportId => _serverReportId;
   String? get serverPublicId => _serverPublicId;
   String? get ks3Folder => _ks3Folder;
+  String? get shareToken => _shareToken;
 
   /// Сохранить отчёт на сервер (web-режим).
   ///
-  /// Если _serverReportId уже задан — обновляем существующий отчёт.
-  /// Если нет — создаём новый и запоминаем ID.
+  /// Если активна share-ссылка — сохраняем через неё.
+  /// Иначе если _serverReportId уже задан — обновляем существующий отчёт.
+  /// Иначе — создаём новый и запоминаем ID.
   Future<bool> _saveReportToServer() async {
     try {
       final jsonData = _currentReport!.toJson();
@@ -1204,11 +1249,16 @@ class ReportState extends ChangeNotifier {
           ? _currentReport!.reportName
           : 'Report ${DateTime.now().millisecondsSinceEpoch}';
 
-      final result = await ApiService.saveReport(
-        title: title,
-        reportData: jsonData,
-        reportId: _serverReportId,
-      );
+      ApiResult result;
+      if (_shareToken != null && _shareToken!.isNotEmpty) {
+        result = await _saveSharedReportToServer(title, jsonData);
+      } else {
+        result = await ApiService.saveReport(
+          title: title,
+          reportData: jsonData,
+          reportId: _serverReportId,
+        );
+      }
 
       if (result.success && result.data?['report'] != null) {
         // Запоминаем ID отчёта на сервере (для будущих обновлений)
@@ -1247,12 +1297,50 @@ class ReportState extends ChangeNotifier {
     }
   }
 
+  /// Сохранить отчёт через share-ссылку.
+  Future<ApiResult> _saveSharedReportToServer(
+    String title,
+    Map<String, dynamic> jsonData,
+  ) async {
+    final anonymousId = await AnonymousIdService.getId();
+    return ApiService.saveSharedReport(
+      token: _shareToken!,
+      reportData: jsonData,
+      anonymousId: anonymousId,
+    );
+  }
+
   Future<bool> loadReport(String folderName) async {
     try {
       // ===== Web: загружаем с сервера =====
       // folderName на web = ID отчёта на сервере
       if (kIsWeb) {
-        return await _loadReportFromServer(int.tryParse(folderName) ?? 0);
+        final reportId = int.tryParse(folderName) ?? 0;
+        // Сначала пробуем загрузить как владельца
+        final ok = await _loadReportFromServer(reportId);
+        if (ok) return true;
+
+        // Если не вышло (нет JWT) — пробуем через сохранённые share-токены
+        final shareTokens = await ShareTokenStorage.getTokens();
+        for (final token in shareTokens) {
+          try {
+            final anonymousId = await AnonymousIdService.getId();
+            final shareResult = await ApiService.getShareInfo(
+              token: token,
+              anonymousId: anonymousId,
+            );
+            if (shareResult.success && shareResult.data != null) {
+              final report = shareResult.data!['report'] ?? {};
+              final id = report['id'];
+              final idStr = id is int ? id.toString() : id.toString();
+              if (idStr == folderName) {
+                // Нашли share-токен для этого отчёта
+                return await loadSharedReport(token);
+              }
+            }
+          } catch (_) {}
+        }
+        return false;
       }
 
       // ===== Mobile/Desktop: загружаем локально =====
@@ -1307,6 +1395,10 @@ class ReportState extends ChangeNotifier {
       // localPath бесполезен т.к. ФС недоступна).
       await _populateMediaWebUrls(reportId);
 
+      // Сбрасываем "застрявшие" флаги обработки, т.к. отчёт загружен
+      // с сервера и все медиа уже на KS3.
+      _sanitizeMediaState();
+
       if (kDebugMode) {
         debugPrint('loadReport (web): ID=$_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder');
       }
@@ -1317,6 +1409,100 @@ class ReportState extends ChangeNotifier {
       if (kDebugMode) debugPrint('loadReport (web) error: $e');
       return false;
     }
+  }
+
+  /// Загрузить отчёт, открытый по share-ссылке.
+  Future<bool> loadSharedReport(String token) async {
+    try {
+      _shareToken = token;
+      final result = await ApiService.getShareInfo(token: token);
+      if (!result.success || result.data?['report'] == null) {
+        if (kDebugMode) debugPrint('loadSharedReport: ${result.error}');
+        return false;
+      }
+
+      // Для получения полных данных отчёта используем тот же endpoint,
+      // что и welcome-экран, но нас интересует только reportData.
+      // Чтобы не дублировать endpoint, получаем HTML-версию? Нет —
+      // лучше расширить getShareInfo, чтобы он возвращал reportData.
+      // Пока обойдёмся: загрузим HTML не нужен, нам нужен JSON.
+      // Добавим отдельный запрос к save endpoint? Нет, это save.
+      //
+      // Решение: расширяем getShareInfo, чтобы включать reportData.
+      // TODO: добавить reportData в ответ getShareInfo.
+      if (result.data!['report']['reportData'] == null) {
+        if (kDebugMode) debugPrint('loadSharedReport: reportData not in share info');
+        return false;
+      }
+
+      final reportData = result.data!['report']['reportData'] as Map<String, dynamic>;
+      _currentReport = Report.fromJson(reportData, folderPath: token);
+      _currentReportPath = token;
+      _serverReportId = result.data!['report']['id'] is int
+          ? result.data!['report']['id']
+          : int.tryParse(result.data!['report']['id'].toString());
+      _serverPublicId = result.data!['report']['publicId']?.toString();
+      _ks3Folder = result.data!['report']['ks3Folder']?.toString();
+
+      await _populateMediaWebUrlsForShare();
+
+      // Сбрасываем "застрявшие" флаги обработки, т.к. отчёт загружен с сервера.
+      _sanitizeMediaState();
+
+      if (kDebugMode) {
+        debugPrint('loadSharedReport: token=$token, ID=$_serverReportId, folder=$_ks3Folder');
+      }
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      if (kDebugMode) debugPrint('loadSharedReport error: $e');
+      return false;
+    }
+  }
+
+  /// Заполнить MediaItem.webUrl proxy-ссылками через share-ссылку.
+  ///
+  /// Использует endpoint /view/report/:publicId/files/:path?share_token=...
+  /// (тот же, что и для HTML-просмотра). Не требует serverFileId —
+  /// доступ определяется по localPath и share-токену.
+  Future<void> _populateMediaWebUrlsForShare() async {
+    if (_currentReport == null || _shareToken == null) return;
+    final publicId = _serverPublicId;
+    if (publicId == null || publicId.isEmpty) return;
+
+    _currentReport!.markers.forEach((qid, markersList) {
+      for (final markers in markersList) {
+        for (final media in markers.media) {
+          if (media.localPath == null || media.localPath!.isEmpty) continue;
+          final uri = Uri.http(
+            ApiService.baseUrl,
+            '/view/report/$publicId/files/${media.localPath}',
+            {'share_token': _shareToken},
+          );
+          media.webUrl = uri.toString();
+        }
+      }
+    });
+  }
+
+  /// Создать share-ссылку на текущий отчёт.
+  /// Требует, чтобы отчёт уже был сохранён на сервере (_serverReportId).
+  Future<ApiResult> createShareLink({
+    DateTime? expiresAt,
+    String permissions = 'edit',
+  }) async {
+    if (_serverReportId == null) {
+      return ApiResult(
+        success: false,
+        error: 'Отчёт ещё не сохранён на сервере',
+      );
+    }
+    return ApiService.createShare(
+      reportId: _serverReportId!,
+      expiresAt: expiresAt,
+      permissions: permissions,
+    );
   }
 
   /// Заполнить MediaItem.webUrl presigned-ссылками с KS3.
@@ -1349,6 +1535,26 @@ class ReportState extends ChangeNotifier {
       });
     } catch (e) {
       if (kDebugMode) debugPrint('_populateMediaWebUrls error: $e');
+    }
+  }
+
+  /// Сбросить runtime-флаги обработки медиа (isCompressing, isUploading и т.д.).
+  ///
+  /// Нужен при загрузке отчёта с сервера, т.к. в сохранённом JSON эти флаги
+  /// могли остаться включёнными после прерванной обработки. Без сброса
+  /// на уже загруженных видео может "залипать" надпись "Сжатие...".
+  void _sanitizeMediaState() {
+    if (_currentReport == null) return;
+
+    for (final markersList in _currentReport!.markers.values) {
+      for (final markers in markersList) {
+        for (final media in markers.media) {
+          media.isCompressing = false;
+          media.compressProgress = 0.0;
+          media.isUploading = false;
+          media.uploadProgress = 0.0;
+        }
+      }
     }
   }
 
@@ -1547,27 +1753,64 @@ class ReportState extends ChangeNotifier {
   /// Возвращает список ReportInfo, где folderName = ID отчёта на сервере.
   Future<List<ReportInfo>> _loadReportListFromServer() async {
     try {
+      final List<ReportInfo> reportInfos = [];
+
+      // 1. Загружаем отчёты пользователя (если авторизован)
       final result = await ApiService.listReports();
-      if (!result.success || result.data?['reports'] == null) {
-        return [];
+      if (result.success && result.data?['reports'] != null) {
+        final reports = result.data!['reports'] as List;
+        for (final r in reports) {
+          final id = r['id'];
+          final idStr = id is int ? id.toString() : id.toString();
+          final publicId = r['publicId'] as String?;
+          final title = r['title'] as String? ?? 'Untitled';
+          final createdAt = DateTime.tryParse(r['createdAt'] as String? ?? '') ?? DateTime.now();
+
+          reportInfos.add(ReportInfo(
+            folderName: idStr,
+            name: title,
+            dateTime: createdAt,
+            thumbnailPath: null,
+            publicId: publicId,
+          ));
+        }
       }
 
-      final reports = result.data!['reports'] as List;
-      final List<ReportInfo> reportInfos = reports.map((r) {
-        final id = r['id'];
-        final idStr = id is int ? id.toString() : id.toString();
-        final publicId = r['publicId'] as String?;
-        final title = r['title'] as String? ?? 'Untitled';
-        final createdAt = DateTime.tryParse(r['createdAt'] as String? ?? '') ?? DateTime.now();
+      // 2. Загружаем расшаренные отчёты (по сохранённым share-токенам)
+      final shareTokens = await ShareTokenStorage.getTokens();
+      for (final token in shareTokens) {
+        try {
+          final anonymousId = await AnonymousIdService.getId();
+          final shareResult = await ApiService.getShareInfo(
+            token: token,
+            anonymousId: anonymousId,
+          );
+          if (shareResult.success && shareResult.data != null) {
+            final report = shareResult.data!['report'] ?? {};
+            final reportData = report['reportData'] ?? {};
+            final id = report['id'];
+            final idStr = id is int ? id.toString() : id.toString();
+            final publicId = report['publicId'] as String?;
+            final title = (reportData['reportName'] ?? report['title'] ?? 'Отчёт').toString();
+            final createdAt = DateTime.tryParse(
+                    report['createdAt'] as String? ?? '') ??
+                DateTime.now();
 
-        return ReportInfo(
-          folderName: idStr,
-          name: title,
-          dateTime: createdAt,
-          thumbnailPath: null, // на web нет локальных превью
-          publicId: publicId,
-        );
-      }).toList();
+            // Не дублируем, если отчёт уже есть в списке
+            if (!reportInfos.any((r) => r.folderName == idStr)) {
+              reportInfos.add(ReportInfo(
+                folderName: idStr,
+                name: title,
+                dateTime: createdAt,
+                thumbnailPath: null,
+                publicId: publicId,
+              ));
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) debugPrint('loadReportList: share token $token error: $e');
+        }
+      }
 
       // Сортируем по дате (новые первыми)
       reportInfos.sort((a, b) => b.dateTime.compareTo(a.dateTime));

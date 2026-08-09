@@ -289,5 +289,18 @@
   },
   "uploadError": "Ошибка загрузки",
   "noFilesToUpload": "Нет файлов для загрузки",
-  "loginRequired": "Сначала войдите в аккаунт"
+  "loginRequired": "Сначала войдите в аккаунт",
+  "createShareLink": "Создать share-ссылку",
+  "shareLinkCreated": "Ссылка создана",
+  "shareLinkLabel": "Ссылка",
+  "shareLinkExpiresIn": "Срок действия",
+  "sharePermissionEdit": "Редактирование",
+  "sharePermissionView": "Только просмотр",
+  "shareLinkCopy": "Копировать",
+  "shareLinkClose": "Закрыть",
+  "shareLinkDays": "дней",
+  "shareLinkSaveFirst": "Сначала сохраните отчёт на сервере",
+  "shareLinkError": "Не удалось создать ссылку",
+  "shareAccess": "Доступ",
+  "shareLinkCopied": "Скопировано"
 }

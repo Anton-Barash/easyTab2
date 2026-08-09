@@ -31,6 +31,16 @@ class ApiService {
     return Uri.http('$_host:$_port', path);
   }
 
+  static Uri _uriQuery(String path, Map<String, String?> queryParameters) {
+    final filtered = <String, String>{};
+    queryParameters.forEach((key, value) {
+      if (value != null && value.isNotEmpty) {
+        filtered[key] = value;
+      }
+    });
+    return Uri.http('$_host:$_port', path, filtered.isEmpty ? null : filtered);
+  }
+
   /// Токен авторизации (устанавливается AuthProvider'ом после входа).
   // H-20: приватное хранилище с accessor — токен нельзя прочитать/перезаписать
   // извне произвольно, только через контролируемый setter. Accessor оставлен
@@ -137,6 +147,7 @@ class ApiService {
   static Future<ApiResult> uploadFile({
     required String filePath,
     required String relativePath,
+    int? reportId,
   }) async {
     try {
       // Получаем имя файла из пути
@@ -149,6 +160,9 @@ class ApiService {
       // Добавляем относительный путь ДО файла — сервер читает поля
       // до первой файловой части, иначе reportId/relativePath теряются.
       request.fields['relativePath'] = relativePath;
+      if (reportId != null) {
+        request.fields['reportId'] = reportId.toString();
+      }
 
       // Добавляем файл
       request.files.add(
@@ -254,6 +268,61 @@ class ApiService {
     );
   }
 
+  /// Получить presigned PUT URL для загрузки файла через share-ссылку.
+  ///
+  /// Возвращает ApiResult с:
+  ///   data['uploadUrl'] — presigned PUT URL
+  ///   data['fileId'] — UUID файла
+  ///   data['storageKey'] — ключ в KS3
+  ///   data['mimeType'] — MIME-тип
+  ///   data['relPath'] — относительный путь
+  ///   data['reportId'] — ID отчёта share-ссылки
+  static Future<ApiResult> presignUploadForShare({
+    required String fileName,
+    required String shareToken,
+    String? relativePath,
+    int? reportId,
+  }) async {
+    final body = jsonEncode({
+      'fileName': fileName,
+      'shareToken': shareToken,
+      if (relativePath != null) 'relativePath': relativePath, // ignore: use_null_aware_elements
+      if (reportId != null) 'reportId': reportId, // ignore: use_null_aware_elements
+    });
+
+    return _handleApiCall(
+      http.post(_uri('/files/presign-upload-share'), headers: _headers, body: body),
+    );
+  }
+
+  /// Подтвердить загрузку файла через share-ссылку.
+  ///
+  /// Возвращает ApiResult с data['file'] — метаданные файла (включая id).
+  static Future<ApiResult> confirmUploadForShare({
+    required String fileId,
+    required String storageKey,
+    required String fileName,
+    required int size,
+    required String mimeType,
+    required String relPath,
+    required String shareToken,
+  }) async {
+    final body = jsonEncode({
+      'fileId': fileId,
+      'storageKey': storageKey,
+      'fileName': fileName,
+      'size': size,
+      'mimeType': mimeType,
+      'relPath': relPath,
+      'shareToken': shareToken,
+    });
+
+    return _handleApiCall(
+      http.post(_uri('/files/confirm-upload-share'), headers: _headers, body: body),
+      timeout: const Duration(seconds: 30),
+    );
+  }
+
   /// Загрузить несколько файлов на сервер.
   ///
   /// [files] — список карт с ключами:
@@ -265,6 +334,7 @@ class ApiService {
   /// Возвращает ApiResult с массивом результатов в [data].
   static Future<ApiResult> uploadFiles({
     required List<Map<String, String>> files,
+    int? reportId,
     void Function(int current, int total)? onProgress,
   }) async {
     final results = <Map<String, dynamic>>[];
@@ -276,6 +346,7 @@ class ApiService {
       final result = await uploadFile(
         filePath: files[i]['filePath']!,
         relativePath: files[i]['relativePath']!,
+        reportId: reportId,
       );
 
       if (result.success) {
@@ -406,6 +477,94 @@ class ApiService {
       http.get(_uri('/reports/$publicId/html'), headers: _headers),
       timeout: const Duration(seconds: 30),
     );
+  }
+
+  // ============================================================
+  // Share-ссылки
+  // ============================================================
+
+  /// Создать share-ссылку на отчёт.
+  static Future<ApiResult> createShare({
+    required int reportId,
+    DateTime? expiresAt,
+    String? permissions,
+  }) async {
+    final body = <String, dynamic>{
+      if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
+      if (permissions != null) 'permissions': permissions,
+    };
+    return _handleApiCall(http.post(
+      _uri('/reports/$reportId/shares'),
+      headers: _headers,
+      body: jsonEncode(body),
+    ));
+  }
+
+  /// Получить мета-информацию share-ссылки (welcome-экран).
+  static Future<ApiResult> getShareInfo({
+    required String token,
+    String? anonymousId,
+  }) async {
+    return _handleApiCall(http.get(
+      _uriQuery('/reports/shares/$token', {'anonymous_id': anonymousId}),
+      headers: _headers,
+    ));
+  }
+
+  /// Сохранить отчёт, открытый по share-ссылке.
+  static Future<ApiResult> saveSharedReport({
+    required String token,
+    required Map<String, dynamic> reportData,
+    String? anonymousId,
+  }) async {
+    return _handleApiCall(http.post(
+      _uri('/reports/shares/$token/save'),
+      headers: _headers,
+      body: jsonEncode({
+        'reportData': reportData,
+        'anonymousId': anonymousId,
+      }),
+    ));
+  }
+
+  /// Получить HTML отчёта по share-ссылке.
+  static Future<ApiResult> getSharedReportHtml({
+    required String token,
+    String? anonymousId,
+  }) async {
+    return _handleApiCall(
+      http.get(
+        _uriQuery('/reports/shares/$token/html', {'anonymous_id': anonymousId}),
+        headers: _headers,
+      ),
+      timeout: const Duration(seconds: 30),
+    );
+  }
+
+  /// Скачать ZIP отчёта по share-ссылке.
+  static Future<http.Response> downloadSharedReportZip({
+    required String token,
+    String? anonymousId,
+  }) async {
+    return http.get(
+      _uriQuery('/reports/shares/$token/zip', {'anonymous_id': anonymousId}),
+      headers: _headers,
+    );
+  }
+
+  /// Получить presigned URL для файла через share-ссылку.
+  static Future<ApiResult> presignFileForShare({
+    required String fileId,
+    required String shareToken,
+    int expires = 300,
+  }) async {
+    return _handleApiCall(http.get(
+      _uriQuery('/files/$fileId/presign', {
+        'share_token': shareToken,
+        'expires': expires.toString(),
+      }),
+      headers: _headers,
+    ));
   }
 
   static ApiResult _parseResponse(http.Response response) {

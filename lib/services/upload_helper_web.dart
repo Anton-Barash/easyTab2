@@ -181,15 +181,26 @@ Future<UploadResult> uploadWithProgress({
   required String mimeType,
   required String relativePath,
   int? reportId,
+  String? shareToken,
   void Function(double progress)? onProgress,
   void Function(String fileId)? onPresigned,
 }) async {
   // Шаг 1: presign
-  final presignResult = await ApiService.presignUpload(
-    fileName: fileName,
-    relativePath: relativePath,
-    reportId: reportId,
-  );
+  final ApiResult presignResult;
+  if (shareToken != null && shareToken.isNotEmpty) {
+    presignResult = await ApiService.presignUploadForShare(
+      fileName: fileName,
+      shareToken: shareToken,
+      relativePath: relativePath,
+      reportId: reportId,
+    );
+  } else {
+    presignResult = await ApiService.presignUpload(
+      fileName: fileName,
+      relativePath: relativePath,
+      reportId: reportId,
+    );
+  }
 
   if (!presignResult.success) {
     return UploadResult(
@@ -224,15 +235,28 @@ Future<UploadResult> uploadWithProgress({
   }
 
   // Шаг 3: подтвердить загрузку — создать запись в БД
-  final confirmResult = await ApiService.confirmUpload(
-    fileId: fileId,
-    storageKey: storageKey,
-    fileName: fileName,
-    size: fileBytes.length,
-    mimeType: serverMimeType,
-    relPath: relPath,
-    reportId: reportId,
-  );
+  final ApiResult confirmResult;
+  if (shareToken != null && shareToken.isNotEmpty) {
+    confirmResult = await ApiService.confirmUploadForShare(
+      fileId: fileId,
+      storageKey: storageKey,
+      fileName: fileName,
+      size: fileBytes.length,
+      mimeType: serverMimeType,
+      relPath: relPath,
+      shareToken: shareToken,
+    );
+  } else {
+    confirmResult = await ApiService.confirmUpload(
+      fileId: fileId,
+      storageKey: storageKey,
+      fileName: fileName,
+      size: fileBytes.length,
+      mimeType: serverMimeType,
+      relPath: relPath,
+      reportId: reportId,
+    );
+  }
 
   if (!confirmResult.success) {
     return UploadResult(

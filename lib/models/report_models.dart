@@ -67,8 +67,9 @@ class MediaItem {
       _toMap(_toRelativePath(localPath, folderPath));
 
   /// Базовый Map для сериализации (toJson / toJsonWithRelativePaths).
-  /// Не включает web-поля (webBytes, webUrl) и serverFileId —
-  /// они runtime-only и не персистятся в JSON отчёта.
+  /// Не включает web-поля (webBytes, webUrl) — они runtime-only.
+  /// serverFileId персистится, чтобы share-пользователи могли
+  /// получать presigned-ссылки на медиа при загрузке отчёта.
   /// P3-52: isUploading/uploadProgress включены для отображения прогресса в UI.
   Map<String, dynamic> _toMap(String? resolvedLocalPath) => {
         'name': name,
@@ -78,6 +79,7 @@ class MediaItem {
         'localPath': resolvedLocalPath,
         'fileSize': fileSize,
         'compressedSize': compressedSize,
+        'serverFileId': serverFileId,
         'isUploading': isUploading,
         'uploadProgress': uploadProgress,
         'isCompressing': isCompressing,

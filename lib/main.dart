@@ -15,6 +15,7 @@ import './screens/template_select_screen.dart';
 import './screens/form_fill_screen.dart';
 import './screens/reports_screen.dart';
 import './screens/view_report_html_screen.dart';
+import './screens/share_welcome_screen.dart';
 import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
 import './widgets/dotted_pattern_painter.dart';
 import './widgets/easy_tab_button.dart';
@@ -64,23 +65,24 @@ class EasyTabApp extends StatelessWidget {
       ],
       child: Consumer<LocaleProvider>(
         builder: (context, localeProvider, child) {
-          return MaterialApp(
-            title: 'EasyTab',
-            debugShowCheckedModeBanner: false,
-            locale: localeProvider.locale,
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [Locale('en'), Locale('ru'), Locale('zh')],
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: AppColors.primary,
+          return SelectionArea(
+            child: MaterialApp(
+              title: 'EasyTab',
+              debugShowCheckedModeBanner: false,
+              locale: localeProvider.locale,
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [Locale('en'), Locale('ru'), Locale('zh')],
+              theme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: AppColors.primary,
+                ),
+                useMaterial3: true,
               ),
-              useMaterial3: true,
-            ),
             initialRoute: '/',
             routes: {
               '/': (context) => const StartScreen(),
@@ -90,6 +92,7 @@ class EasyTabApp extends StatelessWidget {
             },
             // /view-report — открывается в новой вкладке браузера с
             // query-параметрами: /view-report?pid=abc123&token=xxx
+            // /welcome — приветственный экран share-ссылки: /welcome?token=abc123
             // Используем onGenerateRoute, т.к. routes не парсит query.
             onGenerateRoute: (settings) {
               if (settings.name == null) return null;
@@ -109,11 +112,25 @@ class EasyTabApp extends StatelessWidget {
                       ViewReportHtmlScreen(publicId: publicId, token: token),
                 );
               }
+              if (uri.path == '/welcome') {
+                final token = uri.queryParameters['token'];
+                if (token == null || token.isEmpty) {
+                  return MaterialPageRoute(
+                    builder: (_) => const Scaffold(
+                      body: Center(child: Text('Не указан токен ссылки')),
+                    ),
+                  );
+                }
+                return MaterialPageRoute(
+                  builder: (_) => ShareWelcomeScreen(token: token),
+                );
+              }
               return null;
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
+    ),
     );
   }
 }
@@ -135,10 +152,15 @@ class _StartScreenState extends State<StartScreen> {
   }
 
   /// Загружает версию приложения из version.json, сгенерированного Flutter при сборке.
+  /// Добавляем cache-busting, чтобы браузер не показывал старую версию после обновления.
   Future<String?> _loadVersion() async {
     try {
-      final uri = Uri.base.resolve('version.json');
-      final response = await http.get(uri);
+      final cacheBuster = DateTime.now().millisecondsSinceEpoch;
+      final uri = Uri.base.resolve('version.json?v=$cacheBuster');
+      final response = await http.get(
+        uri,
+        headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return data['version'] as String?;

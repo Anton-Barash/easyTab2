@@ -20,6 +20,7 @@ class EasyTabButton extends StatelessWidget {
   final double fontSize;
   final double verticalPadding;
   final double horizontalPadding;
+  final Widget? child;
 
   const EasyTabButton({
     super.key,
@@ -29,6 +30,7 @@ class EasyTabButton extends StatelessWidget {
     this.fontSize = 16,
     this.verticalPadding = 14,
     this.horizontalPadding = 20,
+    this.child,
   });
 
   static const _borderRadius = BorderRadius.only(
@@ -74,29 +76,30 @@ class EasyTabButton extends StatelessWidget {
               vertical: verticalPadding,
               horizontal: horizontalPadding,
             ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: FontWeight.w500,
-                color: disabled
-                    ? AppColors.textTertiary
-                    : AppColors.textPrimary,
-                shadows: isOutline
-                    ? null
-                    : const [
-                        Shadow(
-                          color: AppColors.textShadowDark,
-                          blurRadius: 1.2,
-                        ),
-                        Shadow(
-                          color: AppColors.textShadowLight,
-                          blurRadius: 0.8,
-                        ),
-                      ],
-              ),
-              textAlign: TextAlign.center,
-            ),
+            child: child ??
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w500,
+                    color: disabled
+                        ? AppColors.textTertiary
+                        : AppColors.textPrimary,
+                    shadows: isOutline
+                        ? null
+                        : const [
+                            Shadow(
+                              color: AppColors.textShadowDark,
+                              blurRadius: 1.2,
+                            ),
+                            Shadow(
+                              color: AppColors.textShadowLight,
+                              blurRadius: 0.8,
+                            ),
+                          ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
           ),
         ),
       ),

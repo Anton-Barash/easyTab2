@@ -678,4 +678,43 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get loginRequired => '请先登录';
+
+  @override
+  String get createShareLink => '创建分享链接';
+
+  @override
+  String get shareLinkCreated => '链接已创建';
+
+  @override
+  String get shareLinkLabel => '链接';
+
+  @override
+  String get shareLinkExpiresIn => '有效期';
+
+  @override
+  String get sharePermissionEdit => '编辑';
+
+  @override
+  String get sharePermissionView => '仅查看';
+
+  @override
+  String get shareLinkCopy => '复制';
+
+  @override
+  String get shareLinkClose => '关闭';
+
+  @override
+  String get shareLinkDays => '天';
+
+  @override
+  String get shareLinkSaveFirst => '请先保存报告到服务器';
+
+  @override
+  String get shareLinkError => '创建链接失败';
+
+  @override
+  String get shareAccess => '访问权限';
+
+  @override
+  String get shareLinkCopied => '已复制';
 }

@@ -17,7 +17,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
+import '../utils/native_video_thumbnail.dart'
+    if (dart.library.html) '../utils/native_video_thumbnail_stub.dart';
+import '../utils/video_thumbnail_generator.dart';
 
 class VideoThumbnailWidget extends StatefulWidget {
   final String? localPath;
@@ -25,6 +27,7 @@ class VideoThumbnailWidget extends StatefulWidget {
   final int? fileSize;
   final int? compressedSize;
   final Uint8List? webBytes;
+  final String? webUrl;
   final bool isUploading;
   final double uploadProgress;
   final bool isCompressing;
@@ -37,6 +40,7 @@ class VideoThumbnailWidget extends StatefulWidget {
     this.fileSize,
     this.compressedSize,
     this.webBytes,
+    this.webUrl,
     this.isUploading = false,
     this.uploadProgress = 0.0,
     this.isCompressing = false,
@@ -56,12 +60,63 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
     _generateThumbnail();
   }
 
+  @override
+  void didUpdateWidget(covariant VideoThumbnailWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.webBytes != oldWidget.webBytes ||
+        widget.webUrl != oldWidget.webUrl ||
+        widget.localPath != oldWidget.localPath) {
+      _thumbnailBytes = null;
+      _generateThumbnail();
+    }
+  }
+
   Future<void> _generateThumbnail() async {
-    if (kIsWeb || widget.localPath == null) return;
+    if (kIsWeb) {
+      final generator = VideoThumbnailGenerator.create();
+      if (widget.webBytes != null && widget.webBytes!.isNotEmpty) {
+        try {
+          final bytes = await generator.generateThumbnail(
+            widget.webBytes!,
+            maxWidth: widget.size,
+            maxHeight: widget.size,
+            quality: 60,
+          );
+          if (mounted && bytes != null) {
+            setState(() {
+              _thumbnailBytes = bytes;
+            });
+          }
+        } catch (e) {
+          debugPrint('Error generating web thumbnail: $e');
+        }
+        return;
+      }
+
+      if (widget.webUrl != null && widget.webUrl!.isNotEmpty) {
+        try {
+          final bytes = await generator.generateThumbnailFromUrl(
+            widget.webUrl!,
+            maxWidth: widget.size,
+            maxHeight: widget.size,
+            quality: 60,
+          );
+          if (mounted && bytes != null) {
+            setState(() {
+              _thumbnailBytes = bytes;
+            });
+          }
+        } catch (e) {
+          debugPrint('Error generating web thumbnail from URL: $e');
+        }
+      }
+      return;
+    }
+
+    if (widget.localPath == null) return;
     try {
-      final bytes = await VideoThumbnail.thumbnailData(
-        video: widget.localPath!,
-        imageFormat: ImageFormat.JPEG,
+      final bytes = await generateNativeVideoThumbnail(
+        widget.localPath!,
         maxWidth: widget.size,
         maxHeight: widget.size,
         quality: 50,
