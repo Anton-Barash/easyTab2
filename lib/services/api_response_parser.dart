@@ -32,17 +32,20 @@ ApiResult parseApiResponse(String responseBody, int statusCode) {
         error: body['success'] == true
             ? null
             : (body['error'] as String?) ?? 'Неизвестная ошибка',
+        statusCode: statusCode,
       );
     }
 
     return ApiResult(
       success: false,
       error: (body['error'] as String?) ?? 'Ошибка $statusCode',
+      statusCode: statusCode,
     );
   } catch (_) {
     return ApiResult(
       success: false,
       error: 'Некорректный ответ сервера: $statusCode',
+      statusCode: statusCode,
     );
   }
 }

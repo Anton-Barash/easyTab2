@@ -267,7 +267,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                     children: [
                       Text(
                         loc.photo,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.w500,
                           color: AppColors.textPrimary,
                           fontSize: 16,
@@ -353,7 +353,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                 const SizedBox(height: 8),
                                 Text(
                                   loc.addPhoto,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 14,
                                   ),

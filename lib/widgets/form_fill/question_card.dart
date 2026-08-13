@@ -62,7 +62,7 @@ class QuestionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         border: isMobile
-            ? Border(
+            ? const Border(
                 top: BorderSide(width: 2, color: AppColors.border),
                 bottom: BorderSide(width: 2, color: AppColors.border),
               )
@@ -78,7 +78,7 @@ class QuestionCard extends StatelessWidget {
                 : const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppColors.grey100,
-              border: Border(
+              border: const Border(
                 bottom: BorderSide(width: 1.5, color: AppColors.grey200),
               ),
               borderRadius: isMobile

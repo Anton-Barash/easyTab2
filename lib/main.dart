@@ -94,8 +94,8 @@ class EasyTabApp extends StatelessWidget {
             routes: {
               '/': (context) => const StartScreen(),
               '/template': (context) => const TemplateSelectScreen(),
-              '/fill': (context) => FormFillScreen(),
-              '/reports': (context) => ReportsScreen(),
+              '/fill': (context) => const FormFillScreen(),
+              '/reports': (context) => const ReportsScreen(),
             },
             // /view-report — открывается в новой вкладке браузера с
             // query-параметрами: /view-report?pid=abc123&token=xxx

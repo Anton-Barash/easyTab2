@@ -1438,6 +1438,10 @@ class ReportState extends ChangeNotifier {
                 // Нашли share-токен для этого отчёта
                 return await loadSharedReport(token);
               }
+            } else if (shareResult.statusCode == 404 ||
+                shareResult.statusCode == 410) {
+              // Протухший токен — удаляем, чтобы не накапливался мусор.
+              await ShareTokenStorage.removeToken(token);
             }
           } catch (_) {}
         }
@@ -1605,7 +1609,7 @@ class ReportState extends ChangeNotifier {
     String permissions = 'edit',
   }) async {
     if (_serverReportId == null) {
-      return ApiResult(
+      return const ApiResult(
         success: false,
         error: 'Отчёт ещё не сохранён на сервере',
       );
@@ -1943,6 +1947,12 @@ class ReportState extends ChangeNotifier {
                 ),
               );
             }
+          } else if (shareResult.statusCode == 404 ||
+              shareResult.statusCode == 410) {
+            // Токен протух/отозван/несуществует — удаляем его из хранилища,
+            // чтобы чужие/устаревшие отчёты не подтягивались в список.
+            // При сетевой ошибке (statusCode == null) токен сохраняем.
+            await ShareTokenStorage.removeToken(token);
           }
         } catch (e) {
           if (kDebugMode) {

@@ -77,6 +77,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   bool _checkedSyncAfterLoad = false;
 
+  // Ссылка на провайдер сохраняется в initState: в dispose() нельзя
+  // вызывать context.read() — виджет уже деактивирован.
+  late final ReportState _reportState;
+
   void _resetControllers() {
     _answerControllers.values
         .expand((map) => map.values)
@@ -92,10 +96,27 @@ class _FormFillScreenState extends State<FormFillScreen> {
   @override
   void initState() {
     super.initState();
+    // Подписка на изменения отчёта: синхронизация контроллеров происходит
+    // в listener (синхронно при notifyListeners, до пересборки виджета),
+    // а не в build() — это устраняет побочные эффекты из метода сборки.
+    final reportState = context.read<ReportState>();
+    _reportState = reportState;
+    reportState.addListener(_onReportStateChanged);
+    final report = reportState.currentReport;
+    if (report != null) {
+      _syncControllers(reportState);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSharedReportIfNeeded();
       _checkSyncAfterLoad();
     });
+  }
+
+  void _onReportStateChanged() {
+    if (!mounted) return;
+    if (_reportState.currentReport != null) {
+      _syncControllers(_reportState);
+    }
   }
 
   /// Загрузить отчёт по share-ссылке, если экран открыт с token.
@@ -129,6 +150,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   @override
   void dispose() {
+    _reportState.removeListener(_onReportStateChanged);
     _answerControllers.values
         .expand((map) => map.values)
         .forEach((c) => c.dispose());
@@ -1099,27 +1121,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    final reportState = context.watch<ReportState>();
+  /// Синхронизировать TextEditingController'ы с текущими ответами отчёта.
+  ///
+  /// Вызывается из listener'а ReportState (синхронно при notifyListeners),
+  /// поэтому контроллеры всегда готовы к моменту пересборки виджета.
+  /// Не вызывать из build() — метод имеет побочные эффекты (создание
+  /// контроллеров, таймеров, dispose устаревших).
+  void _syncControllers(ReportState reportState) {
     final report = reportState.currentReport;
-
-    if (report == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(loc.newReport),
-          backgroundColor: AppColors.surface,
-          foregroundColor: AppColors.textPrimary,
-          elevation: 0,
-        ),
-        body: Center(
-          child: _isLoadingSharedReport
-              ? const CircularProgressIndicator()
-              : Text(loc.noQuestions),
-        ),
-      );
-    }
+    if (report == null) return;
 
     for (int i = 0; i < report.questions.length; i++) {
       final qid = i.toString();
@@ -1192,6 +1202,32 @@ class _FormFillScreenState extends State<FormFillScreen> {
         _enabledAnswers[qid]![j] = !hasOtherAnswers;
       }
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final reportState = context.watch<ReportState>();
+    final report = reportState.currentReport;
+
+    if (report == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(loc.newReport),
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.textPrimary,
+          elevation: 0,
+        ),
+        body: Center(
+          child: _isLoadingSharedReport
+              ? const CircularProgressIndicator()
+              : Text(loc.noQuestions),
+        ),
+      );
+    }
+
+    // Контроллеры синхронизируются в _onReportStateChanged (listener),
+    // build() остаётся чистой функцией без побочных эффектов.
 
     return Scaffold(
       appBar: AppBar(
@@ -1598,7 +1634,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               },
                               child: Container(
                                 width: 40,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: Colors.white,
                                   border: Border(
                                     right: BorderSide(
@@ -1619,7 +1655,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       quarterTurns: 3,
                                       child: Text(
                                         loc.questions,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
                                           color: AppColors.textPrimary,
@@ -1632,7 +1668,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             )
                           : Container(
                               width: 220,
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: Colors.white,
                                 border: Border(
                                   right: BorderSide(

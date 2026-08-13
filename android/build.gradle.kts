@@ -5,8 +5,7 @@ allprojects {
         maven(url = "https://maven.aliyun.com/repository/central")
         maven(url = "https://maven.aliyun.com/repository/gradle-plugin")
         maven(url = "https://maven.aliyun.com/repository/jcenter")
-        google()
-        mavenCentral()
+        maven(url = "https://mirrors.cloud.tencent.com/nexus/repository/maven-public")
     }
 }
 
