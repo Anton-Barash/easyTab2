@@ -6,6 +6,7 @@ import 'package:http_parser/http_parser.dart';
 import 'api_result.dart';
 import 'api_response_parser.dart';
 import 'mime_utils.dart';
+import 'upload_result.dart';
 
 Future<ApiResult> uploadFileFromBytesWithProgress({
   required Uri uri,
@@ -60,4 +61,19 @@ Future<dynamic> uploadToPresignedUrl({
   void Function(double progress)? onUploadProgress,
 }) async {
   throw UnsupportedError('uploadToPresignedUrl is only available on web');
+}
+
+/// Stub для native — прямая загрузка с прогрессом не поддерживается.
+/// На native видео загружается через серверный multipart.
+Future<UploadResult> uploadWithProgress({
+  required Uint8List fileBytes,
+  required String fileName,
+  required String mimeType,
+  required String relativePath,
+  int? reportId,
+  String? shareToken,
+  void Function(double progress)? onProgress,
+  void Function(String fileId)? onPresigned,
+}) async {
+  throw UnsupportedError('uploadWithProgress is only available on web');
 }

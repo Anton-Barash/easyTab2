@@ -4,7 +4,8 @@ import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
-import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
+import 'package:easy_tab/widgets/dotted_background.dart';
+import 'package:easy_tab/widgets/easy_tab_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -113,12 +114,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       ),
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Container(
-              color: AppColors.background,
-              child: CustomPaint(painter: DottedPatternPainter()),
-            ),
-          ),
+          const DottedBackground(),
           SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
             child: Column(
@@ -480,7 +476,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           );
                         }),
                         const SizedBox(height: 18),
-                        _buildButton(
+                        EasyTabButton(
                           label: loc.useTemplate,
                           onTap: _reportNameController.text.trim().isEmpty
                               ? null
@@ -509,58 +505,6 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
         mediaCounter: {'photos': 1, 'X': 1},
       );
     });
-  }
-
-  Widget _buildButton({required String label, required VoidCallback? onTap}) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: onTap == null ? AppColors.grey300 : AppColors.surface,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(9),
-          bottomRight: Radius.circular(11),
-        ),
-        border: Border.all(width: 2.5, color: AppColors.border),
-        boxShadow: [
-          BoxShadow(color: AppColors.border, blurRadius: 0, spreadRadius: 1.5),
-          BoxShadow(color: AppColors.shadow, offset: const Offset(2, 2)),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(9),
-          bottomRight: Radius.circular(11),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(8),
-            topRight: Radius.circular(10),
-            bottomLeft: Radius.circular(9),
-            bottomRight: Radius.circular(11),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: onTap == null
-                    ? AppColors.textTertiary
-                    : AppColors.textPrimary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildCard({required Widget child}) {

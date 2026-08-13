@@ -940,6 +940,12 @@ abstract class AppLocalizations {
   /// **'Install a browser or app to view HTML'**
   String get noAppToOpenHtml;
 
+  /// No description provided for @htmlRequiresSync.
+  ///
+  /// In en, this message translates to:
+  /// **'To view HTML, save the report to the server first'**
+  String get htmlRequiresSync;
+
   /// No description provided for @needsWorkTooltip.
   ///
   /// In en, this message translates to:

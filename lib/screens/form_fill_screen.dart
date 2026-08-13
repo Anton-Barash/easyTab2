@@ -1,11 +1,8 @@
 import 'package:easy_tab/utils/app_colors.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
-import 'package:easy_tab/utils/file_image.dart'
-    if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
 import 'package:easy_tab/services/mime_utils.dart';
-import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
-import 'package:easy_tab/widgets/media_item_widget.dart';
+import 'package:easy_tab/widgets/dotted_background.dart';
 import 'package:easy_tab/widgets/easy_tab_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -26,7 +23,17 @@ import '../utils/filename_utils.dart';
 import '../services/anonymous_id_service.dart';
 import '../utils/share_link_opener_stub.dart'
     if (dart.library.html) '../utils/share_link_opener_web.dart';
-import 'full_media_viewer_screen.dart';
+import '../widgets/form_fill/header_card.dart';
+import '../widgets/form_fill/header_field.dart';
+import '../widgets/form_fill/header_list_tile.dart';
+import '../widgets/form_fill/header_photo_picker.dart';
+import '../widgets/form_fill/header_side_panel_tile.dart';
+import '../widgets/form_fill/permission_option.dart';
+import '../widgets/form_fill/picker_item.dart';
+import '../widgets/form_fill/question_card.dart';
+import '../widgets/form_fill/section_title.dart';
+import '../widgets/sync/sync_dialog.dart';
+import '../widgets/sync/sync_menu_dialog.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'dart:async';
@@ -400,8 +407,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              _buildPermissionOption(
-                                ctx: ctx,
+                              PermissionOption(
                                 label: loc.sharePermissionEdit,
                                 icon: Icons.edit,
                                 value: 'edit',
@@ -413,8 +419,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       ),
                               ),
                               const SizedBox(width: 8),
-                              _buildPermissionOption(
-                                ctx: ctx,
+                              PermissionOption(
                                 label: loc.sharePermissionView,
                                 icon: Icons.visibility,
                                 value: 'view',
@@ -471,52 +476,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildPermissionOption({
-    required BuildContext ctx,
-    required String label,
-    required IconData icon,
-    required String value,
-    required String groupValue,
-    required VoidCallback? onTap,
-  }) {
-    final isSelected = value == groupValue;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.grey700 : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? AppColors.grey700 : AppColors.border,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected ? Colors.white : AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -742,7 +701,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _SyncDialog(
+      builder: (ctx) => SyncDialog(
         reportState: context.read<ReportState>(),
         targetLang: targetLang,
         unsyncIndices: unsyncIndices,
@@ -772,7 +731,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _SyncMenuDialog(
+      builder: (ctx) => SyncMenuDialog(
         reportState: reportState,
         unsyncIndices: unsyncIndices,
         onApplied: () {},
@@ -1012,8 +971,41 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  Future<void> viewHtmlWithChooser(String htmlContent) async {
+  /// Просмотр HTML на mobile/desktop.
+  ///
+  /// HTML генерируется на сервере (GET /reports/:publicId/html),
+  /// поэтому отчёт должен быть синхронизирован. Скачанный HTML
+  /// записывается в папку отчёта и открывается системным просмотрщиком.
+  /// Медиа подгружаются через прокси-URL сервера (нужен интернет).
+  Future<void> viewHtmlWithChooser() async {
     final reportState = context.read<ReportState>();
+    final loc = AppLocalizations.of(context)!;
+
+    // Отчёт должен быть на сервере — синхронизируем при необходимости.
+    if (reportState.serverPublicId == null) {
+      final synced = await reportState.saveReportToServer();
+      if (!synced || reportState.serverPublicId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(loc.htmlRequiresSync)));
+        }
+        return;
+      }
+    }
+
+    final result = await ApiService.getReportHtmlByPublicId(
+      reportState.serverPublicId!,
+    );
+    final htmlContent = result.data?['html'] as String?;
+    if (!result.success || htmlContent == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.error ?? loc.htmlRequiresSync)),
+        );
+      }
+      return;
+    }
 
     if (reportState.currentReportPath == null) {
       await reportState.saveReport();
@@ -1023,11 +1015,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final file = File('$folderPath/easy_report.html');
     await file.writeAsString(htmlContent);
 
-    final result = await OpenFile.open(file.path);
+    final openResult = await OpenFile.open(file.path);
 
-    if (result.type == ResultType.noAppToOpen) {
+    if (openResult.type == ResultType.noAppToOpen) {
       if (mounted) {
-        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(loc.noAppToOpenHtml)));
@@ -1038,32 +1029,38 @@ class _FormFillScreenState extends State<FormFillScreen> {
   /// Просмотр HTML на web: открывает новую вкладку Flutter.
   ///
   /// Архитектура:
-  ///   1. Flutter открывает новую вкладку: /#/view-report?pid=abc123&token=xxx
+  ///   1. Flutter открывает новую вкладку: /#/view-report?pid=abc123
   ///   2. Новая вкладка — это Flutter-экран ViewReportHtmlScreen
   ///   3. Экран делает API-запрос: GET /reports/abc123/html
   ///   4. Сервер читает JSON из БД, генерирует HTML, возвращает {success, html}
   ///   5. Экран отображает HTML в iframe srcdoc
-  ///   6. Фото в HTML используют presigned URL из KS3 — грузятся с сервера
+  ///   6. Медиа загружаются через серверный прокси /view/report/:id/files/...
   ///
   /// URL новой вкладки строится относительно текущего origin, поэтому работает
   /// на любом порту/домене, где развёрнут фронтенд.
   ///
-  /// Если пользователь не залогинен или отчёт не сохранён — fallback на blob.
-  Future<void> _viewHtmlOnWeb(String htmlContent) async {
+  /// Если отчёт ещё не на сервере — сначала сохраняем. Без логина и
+  /// share-токена серверный просмотр недоступен.
+  Future<void> _viewHtmlOnWeb() async {
     final authProvider = context.read<AuthProvider>();
     final reportState = context.read<ReportState>();
-
-    // Если отчёт ещё не сохранён на сервере — нет publicId, fallback на blob
-    if (reportState.serverPublicId == null) {
-      openHtmlInBrowser(htmlContent);
-      return;
-    }
-
+    final loc = AppLocalizations.of(context)!;
     final origin = Uri.base.origin;
 
     // Залогиненный пользователь: открываем Flutter-маршрут /view-report.
     // Cookie auth_token уже установлен при логине, поэтому токен не нужен в URL.
     if (authProvider.isLoggedIn) {
+      if (reportState.serverPublicId == null) {
+        final saved = await reportState.saveReport();
+        if (!saved || reportState.serverPublicId == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(loc.htmlRequiresSync)));
+          }
+          return;
+        }
+      }
       final viewUrl = '$origin/#/view-report?pid=${reportState.serverPublicId}';
       openHtmlInBrowserUrl(viewUrl);
       if (mounted) {
@@ -1074,9 +1071,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
-    // Анонимный пользователь по share-ссылке: открываем тот же серверный
-    // endpoint, что и на welcome-странице — /reports/shares/:token/html.
-    // Сервер генерирует HTML с proxy URL медиа, содержащими share_token.
+    // Анонимный пользователь по share-ссылке: открываем серверный
+    // endpoint /reports/shares/:token/html. Сервер генерирует HTML
+    // с proxy URL медиа, содержащими share_token.
     final shareToken = reportState.shareToken;
     if (shareToken != null && shareToken.isNotEmpty) {
       final anonymousId = await AnonymousIdService.getId();
@@ -1094,9 +1091,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
-    // Нет ни логина, ни share-токена — fallback на blob (медиа не будут видны,
-    // т.к. относительные пути photos/... не резолвятся для blob URL).
-    openHtmlInBrowser(htmlContent);
+    // Нет ни логина, ни share-токена — серверный просмотр недоступен.
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.htmlRequiresSync)));
+    }
   }
 
   @override
@@ -1263,6 +1263,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               });
               if (_viewMode == ViewMode.card) {
                 Future.delayed(Duration.zero, () {
+                  if (!_pageController.hasClients) return;
                   if (_currentPage == -1) {
                     _pageController.jumpToPage(0);
                   } else {
@@ -1440,13 +1441,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   if (value is Locale) {
                     localeProvider.setLocale(value);
                   } else if (value == 0) {
-                    final htmlContent = reportState.generateHtmlContent();
+                    // HTML генерируется на сервере — открываем серверный просмотр
                     if (kIsWeb) {
-                      // На web — открываем серверный просмотр /view-report
-                      await _viewHtmlOnWeb(htmlContent);
+                      await _viewHtmlOnWeb();
                     } else {
-                      // На мобильных/десктопах открываем через системный диалог
-                      await viewHtmlWithChooser(htmlContent);
+                      // На мобильных/десктопах скачиваем HTML с сервера
+                      // и открываем через системный просмотрщик
+                      await viewHtmlWithChooser();
                     }
                   } else if (value == 4) {
                     final excelHtml = reportState.generateExcelHtmlContent();
@@ -1581,12 +1582,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           final isMobile = constraints.maxWidth <= 800;
           return Stack(
             children: [
-              Positioned.fill(
-                child: Container(
-                  color: AppColors.background,
-                  child: CustomPaint(painter: DottedPatternPainter()),
-                ),
-              ),
+              const DottedBackground(),
               if (!isMobile)
                 Row(
                   children: [
@@ -1749,10 +1745,36 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                           return const SizedBox(height: 80);
                                         }
                                         if (index == 0) {
-                                          return _buildHeaderCard0SidePanel(
-                                            context,
-                                            report,
-                                            reportState,
+                                          return HeaderSidePanelTile(
+                                            report: report,
+                                            onTap: () {
+                                              setState(() {
+                                                _currentPage = -1;
+                                                _isSidePanelCollapsed = true;
+                                              });
+                                              if (_viewMode == ViewMode.card) {
+                                                _pageController.animateToPage(
+                                                  0,
+                                                  duration: const Duration(
+                                                    milliseconds: 300,
+                                                  ),
+                                                  curve: Curves.ease,
+                                                );
+                                              } else {
+                                                if (_listItemScrollController
+                                                    .isAttached) {
+                                                  _listItemScrollController
+                                                      .scrollTo(
+                                                        index: 0,
+                                                        duration:
+                                                            const Duration(
+                                                              milliseconds: 300,
+                                                            ),
+                                                        curve: Curves.ease,
+                                                      );
+                                                }
+                                              }
+                                            },
                                           );
                                         }
                                         final i = _getFilteredQuestionIndex(
@@ -2105,8 +2127,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         _isSidePanelCollapsed = true;
                       });
                     },
-                    child: Container(
-                      color: const Color(0x80000000), // black 50% opacity
+                    child: const ColoredBox(
+                      color: Color(0x80000000), // black 50% opacity
                     ),
                   ),
                 ),
@@ -2205,10 +2227,34 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 return const SizedBox(height: 80);
                               }
                               if (index == 0) {
-                                return _buildHeaderCard0SidePanel(
-                                  context,
-                                  report,
-                                  reportState,
+                                return HeaderSidePanelTile(
+                                  report: report,
+                                  onTap: () {
+                                    setState(() {
+                                      _currentPage = -1;
+                                      _isSidePanelCollapsed = true;
+                                    });
+                                    if (_viewMode == ViewMode.card) {
+                                      _pageController.animateToPage(
+                                        0,
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        curve: Curves.ease,
+                                      );
+                                    } else {
+                                      if (_listItemScrollController
+                                          .isAttached) {
+                                        _listItemScrollController.scrollTo(
+                                          index: 0,
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          curve: Curves.ease,
+                                        );
+                                      }
+                                    }
+                                  },
                                 );
                               }
                               final i = _getFilteredQuestionIndex(
@@ -2592,11 +2638,21 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 padding: isMobile
                     ? EdgeInsets.zero
                     : const EdgeInsets.symmetric(vertical: 8),
-                child: _buildHeaderCard0ListItem(
-                  ctx,
-                  report,
-                  reportState,
-                  isMobile,
+                child: HeaderListTile(
+                  report: report,
+                  reportState: reportState,
+                  isMobile: isMobile,
+                  onNavigateToHeader: () {
+                    setState(() {
+                      _currentPage = -1;
+                      if (isMobile) {
+                        _isSidePanelCollapsed = false;
+                      }
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollSidePanelToQuestion(-1, report);
+                    });
+                  },
                 ),
               );
             }
@@ -2661,7 +2717,21 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ? const EdgeInsets.only(bottom: 100)
                         : const EdgeInsets.all(20),
                     child: Center(
-                      child: _buildHeaderCard0(context, report, reportState),
+                      child: HeaderCard(
+                        report: report,
+                        reportState: reportState,
+                        onOpenSidePanel: () {
+                          setState(() => _isSidePanelCollapsed = false);
+                        },
+                        onNavigateToHeader: () {
+                          setState(() => _isSidePanelCollapsed = false);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _scrollSidePanelToQuestion(-1, report);
+                          });
+                        },
+                        onEditHeader: () =>
+                            _showEditHeaderDialog(context, reportState),
+                      ),
                     ),
                   );
                 }
@@ -2726,204 +2796,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  Widget _buildHeaderCard0(
-    BuildContext context,
-    Report report,
-    ReportState reportState,
-  ) {
-    final loc = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.width <= 800;
-    final width = !isMobile ? 600.0 : double.infinity;
-
-    final headerImagePath = report.headerImagePath;
-    final hasImage = headerImagePath != null && headerImagePath.isNotEmpty;
-
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: isMobile
-            ? Border(
-                top: BorderSide(width: 2, color: AppColors.border),
-                bottom: BorderSide(width: 2, color: AppColors.border),
-              )
-            : Border.all(width: 2, color: AppColors.border),
-        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.grey100,
-              border: Border(
-                bottom: BorderSide(width: 1.5, color: AppColors.grey200),
-              ),
-              borderRadius: isMobile
-                  ? BorderRadius.zero
-                  : const BorderRadius.only(
-                      topLeft: Radius.circular(10),
-                      topRight: Radius.circular(10),
-                    ),
-            ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isSidePanelCollapsed = false;
-                    });
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _scrollSidePanelToQuestion(-1, report);
-                    });
-                  },
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '0',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    loc.headerInfo,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () {
-                    setState(() {
-                      _isSidePanelCollapsed = false;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          if (hasImage)
-            Container(
-              width: double.infinity,
-              height: 250,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: fileImageProvider(
-                    '${reportState.currentReportPath}/$headerImagePath',
-                  ),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            )
-          else
-            Container(
-              width: double.infinity,
-              height: 150,
-              color: AppColors.surface,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.image,
-                      size: 48,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      loc.noPhoto,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildInfoRow(loc.productType, report.productType),
-                const SizedBox(height: 12),
-                _buildInfoRow(loc.factory, report.factory),
-                const SizedBox(height: 12),
-                _buildInfoRow(loc.model, report.model),
-                const SizedBox(height: 12),
-                if (report.dateTimestamp != null)
-                  _buildInfoRow(
-                    loc.date,
-                    DateTime.fromMillisecondsSinceEpoch(
-                      report.dateTimestamp!,
-                    ).toLocal().toString().substring(0, 10),
-                  ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: () => _showEditHeaderDialog(context, reportState),
-                  icon: const Icon(Icons.edit),
-                  label: Text(loc.editHeader),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.border),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 100,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value.isEmpty ? '-' : value,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   void _showEditHeaderDialog(BuildContext context, ReportState reportState) {
     final report = reportState.currentReport;
     if (report == null) return;
@@ -2953,6 +2825,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
     }
 
+    // Байты для web-превью
+    Uint8List? tempPhotoBytes;
+    String? tempPhotoFileName;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2964,7 +2840,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
-          final hasImage = tempPhotoPath != null;
+          final hasImage = tempPhotoPath != null || tempPhotoBytes != null;
           final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
           return Padding(
@@ -3002,18 +2878,41 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   child: Column(
                     children: [
-                      _buildHeaderField(loc.productType, productTypeController),
+                      HeaderField(
+                        label: loc.productType,
+                        controller: productTypeController,
+                      ),
                       const SizedBox(height: 12),
-                      _buildHeaderField(loc.factory, factoryController),
+                      HeaderField(
+                        label: loc.factory,
+                        controller: factoryController,
+                      ),
                       const SizedBox(height: 12),
-                      _buildHeaderField(loc.model, modelController),
+                      HeaderField(
+                        label: loc.model,
+                        controller: modelController,
+                      ),
                       const SizedBox(height: 16),
-                      _buildPhotoSection(
-                        context,
-                        hasImage,
-                        tempPhotoPath,
-                        loc,
-                        setDialogState,
+                      HeaderPhotoPicker(
+                        hasImage: hasImage,
+                        imagePath: kIsWeb ? null : tempPhotoPath,
+                        imageBytes: kIsWeb ? tempPhotoBytes : null,
+                        loc: loc,
+                        onImagePathChanged: (path) {
+                          setDialogState(() {
+                            tempPhotoPath = path;
+                            tempPhotoBytes = null;
+                            tempPhotoFileName = null;
+                          });
+                        },
+                        onImageBytesChanged: (bytes) {
+                          setDialogState(() {
+                            tempPhotoBytes = bytes;
+                            tempPhotoPath = null;
+                            tempPhotoFileName =
+                                'header_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                          });
+                        },
                       ),
                       const SizedBox(height: 20),
                       SizedBox(
@@ -3026,12 +2925,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               model: modelController.text.trim(),
                             );
                             try {
-                              if (tempPhotoPath != null) {
-                                await reportState.addHeaderImage(
-                                  File(tempPhotoPath),
-                                );
-                              } else if (hadHeaderImageBefore) {
-                                await reportState.removeHeaderImage();
+                              if (kIsWeb) {
+                                if (tempPhotoBytes != null) {
+                                  await reportState.addHeaderImageFromBytes(
+                                    tempPhotoBytes!,
+                                    tempPhotoFileName ?? 'header.jpg',
+                                  );
+                                } else if (hadHeaderImageBefore) {
+                                  await reportState.removeHeaderImage();
+                                }
+                              } else {
+                                if (tempPhotoPath != null) {
+                                  await reportState.addHeaderImage(
+                                    File(tempPhotoPath!),
+                                  );
+                                } else if (hadHeaderImageBefore) {
+                                  await reportState.removeHeaderImage();
+                                }
                               }
                             } catch (e) {
                               debugPrint('Header image error: $e');
@@ -3065,1132 +2975,84 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  Widget _buildHeaderField(String label, TextEditingController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            color: AppColors.grey800,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            border: const UnderlineInputBorder(
-              borderSide: BorderSide(color: AppColors.greyBorder),
-            ),
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: AppColors.greyBorder),
-            ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: AppColors.border, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 8),
-            isDense: true,
-          ),
-          style: const TextStyle(color: AppColors.textDark, fontSize: 15),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPhotoSection(
-    BuildContext context,
-    bool hasImage,
-    String? tempPhotoPath,
-    AppLocalizations loc,
-    void Function(void Function()) setDialogState,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          loc.photo,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            color: AppColors.grey800,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 6),
-        if (hasImage) ...[
-          Stack(
-            children: [
-              Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  image: DecorationImage(
-                    image: fileImageProvider(tempPhotoPath!),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: GestureDetector(
-                  onTap: () {
-                    tempPhotoPath = null;
-                    setDialogState(() {});
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      color: AppColors.grey900,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () async {
-                final ImagePicker picker = ImagePicker();
-                final XFile? image = await picker.pickImage(
-                  source: ImageSource.gallery,
-                );
-                if (image != null) {
-                  tempPhotoPath = image.path;
-                  setDialogState(() {});
-                }
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.grey800,
-                side: const BorderSide(color: AppColors.greyBorder),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              child: Text(loc.changePhoto),
-            ),
-          ),
-        ] else ...[
-          InkWell(
-            onTap: () async {
-              final ImagePicker picker = ImagePicker();
-              final XFile? image = await picker.pickImage(
-                source: ImageSource.gallery,
-              );
-              if (image != null) {
-                tempPhotoPath = image.path;
-                setDialogState(() {});
-              }
-            },
-            child: Container(
-              width: double.infinity,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.greyBackground,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.greyBorder, width: 1),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.add_a_photo,
-                    size: 32,
-                    color: AppColors.greyDisabled,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    loc.addPhoto,
-                    style: const TextStyle(
-                      color: AppColors.textLight,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildHeaderCard0ListItem(
-    BuildContext context,
-    Report report,
-    ReportState reportState,
-    bool isMobile,
-  ) {
-    final loc = AppLocalizations.of(context)!;
-    final headerImagePath = report.headerImagePath;
-    final hasImage = headerImagePath != null && headerImagePath.isNotEmpty;
-
-    return Material(
-      color: Colors.white,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(width: 2, color: AppColors.border),
-            top: BorderSide(width: 2, color: AppColors.border),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _currentPage = -1;
-                        if (isMobile) {
-                          _isSidePanelCollapsed = false;
-                        }
-                      });
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _scrollSidePanelToQuestion(-1, report);
-                      });
-                    },
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: AppColors.border,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '0',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    loc.headerInfo,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (hasImage)
-              GestureDetector(
-                onTap: () async {
-                  final ImagePicker picker = ImagePicker();
-                  final XFile? image = await picker.pickImage(
-                    source: ImageSource.gallery,
-                  );
-                  if (image != null) {
-                    await reportState.addHeaderImage(File(image.path));
-                    setState(() {});
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: fileImageProvider(
-                        '${reportState.currentReportPath}/$headerImagePath',
-                      ),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: Container(
-                      margin: const EdgeInsets.all(8),
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Icon(
-                        Icons.edit,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else
-              GestureDetector(
-                onTap: () async {
-                  final ImagePicker picker = ImagePicker();
-                  final XFile? image = await picker.pickImage(
-                    source: ImageSource.gallery,
-                  );
-                  if (image != null) {
-                    await reportState.addHeaderImage(File(image.path));
-                    setState(() {});
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  height: 100,
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.greyLight,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.greyBorder),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.add_a_photo,
-                        size: 28,
-                        color: AppColors.greyDisabled,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        loc.addPhoto,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  _buildEditableRow(loc.productType, report.productType, (val) {
-                    reportState.updateHeaderInfo(productType: val);
-                    if (!_hasUnsavedChanges) {
-                      setState(() => _hasUnsavedChanges = true);
-                    }
-                  }),
-                  const SizedBox(height: 6),
-                  _buildEditableRow(loc.factory, report.factory, (val) {
-                    reportState.updateHeaderInfo(factory: val);
-                    if (!_hasUnsavedChanges) {
-                      setState(() => _hasUnsavedChanges = true);
-                    }
-                  }),
-                  const SizedBox(height: 6),
-                  _buildEditableRow(loc.model, report.model, (val) {
-                    reportState.updateHeaderInfo(model: val);
-                    if (!_hasUnsavedChanges) {
-                      setState(() => _hasUnsavedChanges = true);
-                    }
-                  }),
-                  if (report.dateTimestamp != null) ...[
-                    const SizedBox(height: 6),
-                    _buildInfoRow(
-                      loc.date,
-                      DateTime.fromMillisecondsSinceEpoch(
-                        report.dateTimestamp!,
-                      ).toLocal().toString().substring(0, 10),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEditableRow(
-    String label,
-    String value,
-    Function(String) onChanged,
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.greyBackground,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.greyBorder),
-            ),
-            child: TextFormField(
-              initialValue: value,
-              style: const TextStyle(fontSize: 13, color: AppColors.textDark),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeaderCard0SidePanel(
-    BuildContext context,
-    Report report,
-    ReportState reportState,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: () {
-            setState(() {
-              _currentPage = -1;
-              _isSidePanelCollapsed = true;
-            });
-            if (_viewMode == ViewMode.card) {
-              _pageController.animateToPage(
-                0,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.ease,
-              );
-            } else {
-              if (_listItemScrollController.isAttached) {
-                _listItemScrollController.scrollTo(
-                  index: 0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.ease,
-                );
-              }
-            }
-          },
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(width: 1.5, color: AppColors.grey200),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '0',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${report.productType} | ${report.factory} | ${report.model}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      if (report.dateTimestamp != null)
-                        Text(
-                          DateTime.fromMillisecondsSinceEpoch(
-                            report.dateTimestamp!,
-                          ).toLocal().toString().substring(0, 10),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildQuestionCard(
     BuildContext context,
     int index,
     ReportState reportState,
     bool isCardView,
   ) {
-    final loc = AppLocalizations.of(context)!;
     final report = reportState.currentReport!;
-    final q = report.questions[index];
-    final lang = report.currentLanguage;
-    final questionLoc = q.getLocalization(lang);
-    final answers = report.getAnswersForQuestion(index, lang);
-
-    final isMobile = MediaQuery.of(context).size.width <= 800;
-
-    final width = isCardView && !isMobile ? 600.0 : double.infinity;
-
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: isMobile
-            ? Border(
-                top: BorderSide(width: 2, color: AppColors.border),
-                bottom: BorderSide(width: 2, color: AppColors.border),
-              )
-            : Border.all(width: 2, color: AppColors.border),
-        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(12),
+    return QuestionCard(
+      index: index,
+      reportState: reportState,
+      isCardView: isCardView,
+      answerControllerFor: _getSafeController,
+      answerEnabledFor: (qid, j) => _enabledAnswers[qid]?[j] ?? true,
+      needsWork: _needsWorkMap[index] == true,
+      onNeedsWorkChanged: (newValue) {
+        setState(() {
+          _needsWorkMap[index] = newValue;
+        });
+      },
+      onMarkAsUnsaved: _markAsUnsaved,
+      onQuestionNumberTap: () {
+        setState(() {
+          _isSidePanelCollapsed = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollSidePanelToQuestion(index, report);
+        });
+      },
+      onEditQuestion: (fieldType) => _showEditQuestionDialog(
+        context,
+        index,
+        reportState,
+        fieldType,
+        _markAsUnsaved,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: isMobile
-                ? const EdgeInsets.fromLTRB(0, 4, 4, 0)
-                : const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.grey100,
-              border: Border(
-                bottom: BorderSide(width: 1.5, color: AppColors.grey200),
-              ),
-              borderRadius: isMobile
-                  ? BorderRadius.zero
-                  : const BorderRadius.only(
-                      topLeft: Radius.circular(10),
-                      topRight: Radius.circular(10),
-                    ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (isMobile)
-                  Row(
-                    children: [
-                      const SizedBox(width: 16),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isSidePanelCollapsed = false;
-                          });
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _scrollSidePanelToQuestion(index, report);
-                          });
-                        },
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: AppColors.border,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        flex: 1,
-                        child: GestureDetector(
-                          onTap: () => _showEditQuestionDialog(
-                            context,
-                            index,
-                            reportState,
-                            'name',
-                            _markAsUnsaved,
-                          ),
-                          child: Text(
-                            questionLoc?.name ??
-                                q.getDisplayName(lang) ??
-                                loc.noName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
-                            ),
-                            softWrap: true,
-                          ),
-                        ),
-                      ),
-                      if (questionLoc?.description?.isNotEmpty ?? false)
-                        IconButton(
-                          icon: const Icon(Icons.help_outline, size: 20),
-                          color: AppColors.textLight,
-                          onPressed: () => _showEditQuestionDialog(
-                            context,
-                            index,
-                            reportState,
-                            'description',
-                            _markAsUnsaved,
-                          ),
-                        ),
-                      PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert, size: 20),
-                        color: Colors.white,
-                        elevation: 4,
-                        itemBuilder: (ctx) => [
-                          PopupMenuItem(
-                            value: 'add_above',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.add, size: 18),
-                                const SizedBox(width: 8),
-                                Text(loc.newQuestionAbove),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'add_below',
-                            child: Row(
-                              children: [
-                                const Icon(Icons.add, size: 18),
-                                const SizedBox(width: 8),
-                                Text(loc.newQuestionBelow),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.delete,
-                                  size: 18,
-                                  color: AppColors.errorLight,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  loc.deleteThisQuestion,
-                                  style: const TextStyle(
-                                    color: AppColors.errorLight,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onSelected: (value) async {
-                          if (value == 'add_above') {
-                            _resetControllers();
-                            reportState.addQuestion(index - 1);
-                            if (index > 0) {
-                              _pageController.animateToPage(
-                                index - 1,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.ease,
-                              );
-                            }
-                          } else if (value == 'add_below') {
-                            _resetControllers();
-                            reportState.addQuestion(index);
-                            _pageController.animateToPage(
-                              index + 1,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.ease,
-                            );
-                          } else if (value == 'delete') {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text(loc.deleteQuestionTitle),
-                                content: Text(loc.deleteQuestionConfirm),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx, false),
-                                    child: Text(loc.cancel),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx, true),
-                                    child: Text(loc.delete),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirm == true &&
-                                report.questions.length > 1) {
-                              _resetControllers();
-                              await reportState.removeQuestion(index);
-                              if (_currentPage >= report.questions.length) {
-                                _currentPage = report.questions.isNotEmpty
-                                    ? report.questions.length - 1
-                                    : -1;
-                              }
-                              if (_currentPage == -1) {
-                                _pageController.jumpToPage(0);
-                              } else {
-                                final page = _getPageForQuestion(
-                                  _currentPage,
-                                  report,
-                                );
-                                if (page >= 0) {
-                                  _pageController.jumpToPage(page);
-                                }
-                              }
-                              _markAsUnsaved();
-                            }
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                if (!isMobile)
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.border,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${index + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 1,
-                                  child: GestureDetector(
-                                    onTap: () => _showEditQuestionDialog(
-                                      context,
-                                      index,
-                                      reportState,
-                                      'name',
-                                      _markAsUnsaved,
-                                    ),
-                                    child: Text(
-                                      questionLoc?.name ??
-                                          q.getDisplayName(lang) ??
-                                          loc.noName,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textDark,
-                                      ),
-                                      softWrap: true,
-                                    ),
-                                  ),
-                                ),
-                                if (questionLoc?.description?.isNotEmpty ??
-                                    false)
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.help_outline,
-                                      size: 20,
-                                    ),
-                                    color: AppColors.textLight,
-                                    onPressed: () => _showEditQuestionDialog(
-                                      context,
-                                      index,
-                                      reportState,
-                                      'description',
-                                      _markAsUnsaved,
-                                    ),
-                                  ),
-                                PopupMenuButton<String>(
-                                  icon: const Icon(Icons.more_vert, size: 20),
-                                  color: Colors.white,
-                                  elevation: 4,
-                                  itemBuilder: (ctx) => [
-                                    PopupMenuItem(
-                                      value: 'add_above',
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.add, size: 18),
-                                          const SizedBox(width: 8),
-                                          Text(loc.newQuestionAbove),
-                                        ],
-                                      ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'add_below',
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.add, size: 18),
-                                          const SizedBox(width: 8),
-                                          Text(loc.newQuestionBelow),
-                                        ],
-                                      ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.delete,
-                                            size: 18,
-                                            color: AppColors.errorLight,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            loc.deleteThisQuestion,
-                                            style: const TextStyle(
-                                              color: AppColors.errorLight,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  onSelected: (value) async {
-                                    if (value == 'add_above') {
-                                      _resetControllers();
-                                      reportState.addQuestion(index - 1);
-                                      if (index > 0) {
-                                        _pageController.animateToPage(
-                                          index - 1,
-                                          duration: const Duration(
-                                            milliseconds: 300,
-                                          ),
-                                          curve: Curves.ease,
-                                        );
-                                      }
-                                    } else if (value == 'add_below') {
-                                      _resetControllers();
-                                      reportState.addQuestion(index);
-                                      _pageController.animateToPage(
-                                        index + 1,
-                                        duration: const Duration(
-                                          milliseconds: 300,
-                                        ),
-                                        curve: Curves.ease,
-                                      );
-                                    } else if (value == 'delete') {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: Text(loc.deleteQuestionTitle),
-                                          content: Text(
-                                            loc.deleteQuestionConfirm,
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(ctx, false),
-                                              child: Text(loc.cancel),
-                                            ),
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(ctx, true),
-                                              child: Text(loc.delete),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                      if (confirm == true &&
-                                          report.questions.length > 1) {
-                                        _resetControllers();
-                                        await reportState.removeQuestion(index);
-                                        if (_currentPage >=
-                                            report.questions.length) {
-                                          _currentPage =
-                                              report.questions.isNotEmpty
-                                              ? report.questions.length - 1
-                                              : -1;
-                                        }
-                                        if (_currentPage == -1) {
-                                          _pageController.jumpToPage(0);
-                                        } else {
-                                          final page = _getPageForQuestion(
-                                            _currentPage,
-                                            report,
-                                          );
-                                          if (page >= 0) {
-                                            _pageController.jumpToPage(page);
-                                          }
-                                        }
-                                        _markAsUnsaved();
-                                      }
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                            if (questionLoc?.example?.isNotEmpty ?? false)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  '${questionLoc?.example}',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.primary,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: isMobile
-                ? const EdgeInsets.all(8)
-                : const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                for (int j = 0; j < answers.length; j++)
-                  _buildAnswerBlock(
-                    context,
-                    index,
-                    j,
-                    reportState,
-                    index.toString(),
-                    answers[j],
-                  ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.add, size: 20),
-                      color: AppColors.textPrimary,
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.grey100,
-                        side: const BorderSide(
-                          color: AppColors.grey200,
-                          width: 1.5,
-                        ),
-                      ),
-                      onPressed: () {
-                        reportState.addAnswer(index);
-                        _markAsUnsaved();
-                      },
-                      tooltip: loc.addAnswerTooltip,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnswerBlock(
-    BuildContext context,
-    int i,
-    int j,
-    ReportState reportState,
-    String qid,
-    Map<String, dynamic> answer,
-  ) {
-    final loc = AppLocalizations.of(context)!;
-    final attention = answer['attention'] == true;
-    final isMobile = MediaQuery.of(context).size.width <= 800;
-
-    final report = reportState.currentReport;
-    String? exampleText;
-    if (report != null && i < report.questions.length) {
-      final question = report.questions[i];
-      final questionLoc = question.getLocalization(report.currentLanguage);
-      exampleText = questionLoc?.example;
-    }
-
-    return Container(
-      margin: EdgeInsets.only(bottom: isMobile ? 6 : 12),
-      padding: EdgeInsets.all(isMobile ? 8 : 12),
-      decoration: BoxDecoration(
-        color: attention
-            ? AppColors.attentionBackground
-            : AppColors.greyBackground,
-        border: Border.all(
-          width: 1.5,
-          color: attention ? AppColors.attentionBorder : AppColors.grey200,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (exampleText?.isNotEmpty ?? false)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Text(
-                exampleText!,
-                style: TextStyle(
-                  fontSize: isMobile ? 12 : 13,
-                  color: AppColors.textLight,
-                  fontStyle: FontStyle.italic,
-                ),
-                softWrap: true,
-              ),
-            ),
-          TextField(
-            controller: _getSafeController(qid, j),
-            maxLines: null,
-            enabled: _enabledAnswers[qid]?[j] ?? true,
-            style: TextStyle(
-              color: (_enabledAnswers[qid]?[j] ?? true)
-                  ? AppColors.textDark
-                  : AppColors.textLight,
-            ),
-            decoration: InputDecoration(
-              hintText: loc.enterAnswer,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              filled: false,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-            ),
-          ),
-          if ((answer['media'] as List?)?.isNotEmpty ?? false)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: _buildMediaGrid(
-                context,
-                answer['media'] as List,
-                i,
-                j,
-                reportState,
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.camera_alt),
-                  color: AppColors.textPrimary,
-                  onPressed: () => _showMediaPicker(context, i, j, false),
-                ),
-                Tooltip(
-                  message: loc.needsWorkTooltip,
-                  child: IconButton(
-                    icon: const Icon(Icons.edit_note),
-                    color: _needsWorkMap[i] == true
-                        ? AppColors.warning
-                        : AppColors.greyDisabled,
-                    onPressed: () {
-                      final newValue = !(_needsWorkMap[i] ?? false);
-                      setState(() {
-                        _needsWorkMap[i] = newValue;
-                      });
-                      reportState.updateAnswerNeedsWork(i, j, newValue);
-                      _markAsUnsaved();
-                    },
-                  ),
-                ),
-                Tooltip(
-                  message: attention
-                      ? loc.removeAttentionMark
-                      : loc.addAttentionMark,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.warning_amber,
-                      color: attention
-                          ? AppColors.warning
-                          : AppColors.greyBorder,
-                    ),
-                    onPressed: () {
-                      reportState.updateAnswerAttention(i, j, !attention);
-                      _markAsUnsaved();
-                    },
-                  ),
-                ),
-                if (reportState.hasAnswersInOtherLanguages(i, j))
-                  IconButton(
-                    icon: const Icon(Icons.lock, color: AppColors.textLight),
-                    onPressed: () =>
-                        _showLockDialog(context, i, j, qid, reportState),
-                    tooltip: loc.lockAnswerTooltip,
-                  ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: AppColors.errorLight),
-                  onPressed:
-                      (reportState
-                                  .currentReport
-                                  ?.translations[qid]
-                                  ?.values
-                                  .firstOrNull
-                                  ?.length ??
-                              1) >
-                          1
-                      ? () =>
-                            _showDeleteAnswerDialog(context, i, j, reportState)
-                      : null,
-                  tooltip: loc.deleteAnswerTooltip,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      onAddQuestionAbove: () {
+        _resetControllers();
+        reportState.addQuestion(index - 1);
+        if (index > 0) {
+          _pageController.animateToPage(
+            index - 1,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.ease,
+          );
+        }
+      },
+      onAddQuestionBelow: () {
+        _resetControllers();
+        reportState.addQuestion(index);
+        _pageController.animateToPage(
+          index + 1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.ease,
+        );
+      },
+      onDeleteQuestion: () async {
+        _resetControllers();
+        await reportState.removeQuestion(index);
+        if (_currentPage >= report.questions.length) {
+          _currentPage = report.questions.isNotEmpty
+              ? report.questions.length - 1
+              : -1;
+        }
+        if (_currentPage == -1) {
+          _pageController.jumpToPage(0);
+        } else {
+          final page = _getPageForQuestion(_currentPage, report);
+          if (page >= 0) {
+            _pageController.jumpToPage(page);
+          }
+        }
+        _markAsUnsaved();
+      },
+      onShowMediaPicker: (j) => _showMediaPicker(context, index, j, false),
+      onShowLockDialog: (j, qid) =>
+          _showLockDialog(context, index, j, qid, reportState),
+      onShowDeleteAnswerDialog: (j) =>
+          _showDeleteAnswerDialog(context, index, j, reportState),
     );
   }
 
@@ -4226,15 +3088,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                _buildSectionTitle(loc.createSection),
+                SectionTitle(title: loc.createSection),
                 const SizedBox(height: 8),
-                _buildPickerItem(
+                PickerItem(
                   icon: Icons.camera_alt,
                   label: loc.takePhoto,
                   onTap: () => Navigator.pop(ctx, 'camera-photo'),
                 ),
                 const SizedBox(height: 8),
-                _buildPickerItem(
+                PickerItem(
                   icon: Icons.videocam,
                   label: loc.takeVideo,
                   onTap: () => Navigator.pop(ctx, 'camera-video'),
@@ -4247,15 +3109,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     height: 1.5,
                   ),
                 ),
-                _buildSectionTitle(loc.selectSection),
+                SectionTitle(title: loc.selectSection),
                 const SizedBox(height: 8),
-                _buildPickerItem(
+                PickerItem(
                   icon: Icons.photo_library,
                   label: loc.photoFromGallery,
                   onTap: () => Navigator.pop(ctx, 'gallery-photo'),
                 ),
                 const SizedBox(height: 8),
-                _buildPickerItem(
+                PickerItem(
                   icon: Icons.video_library,
                   label: loc.videoFromGallery,
                   onTap: () => Navigator.pop(ctx, 'gallery-video'),
@@ -4448,190 +3310,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
       );
     }
   }
-
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: AppColors.border,
-        fontSize: 15,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
-
-  Widget _buildPickerItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border, width: 2),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Icon(icon, size: 24, color: AppColors.border),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: const TextStyle(color: AppColors.border, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMediaGrid(
-    BuildContext context,
-    List mediaList,
-    int questionIndex,
-    int answerIndex,
-    ReportState reportState,
-  ) {
-    final List<Widget> items = [];
-    const maxVisible = 8;
-    final visibleCount = mediaList.length > maxVisible
-        ? maxVisible
-        : mediaList.length;
-
-    for (int idx = 0; idx < visibleCount; idx++) {
-      final media = mediaList[idx] as Map<String, dynamic>;
-      final isLastExtra =
-          idx == maxVisible - 1 && mediaList.length > maxVisible;
-
-      if (isLastExtra) {
-        // Показываем "+N"
-        items.add(
-          GestureDetector(
-            onTap: () => _showFullMediaViewer(
-              context,
-              mediaList,
-              questionIndex: questionIndex,
-              answerIndex: answerIndex,
-              reportState: reportState,
-            ),
-            child: Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: AppColors.grey100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(width: 2, color: AppColors.grey200),
-              ),
-              child: Center(
-                child: Text(
-                  '+${mediaList.length - 7}',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      } else {
-        // Обычный медиа‑элемент
-        items.add(
-          MediaItemWidget(
-            media: media,
-            reportPath: reportState.currentReportPath,
-            onTap: () => _showFullMediaViewer(
-              context,
-              mediaList,
-              initialIndex: idx,
-              questionIndex: questionIndex,
-              answerIndex: answerIndex,
-              reportState: reportState,
-            ),
-            onLongPress: () => _showFullMediaViewer(
-              context,
-              mediaList,
-              initialIndex: idx,
-              questionIndex: questionIndex,
-              answerIndex: answerIndex,
-              reportState: reportState,
-              startInSelectionMode: true,
-            ),
-            onDelete: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Удалить?'),
-                  content: const Text(
-                    'Файл будет удален без возможности восстановления.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Отмена'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('Удалить'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirmed == true) {
-                await reportState.removeMedia(questionIndex, answerIndex, idx);
-                await reportState.saveReport();
-              }
-            },
-          ),
-        );
-      }
-    }
-
-    return Wrap(spacing: 8, runSpacing: 8, children: items);
-  }
-
-  void _showFullMediaViewer(
-    BuildContext context,
-    List mediaList, {
-    int initialIndex = 0,
-    int? questionIndex,
-    int? answerIndex,
-    ReportState? reportState,
-    bool startInSelectionMode = false,
-  }) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => FullMediaViewerScreen(
-          mediaList: mediaList,
-          initialIndex: initialIndex,
-          reportPath: reportState?.currentReportPath,
-          onDelete: (indices) async {
-            if (questionIndex != null &&
-                answerIndex != null &&
-                reportState != null) {
-              for (final index
-                  in indices.toList()..sort((a, b) => b.compareTo(a))) {
-                await reportState.removeMedia(
-                  questionIndex,
-                  answerIndex,
-                  index,
-                );
-              }
-              await reportState.saveReport();
-            }
-          },
-          startInSelectionMode: startInSelectionMode,
-        ),
-      ),
-    );
-  }
 }
 
 void _showEditQuestionDialog(
@@ -4718,638 +3396,4 @@ void _showEditQuestionDialog(
       );
     },
   );
-}
-
-class _SyncDialog extends StatefulWidget {
-  final ReportState reportState;
-  final String targetLang;
-  final List<int> unsyncIndices;
-  final VoidCallback onSyncApplied;
-  final VoidCallback onSkipSync;
-
-  const _SyncDialog({
-    required this.reportState,
-    required this.targetLang,
-    required this.unsyncIndices,
-    required this.onSyncApplied,
-    required this.onSkipSync,
-  });
-
-  @override
-  State<_SyncDialog> createState() => _SyncDialogState();
-}
-
-class _SyncDialogState extends State<_SyncDialog> {
-  final TextEditingController _jsonController = TextEditingController();
-
-  String get _syncJson => widget.reportState.generateSyncJson();
-
-  @override
-  void dispose() {
-    _jsonController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _copyToClipboard() async {
-    final loc = AppLocalizations.of(context)!;
-    try {
-      await Clipboard.setData(ClipboardData(text: _syncJson));
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.jsonCopiedToClipboard)));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.copyError(e.toString()))));
-      }
-    }
-  }
-
-  Future<void> _saveToFile() async {
-    final loc = AppLocalizations.of(context)!;
-    try {
-      final directory = await FilePicker.platform.getDirectoryPath();
-      if (directory == null) return;
-
-      final file = File('$directory/sync_answers_${widget.targetLang}.json');
-      await file.writeAsString(_syncJson);
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.fileSaved(file.path))));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.saveError(e.toString()))));
-      }
-    }
-  }
-
-  Future<void> _loadFromFile() async {
-    final loc = AppLocalizations.of(context)!;
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['json', 'txt'],
-    );
-    if (result == null || result.files.single.path == null) return;
-
-    try {
-      final file = File(result.files.single.path!);
-      final content = await file.readAsString();
-      setState(() {
-        _jsonController.text = content;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.readError(e.toString()))));
-      }
-    }
-  }
-
-  void _applySync() {
-    final loc = AppLocalizations.of(context)!;
-    final jsonText = _jsonController.text.trim();
-    if (jsonText.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.pasteTranslatedJson)));
-      return;
-    }
-
-    try {
-      widget.reportState.applySyncAnswers(jsonText);
-      Navigator.pop(context);
-      widget.onSyncApplied();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.syncComplete)));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.invalidJsonError(e.toString()))),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.width <= 800;
-
-    return AlertDialog(
-      insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
-      contentPadding: isMobile
-          ? const EdgeInsets.all(16)
-          : const EdgeInsets.all(24),
-      shape: isMobile
-          ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
-          : null,
-      title: Text(loc.syncAnswersTitle(widget.targetLang)),
-      content: SizedBox(
-        width: isMobile ? double.infinity : 550,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.warningLight,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.warning),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc.useAnyAi,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      loc.aiPromptExample,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      loc.aiPromptExample2,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                loc.unsyncedQuestionsCount(widget.unsyncIndices.length),
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _copyToClipboard,
-                      icon: const Icon(Icons.copy),
-                      label: Text(loc.copyButton),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.surface,
-                        foregroundColor: AppColors.textPrimary,
-                        side: const BorderSide(
-                          color: AppColors.border,
-                          width: 2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _saveToFile,
-                      icon: const Icon(Icons.download),
-                      label: Text(loc.downloadButton),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.surface,
-                        foregroundColor: AppColors.textPrimary,
-                        side: const BorderSide(
-                          color: AppColors.border,
-                          width: 2,
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                loc.pasteTranslatedJson,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _jsonController,
-                maxLines: 8,
-                decoration: InputDecoration(
-                  hintText: loc.pasteJsonHere,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                      color: AppColors.border,
-                      width: 2,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton.icon(
-                onPressed: _loadFromFile,
-                icon: const Icon(Icons.upload_file),
-                label: Text(loc.loadFromFileButton),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.surface,
-                  foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.border, width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            widget.onSkipSync();
-          },
-          child: Text(
-            loc.cancel,
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: _applySync,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: AppColors.border, width: 2),
-          ),
-          child: Text(loc.syncButton),
-        ),
-        if (isMobile) const SizedBox(height: 100),
-      ],
-    );
-  }
-}
-
-class _SyncMenuDialog extends StatefulWidget {
-  final ReportState reportState;
-  final List<int> unsyncIndices;
-  final VoidCallback onApplied;
-
-  const _SyncMenuDialog({
-    required this.reportState,
-    required this.unsyncIndices,
-    required this.onApplied,
-  });
-
-  @override
-  State<_SyncMenuDialog> createState() => _SyncMenuDialogState();
-}
-
-class _SyncMenuDialogState extends State<_SyncMenuDialog> {
-  final TextEditingController _jsonController = TextEditingController();
-
-  String get _syncJson => widget.reportState.generateSyncJson();
-
-  @override
-  void dispose() {
-    _jsonController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _copyToClipboard() async {
-    try {
-      await Clipboard.setData(ClipboardData(text: _syncJson));
-      if (mounted) {
-        final loc = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.jsonCopiedToClipboard)));
-      }
-    } catch (e) {
-      if (mounted) {
-        final loc = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.copyError(e.toString()))));
-      }
-    }
-  }
-
-  Future<void> _saveToFile() async {
-    try {
-      final directory = await FilePicker.platform.getDirectoryPath();
-      if (directory == null) return;
-
-      final file = File('$directory/sync_answers.json');
-      await file.writeAsString(_syncJson);
-
-      if (mounted) {
-        final loc = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.fileSaved(file.path))));
-      }
-    } catch (e) {
-      if (mounted) {
-        final loc = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.saveError(e.toString()))));
-      }
-    }
-  }
-
-  Future<void> _loadFromFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['json', 'txt'],
-    );
-    if (result == null || result.files.single.path == null) return;
-
-    try {
-      final file = File(result.files.single.path!);
-      final content = await file.readAsString();
-      setState(() {
-        _jsonController.text = content;
-      });
-    } catch (e) {
-      if (mounted) {
-        final loc = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.readError(e.toString()))));
-      }
-    }
-  }
-
-  void _applySync() {
-    final loc = AppLocalizations.of(context)!;
-    final jsonText = _jsonController.text.trim();
-    if (jsonText.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.pasteTranslatedJson)));
-      return;
-    }
-
-    try {
-      widget.reportState.applySyncAnswers(jsonText);
-      Navigator.pop(context);
-      widget.onApplied();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.syncComplete)));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.invalidJsonError(e.toString()))),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-    final unsyncCount = widget.reportState.getUnsyncQuestionIndices().length;
-    final isMobile = MediaQuery.of(context).size.width <= 800;
-
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (unsyncCount > 0) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.warningLight,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.warning),
-            ),
-            child: Text(
-              loc.unsyncedQuestionsCount(unsyncCount),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ] else ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.successLight,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.success),
-            ),
-            child: Text(
-              loc.allAnswersSynced,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.success,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.greyBackground,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.greyBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                loc.instructionsLabel,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(loc.syncStep1),
-              Text(loc.syncStep2),
-              Text(loc.syncStep3),
-              Text(loc.syncStep4),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          loc.aiPromptLabel,
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.greyBorder),
-          ),
-          child: Text(
-            loc.aiPromptContent,
-            style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _copyToClipboard,
-                icon: const Icon(Icons.copy),
-                label: Text(loc.copyJsonButton),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.surface,
-                  foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.border, width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _saveToFile,
-                icon: const Icon(Icons.download),
-                label: Text(loc.downloadButton),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.surface,
-                  foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.border, width: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          loc.uploadTranslatedJsonLabel,
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _jsonController,
-          maxLines: 6,
-          decoration: InputDecoration(
-            hintText: loc.pasteJsonHere,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.border, width: 2),
-            ),
-            filled: true,
-            fillColor: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: _loadFromFile,
-          icon: const Icon(Icons.upload_file),
-          label: Text(loc.loadFromFileButton),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.surface,
-            foregroundColor: AppColors.textPrimary,
-            side: const BorderSide(color: AppColors.border, width: 2),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-        ),
-      ],
-    );
-
-    if (isMobile) {
-      return Dialog(
-        insetPadding: EdgeInsets.zero,
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    loc.syncMenuTitle,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 100),
-                  child: content,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        loc.close,
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _applySync,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(
-                          color: AppColors.border,
-                          width: 2,
-                        ),
-                      ),
-                      child: Text(loc.syncButton),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    } else {
-      return AlertDialog(
-        title: Text(loc.syncMenuTitle),
-        content: SizedBox(
-          width: 550,
-          child: SingleChildScrollView(child: content),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              loc.close,
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: _applySync,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: AppColors.border, width: 2),
-            ),
-            child: Text(loc.syncButton),
-          ),
-        ],
-      );
-    }
-  }
 }

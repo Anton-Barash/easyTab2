@@ -3,7 +3,7 @@ import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
 import 'package:easy_tab/utils/open_html_stub.dart'
     if (dart.library.html) 'package:easy_tab/utils/open_html_web.dart';
-import 'package:easy_tab/widgets/dotted_pattern_painter.dart';
+import 'package:easy_tab/widgets/dotted_background.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -134,12 +134,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Container(
-              color: AppColors.background,
-              child: CustomPaint(painter: DottedPatternPainter()),
-            ),
-          ),
+          const DottedBackground(),
           Column(
             children: [
               Padding(

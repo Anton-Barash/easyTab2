@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/report_models.dart';
+import '../utils/video_thumbnail_generator.dart';
 import '../utils/web_video_compressor.dart';
 import 'upload_helper.dart';
 
@@ -184,19 +185,32 @@ class VideoUploadQueue {
     }
 
     // Проверяем эффективность сжатия.
+    // Если сжатие не дало результата — загружаем оригинал.
+    final bool useOriginal;
     if (compressedBytes == null ||
         compressedBytes.isEmpty ||
         compressedBytes.length >= bytes.length) {
-      media.isCompressing = false;
-      media.compressProgress = 0.0;
-      _notifyProgress(media);
-      onError?.call('compression_ineffective');
-      return;
+      if (kDebugMode) {
+        debugPrint(
+          'Video compression ineffective for ${task.fileName}, '
+          'uploading original (${bytes.length} bytes)',
+        );
+      }
+      useOriginal = true;
+      media.compressedSize = bytes.length;
+    } else {
+      useOriginal = false;
+      media.compressedSize = compressedBytes.length;
     }
 
-    media.compressedSize = compressedBytes.length;
+    final Uint8List uploadBytes;
+    if (useOriginal) {
+      uploadBytes = bytes;
+    } else {
+      uploadBytes = compressedBytes!;
+    }
     media.fileSize = bytes.length;
-    media.webBytes = compressedBytes;
+    media.webBytes = uploadBytes;
     media.isCompressing = false;
     media.compressProgress = 1.0;
     _notifyProgress(media);
@@ -221,7 +235,7 @@ class VideoUploadQueue {
 
     try {
       final result = await uploadWithProgress(
-        fileBytes: compressedBytes,
+        fileBytes: uploadBytes,
         fileName: task.fileName,
         mimeType: task.mimeType,
         relativePath: task.relativePath,
@@ -244,6 +258,16 @@ class VideoUploadQueue {
         media.webUrl = result.webUrl;
         media.isUploading = false;
         media.uploadProgress = 1.0;
+
+        // Генерируем и загружаем превью (кадр из видео).
+        _uploadThumbnail(
+          media: media,
+          videoBytes: uploadBytes,
+          videoFileName: task.fileName,
+          videoRelativePath: task.relativePath,
+          reportId: task.reportId,
+          shareToken: task.shareToken,
+        );
       } else {
         media.isUploading = false;
         media.uploadProgress = 0.0;
@@ -270,5 +294,78 @@ class VideoUploadQueue {
     _progressController.add(
       VideoUploadProgress(mediaId: media.name, phase: phase, value: value),
     );
+  }
+
+  /// Генерирует и загружает превью (кадр из видео) на сервер.
+  Future<void> _uploadThumbnail({
+    required MediaItem media,
+    required Uint8List videoBytes,
+    required String videoFileName,
+    required String videoRelativePath,
+    int? reportId,
+    String? shareToken,
+  }) async {
+    try {
+      final generator = VideoThumbnailGenerator.create();
+      final thumbnailBytes = await generator.generateThumbnail(
+        videoBytes,
+        maxWidth: 256,
+        maxHeight: 256,
+        quality: 70,
+      );
+
+      if (thumbnailBytes == null || thumbnailBytes.isEmpty) {
+        if (kDebugMode) {
+          debugPrint('Thumbnail generation returned null for $videoFileName');
+        }
+        return;
+      }
+
+      final thumbFileName =
+          'thumb_${videoFileName.split('.').first}.jpg';
+      final thumbRelativePath = videoRelativePath.replaceAll(
+        videoFileName,
+        thumbFileName,
+      );
+
+      if (kDebugMode) {
+        debugPrint(
+          'Uploading thumbnail: $thumbFileName (${thumbnailBytes.length} bytes)',
+        );
+      }
+
+      final thumbResult = await uploadWithProgress(
+        fileBytes: thumbnailBytes,
+        fileName: thumbFileName,
+        mimeType: 'image/jpeg',
+        relativePath: thumbRelativePath,
+        reportId: reportId,
+        shareToken: shareToken,
+        onProgress: (_) {},
+        onPresigned: (fileId) {
+          media.thumbnailServerFileId = fileId;
+        },
+      );
+
+      if (thumbResult.success) {
+        media.thumbnailServerFileId = thumbResult.serverFileId;
+        _notifyProgress(media);
+        if (kDebugMode) {
+          debugPrint(
+            'Thumbnail uploaded: $thumbFileName → fileId=${thumbResult.serverFileId}',
+          );
+        }
+      } else {
+        if (kDebugMode) {
+          debugPrint(
+            'Thumbnail upload failed: $thumbFileName — ${thumbResult.error}',
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Thumbnail error for $videoFileName: $e');
+      }
+    }
   }
 }

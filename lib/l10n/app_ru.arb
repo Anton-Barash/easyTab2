@@ -210,6 +210,7 @@
   "selected": "Выбран",
   "enterTranslatedTemplate": "Введите переведённый шаблон",
   "noAppToOpenHtml": "Установите браузер или приложение для просмотра HTML",
+  "htmlRequiresSync": "Чтобы просмотреть HTML, сначала сохраните отчёт на сервер",
   "needsWorkTooltip": "Вопрос требует доработки...",
   "removeAttentionMark": "Снять отметку \"Внимание\"",
   "addAttentionMark": "Отметить \"Внимание\"",

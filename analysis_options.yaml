@@ -34,6 +34,10 @@ linter:
     - control_flow_in_finally           # return/break/continue в finally
     - empty_statements                  # лишние ;
     - recursive_getters                 # геттер вызывает сам себя
+    # P5-01: const-оптимизации — снижают количество rebuild'ов и использование памяти.
+    - prefer_const_constructors
+    - prefer_const_literals_to_create_immutables
+    - prefer_const_declarations
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

@@ -28,6 +28,7 @@ class VideoThumbnailWidget extends StatefulWidget {
   final int? compressedSize;
   final Uint8List? webBytes;
   final String? webUrl;
+  final String? thumbnailUrl;
   final bool isUploading;
   final double uploadProgress;
   final bool isCompressing;
@@ -41,6 +42,7 @@ class VideoThumbnailWidget extends StatefulWidget {
     this.compressedSize,
     this.webBytes,
     this.webUrl,
+    this.thumbnailUrl,
     this.isUploading = false,
     this.uploadProgress = 0.0,
     this.isCompressing = false,
@@ -53,6 +55,7 @@ class VideoThumbnailWidget extends StatefulWidget {
 
 class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
   Uint8List? _thumbnailBytes;
+  Uint8List? _cachedThumbnailBytes;
 
   @override
   void initState() {
@@ -67,11 +70,22 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
         widget.webUrl != oldWidget.webUrl ||
         widget.localPath != oldWidget.localPath) {
       _thumbnailBytes = null;
+      _cachedThumbnailBytes = null;
       _generateThumbnail();
     }
   }
 
   Future<void> _generateThumbnail() async {
+    // Если есть загруженное на сервер превью — используем его.
+    if (widget.thumbnailUrl != null && widget.thumbnailUrl!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _thumbnailBytes = null; // Будем использовать Image.network.
+        });
+      }
+      return;
+    }
+
     if (kIsWeb) {
       final generator = VideoThumbnailGenerator.create();
       if (widget.webBytes != null && widget.webBytes!.isNotEmpty) {
@@ -85,6 +99,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
           if (mounted && bytes != null) {
             setState(() {
               _thumbnailBytes = bytes;
+              _cachedThumbnailBytes = bytes; // Кэшируем превью
             });
           }
         } catch (e) {
@@ -104,6 +119,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
           if (mounted && bytes != null) {
             setState(() {
               _thumbnailBytes = bytes;
+              _cachedThumbnailBytes = bytes; // Кэшируем превью
             });
           }
         } catch (e) {
@@ -124,6 +140,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
       if (mounted) {
         setState(() {
           _thumbnailBytes = bytes;
+          _cachedThumbnailBytes = bytes; // Кэшируем превью
         });
       }
     } catch (e) {
@@ -155,7 +172,38 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (_thumbnailBytes != null)
+        if (_cachedThumbnailBytes != null)
+          Image.memory(
+            _cachedThumbnailBytes!,
+            width: widget.size.toDouble(),
+            height: widget.size.toDouble(),
+            fit: BoxFit.cover,
+          )
+        else if (widget.thumbnailUrl != null && widget.thumbnailUrl!.isNotEmpty)
+          Image.network(
+            widget.thumbnailUrl!,
+            width: widget.size.toDouble(),
+            height: widget.size.toDouble(),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const Center(
+              child: Icon(
+                Icons.videocam,
+                size: 30,
+                color: AppColors.textTertiary,
+              ),
+            ),
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            },
+          )
+        else if (_thumbnailBytes != null)
           Image.memory(
             _thumbnailBytes!,
             width: widget.size.toDouble(),

@@ -125,13 +125,13 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
 
     if (_viewType == null || _viewType!.isEmpty) {
       // Non-web платформа или stub — показываем HTML как текст
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: EdgeInsets.all(32),
           child: Text(
             'Просмотр HTML доступен только на web-версии.',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ),
       );

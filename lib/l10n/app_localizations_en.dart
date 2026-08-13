@@ -459,6 +459,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noAppToOpenHtml => 'Install a browser or app to view HTML';
 
   @override
+  String get htmlRequiresSync =>
+      'To view HTML, save the report to the server first';
+
+  @override
   String get needsWorkTooltip => 'Question needs work...';
 
   @override

@@ -74,7 +74,7 @@ class ApiService {
       final response = await request.timeout(timeout ?? _timeout);
       return _parseResponse(response);
     } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
+      return const ApiResult(success: false, error: 'Нет соединения с сервером');
     } catch (e) {
       return ApiResult(success: false, error: 'Ошибка сети: $e');
     }
@@ -177,7 +177,7 @@ class ApiService {
 
       return _parseResponse(response);
     } on SocketException {
-      return ApiResult(success: false, error: 'Нет соединения с сервером');
+      return const ApiResult(success: false, error: 'Нет соединения с сервером');
     } catch (e) {
       return ApiResult(success: false, error: 'Ошибка загрузки: $e');
     }

@@ -452,6 +452,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noAppToOpenHtml => '请安装浏览器或应用程序查看HTML';
 
   @override
+  String get htmlRequiresSync => '要查看HTML，请先将报告保存到服务器';
+
+  @override
   String get needsWorkTooltip => '问题需要修改...';
 
   @override

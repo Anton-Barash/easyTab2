@@ -460,6 +460,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Установите браузер или приложение для просмотра HTML';
 
   @override
+  String get htmlRequiresSync =>
+      'Чтобы просмотреть HTML, сначала сохраните отчёт на сервер';
+
+  @override
   String get needsWorkTooltip => 'Вопрос требует доработки...';
 
   @override

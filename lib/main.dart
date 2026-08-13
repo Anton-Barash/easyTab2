@@ -17,7 +17,7 @@ import './screens/reports_screen.dart';
 import './screens/view_report_html_screen.dart';
 import './screens/share_welcome_screen.dart';
 import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
-import './widgets/dotted_pattern_painter.dart';
+import './widgets/dotted_background.dart';
 import './widgets/easy_tab_button.dart';
 
 void main() async {
@@ -185,12 +185,7 @@ class _StartScreenState extends State<StartScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Container(
-              color: AppColors.background,
-              child: CustomPaint(painter: DottedPatternPainter()),
-            ),
-          ),
+          const DottedBackground(),
           Center(
             child: Container(
               margin: const EdgeInsets.all(20),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/app_colors.dart';
+import 'package:easy_tab/widgets/easy_tab_button.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -150,73 +151,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Widget _buildButton({
-    required String label,
-    required VoidCallback onTap,
-    bool isOutline = false,
-  }) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: isOutline ? Colors.white : AppColors.surface,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(9),
-          bottomRight: Radius.circular(11),
-        ),
-        border: Border.all(width: 2.5, color: AppColors.border),
-        boxShadow: isOutline
-            ? null
-            : [
-                const BoxShadow(
-                  color: AppColors.border,
-                  blurRadius: 0,
-                  spreadRadius: 1.5,
-                ),
-                const BoxShadow(
-                  color: AppColors.shadowOverlay,
-                  offset: Offset(2, 2),
-                ),
-              ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(9),
-          bottomRight: Radius.circular(11),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(8),
-            topRight: Radius.circular(10),
-            bottomLeft: Radius.circular(9),
-            bottomRight: Radius.circular(11),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary,
-                shadows: [
-                  Shadow(color: AppColors.textShadowDark, blurRadius: 1.2),
-                  Shadow(color: AppColors.textShadowLight, blurRadius: 0.8),
-                ],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   InputDecoration _fieldDecoration(String label) {
     return InputDecoration(
       labelText: label,
@@ -359,14 +293,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (_isLoading)
                   const CircularProgressIndicator()
                 else ...[
-                  _buildButton(
+                  EasyTabButton(
                     label: _isRegisterMode
                         ? loc.registerAction
                         : loc.loginAction,
                     onTap: () => _handleSubmit(context),
                   ),
                   const SizedBox(height: 12),
-                  _buildButton(
+                  EasyTabButton(
                     label: _isRegisterMode
                         ? loc.loginAction
                         : loc.registerAction,

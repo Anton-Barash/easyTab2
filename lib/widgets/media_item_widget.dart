@@ -171,6 +171,7 @@ class MediaItemWidget extends StatelessWidget {
                     compressedSize: media['compressedSize'] as int?,
                     webBytes: webBytes,
                     webUrl: media['webUrl'] as String?,
+                    thumbnailUrl: media['thumbnailUrl'] as String?,
                     isUploading: media['isUploading'] == true,
                     uploadProgress:
                         (media['uploadProgress'] as num?)?.toDouble() ?? 0.0,

@@ -27,6 +27,15 @@ class MediaItem {
   /// Используется для получения URL просмотра/скачивания.
   String? serverFileId;
 
+  /// ID превью (кадр из видео) на сервере.
+  /// Заполняется после генерации и загрузки превью на KS3.
+  /// Используется для получения presigned URL через getReportFileUrls.
+  String? thumbnailServerFileId;
+
+  /// Presigned URL превью видео (работает около часа).
+  /// Заполняется при загрузке отчёта с сервера через getReportFileUrls.
+  String? thumbnailUrl;
+
   /// P3-45: Флаг загрузки на сервер — защита от race condition.
   /// Если true — файл уже загружается, повторная загрузка пропускается.
   bool isUploading = false;
@@ -80,6 +89,7 @@ class MediaItem {
     'fileSize': fileSize,
     'compressedSize': compressedSize,
     'serverFileId': serverFileId,
+    'thumbnailServerFileId': thumbnailServerFileId,
     'isUploading': isUploading,
     'uploadProgress': uploadProgress,
     'isCompressing': isCompressing,
@@ -94,6 +104,7 @@ class MediaItem {
     map['serverFileId'] = serverFileId;
     if (webBytes != null) map['webBytes'] = webBytes;
     if (webUrl != null) map['webUrl'] = webUrl;
+    if (thumbnailUrl != null) map['thumbnailUrl'] = thumbnailUrl;
     return map;
   }
 
@@ -117,6 +128,7 @@ class MediaItem {
         compressedSize: json['compressedSize'] as int?,
         serverFileId: json['serverFileId'] as String?,
       )
+      ..thumbnailServerFileId = json['thumbnailServerFileId'] as String?
       ..isUploading = json['isUploading'] as bool? ?? false
       ..uploadProgress = (json['uploadProgress'] as num?)?.toDouble() ?? 0.0
       ..isCompressing = json['isCompressing'] as bool? ?? false

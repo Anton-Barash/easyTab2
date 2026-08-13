@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:flutter/foundation.dart';
@@ -12,6 +13,8 @@ import 'package:easy_tab/utils/native_file_ops.dart'
     if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import '../models/report_models.dart';
 import '../services/api_service.dart';
+import '../services/report_excel_service.dart' as excel_service;
+import '../services/report_sync_service.dart' as sync_service;
 import '../services/share_token_storage.dart';
 import '../services/api_result.dart';
 import '../services/anonymous_id_service.dart';
@@ -19,147 +22,10 @@ import '../services/mime_utils.dart';
 import '../services/upload_helper.dart';
 import '../utils/image_compressor.dart';
 import '../services/video_upload_queue.dart';
+import '../utils/video_thumbnail_generator.dart';
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
-
-const int maxLanguages = 5;
-
-const Map<String, int> languagePriority = {'RU': 0, 'EN': 1, 'ZH': 2};
-
-const Map<int, String> languageColors = {
-  1: '#888888',
-  2: '#27ae60',
-  3: '#8e44ad',
-  4: '#2c7da0',
-};
-
-List<String> sortLanguages(List<String> languages) {
-  final sorted = List<String>.from(languages);
-  sorted.sort((a, b) {
-    final priorityA = languagePriority[a] ?? 999;
-    final priorityB = languagePriority[b] ?? 999;
-    if (priorityA != priorityB) {
-      return priorityA.compareTo(priorityB);
-    }
-    return a.compareTo(b);
-  });
-  if (sorted.length > maxLanguages) {
-    return sorted.sublist(0, maxLanguages);
-  }
-  return sorted;
-}
-
-String getLanguageColor(int index) {
-  if (index == 0) return '#888888';
-  return languageColors[index] ?? '#888888';
-}
-
-/// Экранирует спецсимволы HTML для защиты от XSS (H-22, M-30).
-///
-/// Применяется ко всем пользовательским данным (productType, factory,
-/// model, тексты ответов) перед вставкой в HTML-отчёт.
-///
-/// Превращает: `<script>alert(1)</script>` →
-/// `&lt;script&gt;alert(1)&lt;/script&gt;`
-String escapeHtml(String input) {
-  return input
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
-}
-
-/// Экранирует текст и сохраняет переносы строк как `<br>`.
-///
-/// Сначала экранирует HTML-спецсимволы (защита от XSS),
-/// потом заменяет `\n` на `<br>` для отображения переносов.
-String escapeHtmlWithBr(String input) {
-  return escapeHtml(input).replaceAll('\n', '<br>');
-}
-
-/// P2-40: Санитизирует ячейку Excel-таблицы от XSS и formula injection.
-///
-/// 1. Экранирует HTML-спецсимволы (защита от XSS в HTML-представлении Excel).
-/// 2. Если ячейка начинается с префикса формулы (=, +, -, @, таб, возврат каретки),
-///    добавляет ведущую одинарную кавычку — Excel воспринимает её как текст.
-String _sanitizeExcelCell(String input) {
-  final escaped = escapeHtml(input);
-  // Защита от formula injection: если первый символ — оператор формулы.
-  if (escaped.isNotEmpty) {
-    final firstChar = escaped[0];
-    if (firstChar == '=' ||
-        firstChar == '+' ||
-        firstChar == '-' ||
-        firstChar == '@' ||
-        firstChar == '\t' ||
-        firstChar == '\r') {
-      return "'$escaped";
-    }
-  }
-  return escaped;
-}
-
-List<String> _groupMediaNames(List<String> mediaNames) {
-  if (mediaNames.isEmpty) return [];
-
-  final Map<String, List<int>> grouped = {};
-
-  for (final name in mediaNames) {
-    final attentionPrefix = name.startsWith('x') ? 'x' : '';
-    final cleanName = name.startsWith('x') ? name.substring(1) : name;
-
-    final typePrefix = cleanName.substring(0, 1);
-    final rest = cleanName.substring(1);
-    final parts = rest.split('_');
-
-    if (parts.length >= 3) {
-      final questionNum = parts[0];
-      final answerNum = parts[1];
-      final numStr = parts[2];
-
-      if (int.tryParse(numStr) != null) {
-        final key = '$attentionPrefix$typePrefix${questionNum}_$answerNum';
-        if (!grouped.containsKey(key)) {
-          grouped[key] = [];
-        }
-        grouped[key]!.add(int.parse(numStr));
-      } else {
-        if (!grouped.containsKey('other')) {
-          grouped['other'] = [];
-        }
-        grouped['other']!.add(mediaNames.indexOf(name));
-      }
-    } else {
-      if (!grouped.containsKey('other')) {
-        grouped['other'] = [];
-      }
-      grouped['other']!.add(mediaNames.indexOf(name));
-    }
-  }
-
-  final result = <String>[];
-  for (final entry in grouped.entries) {
-    if (entry.key == 'other') {
-      for (final idx in entry.value) {
-        result.add(mediaNames[idx]);
-      }
-    } else {
-      final nums = entry.value..sort();
-      final uniqueNums = nums.toSet().toList()..sort();
-      if (uniqueNums.length == 1) {
-        result.add('${entry.key}_${uniqueNums[0].toString().padLeft(3, '0')}');
-      } else {
-        result.add(
-          '${entry.key}_${uniqueNums.first.toString().padLeft(3, '0')}-${uniqueNums.last.toString().padLeft(3, '0')}',
-        );
-      }
-    }
-  }
-
-  return result;
-}
 
 class ReportInfo {
   final String folderName;
@@ -327,6 +193,61 @@ class ReportState extends ChangeNotifier {
     _currentReport!.headerImagePath = fileName;
     notifyListeners();
   }
+
+  /// Добавить фото шапки из байтов (для web-версии).
+  ///
+  /// Байты сохраняются в памяти и загружаются при следующем saveReport().
+  Future<void> addHeaderImageFromBytes(Uint8List bytes, String fileName) async {
+    if (_currentReport == null) return;
+
+    // Сжимаем изображение
+    final compressed = ImageCompressor.compress(bytes, 2000);
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final ext = fileName.split('.').last;
+    final generatedName = 'header_$timestamp.$ext';
+
+    // На web: сохраняем байты в webBytes, загрузим при saveReport
+    // На native: сохраняем файл на диск (если есть _currentReportPath)
+    if (kIsWeb) {
+      _currentReport!.headerImagePath = generatedName;
+      // Сохраняем байты в отчёте для последующей загрузки
+      // (используем временное хранилище через webBytes в MediaItem-совместимом формате)
+      _headerImageBytes = compressed;
+      _headerImageFileName = generatedName;
+    } else {
+      if (_currentReportPath == null) {
+        final folderPath = await _generateFolderName();
+        _currentReportPath = folderPath;
+        final folder = Directory(folderPath);
+        if (!await folder.exists()) {
+          await folder.create(recursive: true);
+        }
+        await Directory('$folderPath/photos').create(recursive: true);
+        await Directory('$folderPath/X').create(recursive: true);
+      }
+
+      // Удаляем старое фото
+      if (_currentReport!.headerImagePath != null) {
+        final oldFilePath = File(
+          '$_currentReportPath/${_currentReport!.headerImagePath}',
+        );
+        if (await oldFilePath.exists()) {
+          await oldFilePath.delete();
+        }
+      }
+
+      final destPath = File('$_currentReportPath/$generatedName');
+      await destPath.writeAsBytes(compressed);
+      _currentReport!.headerImagePath = generatedName;
+    }
+
+    notifyListeners();
+  }
+
+  // Временное хранилище байтов фото шапки (для web)
+  Uint8List? _headerImageBytes;
+  String? _headerImageFileName;
 
   Future<void> removeHeaderImage() async {
     if (_currentReport == null) return;
@@ -757,6 +678,42 @@ class ReportState extends ChangeNotifier {
     return generatedName;
   }
 
+  /// Загрузить фото шапки на сервер (web).
+  Future<void> _uploadHeaderImageToServer() async {
+    if (_headerImageBytes == null ||
+        _headerImageFileName == null ||
+        _serverReportId == null) {
+      return;
+    }
+
+    try {
+      final result = await ApiService.uploadFileFromBytes(
+        bytes: _headerImageBytes!,
+        filename: _headerImageFileName!,
+        relativePath: _headerImageFileName!,
+        reportId: _serverReportId,
+        onUploadProgress: (_) {},
+      );
+
+      if (result.success) {
+        if (kDebugMode) {
+          debugPrint('Header image uploaded: $_headerImageFileName');
+        }
+        // Очищаем временное хранилище
+        _headerImageBytes = null;
+        _headerImageFileName = null;
+      } else {
+        if (kDebugMode) {
+          debugPrint('Header image upload failed: ${result.error}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Header image upload error: $e');
+      }
+    }
+  }
+
   /// Загрузить медиафайл на сервер KS3.
   ///
   /// Вызывается из addMediaFromBytes. После успешной загрузки:
@@ -857,6 +814,11 @@ class ReportState extends ChangeNotifier {
           if (kDebugMode) {
             debugPrint('Media uploaded: $fileName → fileId=$fileId');
           }
+
+          // Для видео — генерируем и загружаем превью (кадр из видео).
+          if (mediaItem.type.startsWith('video/')) {
+            _uploadThumbnail(mediaItem, bytes, fileName, relativePath);
+          }
         }
       } else {
         if (kDebugMode) {
@@ -868,6 +830,112 @@ class ReportState extends ChangeNotifier {
     } finally {
       mediaItem.isUploading = false;
       notifyListeners();
+    }
+  }
+
+  /// Генерирует и загружает превью (кадр) для видео на KS3.
+  ///
+  /// Вызывается в фоне после успешной загрузки видео.
+  /// Не блокирует UI — ошибки логируются, но не прерывают работу.
+  Future<void> _uploadThumbnail(
+    MediaItem mediaItem,
+    Uint8List videoBytes,
+    String videoFileName,
+    String videoRelativePath,
+  ) async {
+    try {
+      // Генерируем превью из видео-байтов.
+      Uint8List? thumbnailBytes;
+      if (kIsWeb) {
+        final generator = VideoThumbnailGenerator.create();
+        thumbnailBytes = await generator.generateThumbnail(
+          videoBytes,
+          maxWidth: 256,
+          maxHeight: 256,
+          quality: 70,
+        );
+      } else {
+        // Native: генерируем из локального файла.
+        if (mediaItem.localPath == null) return;
+        final absPath = _currentReportPath != null
+            ? '$_currentReportPath/${mediaItem.localPath}'
+            : mediaItem.localPath!;
+        if (!File(absPath).existsSync()) {
+          if (kDebugMode) {
+            debugPrint('Thumbnail: video file not found: $absPath');
+          }
+          return;
+        }
+        final nativeGenerator = VideoThumbnailGenerator.create();
+        final fileBytes = Uint8List.fromList(await File(absPath).readAsBytes());
+        thumbnailBytes = await nativeGenerator.generateThumbnail(
+          fileBytes,
+          maxWidth: 256,
+          maxHeight: 256,
+          quality: 70,
+        );
+      }
+
+      if (thumbnailBytes == null || thumbnailBytes.isEmpty) {
+        if (kDebugMode) {
+          debugPrint('Thumbnail generation returned null for $videoFileName');
+        }
+        return;
+      }
+
+      // Загружаем превью на сервер.
+      final thumbFileName = 'thumb_${videoFileName.split('.').first}.jpg';
+      final thumbRelativePath = videoRelativePath.replaceAll(
+        videoFileName,
+        thumbFileName,
+      );
+
+      if (kDebugMode) {
+        debugPrint(
+          'Uploading thumbnail: $thumbFileName (${thumbnailBytes.length} bytes)',
+        );
+      }
+
+      ApiResult thumbResult;
+      if (kIsWeb && (_shareToken != null || _serverReportId != null)) {
+        thumbResult = await _uploadViaPresignedUrl(
+          mediaItem: mediaItem,
+          bytes: thumbnailBytes,
+          fileName: thumbFileName,
+          relativePath: thumbRelativePath,
+          mimeType: 'image/jpeg',
+        );
+      } else {
+        thumbResult = await ApiService.uploadFileFromBytes(
+          bytes: thumbnailBytes,
+          filename: thumbFileName,
+          relativePath: thumbRelativePath,
+          reportId: _serverReportId,
+        );
+      }
+
+      if (thumbResult.success && thumbResult.data?['file'] != null) {
+        final thumbFileId = thumbResult.data!['file']['id'];
+        if (thumbFileId is String) {
+          mediaItem.thumbnailServerFileId = thumbFileId;
+          notifyListeners();
+          if (kDebugMode) {
+            debugPrint(
+              'Thumbnail uploaded: $thumbFileName → fileId=$thumbFileId',
+            );
+          }
+        }
+      } else {
+        if (kDebugMode) {
+          debugPrint(
+            'Thumbnail upload failed: $thumbFileName — ${thumbResult.error}',
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Thumbnail error for $videoFileName: $e');
+      }
     }
   }
 
@@ -1224,7 +1292,6 @@ class ReportState extends ChangeNotifier {
         }
       }
 
-      await _saveHtmlPreview(folderPath);
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('Error saving report: $e');
@@ -1309,6 +1376,12 @@ class ReportState extends ChangeNotifier {
         // После сохранения отчёта — запускаем загрузку всех медиа,
         // у которых ещё нет serverFileId, в фоне (не блокируем UI).
         if (_ks3Folder != null && _serverReportId != null) {
+          // Загружаем фото шапки, если оно было добавлено через addHeaderImageFromBytes
+          if (_headerImageBytes != null && _headerImageFileName != null) {
+            _uploadHeaderImageToServer().catchError((e) {
+              if (kDebugMode) debugPrint('Header image upload error: $e');
+            });
+          }
           _uploadPendingMedia().catchError((e) {
             if (kDebugMode) debugPrint('Pending media upload error: $e');
           });
@@ -1568,6 +1641,21 @@ class ReportState extends ChangeNotifier {
             final url = urlsData[media.localPath] ?? urlsData[media.name];
             if (url is String && url.isNotEmpty) {
               media.webUrl = url;
+            }
+            // Для видео — ищем URL превью по thumbnailServerFileId.
+            if (media.type.startsWith('video/') &&
+                media.thumbnailServerFileId != null) {
+              // Ищем thumbnail по относительному пути: thumb_видеоимя.jpg
+              final baseName = media.localPath!.split('/').last;
+              final thumbName = 'thumb_${baseName.split('.').first}.jpg';
+              final thumbRelPath = media.localPath!.replaceAll(
+                baseName,
+                thumbName,
+              );
+              final thumbUrl = urlsData[thumbRelPath] ?? urlsData[thumbName];
+              if (thumbUrl is String && thumbUrl.isNotEmpty) {
+                media.thumbnailUrl = thumbUrl;
+              }
             }
           }
         }
@@ -1894,1768 +1982,18 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveHtmlPreview(String folderPath) async {
-    if (_currentReport == null) return;
-    final htmlContent = _generateHtml();
-    final htmlFile = File('$folderPath/report.html');
-    await htmlFile.writeAsString(htmlContent);
-  }
-
-  Future<String> getHtmlPreviewPath(String folderPath) async {
-    final htmlContent = _generateHtml();
-    final path = '$folderPath/report.html';
-    final file = File(path);
-    await file.writeAsString(htmlContent);
-    return path;
-  }
-
-  String generateHtmlContent() {
-    return _generateHtml();
-  }
-
   /// Сгенерировать Excel-файл как массив байтов.
   /// Используется при загрузке отчёта на сервер.
   Uint8List generateExcelBytes() {
-    return _generateExcel();
-  }
-
-  String generateExcelHtmlContent() {
-    return _generateExcelHtml();
-  }
-
-  String _generateHtml() {
-    if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
-    final reportName = escapeHtml(_currentReport!.reportName);
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(
-      _currentReport!.timestamp,
-    ).toLocal().toString().substring(0, 16);
-    final allLanguages = _currentReport!.availableLanguages;
-    final languages = sortLanguages(allLanguages);
-    final buffer = StringBuffer();
-
-    final List<String> allImagePaths = [];
-    final List<List<List<List<Map<String, dynamic>>>>> allMediaByQandAandLang =
-        [];
-
-    for (int i = 0; i < _currentReport!.questions.length; i++) {
-      final List<List<List<Map<String, dynamic>>>> questionMedia = [];
-
-      for (int li = 0; li < languages.length; li++) {
-        final lang = languages[li];
-        final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        final List<List<Map<String, dynamic>>> langMedia = [];
-
-        for (final a in answers) {
-          final List<Map<String, dynamic>> answerMedia = [];
-          final mediaList = a['media'] as List? ?? [];
-          for (final media in mediaList) {
-            final relativePath = (media['attention'] == true)
-                ? 'X/${media['name']}'
-                : 'photos/${media['name']}';
-
-            final mediaData = {
-              'name': media['name'],
-              'type': media['type'],
-              'localPath': relativePath,
-            };
-            answerMedia.add(mediaData);
-            if (media['type'].startsWith('image') &&
-                !allImagePaths.contains(relativePath)) {
-              allImagePaths.add(relativePath);
-            }
-          }
-          langMedia.add(answerMedia);
-        }
-        questionMedia.add(langMedia);
-      }
-      allMediaByQandAandLang.add(questionMedia);
-    }
-
-    buffer.writeln('<!DOCTYPE html>');
-    buffer.writeln('<html lang="ru">');
-    buffer.writeln('<head>');
-    buffer.writeln('  <meta charset="UTF-8">');
-    buffer.writeln(
-      '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-    );
-    buffer.writeln('  <title>$reportName - Excel таблица</title>');
-    buffer.writeln('  <style>');
-    buffer.writeln('    * {');
-    buffer.writeln('      margin: 0;');
-    buffer.writeln('      padding: 0;');
-    buffer.writeln('      box-sizing: border-box;');
-    buffer.writeln('    }');
-    buffer.writeln('    body {');
-    buffer.writeln(
-      '      font-family: \'Segoe UI\', \'Calibri\', \'Arial\', sans-serif;',
-    );
-    buffer.writeln('      background: #e9e9e9;');
-    buffer.writeln('    }');
-    buffer.writeln('    .language-switcher {');
-    buffer.writeln('      position: sticky;');
-    buffer.writeln('      top: 0;');
-    buffer.writeln('      background: #e9e9e9;');
-    buffer.writeln('      display: flex;');
-    buffer.writeln('      gap: 10px;');
-    buffer.writeln('      flex-wrap: wrap;');
-    buffer.writeln('    }');
-    buffer.writeln('    .lang-btn {');
-    buffer.writeln('      padding: 4px 8px;');
-    buffer.writeln('      border: 1px solid #a0a0a0;');
-    buffer.writeln('      background: white;');
-    buffer.writeln('      cursor: pointer;');
-    buffer.writeln('      font-size: 7px;');
-    buffer.writeln('      border-radius: 4px;');
-    buffer.writeln('    }');
-    buffer.writeln('    .lang-btn.active {');
-    buffer.writeln('      background: #00B0F0;');
-    buffer.writeln('      color: white;');
-    buffer.writeln('      border-color: #00B0F0;');
-    buffer.writeln('    }');
-    buffer.writeln('    .excel-wrapper {');
-    buffer.writeln('      background: white;');
-    buffer.writeln('      border: 1px solid #a0a0a0;');
-    buffer.writeln('      display: block;');
-    buffer.writeln('      width: fit-content;');
-    buffer.writeln('      box-shadow: 2px 2px 8px rgba(0,0,0,0.1);');
-    buffer.writeln('      margin: 20px auto;');
-    buffer.writeln('    }');
-    buffer.writeln('    table {');
-    buffer.writeln('      border-collapse: collapse;');
-    buffer.writeln('      font-size: 16px;');
-    buffer.writeln('      table-layout: auto;');
-    buffer.writeln('    }');
-    buffer.writeln('    th, td {');
-    buffer.writeln('      padding: 7.5px 12.5px;');
-    buffer.writeln('      vertical-align: top;');
-    buffer.writeln('      border-bottom: 1px solid #d0d0d0;');
-    buffer.writeln('    }');
-    buffer.writeln('    th {');
-    buffer.writeln('      background: #f3f3f3;');
-    buffer.writeln('      font-weight: 600;');
-    buffer.writeln('      text-align: left;');
-    buffer.writeln('      color: #2c2c2c;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-thumbnails {');
-    buffer.writeln('      display: flex;');
-    buffer.writeln('      flex-wrap: wrap;');
-    buffer.writeln('      gap: 4px;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-item {');
-    buffer.writeln('      width: 50px;');
-    buffer.writeln('      height: 50px;');
-    buffer.writeln('      cursor: pointer;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-item-more {');
-    buffer.writeln('      background: #c0c0c0;');
-    buffer.writeln('      border: 1px solid #a0a0a0;');
-    buffer.writeln('      display: flex;');
-    buffer.writeln('      align-items: center;');
-    buffer.writeln('      justify-content: center;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-item-more:hover {');
-    buffer.writeln('      background: #b0b0b0;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-more {');
-    buffer.writeln('      font-size: 20px;');
-    buffer.writeln('      font-weight: bold;');
-    buffer.writeln('      color: #333;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-thumbnail {');
-    buffer.writeln('      width: 50px;');
-    buffer.writeln('      height: 50px;');
-    buffer.writeln('      object-fit: cover;');
-    buffer.writeln('      border-radius: 4px;');
-    buffer.writeln('      border: 1px solid #d0d0d0;');
-    buffer.writeln('      cursor: pointer;');
-    buffer.writeln('    }');
-    buffer.writeln('    .media-hidden {');
-    buffer.writeln('      display: none;');
-    buffer.writeln('    }');
-    buffer.writeln('    /* Lightbox styles */');
-    buffer.writeln(
-      '    .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }',
-    );
-    buffer.writeln('    .lightbox.active { display: flex; }');
-    buffer.writeln(
-      '    .lightbox-controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10002; }',
-    );
-    buffer.writeln(
-      '    .lightbox-controls button { background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 16px; transition: background 0.2s; }',
-    );
-    buffer.writeln(
-      '    .lightbox-controls button:hover { background: rgba(255,255,255,0.3); }',
-    );
-    buffer.writeln(
-      '    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; padding: 15px 20px; border-radius: 4px; cursor: pointer; font-size: 20px; transition: background 0.2s; z-index: 10001; }',
-    );
-    buffer.writeln(
-      '    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }',
-    );
-    buffer.writeln('    .lightbox-nav.prev { left: calc(50% - 500px); }');
-    buffer.writeln('    .lightbox-nav.next { right: calc(50% - 500px); }');
-    buffer.writeln(
-      '    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }',
-    );
-    buffer.writeln(
-      '    .lightbox-info { position: absolute; top: 0px; left: 0px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 8px; max-width: 280px; overflow-y: auto; text-align: left; z-index: 10001; }',
-    );
-    buffer.writeln('    .attention-answer { color: #f69a15; }');
-    buffer.writeln(
-      '    .lightbox-question { font-weight: bold; font-size: 16px; margin-bottom: 5px; }',
-    );
-    buffer.writeln('    .lightbox-answer { font-size: 14px; }');
-    buffer.writeln(
-      '    .lightbox-image-container { position: relative; width: 100%; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; z-index: 10000; }',
-    );
-    buffer.writeln(
-      '    .lightbox-image-container.dragging { cursor: grabbing; }',
-    );
-    buffer.writeln(
-      '    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; }',
-    );
-    buffer.writeln(
-      '    .lightbox-thumbnails-bar { position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 8px; max-width: 80%; overflow: hidden; z-index: 10001; }',
-    );
-    buffer.writeln('    @media (max-width: 1000px) {');
-    buffer.writeln('      .lightbox-nav.prev { left: 20px; }');
-    buffer.writeln('      .lightbox-nav.next { right: 20px; }');
-    buffer.writeln('      .lightbox-image-container { width: 90%; }');
-    buffer.writeln('    }');
-    buffer.writeln('    @media (max-width: 768px) {');
-    buffer.writeln(
-      '      .lightbox-info { left: 20px; right: 20px; top: 60px; bottom: auto; max-width: none; max-height: 100px; }',
-    );
-    buffer.writeln(
-      '      .lightbox-image-container { position: relative; width: calc(100% - 40px); height: calc(100vh - 290px); }',
-    );
-    buffer.writeln('      .lightbox-nav.prev { left: 20px; }');
-    buffer.writeln('      .lightbox-nav.next { right: 20px; }');
-    buffer.writeln('      .lightbox-thumbnails-bar { bottom: 120px; }');
-    buffer.writeln('    }');
-    buffer.writeln(
-      '    .thumbnails-container { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.5) rgba(0,0,0,0.3); }',
-    );
-    buffer.writeln(
-      '    .thumbnails-container::-webkit-scrollbar { height: 6px; }',
-    );
-    buffer.writeln(
-      '    .thumbnails-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }',
-    );
-    buffer.writeln(
-      '    .thumbnails-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 3px; }',
-    );
-    buffer.writeln(
-      '    .lightbox-thumbnail { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s, border 0.2s; border: 2px solid transparent; }',
-    );
-    buffer.writeln('    .lightbox-thumbnail:hover { opacity: 1; }');
-    buffer.writeln(
-      '    .lightbox-thumbnail.active { opacity: 1; border-color: #00B0F0; }',
-    );
-    buffer.writeln(
-      '    .lightbox-grid-btn { position: absolute; top: 20px; right: 70px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; z-index: 10002; padding: 5px 12px; border-radius: 4px; transition: background 0.2s; }',
-    );
-    buffer.writeln(
-      '    .lightbox-grid-btn:hover { background: rgba(255,255,255,0.3); }',
-    );
-    buffer.writeln('    /* Gallery overlay styles */');
-    buffer.writeln(
-      '    .gallery-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; z-index: 9998; }',
-    );
-    buffer.writeln('    .gallery-overlay.active { display: flex; }');
-    buffer.writeln(
-      '    .gallery-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; z-index: 10002; }',
-    );
-    buffer.writeln(
-      '    .gallery-container { flex: 1; overflow-y: auto; padding: 80px 20px 20px; }',
-    );
-    buffer.writeln(
-      '    .gallery-grid { grid-template-columns: repeat(4, 1fr); gap: 15px; max-width: 1400px; margin: 0 auto; }',
-    );
-    buffer.writeln(
-      '    .gallery-item { aspect-ratio: 1; overflow: hidden; border-radius: 8px; cursor: pointer; transition: transform 0.2s; }',
-    );
-    buffer.writeln('    .gallery-item:hover { transform: scale(1.02); }');
-    buffer.writeln(
-      '    .gallery-item img { width: 100%; height: 100%; object-fit: cover; }',
-    );
-    buffer.writeln(
-      '    @media (max-width: 1200px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); } }',
-    );
-    buffer.writeln(
-      '    @media (max-width: 900px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }',
-    );
-    buffer.writeln(
-      '    @media (max-width: 600px) { .gallery-grid { grid-template-columns: 1fr; } }',
-    );
-    buffer.writeln('    /* Gallery section header styles */');
-    buffer.writeln(
-      '    .gallery-section { margin-bottom: 30px; display: grid; grid-template-columns: inherit; }',
-    );
-    buffer.writeln('    .gallery-section-header {');
-    buffer.writeln('      grid-column: 1 / -1;');
-    buffer.writeln('      color: white;');
-    buffer.writeln('      padding: 15px 20px;');
-    buffer.writeln('      border-radius: 8px;');
-    buffer.writeln('      margin-bottom: 15px;');
-    buffer.writeln('      font-size: 16px;');
-    buffer.writeln('      font-weight: 600;');
-    buffer.writeln('    }');
-    buffer.writeln(
-      '    .gallery-section-header .question { font-size: 14px; opacity: 0.9; margin-bottom: 5px; }',
-    );
-    buffer.writeln(
-      '    .gallery-section-header .answer { font-size: 18px; font-weight: 700; }',
-    );
-    buffer.writeln('    /* Header styles */');
-    buffer.writeln('    .header-row {');
-    buffer.writeln('      background: #ffffff !important;');
-    buffer.writeln('      color: #6c757d;');
-    buffer.writeln('      text-align: left;');
-    buffer.writeln('    }');
-    buffer.writeln('    .title {');
-    buffer.writeln('      font-weight: bold;');
-    buffer.writeln('      font-size: 22px;');
-    buffer.writeln('    }');
-    buffer.writeln('    .border-bold {');
-    buffer.writeln('      border-bottom: 2px solid #6c757d !important;');
-    buffer.writeln('      font-size: 22px;');
-    buffer.writeln('    }');
-    buffer.writeln('    .no-border {');
-    buffer.writeln('      border-bottom: none !important;');
-    buffer.writeln('      font-size: 18px;');
-    buffer.writeln('    }');
-    buffer.writeln('  </style>');
-    buffer.writeln('</head>');
-    buffer.writeln('<body>');
-
-    buffer.writeln('<div class="language-switcher">');
-    for (int li = 0; li < languages.length; li++) {
-      final lang = languages[li];
-      buffer.writeln(
-        '  <button class="lang-btn ${li == 0 ? "active" : ""}" data-lang="$li" onclick="switchLanguage($li)">$lang</button>',
-      );
-    }
-    buffer.writeln('</div>');
-
-    final currentDate = DateTime.now()
-        .toLocal()
-        .toString()
-        .substring(0, 10)
-        .split('-')
-        .reversed
-        .join('.');
-
-    buffer.writeln('<div class="excel-wrapper">');
-    buffer.writeln('  <table>');
-    buffer.writeln('    <!-- 1 строка + жирная линия снизу ПО ВСЕЙ ШИРИНЕ -->');
-    buffer.writeln('    <tr class="header-row">');
-    buffer.writeln('      <td class="border-bold"></td>');
-    buffer.writeln(
-      '      <td class="title border-bold">${escapeHtml(_currentReport!.productType)}</td>',
-    );
-    buffer.writeln('      <td class="border-bold"></td>');
-    buffer.writeln('      <td class="border-bold">Фабрика</td>');
-    buffer.writeln('      <td class="border-bold">Модель</td>');
-    buffer.writeln('    </tr>');
-    buffer.writeln('    <!-- 2 строка + НЕТ линии снизу -->');
-    final displayDate = _currentReport!.dateTimestamp != null
-        ? DateTime.fromMillisecondsSinceEpoch(
-            _currentReport!.dateTimestamp!,
-          ).toLocal().toString().substring(0, 10).split('-').reversed.join('.')
-        : currentDate;
-    buffer.writeln('    <tr class="header-row">');
-    buffer.writeln('      <td class="no-border"></td>');
-    buffer.writeln('      <td class="no-border">$displayDate</td>');
-    buffer.writeln('      <td class="no-border"></td>');
-    buffer.writeln(
-      '      <td class="no-border">${escapeHtml(_currentReport!.factory)}</td>',
-    );
-    buffer.writeln(
-      '      <td class="no-border">${escapeHtml(_currentReport!.model)}</td>',
-    );
-    buffer.writeln('    </tr>');
-    buffer.writeln('    <!-- 3 строка: ОБЪЕДИНЕНА + ФОТО -->');
-    buffer.writeln('    <tr class="header-row">');
-    buffer.writeln(
-      '      <td colspan="5" style="text-align:left; font-weight:bold; padding:8px; color:#6c757d; border-bottom:none;">ФОТО</td>',
-    );
-    buffer.writeln('    </tr>');
-    buffer.writeln('    <!-- Исходная шапка -->');
-    buffer.writeln('    <tr>');
-    buffer.writeln('      <th colspan="5">$reportName | $dateTime</th>');
-    buffer.writeln('    </tr>');
-
-    for (int i = 0; i < _currentReport!.questions.length; i++) {
-      final q = _currentReport!.questions[i];
-      final questionNames = <String>[];
-      for (int li = 0; li < languages.length; li++) {
-        final lang = languages[li];
-        final loc = q.getLocalization(lang);
-        // XSS-защита: экранируем имя вопроса
-        questionNames.add(
-          escapeHtml(loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}'),
-        );
-      }
-
-      final List<List<Map<String, dynamic>>> answersByLang = List.generate(
-        languages.length,
-        (_) => [],
-      );
-
-      for (int li = 0; li < languages.length; li++) {
-        final lang = languages[li];
-        final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        answersByLang[li] = answers;
-      }
-
-      final maxAnswers = answersByLang
-          .map((l) => l.length)
-          .reduce((a, b) => a > b ? a : b);
-
-      final answerHasAttention = <bool>[];
-      for (int ai = 0; ai < maxAnswers; ai++) {
-        bool hasAtt = false;
-        for (int li = 0; li < languages.length; li++) {
-          if (ai < answersByLang[li].length &&
-              answersByLang[li][ai]['attention'] == true) {
-            hasAtt = true;
-          }
-        }
-        answerHasAttention.add(hasAtt);
-      }
-
-      String questionCellContent(int li) {
-        return questionNames[li];
-      }
-
-      String answerCellContent(int ai, int li) {
-        if (ai < answersByLang[li].length) {
-          final text = answersByLang[li][ai]['text'] ?? '';
-          // XSS-защита: экранируем HTML + сохраняем переносы как <br>
-          return escapeHtmlWithBr(text);
-        }
-        return '';
-      }
-
-      String mediaCellContent(int ai, int li, int qIndex) {
-        if (ai >= allMediaByQandAandLang[qIndex][li].length) {
-          return '<div class="media-thumbnails"></div>';
-        }
-
-        final List<Map<String, dynamic>> mediaList =
-            allMediaByQandAandLang[qIndex][li][ai];
-        final parts = <String>[];
-        final questionName = questionNames[li];
-        // P0-5: для data-атрибутов используем чистый escapeHtml (без <br>),
-        // т.к. answerCellContent содержит <br> для видимого контента,
-        // а внутри data-answer HTML-теги недопустимы.
-        final escapedAnswerText = ai < answersByLang[li].length
-            ? escapeHtml(answersByLang[li][ai]['text'] ?? '')
-            : '';
-
-        const int maxVisible = 8;
-        final visibleCount = mediaList.length > maxVisible
-            ? maxVisible
-            : mediaList.length;
-
-        for (int mi = 0; mi < visibleCount; mi++) {
-          final media = mediaList[mi];
-          final isImage = media['type'].startsWith('image');
-          // P0-5: escapeHtml для media-аттрибутов — защита от XSS.
-          // Имена файлов могут содержать кавычки и спецсимволы.
-          final escapedLocalPath = escapeHtml(
-            media['localPath'] as String? ?? '',
-          );
-          final escapedName = escapeHtml(media['name'] as String? ?? '');
-
-          if (isImage) {
-            parts.add(
-              '<div class="media-item" data-src="$escapedLocalPath" data-type="image" data-question="$questionName" data-answer="$escapedAnswerText" data-lang="$li" onclick="openLightbox(\'$escapedLocalPath\', \'image\')">'
-              '<img class="media-thumbnail" src="$escapedLocalPath" alt="$escapedName" />'
-              '</div>',
-            );
-          } else {
-            parts.add(
-              '<div class="media-item" data-src="$escapedLocalPath" data-type="video" data-question="$questionName" data-answer="$escapedAnswerText" data-lang="$li" onclick="openLightbox(\'$escapedLocalPath\', \'video\')">'
-              '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="$escapedName" />'
-              '</div>',
-            );
-          }
-        }
-
-        if (mediaList.length > maxVisible) {
-          final hiddenCount = mediaList.length - maxVisible;
-          parts.add(
-            '<div class="media-item media-item-more" onclick="openGallery()">'
-            '<div class="media-more">+$hiddenCount</div>'
-            '</div>',
-          );
-        }
-
-        for (int mi = visibleCount; mi < mediaList.length; mi++) {
-          final media = mediaList[mi];
-          final isImage = media['type'].startsWith('image');
-          final escapedLocalPath = escapeHtml(
-            media['localPath'] as String? ?? '',
-          );
-          final escapedName = escapeHtml(media['name'] as String? ?? '');
-          if (isImage) {
-            parts.add(
-              '<div class="media-item media-hidden" data-src="$escapedLocalPath" data-type="image" data-question="$questionName" data-answer="$escapedAnswerText" data-lang="$li" onclick="openLightbox(\'$escapedLocalPath\', \'image\')">'
-              '<img class="media-thumbnail" src="$escapedLocalPath" alt="$escapedName" />'
-              '</div>',
-            );
-          } else {
-            parts.add(
-              '<div class="media-item media-hidden" data-src="$escapedLocalPath" data-type="video" data-question="$questionName" data-answer="$escapedAnswerText" data-lang="$li" onclick="openLightbox(\'$escapedLocalPath\', \'video\')">'
-              '<img class="media-thumbnail" src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22 viewBox=%220 0 50 50%22><rect fill=%22%23e0e0e0%22 width=%2250%22 height=%2250%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2216%22>🎬</text></svg>" alt="$escapedName" />'
-              '</div>',
-            );
-          }
-        }
-
-        return '<div class="media-thumbnails">${parts.join('')}</div>';
-      }
-
-      for (int ai = 0; ai < maxAnswers; ai++) {
-        buffer.writeln('    <tr>');
-
-        if (ai == 0) {
-          buffer.writeln(
-            '      <td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
-          );
-        } else {
-          buffer.writeln(
-            '      <td style="background:#fafafa;width:40px;"></td>',
-          );
-        }
-
-        if (ai == 0) {
-          final qContentParts = <String>[];
-          for (int li = 0; li < languages.length; li++) {
-            final style = li == 0 ? '' : 'display:none;';
-            qContentParts.add(
-              '<span class="question-lang-$li" style="$style">${questionCellContent(li)}</span>',
-            );
-          }
-          buffer.writeln(
-            '      <td style="background:#fafafa;font-weight:500;width:200px;">${qContentParts.join('')}</td>',
-          );
-        } else {
-          buffer.writeln(
-            '      <td style="background:#fafafa;width:200px;"></td>',
-          );
-        }
-
-        if (answerHasAttention[ai]) {
-          buffer.writeln(
-            '      <td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>',
-          );
-        } else {
-          buffer.writeln(
-            '      <td style="text-align:center;vertical-align:middle;width:30px;"></td>',
-          );
-        }
-
-        final aContentParts = <String>[];
-        for (int li = 0; li < languages.length; li++) {
-          final style = li == 0 ? '' : 'display:none;';
-          aContentParts.add(
-            '<span class="answer-lang-$li" style="$style">${answerCellContent(ai, li)}</span>',
-          );
-        }
-        buffer.writeln(
-          '      <td style="background:${answerHasAttention[ai] ? '#fff3cd' : 'white'};width:375px;">${aContentParts.join('')}</td>',
-        );
-
-        final mContentParts = <String>[];
-        for (int li = 0; li < languages.length; li++) {
-          final style = li == 0 ? '' : 'display:none;';
-          mContentParts.add(
-            '<span class="media-lang-$li" style="$style">${mediaCellContent(ai, li, i)}</span>',
-          );
-        }
-        buffer.writeln(
-          '      <td style="background:#fafafa;width:200px;">${mContentParts.join('')}</td>',
-        );
-
-        buffer.writeln('    </tr>');
-      }
-    }
-    buffer.writeln('  </table>');
-    buffer.writeln('</div>');
-
-    // Lightbox
-    buffer.writeln('  <div class="lightbox" id="lightbox">');
-    buffer.writeln(
-      '    <button class="lightbox-close" onclick="closeLightbox()">×</button>',
-    );
-    buffer.writeln(
-      '    <button class="lightbox-grid-btn" onclick="openGallery()" title="Просмотр всех фото">⊞</button>',
-    );
-    buffer.writeln('    <div class="lightbox-info">');
-    buffer.writeln(
-      '      <div class="lightbox-question" id="lightbox-question"></div>',
-    );
-    buffer.writeln(
-      '      <div class="lightbox-answer" id="lightbox-answer"></div>',
-    );
-    buffer.writeln('    </div>');
-    buffer.writeln('    <div class="lightbox-controls">');
-    buffer.writeln('      <button onclick="zoomIn()">+</button>');
-    buffer.writeln('      <button onclick="zoomOut()">-</button>');
-    buffer.writeln('      <button onclick="resetZoom()">100%</button>');
-    buffer.writeln('    </div>');
-    buffer.writeln(
-      '    <button class="lightbox-nav prev" onclick="prevMedia()">←</button>',
-    );
-    buffer.writeln(
-      '    <div class="lightbox-image-container" id="lightbox-container">',
-    );
-    buffer.writeln(
-      '      <img id="lightbox-img" src="" alt="" style="display:none;" />',
-    );
-    buffer.writeln(
-      '      <video id="lightbox-video" controls autoplay playsinline style="display:none;max-width:100%;max-height:100%;object-fit:contain;" />',
-    );
-    buffer.writeln('    </div>');
-    buffer.writeln(
-      '    <button class="lightbox-nav next" onclick="nextMedia()">→</button>',
-    );
-    buffer.writeln(
-      '    <div class="lightbox-thumbnails-bar" id="lightbox-thumbnails-bar">',
-    );
-    buffer.writeln(
-      '      <div class="thumbnails-container" id="thumbnails-container"></div>',
-    );
-    buffer.writeln('    </div>');
-    buffer.writeln('  </div>');
-
-    // Gallery overlay
-    buffer.writeln('  <div class="gallery-overlay" id="gallery-overlay">');
-    buffer.writeln(
-      '    <button class="gallery-close" onclick="closeGallery()">×</button>',
-    );
-    buffer.writeln(
-      '    <div class="gallery-container" id="gallery-container">',
-    );
-    buffer.writeln('      <div class="gallery-grid" id="gallery-grid"></div>');
-    buffer.writeln('    </div>');
-    buffer.writeln('  </div>');
-
-    // JavaScript
-    buffer.writeln('<script>');
-    buffer.writeln('    let currentIndex = 0;');
-    buffer.writeln('    let media = [];');
-    buffer.writeln('    let scale = 1;');
-    buffer.writeln('    let panX = 0;');
-    buffer.writeln('    let panY = 0;');
-    buffer.writeln('    let isDragging = false;');
-    buffer.writeln('    let startX = 0;');
-    buffer.writeln('    let startY = 0;');
-    buffer.writeln('    const allLanguages = ${jsonEncode(languages)};');
-    buffer.writeln('    let currentLanguage = 0;');
-
-    buffer.writeln('    function switchLanguage(li) {');
-    buffer.writeln(
-      '      document.querySelectorAll(".lang-btn").forEach(btn => btn.classList.remove("active"));',
-    );
-    buffer.writeln(
-      '      document.querySelector(\'.lang-btn[data-lang="\' + li + \'"]\').classList.add("active");',
-    );
-    buffer.writeln('      for (let l = 0; l < allLanguages.length; l++) {');
-    buffer.writeln('        const display = l === li ? "" : "none";');
-    buffer.writeln(
-      '        document.querySelectorAll(".question-lang-" + l).forEach(el => el.style.display = display);',
-    );
-    buffer.writeln(
-      '        document.querySelectorAll(".answer-lang-" + l).forEach(el => el.style.display = display);',
-    );
-    buffer.writeln(
-      '        document.querySelectorAll(".media-lang-" + l).forEach(el => el.style.display = display);',
-    );
-    buffer.writeln('      }');
-    buffer.writeln('      currentLanguage = li;');
-    buffer.writeln('      loadMediaByLanguage();');
-    buffer.writeln('    }');
-
-    buffer.writeln('    function loadMediaByLanguage() {');
-    buffer.writeln(
-      '      const mediaElements = document.querySelectorAll(".media-item");',
-    );
-    buffer.writeln(
-      '      media = Array.from(mediaElements).filter(el => parseInt(el.dataset.lang) === currentLanguage).map(el => ({',
-    );
-    buffer.writeln('        src: el.dataset.src,');
-    buffer.writeln('        type: el.dataset.type,');
-    buffer.writeln('        question: el.dataset.question,');
-    buffer.writeln('        answer: el.dataset.answer');
-    buffer.writeln('      }));');
-    buffer.writeln('      buildThumbnailsBar();');
-    buffer.writeln('    }');
-
-    buffer.writeln(
-      '    document.addEventListener("DOMContentLoaded", function() {',
-    );
-    buffer.writeln('      loadMediaByLanguage();');
-    buffer.writeln('    });');
-    buffer.writeln('    function buildThumbnailsBar() {');
-    buffer.writeln(
-      '      const container = document.getElementById("thumbnails-container");',
-    );
-    buffer.writeln('      container.innerHTML = "";');
-    buffer.writeln('      media.forEach((m, index) => {');
-    buffer.writeln('        const thumbnail = document.createElement("img");');
-    buffer.writeln('        thumbnail.className = "lightbox-thumbnail";');
-    buffer.writeln('        if (m.type === "image") {');
-    buffer.writeln('          thumbnail.src = m.src;');
-    buffer.writeln('        } else {');
-    buffer.writeln(
-      '          thumbnail.src = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22><rect fill=%22%23e0e0e0%22 width=%2260%22 height=%2260%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-size=%2220%22>🎬</text></svg>";',
-    );
-    buffer.writeln('        }');
-    buffer.writeln(
-      '        thumbnail.onclick = function() { showMedia(index); };',
-    );
-    buffer.writeln('        container.appendChild(thumbnail);');
-    buffer.writeln('      });');
-    buffer.writeln('    }');
-    buffer.writeln('    function updateActiveThumbnail() {');
-    buffer.writeln(
-      '      document.querySelectorAll(".lightbox-thumbnail").forEach((thumb, index) => {',
-    );
-    buffer.writeln(
-      '        thumb.classList.toggle("active", index === currentIndex);',
-    );
-    buffer.writeln('      });');
-    buffer.writeln('      scrollToActiveThumbnail();');
-    buffer.writeln('    }');
-    buffer.writeln('    function scrollToActiveThumbnail() {');
-    buffer.writeln(
-      '      const container = document.getElementById("thumbnails-container");',
-    );
-    buffer.writeln(
-      '      const activeThumbnail = document.querySelector(".lightbox-thumbnail.active");',
-    );
-    buffer.writeln('      if (!container || !activeThumbnail) return;');
-    buffer.writeln(
-      '      const containerRect = container.getBoundingClientRect();',
-    );
-    buffer.writeln(
-      '      const thumbnailRect = activeThumbnail.getBoundingClientRect();',
-    );
-    buffer.writeln(
-      '      const scrollLeft = activeThumbnail.offsetLeft - containerRect.width / 2 + thumbnailRect.width / 2;',
-    );
-    buffer.writeln(
-      '      container.scrollTo({ left: scrollLeft, behavior: "smooth" });',
-    );
-    buffer.writeln('    }');
-
-    buffer.writeln('    function openLightbox(src, type) {');
-    buffer.writeln(
-      '      const index = media.findIndex(m => m.src === src && m.type === type);',
-    );
-    buffer.writeln('      if (index === -1) return;');
-    buffer.writeln('      currentIndex = index;');
-    buffer.writeln(
-      '      const imgEl = document.getElementById("lightbox-img");',
-    );
-    buffer.writeln(
-      '      const videoEl = document.getElementById("lightbox-video");',
-    );
-    buffer.writeln(
-      '      const questionEl = document.getElementById("lightbox-question");',
-    );
-    buffer.writeln(
-      '      const answerEl = document.getElementById("lightbox-answer");',
-    );
-    buffer.writeln('      if (type === "image") {');
-    buffer.writeln('        imgEl.style.display = "block";');
-    buffer.writeln('        videoEl.style.display = "none";');
-    buffer.writeln('        videoEl.pause();');
-    buffer.writeln('        imgEl.src = src;');
-    buffer.writeln('      } else {');
-    buffer.writeln('        imgEl.style.display = "none";');
-    buffer.writeln('        videoEl.style.display = "block";');
-    buffer.writeln('        videoEl.src = src;');
-    buffer.writeln('        videoEl.load();');
-    buffer.writeln('      }');
-    buffer.writeln('      if (media[currentIndex]) {');
-    buffer.writeln(
-      '        questionEl.textContent = media[currentIndex].question || "";',
-    );
-    buffer.writeln(
-      '        answerEl.textContent = media[currentIndex].answer || "";',
-    );
-    buffer.writeln('      }');
-    buffer.writeln(
-      '      document.getElementById("lightbox").classList.add("active");',
-    );
-    buffer.writeln('      resetZoom();');
-    buffer.writeln('      updateActiveThumbnail();');
-    buffer.writeln('    }');
-
-    buffer.writeln('    function closeLightbox() {');
-    buffer.writeln(
-      '      document.getElementById("lightbox").classList.remove("active");',
-    );
-    buffer.writeln('      document.getElementById("lightbox-video").pause();');
-    buffer.writeln('    }');
-
-    buffer.writeln('    function showMedia(index) {');
-    buffer.writeln('      if (index >= 0 && index < media.length) {');
-    buffer.writeln(
-      '        openLightbox(media[index].src, media[index].type);',
-    );
-    buffer.writeln('      }');
-    buffer.writeln('    }');
-
-    buffer.writeln('    function nextMedia() {');
-    buffer.writeln('      if (media.length > 1) {');
-    buffer.writeln('        currentIndex = (currentIndex + 1) % media.length;');
-    buffer.writeln('        showMedia(currentIndex);');
-    buffer.writeln('      }');
-    buffer.writeln('    }');
-
-    buffer.writeln('    function prevMedia() {');
-    buffer.writeln('      if (media.length > 1) {');
-    buffer.writeln(
-      '        currentIndex = (currentIndex - 1 + media.length) % media.length;',
-    );
-    buffer.writeln('        showMedia(currentIndex);');
-    buffer.writeln('      }');
-    buffer.writeln('    }');
-
-    buffer.writeln(
-      '    function zoomIn() { scale = Math.min(scale * 1.2, 5); applyTransform(); }',
-    );
-    buffer.writeln(
-      '    function zoomOut() { scale = Math.max(scale / 1.2, 0.5); applyTransform(); }',
-    );
-    buffer.writeln(
-      '    function resetZoom() { scale = 1; panX = 0; panY = 0; applyTransform(); }',
-    );
-
-    buffer.writeln('    function applyTransform() {');
-    buffer.writeln(
-      '      const imgEl = document.getElementById("lightbox-img");',
-    );
-    buffer.writeln(
-      '      const videoEl = document.getElementById("lightbox-video");',
-    );
-    buffer.writeln(
-      '      imgEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";',
-    );
-    buffer.writeln(
-      '      videoEl.style.transform = "translate(" + panX + "px, " + panY + "px) scale(" + scale + ")";',
-    );
-    buffer.writeln('    }');
-
-    buffer.writeln(
-      '    const container = document.getElementById("lightbox-container");',
-    );
-    buffer.writeln('    container.addEventListener("mousedown", function(e) {');
-    buffer.writeln(
-      '      isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; container.classList.add("dragging"); e.preventDefault();',
-    );
-    buffer.writeln('    });');
-    buffer.writeln('    document.addEventListener("mousemove", function(e) {');
-    buffer.writeln(
-      '      if (isDragging) { panX = e.clientX - startX; panY = e.clientY - startY; applyTransform(); }',
-    );
-    buffer.writeln('    });');
-    buffer.writeln(
-      '    document.addEventListener("mouseup", function() { isDragging = false; container.classList.remove("dragging"); });',
-    );
-    buffer.writeln(
-      '    container.addEventListener("wheel", function(e) { e.preventDefault(); if (e.deltaY < 0) zoomIn(); else zoomOut(); });',
-    );
-    buffer.writeln('    document.addEventListener("keydown", function(e) {');
-    buffer.writeln(
-      '      if (document.getElementById("lightbox").classList.contains("active")) {',
-    );
-    buffer.writeln('        if (e.key === "ArrowRight") nextMedia();');
-    buffer.writeln('        if (e.key === "ArrowLeft") prevMedia();');
-    buffer.writeln('        if (e.key === "Escape") closeLightbox();');
-    buffer.writeln('        if (e.key === "+" || e.key === "=") zoomIn();');
-    buffer.writeln('        if (e.key === "-") zoomOut();');
-    buffer.writeln('        if (e.key === "0") resetZoom();');
-    buffer.writeln('      }');
-    buffer.writeln('    });');
-    buffer.writeln('    window.addEventListener("resize", function() {');
-    buffer.writeln(
-      '      if (document.getElementById("lightbox").classList.contains("active")) {',
-    );
-    buffer.writeln('        scrollToActiveThumbnail();');
-    buffer.writeln('      }');
-    buffer.writeln('    });');
-
-    buffer.writeln('    function openGallery() {');
-    buffer.writeln(
-      '      const galleryGrid = document.getElementById("gallery-grid");',
-    );
-    buffer.writeln('      galleryGrid.innerHTML = "";');
-    buffer.writeln(
-      '      const imageMedia = media.filter(m => m.type === "image");',
-    );
-    buffer.writeln('      ');
-    buffer.writeln('      const groupedMedia = {};');
-    buffer.writeln('      imageMedia.forEach((m) => {');
-    buffer.writeln(
-      '        const key = (m.question || "") + "|||" + (m.answer || "");',
-    );
-    buffer.writeln('        if (!groupedMedia[key]) {');
-    buffer.writeln(
-      '          groupedMedia[key] = { question: m.question, answer: m.answer, items: [] };',
-    );
-    buffer.writeln('        }');
-    buffer.writeln('        groupedMedia[key].items.push(m);');
-    buffer.writeln('      });');
-    buffer.writeln('      ');
-    buffer.writeln('      let targetElement = null;');
-    buffer.writeln('      Object.values(groupedMedia).forEach((group) => {');
-    buffer.writeln('        const section = document.createElement("div");');
-    buffer.writeln('        section.className = "gallery-section";');
-    buffer.writeln('        ');
-    buffer.writeln('        const header = document.createElement("div");');
-    buffer.writeln('        header.className = "gallery-section-header";');
-    buffer.writeln('        ');
-    buffer.writeln(
-      '        const questionDiv = document.createElement("div");',
-    );
-    buffer.writeln('        questionDiv.className = "question";');
-    buffer.writeln(
-      '        questionDiv.textContent = group.question || "Без вопроса";',
-    );
-    buffer.writeln('        header.appendChild(questionDiv);');
-    buffer.writeln('        ');
-    buffer.writeln('        const answerDiv = document.createElement("div");');
-    buffer.writeln('        answerDiv.className = "answer";');
-    buffer.writeln(
-      '        answerDiv.textContent = group.answer || "Без ответа";',
-    );
-    buffer.writeln('        header.appendChild(answerDiv);');
-    buffer.writeln('        ');
-    buffer.writeln('        section.appendChild(header);');
-    buffer.writeln('        ');
-    buffer.writeln('        group.items.forEach((m) => {');
-    buffer.writeln(
-      '          const galleryItem = document.createElement("div");',
-    );
-    buffer.writeln('          galleryItem.className = "gallery-item";');
-    buffer.writeln('          const img = document.createElement("img");');
-    buffer.writeln('          img.src = m.src;');
-    buffer.writeln('          img.alt = m.question || "Photo";');
-    buffer.writeln('          img.onclick = function() {');
-    buffer.writeln('            closeGallery();');
-    buffer.writeln('            openLightbox(m.src, m.type);');
-    buffer.writeln('          };');
-    buffer.writeln('          galleryItem.appendChild(img);');
-    buffer.writeln('          section.appendChild(galleryItem);');
-    buffer.writeln('          ');
-    buffer.writeln('          // Check if this is the current media item');
-    buffer.writeln(
-      '          if (currentIndex >= 0 && currentIndex < media.length && media[currentIndex].src === m.src) {',
-    );
-    buffer.writeln('            targetElement = galleryItem;');
-    buffer.writeln('          }');
-    buffer.writeln('        });');
-    buffer.writeln('        ');
-    buffer.writeln('        galleryGrid.appendChild(section);');
-    buffer.writeln('      });');
-    buffer.writeln('      ');
-    buffer.writeln(
-      '      document.getElementById("gallery-overlay").classList.add("active");',
-    );
-    buffer.writeln('      closeLightbox();');
-    buffer.writeln('      ');
-    buffer.writeln('      // Scroll to target element if found');
-    buffer.writeln('      setTimeout(() => {');
-    buffer.writeln('        if (targetElement) {');
-    buffer.writeln(
-      '          targetElement.scrollIntoView({ behavior: "smooth", block: "center" });',
-    );
-    buffer.writeln('        }');
-    buffer.writeln('      }, 100);');
-    buffer.writeln('    }');
-
-    buffer.writeln('    function closeGallery() {');
-    buffer.writeln(
-      '      document.getElementById("gallery-overlay").classList.remove("active");',
-    );
-    buffer.writeln('    }');
-
-    buffer.writeln('    document.addEventListener("keydown", function(e) {');
-    buffer.writeln(
-      '      if (document.getElementById("gallery-overlay").classList.contains("active")) {',
-    );
-    buffer.writeln('        if (e.key === "Escape") closeGallery();');
-    buffer.writeln('      }');
-    buffer.writeln('    });');
-    buffer.writeln('  </script>');
-
-    buffer.writeln('</body>');
-    buffer.writeln('</html>');
-    return buffer.toString();
-  }
-
-  String _generateExcelHtml() {
-    if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
-    final reportName = escapeHtml(_currentReport!.reportName);
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(
-      _currentReport!.timestamp,
-    ).toLocal().toString().substring(0, 16);
-    final allLanguages = _currentReport!.availableLanguages;
-    final languages = sortLanguages(allLanguages);
-    final langDisplay = languages.join(' / ');
-    final buffer = StringBuffer();
-    buffer.writeln('<!DOCTYPE html>');
-    buffer.writeln('<html lang="ru">');
-    buffer.writeln('<head>');
-    buffer.writeln('<meta charset="UTF-8">');
-    buffer.writeln(
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-    );
-    buffer.writeln('<title>$reportName - Excel таблица</title>');
-    buffer.writeln(
-      '<style>table{border-collapse:collapse;font-size:13px;}th,td{padding:6px 10px;vertical-align:top;border-bottom:1px solid #d0d0d0;}th{background:#f3f3f3;font-weight:600;text-align:center;color:#2c2c2c;}</style>',
-    );
-    buffer.writeln('</head>');
-    buffer.writeln('<body>');
-    buffer.writeln('<table>');
-    buffer.writeln('<thead>');
-    buffer.writeln(
-      '<tr><th colspan="5">$reportName | Язык: $langDisplay | $dateTime</th></tr>',
-    );
-    buffer.writeln(
-      '<tr><td colspan="5" style="border-bottom:2px solid #6c757d;"></td></tr>',
-    );
-    buffer.writeln('</thead>');
-    buffer.writeln('<tbody>');
-
-    for (int i = 0; i < _currentReport!.questions.length; i++) {
-      final q = _currentReport!.questions[i];
-      final questionNames = <String>[];
-      for (int li = 0; li < languages.length; li++) {
-        final lang = languages[li];
-        final loc = q.getLocalization(lang);
-        // P2-40: экранируем имя вопроса от XSS/formula injection.
-        questionNames.add(
-          _sanitizeExcelCell(
-            loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
-          ),
-        );
-      }
-
-      final List<String> allMediaNames = [];
-      final List<List<Map<String, dynamic>>> answersByLang = List.generate(
-        languages.length,
-        (_) => [],
-      );
-
-      for (int li = 0; li < languages.length; li++) {
-        final lang = languages[li];
-        final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        answersByLang[li] = answers;
-
-        for (final a in answers) {
-          final media = a['media'] as List? ?? [];
-          for (final m in media) {
-            allMediaNames.add(_sanitizeExcelCell(m['name'] ?? ''));
-          }
-        }
-      }
-
-      final maxAnswers = answersByLang
-          .map((l) => l.length)
-          .reduce((a, b) => a > b ? a : b);
-
-      final answerHasAttention = <bool>[];
-      for (int ai = 0; ai < maxAnswers; ai++) {
-        bool hasAtt = false;
-        for (int li = 0; li < languages.length; li++) {
-          if (ai < answersByLang[li].length &&
-              answersByLang[li][ai]['attention'] == true) {
-            hasAtt = true;
-          }
-        }
-        answerHasAttention.add(hasAtt);
-      }
-
-      final photoCellContent = allMediaNames.isNotEmpty
-          ? allMediaNames.join(', ')
-          : '';
-
-      String questionCellContent() {
-        final parts = <String>[];
-        for (int li = 0; li < languages.length; li++) {
-          if (li == 0) {
-            parts.add(questionNames[li]);
-          } else {
-            parts.add(
-              '<span style="font-size:10px;color:#888888;">${questionNames[li]}</span>',
-            );
-          }
-        }
-        return parts.join('<br>');
-      }
-
-      String answerCellContent(int ai) {
-        final parts = <String>[];
-        for (int li = 0; li < languages.length; li++) {
-          if (ai < answersByLang[li].length) {
-            final text = _sanitizeExcelCell(
-              answersByLang[li][ai]['text'] ?? '',
-            );
-            if (li == 0) {
-              parts.add('<div>$text</div>');
-            } else {
-              parts.add(
-                '<div style="font-size:10px;color:#888888;">$text</div>',
-              );
-            }
-          }
-        }
-        return parts.join('');
-      }
-
-      if (maxAnswers == 0) {
-        buffer.writeln('<tr>');
-        buffer.writeln(
-          '<td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
-        );
-        buffer.writeln(
-          '<td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>',
-        );
-        buffer.writeln(
-          '<td style="text-align:center;vertical-align:middle;width:30px;"></td>',
-        );
-        buffer.writeln(
-          '<td style="background:white;width:300px;">${answerCellContent(0)}</td>',
-        );
-        buffer.writeln(
-          '<td style="background:#fafafa;width:200px;">$photoCellContent</td>',
-        );
-        buffer.writeln('</tr>');
-      } else {
-        for (int ai = 0; ai < maxAnswers; ai++) {
-          buffer.writeln('<tr>');
-          buffer.writeln(
-            '<td style="background:#fafafa;font-weight:500;width:40px;color:#00B0F0;">${i + 1}</td>',
-          );
-          buffer.writeln(
-            '<td style="background:#fafafa;font-weight:500;width:160px;">${questionCellContent()}</td>',
-          );
-
-          if (answerHasAttention[ai]) {
-            buffer.writeln(
-              '<td style="text-align:center;vertical-align:middle;width:30px;background:#fff3cd;"><span style="font-weight:bold;color:#ef4444;">!</span></td>',
-            );
-          } else {
-            buffer.writeln(
-              '<td style="text-align:center;vertical-align:middle;width:30px;"></td>',
-            );
-          }
-
-          final answerBgColor = answerHasAttention[ai] ? '#fff3cd' : 'white';
-          buffer.writeln(
-            '<td style="background:$answerBgColor;width:300px;">${answerCellContent(ai)}</td>',
-          );
-
-          buffer.writeln(
-            '<td style="background:#fafafa;width:200px;">$photoCellContent</td>',
-          );
-          buffer.writeln('</tr>');
-        }
-      }
-    }
-
-    buffer.writeln('</tbody>');
-    buffer.writeln('</table>');
-    buffer.writeln('</body>');
-    buffer.writeln('</html>');
-    return buffer.toString();
-  }
-
-  Uint8List _generateExcel() {
     if (_currentReport == null) return Uint8List(0);
-    final excel = Excel.createExcel();
-    final sheet = excel['Sheet1'];
+    return excel_service.generateExcelBytes(_currentReport!);
+  }
 
-    final allLanguages = _currentReport!.availableLanguages;
-    final languages = sortLanguages(allLanguages);
-
-    final rowNumColor = ExcelColor.fromHexString('#00B0F0');
-    final questionBgColor = ExcelColor.fromHexString('#fafafa');
-    final attentionBgColor = ExcelColor.fromHexString('#fff3cd');
-    final borderColor = ExcelColor.fromHexString('#6c757d');
-
-    int row = 0;
-
-    // 1-я строка шапки (заголовки: Аэрогриль, Фабрика, Модель)
-    final headerStyle1Bold = CellStyle(
-      backgroundColorHex: ExcelColor.white,
-      fontColorHex: ExcelColor.fromHexString('#6c757d'),
-      bold: true,
-      fontSize: 12,
-      fontFamily: 'Courier New',
-      bottomBorder: Border(
-        borderStyle: BorderStyle.Thin,
-        borderColorHex: ExcelColor.black,
-      ),
-    );
-    final headerStyle1Normal = CellStyle(
-      backgroundColorHex: ExcelColor.white,
-      fontColorHex: ExcelColor.fromHexString('#6c757d'),
-      bold: false,
-      fontSize: 12,
-      fontFamily: 'Courier New',
-      bottomBorder: Border(
-        borderStyle: BorderStyle.Thin,
-        borderColorHex: ExcelColor.black,
-      ),
-    );
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
-        .value = TextCellValue(
-      // P2-40: sanitize от formula injection (=, +, -, @, \t, \r) для Excel-ячеек.
-      _sanitizeExcelCell(_currentReport!.productType),
-    );
-    sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
-            .cellStyle =
-        headerStyle1Bold;
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
-        .value = TextCellValue(
-      'Фабрика',
-    );
-    sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
-            .cellStyle =
-        headerStyle1Normal;
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
-        .value = TextCellValue(
-      'Модель',
-    );
-    sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
-            .cellStyle =
-        headerStyle1Normal;
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
-        .cellStyle = CellStyle(
-      backgroundColorHex: ExcelColor.white,
-      fontFamily: 'Courier New',
-      bottomBorder: Border(
-        borderStyle: BorderStyle.Thin,
-        borderColorHex: ExcelColor.black,
-      ),
-    );
-    row++;
-
-    // 2-я строка шапки (значения: дата, factory, model)
-    final headerStyle2 = CellStyle(
-      backgroundColorHex: ExcelColor.white,
-      fontColorHex: ExcelColor.fromHexString('#6c757d'),
-      fontSize: 10,
-      fontFamily: 'Courier New',
-    );
-    final excelDate = _currentReport!.dateTimestamp != null
-        ? DateTime.fromMillisecondsSinceEpoch(
-            _currentReport!.dateTimestamp!,
-          ).toLocal().toString().substring(0, 10).split('-').reversed.join('.')
-        : DateTime.now()
-              .toLocal()
-              .toString()
-              .substring(0, 10)
-              .split('-')
-              .reversed
-              .join('.');
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
-        .value = TextCellValue(
-      excelDate,
-    );
-    sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
-            .cellStyle =
-        headerStyle2;
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
-        .value = TextCellValue(
-      // P2-40: sanitize от formula injection для Excel-ячеек.
-      _sanitizeExcelCell(_currentReport!.factory),
-    );
-    sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
-            .cellStyle =
-        headerStyle2;
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
-        .value = TextCellValue(
-      // P2-40: sanitize от formula injection для Excel-ячеек.
-      _sanitizeExcelCell(_currentReport!.model),
-    );
-    sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
-            .cellStyle =
-        headerStyle2;
-    row++;
-
-    // 3-я строка шапки (ФОТО - объединенная ячейка)
-    final totalColumns = 5; // A-E
-    sheet.merge(
-      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
-      CellIndex.indexByColumnRow(columnIndex: totalColumns - 1, rowIndex: row),
-    );
-    final photoHeaderStyle = CellStyle(
-      backgroundColorHex: ExcelColor.white,
-      fontColorHex: ExcelColor.fromHexString('#6c757d'),
-      bold: true,
-      fontSize: 10,
-      fontFamily: 'Courier New',
-      horizontalAlign: HorizontalAlign.Center,
-    );
-    sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
-        .value = TextCellValue(
-      'ФОТО',
-    );
-    sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
-            .cellStyle =
-        photoHeaderStyle;
-    row++;
-
-    // 4-я строка - пустая строка
-    for (int col = 0; col < totalColumns; col++) {
-      sheet
-          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 3))
-          .cellStyle = CellStyle(
-        backgroundColorHex: ExcelColor.white,
-        fontFamily: 'Courier New',
-      );
-    }
-    row++;
-
-    // Таблица с данными
-    for (int i = 0; i < _currentReport!.questions.length; i++) {
-      final q = _currentReport!.questions[i];
-
-      final questionNames = <String>[];
-      for (int li = 0; li < languages.length; li++) {
-        final lang = languages[li];
-        final loc = q.getLocalization(lang);
-        // P2-40: sanitize от formula injection для Excel-ячеек.
-        questionNames.add(
-          _sanitizeExcelCell(
-            loc?.name ?? q.getDisplayName(lang) ?? 'Вопрос ${i + 1}',
-          ),
-        );
-      }
-
-      final List<List<String>> mediaByAnswer = [];
-      final List<List<Map<String, dynamic>>> answersByLang = List.generate(
-        languages.length,
-        (_) => [],
-      );
-
-      for (int li = 0; li < languages.length; li++) {
-        final lang = languages[li];
-        final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        answersByLang[li] = answers;
-
-        for (int ai = 0; ai < answers.length; ai++) {
-          final a = answers[ai];
-          if (mediaByAnswer.length <= ai) {
-            mediaByAnswer.add([]);
-          }
-          final media = a['media'] as List? ?? [];
-          for (final m in media) {
-            final name = m['name'] as String? ?? '';
-            final attention = m['attention'] as bool? ?? false;
-            if (name.isNotEmpty) {
-              final prefix = attention ? 'x' : '';
-              final num = name.split('.').first;
-              mediaByAnswer[ai].add('$prefix$num');
-            }
-          }
-        }
-      }
-
-      final maxAnswers = answersByLang
-          .map((l) => l.length)
-          .reduce((a, b) => a > b ? a : b);
-
-      final List<String> photoCellContents = [];
-      for (final mediaList in mediaByAnswer) {
-        final grouped = _groupMediaNames(mediaList);
-        photoCellContents.add(grouped.join(', '));
-      }
-      while (photoCellContents.length < maxAnswers) {
-        photoCellContents.add('');
-      }
-
-      final answerHasAttention = <bool>[];
-      for (int ai = 0; ai < maxAnswers; ai++) {
-        bool hasAtt = false;
-        for (int li = 0; li < languages.length; li++) {
-          if (ai < answersByLang[li].length &&
-              answersByLang[li][ai]['attention'] == true) {
-            hasAtt = true;
-          }
-        }
-        answerHasAttention.add(hasAtt);
-      }
-
-      final totalRows = maxAnswers * languages.length;
-
-      if (maxAnswers == 0) {
-        for (int li = 0; li < languages.length; li++) {
-          final isLast = li == languages.length - 1;
-
-          if (li == 0) {
-            sheet.merge(
-              CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
-              CellIndex.indexByColumnRow(
-                columnIndex: 0,
-                rowIndex: row + languages.length - 1,
-              ),
-            );
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
-                .value = IntCellValue(
-              i + 1,
-            );
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
-                .cellStyle = CellStyle(
-              backgroundColorHex: questionBgColor,
-              fontColorHex: rowNumColor,
-              bold: true,
-              fontFamily: 'Courier New',
-              verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast
-                  ? Border(
-                      borderStyle: BorderStyle.Thin,
-                      borderColorHex: borderColor,
-                    )
-                  : null,
-            );
-          }
-
-          final qColor = li == 0
-              ? ExcelColor.black
-              : ExcelColor.fromHexString(getLanguageColor(li));
-          final qFontSize = li == 0 ? 12 : 10;
-          sheet
-              .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
-              .value = TextCellValue(
-            questionNames[li],
-          );
-          sheet
-              .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
-              .cellStyle = CellStyle(
-            backgroundColorHex: questionBgColor,
-            fontColorHex: qColor,
-            fontSize: qFontSize,
-            fontFamily: 'Courier New',
-            verticalAlign: VerticalAlign.Top,
-            bottomBorder: isLast
-                ? Border(
-                    borderStyle: BorderStyle.Thin,
-                    borderColorHex: borderColor,
-                  )
-                : null,
-          );
-
-          sheet
-              .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
-              .value = TextCellValue(
-            '',
-          );
-          sheet
-              .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
-              .cellStyle = CellStyle(
-            backgroundColorHex: questionBgColor,
-            fontFamily: 'Courier New',
-            verticalAlign: VerticalAlign.Top,
-            bottomBorder: isLast
-                ? Border(
-                    borderStyle: BorderStyle.Thin,
-                    borderColorHex: borderColor,
-                  )
-                : null,
-          );
-
-          sheet
-              .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
-              .value = TextCellValue(
-            '',
-          );
-          sheet
-              .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
-              .cellStyle = CellStyle(
-            backgroundColorHex: ExcelColor.white,
-            fontFamily: 'Courier New',
-            verticalAlign: VerticalAlign.Top,
-            bottomBorder: isLast
-                ? Border(
-                    borderStyle: BorderStyle.Thin,
-                    borderColorHex: borderColor,
-                  )
-                : null,
-          );
-
-          if (li == 0) {
-            sheet.merge(
-              CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
-              CellIndex.indexByColumnRow(
-                columnIndex: 4,
-                rowIndex: row + languages.length - 1,
-              ),
-            );
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
-                .value = TextCellValue(
-              '',
-            );
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
-                .cellStyle = CellStyle(
-              backgroundColorHex: questionBgColor,
-              fontFamily: 'Courier New',
-              verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast
-                  ? Border(
-                      borderStyle: BorderStyle.Thin,
-                      borderColorHex: borderColor,
-                    )
-                  : null,
-            );
-          }
-
-          row++;
-        }
-      } else {
-        for (int ai = 0; ai < maxAnswers; ai++) {
-          for (int li = 0; li < languages.length; li++) {
-            final isLast = ai == maxAnswers - 1 && li == languages.length - 1;
-
-            if (li == 0 && ai == 0) {
-              sheet.merge(
-                CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
-                CellIndex.indexByColumnRow(
-                  columnIndex: 0,
-                  rowIndex: row + totalRows - 1,
-                ),
-              );
-              sheet
-                  .cell(
-                    CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
-                  )
-                  .value = IntCellValue(
-                i + 1,
-              );
-              sheet
-                  .cell(
-                    CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row),
-                  )
-                  .cellStyle = CellStyle(
-                backgroundColorHex: questionBgColor,
-                fontColorHex: rowNumColor,
-                bold: true,
-                fontFamily: 'Courier New',
-                verticalAlign: VerticalAlign.Top,
-                bottomBorder: isLast
-                    ? Border(
-                        borderStyle: BorderStyle.Thin,
-                        borderColorHex: borderColor,
-                      )
-                    : null,
-              );
-            }
-
-            if (ai == 0) {
-              final qColor = li == 0
-                  ? ExcelColor.black
-                  : ExcelColor.fromHexString(getLanguageColor(li));
-              final qFontSize = li == 0 ? 12 : 10;
-              sheet
-                  .cell(
-                    CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row),
-                  )
-                  .value = TextCellValue(
-                questionNames[li],
-              );
-              sheet
-                  .cell(
-                    CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row),
-                  )
-                  .cellStyle = CellStyle(
-                backgroundColorHex: questionBgColor,
-                fontColorHex: qColor,
-                fontSize: qFontSize,
-                fontFamily: 'Courier New',
-                verticalAlign: VerticalAlign.Top,
-                bottomBorder: isLast
-                    ? Border(
-                        borderStyle: BorderStyle.Thin,
-                        borderColorHex: borderColor,
-                      )
-                    : null,
-              );
-            } else {
-              sheet
-                  .cell(
-                    CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row),
-                  )
-                  .value = TextCellValue(
-                '',
-              );
-              sheet
-                  .cell(
-                    CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row),
-                  )
-                  .cellStyle = CellStyle(
-                backgroundColorHex: questionBgColor,
-                fontFamily: 'Courier New',
-                verticalAlign: VerticalAlign.Top,
-                bottomBorder: isLast
-                    ? Border(
-                        borderStyle: BorderStyle.Thin,
-                        borderColorHex: borderColor,
-                      )
-                    : null,
-              );
-            }
-
-            final hasAttentionMark = answerHasAttention[ai];
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
-                .value = hasAttentionMark
-                ? TextCellValue('!')
-                : TextCellValue('');
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
-                .cellStyle = CellStyle(
-              backgroundColorHex: hasAttentionMark
-                  ? attentionBgColor
-                  : ExcelColor.white,
-              fontColorHex: hasAttentionMark
-                  ? ExcelColor.fromHexString('#ef4444')
-                  : ExcelColor.black,
-              bold: hasAttentionMark,
-              fontFamily: 'Courier New',
-              horizontalAlign: HorizontalAlign.Center,
-              verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast
-                  ? Border(
-                      borderStyle: BorderStyle.Thin,
-                      borderColorHex: borderColor,
-                    )
-                  : null,
-            );
-
-            final text = ai < answersByLang[li].length
-                ? _sanitizeExcelCell(
-                    (answersByLang[li][ai]['text'] ?? '') as String,
-                  )
-                : '';
-            final hasAttention = answerHasAttention[ai];
-            final answerBgColor = hasAttention
-                ? attentionBgColor
-                : ExcelColor.white;
-            final aColor = li == 0
-                ? ExcelColor.black
-                : ExcelColor.fromHexString(getLanguageColor(li));
-            final aFontSize = li == 0 ? 12 : 10;
-
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
-                .value = TextCellValue(
-              text,
-            );
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
-                .cellStyle = CellStyle(
-              backgroundColorHex: answerBgColor,
-              fontColorHex: aColor,
-              fontSize: aFontSize,
-              fontFamily: 'Courier New',
-              verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast
-                  ? Border(
-                      borderStyle: BorderStyle.Thin,
-                      borderColorHex: borderColor,
-                    )
-                  : null,
-            );
-
-            final photoBgColor = hasAttention
-                ? attentionBgColor
-                : questionBgColor;
-            if (li == 0) {
-              sheet.merge(
-                CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
-                CellIndex.indexByColumnRow(
-                  columnIndex: 4,
-                  rowIndex: row + languages.length - 1,
-                ),
-              );
-              sheet
-                  .cell(
-                    CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
-                  )
-                  .value = TextCellValue(
-                // P2-40: sanitize от formula injection для Excel-ячеек.
-                _sanitizeExcelCell(photoCellContents[ai]),
-              );
-              sheet
-                  .cell(
-                    CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row),
-                  )
-                  .cellStyle = CellStyle(
-                backgroundColorHex: photoBgColor,
-                fontColorHex: ExcelColor.fromHexString('#6c757d'),
-                bold: true,
-                fontSize: 10,
-                fontFamily: 'Courier New',
-                verticalAlign: VerticalAlign.Top,
-              );
-            }
-
-            sheet
-                .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
-                .cellStyle = CellStyle(
-              backgroundColorHex: photoBgColor,
-              fontColorHex: ExcelColor.fromHexString('#6c757d'),
-              bold: true,
-              fontSize: 10,
-              fontFamily: 'Courier New',
-              verticalAlign: VerticalAlign.Top,
-              bottomBorder: isLast
-                  ? Border(
-                      borderStyle: BorderStyle.Thin,
-                      borderColorHex: borderColor,
-                    )
-                  : null,
-            );
-
-            row++;
-          }
-        }
-      }
-    }
-
-    sheet.setColumnWidth(0, 10);
-
-    final bytes = excel.encode();
-    return Uint8List.fromList(bytes!);
+  /// Сгенерировать упрощённую HTML-таблицу отчёта для вставки в Excel
+  /// через буфер обмена. Работает офлайн, без сервера.
+  String generateExcelHtmlContent() {
+    if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
+    return excel_service.generateExcelHtmlContent(_currentReport!);
   }
 
   Future<Report?> parseTemplate(String filePath) async {
@@ -3764,7 +2102,7 @@ class ReportState extends ChangeNotifier {
       await saveReport();
 
       // Сохраняем Excel
-      final excelBytes = _generateExcel();
+      final excelBytes = generateExcelBytes();
       final excelFile = File('$_currentReportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
       if (kDebugMode) {
@@ -3773,13 +2111,9 @@ class ReportState extends ChangeNotifier {
         );
       }
 
-      // Сохраняем HTML
-      final htmlContent = _generateHtml();
-      final htmlFile = File('$_currentReportPath/report.html');
-      await htmlFile.writeAsString(htmlContent);
-      if (kDebugMode) {
-        debugPrint('HTML saved to: ${htmlFile.path}');
-      }
+      // HTML-версия отчёта генерируется на сервере (htmlGenerator.js) —
+      // в локальный ZIP не включаем. Серверный ZIP с index.html доступен
+      // через GET /reports/:publicId/zip.
 
       final folderPath = _currentReportPath!;
       final safeName = _currentReport!.reportName
@@ -3818,7 +2152,6 @@ class ReportState extends ChangeNotifier {
       final Set<String> neededFiles = {};
 
       neededFiles.add('report.json');
-      neededFiles.add('report.html');
       neededFiles.add('report.xlsx');
 
       if (_currentReport != null) {
@@ -3901,369 +2234,29 @@ class ReportState extends ChangeNotifier {
 
   List<int> getUnsyncQuestionIndices() {
     if (_currentReport == null) return [];
-    final unsyncIndices = <int>[];
-    final languages = _currentReport!.availableLanguages;
-
-    for (int i = 0; i < _currentReport!.questions.length; i++) {
-      int maxCount = 0;
-      int minCount = 0;
-      final allAnswers = <String, List<Map<String, dynamic>>>{};
-
-      for (final lang in languages) {
-        final answers = _currentReport!.getAnswersForQuestion(i, lang);
-        allAnswers[lang] = answers;
-        if (answers.length > maxCount) maxCount = answers.length;
-      }
-      minCount = maxCount;
-      for (final lang in languages) {
-        if (allAnswers[lang]!.length < minCount) {
-          minCount = allAnswers[lang]!.length;
-        }
-      }
-
-      final hasDifferentCount = maxCount != minCount || maxCount == 0;
-
-      bool hasNonEmptyExtra = false;
-      if (hasDifferentCount) {
-        for (final lang in languages) {
-          for (int j = minCount; j < allAnswers[lang]!.length; j++) {
-            if ((allAnswers[lang]![j]['text'] as String? ?? '').isNotEmpty) {
-              hasNonEmptyExtra = true;
-              break;
-            }
-          }
-          if (hasNonEmptyExtra) break;
-        }
-      }
-
-      bool needsSync = false;
-
-      if (hasDifferentCount) {
-        needsSync = hasNonEmptyExtra;
-      } else {
-        final firstLang = languages.first;
-        final firstLangAnswers = allAnswers[firstLang]!;
-
-        for (
-          int answerIdx = 0;
-          answerIdx < firstLangAnswers.length;
-          answerIdx++
-        ) {
-          bool hasEmptyInAnswer = false;
-          bool hasNonEmptyInAnswer = false;
-
-          for (final lang in languages) {
-            final answers = allAnswers[lang]!;
-            if (answerIdx < answers.length) {
-              final text = answers[answerIdx]['text'] as String? ?? '';
-              if (text.isEmpty) {
-                hasEmptyInAnswer = true;
-              } else {
-                hasNonEmptyInAnswer = true;
-              }
-            }
-          }
-
-          if (hasEmptyInAnswer && hasNonEmptyInAnswer) {
-            needsSync = true;
-            break;
-          }
-        }
-      }
-
-      if (needsSync) {
-        unsyncIndices.add(i);
-      }
-    }
-    return unsyncIndices;
-  }
-
-  bool get needsSync {
-    if (_currentReport == null) return false;
-    final languages = _currentReport!.availableLanguages;
-    if (languages.isEmpty) return false;
-    if (_currentReport!.currentLanguage == languages.first) return false;
-
-    for (int i = 0; i < _currentReport!.questions.length; i++) {
-      final firstLangAnswers = _currentReport!.getAnswersForQuestion(
-        i,
-        languages.first,
-      );
-      final currentLangAnswers = _currentReport!.getAnswersForQuestion(
-        i,
-        _currentReport!.currentLanguage,
-      );
-
-      for (int j = 0; j < firstLangAnswers.length; j++) {
-        final firstLangAnswer =
-            firstLangAnswers[j]['text']?.toString().trim() ?? '';
-        final currentLangAnswer = j < currentLangAnswers.length
-            ? currentLangAnswers[j]['text']?.toString().trim() ?? ''
-            : '';
-
-        if (firstLangAnswer.isNotEmpty && currentLangAnswer.isEmpty) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return sync_service.getUnsyncQuestionIndices(_currentReport!);
   }
 
   String generateSyncJson() {
     if (_currentReport == null) return '{}';
-    final unsyncIndices = getUnsyncQuestionIndices();
-    if (unsyncIndices.isEmpty) return '{}';
-
-    final data = <String, dynamic>{
-      'languages': _currentReport!.availableLanguages,
-      'questions': <Map<String, dynamic>>[],
-    };
-
-    for (final idx in unsyncIndices) {
-      final q = _currentReport!.questions[idx];
-      final answerVariants = <List<String>>[];
-
-      for (final lang in _currentReport!.availableLanguages) {
-        final answers = _currentReport!.getAnswersForQuestion(idx, lang);
-        for (int a = 0; a < answers.length; a++) {
-          if (a >= answerVariants.length) {
-            answerVariants.add([]);
-          }
-          final text = answers[a]['text'] ?? '';
-          answerVariants[a].add(text);
-        }
-      }
-
-      final answersWithId = <Map<String, dynamic>>[];
-      for (int answerIdx = 0; answerIdx < answerVariants.length; answerIdx++) {
-        final variant = answerVariants[answerIdx];
-        // Включаем ответ если есть хотя бы один непустой текст (для перевода)
-        final hasNonEmpty = variant.any((text) => text.isNotEmpty);
-        if (hasNonEmpty) {
-          answersWithId.add({'id': answerIdx, 'variants': variant});
-        }
-      }
-
-      if (answersWithId.isNotEmpty) {
-        (data['questions'] as List).add({'id': q.id, 'answers': answersWithId});
-      }
-    }
-
-    return const JsonEncoder.withIndent('  ').convert(data);
+    return sync_service.generateSyncJson(_currentReport!);
   }
 
-  // M-30: лимиты для validateSyncJson — защита от гигантских/некорректных payload.
-  static const int _maxSyncLanguages = 32;
-  static const int _maxSyncQuestions = 2000;
-  static const int _maxSyncAnswersPerQuestion = 2000;
-  static const int _maxSyncVariantLength = 50000;
-
   Map<String, dynamic>? validateSyncJson(String jsonStr) {
-    try {
-      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-      if (!data.containsKey('languages')) return null;
-      if (!data.containsKey('questions')) return null;
-
-      final languagesRaw = data['languages'];
-      if (languagesRaw is! List) return null;
-      if (languagesRaw.isEmpty || languagesRaw.length > _maxSyncLanguages) {
-        return null;
-      }
-      // Каждая запись языка — непустая строка.
-      for (final lang in languagesRaw) {
-        if (lang is! String || lang.isEmpty) return null;
-      }
-      final languages = languagesRaw.cast<String>();
-
-      final questionsRaw = data['questions'];
-      if (questionsRaw is! List) return null;
-      if (questionsRaw.length > _maxSyncQuestions) return null;
-
-      for (final q in questionsRaw) {
-        if (q is! Map) return null;
-        // id должен быть int.
-        final id = q['id'];
-        if (id is! int) return null;
-        if (!q.containsKey('answers')) return null;
-
-        final answers = q['answers'];
-        if (answers is! List) return null;
-        if (answers.length > _maxSyncAnswersPerQuestion) return null;
-
-        for (final answer in answers) {
-          if (answer is! Map) return null;
-          final answerId = answer['id'];
-          if (answerId is! int) return null;
-          if (!answer.containsKey('variants')) return null;
-
-          final variants = answer['variants'];
-          if (variants is! List) return null;
-          if (variants.length != languages.length) return null;
-          // Каждый вариант — строка ограниченной длины.
-          for (final v in variants) {
-            if (v is! String) return null;
-            if (v.length > _maxSyncVariantLength) return null;
-          }
-        }
-      }
-
-      return data;
-    } catch (e) {
-      return null;
-    }
+    return sync_service.validateSyncJson(jsonStr);
   }
 
   void clearAnswersInLanguage(String langCode) {
     if (_currentReport == null) return;
-
-    for (int i = 0; i < _currentReport!.questions.length; i++) {
-      final qid = i.toString();
-      if (_currentReport!.translations.containsKey(qid)) {
-        _currentReport!.translations[qid]![langCode] = [TranslationAnswer()];
-      }
-    }
+    sync_service.clearAnswersInLanguage(_currentReport!, langCode);
     notifyListeners();
   }
 
   void applySyncAnswers(String jsonStr) {
     if (_currentReport == null) return;
-    final data = validateSyncJson(jsonStr);
-    if (data == null) {
-      if (kDebugMode) {
-        debugPrint('applySyncAnswers: validateSyncJson returned null');
-      }
-      return;
+    if (sync_service.applySyncAnswers(_currentReport!, jsonStr)) {
+      notifyListeners();
     }
-
-    // Сохраняем языки из JSON, чтобы сопоставить варианты
-    final jsonLanguages = (data['languages'] as List).cast<String>();
-    // Используем языки ИЗ ОТЧЕТА для обновления
-    final languages = _currentReport!.availableLanguages;
-    final questions = data['questions'] as List;
-
-    if (kDebugMode) {
-      debugPrint('applySyncAnswers START: jsonLanguages=$jsonLanguages');
-      debugPrint('applySyncAnswers START: reportLanguages=$languages');
-      debugPrint('applySyncAnswers START: questions count=${questions.length}');
-    }
-
-    for (final qData in questions) {
-      final questionId = qData['id'] as int;
-      final answers = qData['answers'] as List;
-
-      final qIndex = _currentReport!.questions.indexWhere(
-        (q) => q.id == questionId,
-      );
-      if (qIndex == -1) continue;
-
-      final qid = qIndex.toString();
-
-      // Collect all attention flags across all languages for this question
-      final allAttentionFlags = <bool>[];
-      final markersList = _currentReport!.markers[qid] ?? [];
-      for (int i = 0; i < markersList.length; i++) {
-        allAttentionFlags.add(markersList[i].attention);
-      }
-
-      // Determine for each answer index: is there ANY language with attention=true?
-      final maxAnswers = allAttentionFlags.length;
-      final shouldHaveAttention = List.filled(maxAnswers, false);
-      for (int i = 0; i < maxAnswers; i++) {
-        if (i < allAttentionFlags.length && allAttentionFlags[i]) {
-          shouldHaveAttention[i] = true;
-        }
-      }
-
-      // Save existing media lists
-      final savedMedia = <List<MediaItem>>[];
-      for (int i = 0; i < markersList.length; i++) {
-        savedMedia.add(List.from(markersList[i].media));
-      }
-
-      // Ensure translations map exists for this question
-      if (!_currentReport!.translations.containsKey(qid)) {
-        _currentReport!.translations[qid] = {};
-      }
-
-      // Initialize all languages with empty answers if not exists
-      for (final lang in _currentReport!.availableLanguages) {
-        if (!_currentReport!.translations[qid]!.containsKey(lang)) {
-          _currentReport!.translations[qid]![lang] = [];
-        }
-      }
-
-      // Update translations for all languages in sync data
-      for (final answerData in answers) {
-        final answerId = answerData['id'] as int;
-        final texts = (answerData['variants'] as List).cast<String>();
-
-        if (kDebugMode) {
-          debugPrint(
-            'applySyncAnswers: qid=$qid, answerId=$answerId, texts=$texts',
-          );
-        }
-
-        for (final lang in languages) {
-          // Найдем индекс языка в JSON языках
-          final jsonLangIndex = jsonLanguages.indexOf(lang);
-          if (jsonLangIndex == -1) {
-            if (kDebugMode) {
-              debugPrint(
-                'applySyncAnswers: lang=$lang not found in jsonLanguages',
-              );
-            }
-            continue; // Язык не найден в JSON, пропускаем
-          }
-
-          final text = jsonLangIndex < texts.length ? texts[jsonLangIndex] : '';
-          final answersList = _currentReport!.translations[qid]![lang]!;
-
-          // Skip empty texts — don't overwrite existing non-empty answers
-          if (text.isEmpty) continue;
-
-          if (answerId < answersList.length) {
-            answersList[answerId] = TranslationAnswer(
-              text: text,
-              isEmpty: false,
-            );
-          } else {
-            while (answersList.length < answerId) {
-              answersList.add(TranslationAnswer());
-            }
-            answersList.add(TranslationAnswer(text: text, isEmpty: false));
-          }
-        }
-      }
-
-      // Update markers with consistent attention flags and preserved media
-      if (!_currentReport!.markers.containsKey(qid)) {
-        _currentReport!.markers[qid] = [];
-      }
-
-      for (final answerData in answers) {
-        final answerId = answerData['id'] as int;
-
-        bool attention = answerId < shouldHaveAttention.length
-            ? shouldHaveAttention[answerId]
-            : false;
-
-        List<MediaItem> media = [];
-        if (answerId < savedMedia.length) {
-          media = savedMedia[answerId];
-        }
-
-        if (answerId < _currentReport!.markers[qid]!.length) {
-          _currentReport!.markers[qid]![answerId].attention = attention;
-          _currentReport!.markers[qid]![answerId].media = media;
-        } else {
-          _currentReport!.markers[qid]!.add(
-            AnswerMarkers(attention: attention, media: media),
-          );
-        }
-      }
-    }
-
-    notifyListeners();
   }
 
   @override

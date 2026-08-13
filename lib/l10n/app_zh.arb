@@ -210,6 +210,7 @@
   "selected": "已选择",
   "enterTranslatedTemplate": "输入翻译后的模板",
   "noAppToOpenHtml": "请安装浏览器或应用程序查看HTML",
+  "htmlRequiresSync": "要查看HTML，请先将报告保存到服务器",
   "needsWorkTooltip": "问题需要修改...",
   "removeAttentionMark": "取消\"注意\"标记",
   "addAttentionMark": "标记\"注意\"",

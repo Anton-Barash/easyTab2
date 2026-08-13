@@ -225,37 +225,21 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
               },
               onLongPress: () => _toggleSelect(index),
               child: isVideo
-                  ? (!kIsWeb && media['localPath'] != null
-                        ? VideoThumbnailWidget(
-                            localPath: _getAbsolutePath(media['localPath']),
-                            size: 100,
-                            fileSize: media['fileSize'] as int?,
-                            compressedSize: media['compressedSize'] as int?,
-                          )
-                        : (kIsWeb && (media['webUrl'] as String?) != null
-                              ? Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Image.network(
-                                      media['webUrl'] as String,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => const Icon(
-                                        Icons.broken_image,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const Positioned(
-                                      bottom: 4,
-                                      right: 4,
-                                      child: Icon(
-                                        Icons.play_circle,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : const Icon(Icons.videocam, color: Colors.grey)))
+                  ? VideoThumbnailWidget(
+                      localPath: !kIsWeb
+                          ? _getAbsolutePath(media['localPath'])
+                          : null,
+                      size: 100,
+                      fileSize: media['fileSize'] as int?,
+                      compressedSize: media['compressedSize'] as int?,
+                      webBytes: kIsWeb
+                          ? (media['webBytes'] as Uint8List?)
+                          : null,
+                      webUrl: kIsWeb ? (media['webUrl'] as String?) : null,
+                      thumbnailUrl: kIsWeb
+                          ? (media['thumbnailUrl'] as String?)
+                          : null,
+                    )
                   : (!kIsWeb && media['localPath'] != null
                         ? fileImageWidget(
                             _getAbsolutePath(media['localPath']) ??

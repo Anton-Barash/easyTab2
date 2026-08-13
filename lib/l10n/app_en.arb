@@ -210,6 +210,7 @@
   "selected": "Selected",
   "enterTranslatedTemplate": "Enter translated template",
   "noAppToOpenHtml": "Install a browser or app to view HTML",
+  "htmlRequiresSync": "To view HTML, save the report to the server first",
   "needsWorkTooltip": "Question needs work...",
   "removeAttentionMark": "Remove \"Attention\" mark",
   "addAttentionMark": "Mark \"Attention\"",
