@@ -23,10 +23,8 @@ import '../utils/filename_utils.dart';
 import '../services/anonymous_id_service.dart';
 import '../utils/share_link_opener_stub.dart'
     if (dart.library.html) '../utils/share_link_opener_web.dart';
-import '../widgets/form_fill/header_card.dart';
-import '../widgets/form_fill/header_field.dart';
+import '../widgets/form_fill/edit_header_dialog.dart';
 import '../widgets/form_fill/header_list_tile.dart';
-import '../widgets/form_fill/header_photo_picker.dart';
 import '../widgets/form_fill/header_side_panel_tile.dart';
 import '../widgets/form_fill/permission_option.dart';
 import '../widgets/form_fill/picker_item.dart';
@@ -34,6 +32,7 @@ import '../widgets/form_fill/question_card.dart';
 import '../widgets/form_fill/section_title.dart';
 import '../widgets/sync/sync_dialog.dart';
 import '../widgets/sync/sync_menu_dialog.dart';
+import 'full_media_viewer_screen.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'dart:async';
@@ -2693,7 +2692,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
                 child: HeaderListTile(
                   report: report,
                   reportState: reportState,
-                  isMobile: isMobile,
                   onNavigateToHeader: () {
                     setState(() {
                       _currentPage = -1;
@@ -2705,6 +2703,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       _scrollSidePanelToQuestion(-1, report);
                     });
                   },
+                  onEditHeader: () =>
+                      _showEditHeaderDialog(context, reportState),
+                  onPhotoAreaTap: () =>
+                      _showHeaderPhotoPicker(context, reportState),
+                  onViewPhoto: () =>
+                      _openHeaderPhotoViewer(context, reportState),
                 ),
               );
             }
@@ -2773,23 +2777,22 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ? const EdgeInsets.only(bottom: 100)
                         : const EdgeInsets.all(20),
                     child: Center(
-                      child: HeaderCard(
-                        report: report,
-                        reportState: reportState,
-                        onOpenSidePanel: () {
-                          setState(() => _isSidePanelCollapsed = false);
-                        },
-                        onNavigateToHeader: () {
-                          setState(() => _isSidePanelCollapsed = false);
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _scrollSidePanelToQuestion(-1, report);
-                          });
-                        },
-                        onEditHeader: () =>
-                            _showEditHeaderDialog(context, reportState),
-                        onPhotoAreaTap: () =>
-                            _showHeaderPhotoPicker(context, reportState),
-                      ),
+                      child: HeaderListTile(
+                      report: report,
+                      reportState: reportState,
+                      onNavigateToHeader: () {
+                        setState(() => _isSidePanelCollapsed = false);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _scrollSidePanelToQuestion(-1, report);
+                        });
+                      },
+                      onEditHeader: () =>
+                          _showEditHeaderDialog(context, reportState),
+                      onPhotoAreaTap: () =>
+                          _showHeaderPhotoPicker(context, reportState),
+                      onViewPhoto: () =>
+                          _openHeaderPhotoViewer(context, reportState),
+                    ),
                     ),
                   );
                 }
@@ -2855,182 +2858,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   void _showEditHeaderDialog(BuildContext context, ReportState reportState) {
-    final report = reportState.currentReport;
-    if (report == null) return;
-    final loc = AppLocalizations.of(context)!;
-
-    final productTypeController = TextEditingController(
-      text: report.productType,
-    );
-    final factoryController = TextEditingController(text: report.factory);
-    final modelController = TextEditingController(text: report.model);
-
-    final hadHeaderImageBefore =
-        report.headerImagePath != null && report.headerImagePath!.isNotEmpty;
-
-    String? tempPhotoPath;
-    if (hadHeaderImageBefore && reportState.currentReportPath != null) {
-      final sourceFile = File(
-        '${reportState.currentReportPath}/${report.headerImagePath}',
-      );
-      if (sourceFile.existsSync()) {
-        final tempDir = Directory.systemTemp;
-        final tempFile = File(
-          '${tempDir.path}/header_edit_${DateTime.now().millisecondsSinceEpoch}.jpg',
-        );
-        sourceFile.copySync(tempFile.path);
-        tempPhotoPath = tempFile.path;
-      }
-    }
-
-    // Байты для web-превью
-    Uint8List? tempPhotoBytes;
-    String? tempPhotoFileName;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      enableDrag: true,
-      isDismissible: false,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final hasImage = tempPhotoPath != null || tempPhotoBytes != null;
-          final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-          return Padding(
-            padding: EdgeInsets.only(bottom: bottomInset),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: AppColors.grey200, width: 1),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        loc.editHeader,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close, size: 20),
-                        padding: const EdgeInsets.all(8),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  child: Column(
-                    children: [
-                      HeaderField(
-                        label: loc.productType,
-                        controller: productTypeController,
-                      ),
-                      const SizedBox(height: 12),
-                      HeaderField(
-                        label: loc.factory,
-                        controller: factoryController,
-                      ),
-                      const SizedBox(height: 12),
-                      HeaderField(
-                        label: loc.model,
-                        controller: modelController,
-                      ),
-                      const SizedBox(height: 16),
-                      HeaderPhotoPicker(
-                        hasImage: hasImage,
-                        imagePath: kIsWeb ? null : tempPhotoPath,
-                        imageBytes: kIsWeb ? tempPhotoBytes : null,
-                        loc: loc,
-                        onImagePathChanged: (path) {
-                          setDialogState(() {
-                            tempPhotoPath = path;
-                            tempPhotoBytes = null;
-                            tempPhotoFileName = null;
-                          });
-                        },
-                        onImageBytesChanged: (bytes) {
-                          setDialogState(() {
-                            tempPhotoBytes = bytes;
-                            tempPhotoPath = null;
-                            tempPhotoFileName =
-                                'header_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            reportState.updateHeaderInfo(
-                              productType: productTypeController.text.trim(),
-                              factory: factoryController.text.trim(),
-                              model: modelController.text.trim(),
-                            );
-                            try {
-                              if (kIsWeb) {
-                                if (tempPhotoBytes != null) {
-                                  await reportState.addHeaderImageFromBytes(
-                                    tempPhotoBytes!,
-                                    tempPhotoFileName ?? 'header.jpg',
-                                  );
-                                } else if (hadHeaderImageBefore) {
-                                  await reportState.removeHeaderImage();
-                                }
-                              } else {
-                                if (tempPhotoPath != null) {
-                                  await reportState.addHeaderImage(
-                                    File(tempPhotoPath!),
-                                  );
-                                } else if (hadHeaderImageBefore) {
-                                  await reportState.removeHeaderImage();
-                                }
-                              }
-                            } catch (e) {
-                              debugPrint('Header image error: $e');
-                            }
-                            await reportState.saveReport();
-                            if (ctx.mounted) Navigator.pop(ctx);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.border,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            loc.save,
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+    showEditHeaderDialog(context: context, reportState: reportState);
   }
 
   Widget _buildQuestionCard(
@@ -3236,6 +3064,32 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
+  /// Открывает фото шапки в полноэкранном просмотрщике —
+  /// тот же модуль, что и для медиа ответов (media_grid.dart).
+  void _openHeaderPhotoViewer(BuildContext context, ReportState reportState) {
+    // Снимаем фокус с текстовых полей, чтобы после закрытия просмотрщика
+    // PageView не прокручивался к полю с курсором.
+    FocusManager.instance.primaryFocus?.unfocus();
+    final imagePath = reportState.currentReport?.headerImagePath;
+    if (imagePath == null || imagePath.isEmpty) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => FullMediaViewerScreen(
+          mediaList: [
+            {'type': 'image/*', 'localPath': imagePath},
+          ],
+          initialIndex: 0,
+          reportPath: reportState.currentReportPath,
+          onDelete: (_) async {
+            await reportState.removeHeaderImage();
+            await reportState.saveReport();
+          },
+        ),
+      ),
+    );
+  }
+
   /// Показывает диалог выбора фото для шапки (только фото, без видео).
   Future<void> _showHeaderPhotoPicker(
     BuildContext context,
@@ -3317,9 +3171,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final ext = image.path.split('.').last.toLowerCase();
     if (!allowedExtensions.contains(ext)) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Неверный формат файла')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Неверный формат файла')));
       return;
     }
 
@@ -3331,7 +3185,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     if (fileSize > maxSize) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Файл слишком большой (макс. 10MB)')),
+        const SnackBar(content: Text('Файл слишком большой (макс. 10MB)')),
       );
       return;
     }
@@ -3345,15 +3199,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
         await reportState.addHeaderImage(File(image.path));
       }
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Фото добавлено')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Фото добавлено')));
     } catch (e) {
       debugPrint('Header photo error: $e');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 

@@ -104,7 +104,7 @@ class SyncMenuDialogState extends State<SyncMenuDialog> {
     }
   }
 
-  void _applySync() {
+  Future<void> _applySync() async {
     final loc = AppLocalizations.of(context)!;
     final jsonText = _jsonController.text.trim();
     if (jsonText.isEmpty) {
@@ -115,7 +115,8 @@ class SyncMenuDialogState extends State<SyncMenuDialog> {
     }
 
     try {
-      widget.reportState.applySyncAnswers(jsonText);
+      await widget.reportState.applySyncAnswers(jsonText);
+      if (!mounted) return;
       Navigator.pop(context);
       widget.onApplied();
       ScaffoldMessenger.of(

@@ -7,10 +7,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-/// Виджет выбора/замены фото шапки отчёта.
+/// Виджет выбора/замены фото шапки отчёта (в едином стиле дизайн-системы).
 ///
-/// Используется внутри диалога редактирования шапки.
-/// Поддерживает камеру и галерею (как обычные карточки медиа).
+/// Стиль: секционный блок с закруглённой рамкой Outline (8px),
+/// превью 180px с опцией замены/удаления, кнопки в стиле других
+/// модалок (AppColors.border, скругление 8px).
 class HeaderPhotoPicker extends StatelessWidget {
   final bool hasImage;
   final String? imagePath;
@@ -119,97 +120,172 @@ class HeaderPhotoPicker extends StatelessWidget {
         Text(
           loc.photo,
           style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            color: AppColors.grey800,
-            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textDark,
+            fontSize: 13,
+            letterSpacing: 0.1,
           ),
         ),
-        const SizedBox(height: 6),
-        if (hasImage && (imagePath != null || imageBytes != null)) ...[
-          Stack(
-            children: [
-              Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  image: DecorationImage(
-                    image: imageBytes != null
-                        ? MemoryImage(imageBytes!)
-                        : fileImageProvider(imagePath!),
-                    fit: BoxFit.cover,
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.greyBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.grey200, width: 1.5),
+          ),
+          child: hasImage && (imagePath != null || imageBytes != null)
+              ? Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            decoration: BoxDecoration(
+                              image: DecorationImage(
+                                image: imageBytes != null
+                                    ? MemoryImage(imageBytes!)
+                                    : fileImageProvider(imagePath!),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            height: 180,
+                          ),
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Ink(
+                                decoration: const ShapeDecoration(
+                                  color: Colors.black54,
+                                  shape: CircleBorder(),
+                                ),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () {
+                                    onImagePathChanged(null);
+                                  },
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(6),
+                                    child: Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => onImagePathChanged(null),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textSecondary,
+                              side: const BorderSide(
+                                color: AppColors.greyBorder,
+                                width: 1.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              backgroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            label: Text(loc.deletePhoto),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _pickImage(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textDark,
+                              side: const BorderSide(
+                                color: AppColors.border,
+                                width: 1.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              backgroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.swap_horiz, size: 18),
+                            label: Text(loc.changePhoto),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => _pickImage(context),
+                    child: Container(
+                      width: double.infinity,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.greyBorder,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: AppColors.grey100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.add_a_photo_outlined,
+                              size: 28,
+                              color: AppColors.border,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            loc.addPhoto,
+                            style: const TextStyle(
+                              color: AppColors.textDark,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            loc.photoFromGallery,
+                            style: const TextStyle(
+                              color: AppColors.textTertiary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: GestureDetector(
-                  onTap: () => onImagePathChanged(null),
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      color: AppColors.grey900,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => _pickImage(context),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.grey800,
-                side: const BorderSide(color: AppColors.greyBorder),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              child: Text(loc.changePhoto),
-            ),
-          ),
-        ] else ...[
-          InkWell(
-            onTap: () => _pickImage(context),
-            child: Container(
-              width: double.infinity,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.greyBackground,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.greyBorder, width: 1),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.add_a_photo,
-                    size: 32,
-                    color: AppColors.greyDisabled,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    loc.addPhoto,
-                    style: const TextStyle(
-                      color: AppColors.textLight,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ],
     );
   }

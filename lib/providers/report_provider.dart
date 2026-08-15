@@ -2381,10 +2381,13 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applySyncAnswers(String jsonStr) {
+  Future<void> applySyncAnswers(String jsonStr) async {
     if (_currentReport == null) return;
     if (sync_service.applySyncAnswers(_currentReport!, jsonStr)) {
       notifyListeners();
+      // Автосохранение после успешной синхронизации переводов:
+      // гарантирует, что пользователь не потеряет загруженные переводы.
+      await saveReport();
     }
   }
 

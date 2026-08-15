@@ -3,7 +3,10 @@
 //
 // Вынесен из form_fill_screen.dart при рефакторинге.
 // Открывается из карточки ответа; поддерживает:
-//   - постраничное перелистывание (PageView)
+//   - постраничное перелистывание (ZoomablePhotoViewer)
+//   - зум фото: pinch (даже в середине свайпа), двойной тап
+//   - свайп увеличенного фото: панорама, затем перелист страницы
+//     (поведение как в галереях современных телефонов)
 //   - воспроизведение видео (video_player)
 //   - режим сетки с множественным выделением/удалением
 // ============================================================
@@ -14,7 +17,7 @@ import 'package:easy_tab/utils/file_image.dart'
 import 'package:easy_tab/utils/native_file_ops.dart'
     if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import 'package:easy_tab/widgets/video_thumbnail.dart';
-import 'package:easy_tab/widgets/zoomable_image.dart';
+import 'package:easy_tab/widgets/zoomable_photo_viewer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,12 +44,14 @@ class FullMediaViewerScreen extends StatefulWidget {
 }
 
 class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
-  late final PageController _pageController;
+  final ZoomablePhotoViewerController _viewerController =
+      ZoomablePhotoViewerController();
   late int _currentIndex;
   bool _showGrid = false;
   final Set<int> _selectedIndices = {};
   VideoPlayerController? _videoController;
   bool _isPlaying = false;
+  int? _videoIndex;
 
   String? _getAbsolutePath(String? relativePath) {
     if (relativePath == null || relativePath.isEmpty) return null;
@@ -61,7 +66,6 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: _currentIndex);
 
     if (widget.startInSelectionMode) {
       _showGrid = true;
@@ -88,6 +92,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
       final isVideo = (media['type'] as String? ?? '').startsWith('video');
 
       if (isVideo) {
+        _videoIndex = index;
         if (!kIsWeb && localPath != null) {
           _videoController = createFileVideoController(localPath)
             ..initialize().then((_) {
@@ -119,13 +124,16 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                   });
           }
         }
+      } else {
+        // Страница не видео — сбрасываем привязку контроллера, чтобы
+        // соседние видео-страницы при перелисте не показывали чужой плеер.
+        _videoIndex = null;
       }
     }
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
     disposeVideoBytesController(_videoController);
     _videoController?.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -218,9 +226,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                   _showGrid = false;
                 });
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (_pageController.hasClients) {
-                    _pageController.jumpToPage(index);
-                  }
+                  _viewerController.jumpToPage(index);
                 });
                 _initializeVideo(index);
               },
@@ -292,26 +298,23 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     return Column(
       children: [
         Expanded(
-          child: PageView.builder(
-            controller: _pageController,
+          // ZoomablePhotoViewer решает арену жестов целиком:
+          //   - pinch-зум доступен в любой момент, даже в середине свайпа;
+          //   - свайп увеличенного фото панорамирует его, а перелист
+          //     страницы начинается только когда фото пролистано до края
+          //     (панорамирование и листание работают всегда);
+          //   - при масштабе 1 свайп сразу листает фото;
+          //   - при отпускании смещение > 1/4 ширины экрана → перелист.
+          child: ZoomablePhotoViewer(
+            controller: _viewerController,
             itemCount: widget.mediaList.length,
+            initialIndex: _currentIndex,
             onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
+              setState(() => _currentIndex = index);
               _initializeVideo(index);
             },
-            itemBuilder: (ctx, index) {
-              final media = widget.mediaList[index] as Map<String, dynamic>;
-              final isVideo = (media['type'] as String? ?? '').startsWith(
-                'video',
-              );
-
-              if (isVideo) {
-                return _buildVideoPlayer(index);
-              }
-              return _buildPhotoPage(media);
-            },
+            imageProvider: _imageProviderFor,
+            pageBuilder: _buildPageFallback,
           ),
         ),
         // Video controls
@@ -321,44 +324,44 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     );
   }
 
-  /// Страница с фото: pinch-zoom + двойной тап (см. [ZoomableImage]).
-  Widget _buildPhotoPage(Map<String, dynamic> media) {
+  /// Возвращает ImageProvider для страницы-фото или null для видео
+  /// (видео и «пустые» страницы отрисовываются через [pageBuilder]).
+  ImageProvider? _imageProviderFor(int index) {
+    final media = widget.mediaList[index] as Map<String, dynamic>;
+    if ((media['type'] as String? ?? '').startsWith('video')) return null;
+
     final localPath = _getAbsolutePath(media['localPath'] as String?);
     final webUrl = media['webUrl'] as String?;
 
-    final Widget image;
     if (!kIsWeb && localPath != null) {
-      image = fileImageWidget(localPath, fit: BoxFit.contain);
-    } else if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
-      image = Image.network(
-        webUrl,
-        fit: BoxFit.contain,
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return const Center(
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: Colors.white,
-              ),
-            ),
-          );
-        },
-        errorBuilder: (_, _, _) =>
-            const Icon(Icons.broken_image, size: 60, color: Colors.white),
-      );
-    } else {
-      return const Center(
-        child: Icon(Icons.image, size: 60, color: Colors.white),
-      );
+      return fileImageProvider(localPath);
     }
-
-    return Center(child: ZoomableImage(child: image));
+    if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
+      return NetworkImage(webUrl);
+    }
+    // Источник недоступен — отрисуем заглушку через pageBuilder.
+    return null;
   }
 
-  Widget _buildVideoPlayer(int index) {
+  Widget _buildPageFallback(int index) {
+    final media = widget.mediaList[index] as Map<String, dynamic>;
+    final isVideo = (media['type'] as String? ?? '').startsWith('video');
+
+    if (isVideo) {
+      // Плеер показываем только на текущей странице видео; соседние
+      // видео-страницы (при перелисте) — иконка-заглушка.
+      if (index == _videoIndex) return _buildVideoPlayer();
+      return const Center(
+        child: Icon(Icons.videocam, size: 60, color: Colors.white),
+      );
+    }
+    // Фото без доступного источника.
+    return const Center(
+      child: Icon(Icons.broken_image, size: 60, color: Colors.white),
+    );
+  }
+
+  Widget _buildVideoPlayer() {
     // Контроллер создаётся в _initializeVideo только при наличии
     // источника (файл на native, webUrl/webBytes на web), поэтому
     // здесь достаточно проверить инициализацию.
