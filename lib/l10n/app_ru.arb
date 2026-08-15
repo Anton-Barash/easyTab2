@@ -303,5 +303,53 @@
   "shareLinkSaveFirst": "Сначала сохраните отчёт на сервере",
   "shareLinkError": "Не удалось создать ссылку",
   "shareAccess": "Доступ",
-  "shareLinkCopied": "Скопировано"
+  "shareLinkCopied": "Скопировано",
+  "templateSourceFile": "Excel (.xlsx), JSON, ZIP",
+  "templateSourceFileDesc": "Загрузить файл шаблона",
+  "templateSourceJson": "Вставить JSON",
+  "templateSourceJsonDesc": "Вставить JSON-код вручную",
+  "templateDownloadSample": "Скачать пример",
+  "templateDownloadSampleDesc": "Образец JSON-шаблона",
+  "jsonTemplateTitle": "Вставьте JSON-шаблон",
+  "jsonTemplateHint": "questions: [...], availableLanguages: [...]",
+  "loadJsonButton": "Загрузить",
+  "jsonParseError": "Ошибка парсинга JSON",
+  "templateSampleSaved": "Пример сохранён: {path}",
+  "@templateSampleSaved": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "templateSaveError": "Ошибка сохранения: {error}",
+  "@templateSaveError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "takePhotoCamera": "Сфотографировать",
+  "takePhotoCameraDesc": "Сделать фото камерой",
+  "photoFromGalleryHeader": "Выбрать из галереи",
+  "photoFromGalleryHeaderDesc": "Загрузить существующее фото",
+  "compressVideoTitle": "Сжать видео",
+  "highQuality": "Высокое качество",
+  "highQualityDesc": "Меньшее сжатие, лучше качество",
+  "mediumQuality": "Среднее качество",
+  "mediumQualityDesc": "Сбалансированное сжатие",
+  "lowQuality": "Низкое качество",
+  "lowQualityDesc": "Максимальное сжатие",
+  "compressingVideo": "Сжимаем видео...",
+  "noVideoToCompress": "Нет видео для сжатия или все уже сжаты",
+  "compressionComplete": "Сжатие завершено",
+  "compressedVideoCount": "Сжато видео: {count}",
+  "@compressedVideoCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "compressionError": "Ошибка сжатия: {error}",
+  "@compressionError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  }
 }

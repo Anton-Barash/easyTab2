@@ -731,4 +731,97 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shareLinkCopied => 'Copied';
+
+  @override
+  String get templateSourceFile => 'Excel (.xlsx), JSON, ZIP';
+
+  @override
+  String get templateSourceFileDesc => 'Upload template file';
+
+  @override
+  String get templateSourceJson => 'Paste JSON';
+
+  @override
+  String get templateSourceJsonDesc => 'Paste JSON code manually';
+
+  @override
+  String get templateDownloadSample => 'Download sample';
+
+  @override
+  String get templateDownloadSampleDesc => 'Sample JSON template';
+
+  @override
+  String get jsonTemplateTitle => 'Paste JSON template';
+
+  @override
+  String get jsonTemplateHint => 'questions: [...], availableLanguages: [...]';
+
+  @override
+  String get loadJsonButton => 'Load';
+
+  @override
+  String get jsonParseError => 'JSON parse error';
+
+  @override
+  String templateSampleSaved(String path) {
+    return 'Sample saved: $path';
+  }
+
+  @override
+  String templateSaveError(String error) {
+    return 'Save error: $error';
+  }
+
+  @override
+  String get takePhotoCamera => 'Take photo';
+
+  @override
+  String get takePhotoCameraDesc => 'Take photo with camera';
+
+  @override
+  String get photoFromGalleryHeader => 'Choose from gallery';
+
+  @override
+  String get photoFromGalleryHeaderDesc => 'Load existing photo';
+
+  @override
+  String get compressVideoTitle => 'Compress Video';
+
+  @override
+  String get highQuality => 'High quality';
+
+  @override
+  String get highQualityDesc => 'Less compression, better quality';
+
+  @override
+  String get mediumQuality => 'Medium quality';
+
+  @override
+  String get mediumQualityDesc => 'Balanced compression';
+
+  @override
+  String get lowQuality => 'Low quality';
+
+  @override
+  String get lowQualityDesc => 'Maximum compression';
+
+  @override
+  String get compressingVideo => 'Compressing video...';
+
+  @override
+  String get noVideoToCompress =>
+      'No video to compress or all already compressed';
+
+  @override
+  String get compressionComplete => 'Compression complete';
+
+  @override
+  String compressedVideoCount(int count) {
+    return 'Compressed videos: $count';
+  }
+
+  @override
+  String compressionError(String error) {
+    return 'Compression error: $error';
+  }
 }

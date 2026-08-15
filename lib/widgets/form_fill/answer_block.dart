@@ -84,6 +84,9 @@ class AnswerBlock extends StatelessWidget {
             controller: controller,
             maxLines: null,
             enabled: enabled,
+            // Автоматически предлагать заглавную букву в начале
+            // предложения (после точки).
+            textCapitalization: TextCapitalization.sentences,
             style: TextStyle(
               color: enabled ? AppColors.textDark : AppColors.textLight,
             ),

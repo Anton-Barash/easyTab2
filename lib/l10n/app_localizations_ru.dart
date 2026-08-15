@@ -732,4 +732,96 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get shareLinkCopied => 'Скопировано';
+
+  @override
+  String get templateSourceFile => 'Excel (.xlsx), JSON, ZIP';
+
+  @override
+  String get templateSourceFileDesc => 'Загрузить файл шаблона';
+
+  @override
+  String get templateSourceJson => 'Вставить JSON';
+
+  @override
+  String get templateSourceJsonDesc => 'Вставить JSON-код вручную';
+
+  @override
+  String get templateDownloadSample => 'Скачать пример';
+
+  @override
+  String get templateDownloadSampleDesc => 'Образец JSON-шаблона';
+
+  @override
+  String get jsonTemplateTitle => 'Вставьте JSON-шаблон';
+
+  @override
+  String get jsonTemplateHint => 'questions: [...], availableLanguages: [...]';
+
+  @override
+  String get loadJsonButton => 'Загрузить';
+
+  @override
+  String get jsonParseError => 'Ошибка парсинга JSON';
+
+  @override
+  String templateSampleSaved(String path) {
+    return 'Пример сохранён: $path';
+  }
+
+  @override
+  String templateSaveError(String error) {
+    return 'Ошибка сохранения: $error';
+  }
+
+  @override
+  String get takePhotoCamera => 'Сфотографировать';
+
+  @override
+  String get takePhotoCameraDesc => 'Сделать фото камерой';
+
+  @override
+  String get photoFromGalleryHeader => 'Выбрать из галереи';
+
+  @override
+  String get photoFromGalleryHeaderDesc => 'Загрузить существующее фото';
+
+  @override
+  String get compressVideoTitle => 'Сжать видео';
+
+  @override
+  String get highQuality => 'Высокое качество';
+
+  @override
+  String get highQualityDesc => 'Меньшее сжатие, лучше качество';
+
+  @override
+  String get mediumQuality => 'Среднее качество';
+
+  @override
+  String get mediumQualityDesc => 'Сбалансированное сжатие';
+
+  @override
+  String get lowQuality => 'Низкое качество';
+
+  @override
+  String get lowQualityDesc => 'Максимальное сжатие';
+
+  @override
+  String get compressingVideo => 'Сжимаем видео...';
+
+  @override
+  String get noVideoToCompress => 'Нет видео для сжатия или все уже сжаты';
+
+  @override
+  String get compressionComplete => 'Сжатие завершено';
+
+  @override
+  String compressedVideoCount(int count) {
+    return 'Сжато видео: $count';
+  }
+
+  @override
+  String compressionError(String error) {
+    return 'Ошибка сжатия: $error';
+  }
 }

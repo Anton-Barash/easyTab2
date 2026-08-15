@@ -14,6 +14,7 @@ import 'package:easy_tab/utils/native_file_ops.dart'
 import '../models/report_models.dart';
 import '../services/api_service.dart';
 import '../services/report_excel_service.dart' as excel_service;
+import '../services/report_html_service.dart' as html_service;
 import '../services/report_sync_service.dart' as sync_service;
 import '../services/share_token_storage.dart';
 import '../services/api_result.dart';
@@ -23,6 +24,7 @@ import '../services/upload_helper.dart';
 import '../utils/image_compressor.dart';
 import '../services/video_upload_queue.dart';
 import '../utils/video_thumbnail_generator.dart';
+import 'package:v_video_compressor/v_video_compressor.dart';
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
@@ -57,6 +59,10 @@ class ReportState extends ChangeNotifier {
   /// или загружается.
   final Set<MediaItem> _pendingDeletion = <MediaItem>{};
 
+  /// Пути видео, уже сжатых в этой сессии (native), чтобы не сжимать
+  /// повторно. Очищается при загрузке отчёта (в [_sanitizeMediaState]).
+  final Set<String> _compressedVideoPaths = {};
+
   ReportState() {
     _videoProgressSub = _videoQueue.progressStream.listen((_) {
       // Прогресс хранится внутри MediaItem; UI сам его отрисовывает.
@@ -67,6 +73,10 @@ class ReportState extends ChangeNotifier {
 
   Report? get currentReport => _currentReport;
   String? get currentReportPath => _currentReportPath;
+
+  /// Флаг загрузки фото шапки (для индикатора в UI).
+  bool _isUploadingHeader = false;
+  bool get isUploadingHeader => _isUploadingHeader;
 
   /// Создать новый отчёт по шаблону.
   ///
@@ -153,45 +163,52 @@ class ReportState extends ChangeNotifier {
   Future<void> addHeaderImage(File file) async {
     if (_currentReport == null) return;
 
-    if (_currentReportPath == null) {
-      final folderPath = await _generateFolderName();
-      _currentReportPath = folderPath;
-      final folder = Directory(folderPath);
-      if (!await folder.exists()) {
-        await folder.create(recursive: true);
-      }
-      await Directory('$folderPath/photos').create(recursive: true);
-      await Directory('$folderPath/X').create(recursive: true);
-    }
-
-    final ext = file.path.split('.').last;
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final fileName = 'header_$timestamp.$ext';
-    final destPath = File('$_currentReportPath/$fileName');
-
-    if (_currentReport!.headerImagePath != null) {
-      final oldFilePath = File(
-        '$_currentReportPath/${_currentReport!.headerImagePath}',
-      );
-      if (await oldFilePath.exists()) {
-        await oldFilePath.delete();
-      }
-    }
-
-    final mimeType = mimeTypeFromFilename(file.path);
-    if (mimeType.startsWith('image/')) {
-      final bytes = await file.readAsBytes();
-      final compressed = ImageCompressor.compress(
-        Uint8List.fromList(bytes),
-        2000,
-      );
-      await destPath.writeAsBytes(compressed);
-    } else {
-      await file.copy(destPath.path);
-    }
-
-    _currentReport!.headerImagePath = fileName;
+    _isUploadingHeader = true;
     notifyListeners();
+
+    try {
+      if (_currentReportPath == null) {
+        final folderPath = await _generateFolderName();
+        _currentReportPath = folderPath;
+        final folder = Directory(folderPath);
+        if (!await folder.exists()) {
+          await folder.create(recursive: true);
+        }
+        await Directory('$folderPath/photos').create(recursive: true);
+        await Directory('$folderPath/X').create(recursive: true);
+      }
+
+      final ext = file.path.split('.').last;
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'header_$timestamp.$ext';
+      final destPath = File('$_currentReportPath/$fileName');
+
+      if (_currentReport!.headerImagePath != null) {
+        final oldFilePath = File(
+          '$_currentReportPath/${_currentReport!.headerImagePath}',
+        );
+        if (await oldFilePath.exists()) {
+          await oldFilePath.delete();
+        }
+      }
+
+      final mimeType = mimeTypeFromFilename(file.path);
+      if (mimeType.startsWith('image/')) {
+        final bytes = await file.readAsBytes();
+        final compressed = ImageCompressor.compress(
+          Uint8List.fromList(bytes),
+          2000,
+        );
+        await destPath.writeAsBytes(compressed);
+      } else {
+        await file.copy(destPath.path);
+      }
+
+      _currentReport!.headerImagePath = fileName;
+    } finally {
+      _isUploadingHeader = false;
+      notifyListeners();
+    }
   }
 
   /// Добавить фото шапки из байтов (для web-версии).
@@ -1677,6 +1694,8 @@ class ReportState extends ChangeNotifier {
   void _sanitizeMediaState() {
     if (_currentReport == null) return;
 
+    _compressedVideoPaths.clear();
+
     for (final markersList in _currentReport!.markers.values) {
       for (final markers in markersList) {
         for (final media in markers.media) {
@@ -1687,6 +1706,100 @@ class ReportState extends ChangeNotifier {
         }
       }
     }
+  }
+
+  /// Сжать все видео отчёта на нативной платформе (v_video_compressor).
+  ///
+  /// [qualityLevel]: 1 — высокое качество, 2 — среднее, 3 — низкое
+  /// (максимальное сжатие). [onProgress] вызывается с (текущий, всего)
+  /// при обработке каждого видео.
+  ///
+  /// Видео ≤ 5 МБ и уже сжатые в этой сессии пропускаются. Сжатый файл
+  /// копируется поверх оригинала, а [MediaItem.compressedSize] обновляется
+  /// (оригинальный [MediaItem.fileSize] сохраняется для индикатора в UI).
+  ///
+  /// Возвращает список relativePath успешно сжатых видео.
+  /// На web возвращает пустой список — там видео сжимается ffmpeg.wasm
+  /// автоматически при добавлении.
+  Future<List<String>> compressVideosWithSettings({
+    required int qualityLevel,
+    required void Function(int current, int total) onProgress,
+  }) async {
+    if (kIsWeb) return [];
+    if (_currentReport == null || _currentReportPath == null) return [];
+
+    // Собираем уникальные пути видео.
+    final videoPaths = <String>[];
+    for (final markersList in _currentReport!.markers.values) {
+      for (final markers in markersList) {
+        for (final media in markers.media) {
+          final localPath = media.localPath;
+          if (media.type.startsWith('video/') &&
+              localPath != null &&
+              !videoPaths.contains(localPath)) {
+            videoPaths.add(localPath);
+          }
+        }
+      }
+    }
+    if (videoPaths.isEmpty) return [];
+
+    final config = switch (qualityLevel) {
+      1 => const VVideoCompressionConfig.high(),
+      2 => const VVideoCompressionConfig.medium(),
+      _ => const VVideoCompressionConfig.low(),
+    };
+
+    final compressor = VVideoCompressor();
+    final compressedVideos = <String>[];
+
+    for (int i = 0; i < videoPaths.length; i++) {
+      onProgress(i + 1, videoPaths.length);
+      final relativePath = videoPaths[i];
+      if (_compressedVideoPaths.contains(relativePath)) continue;
+
+      try {
+        final absolutePath = '$_currentReportPath/$relativePath';
+        final file = File(absolutePath);
+        if (!await file.exists()) continue;
+        // Маленькие видео сжимать бессмысленно.
+        if (await file.length() <= 5 * 1024 * 1024) continue;
+
+        final result = await compressor.compressVideo(
+          absolutePath,
+          config,
+          onProgress: (progress) {},
+        );
+        if (result == null) continue;
+
+        final compressedFile = File(result.compressedFilePath);
+        if (!await compressedFile.exists()) continue;
+
+        final compressedSize = await compressedFile.length();
+        // Не заменяем оригинал пустым файлом (0 байт при сбое кодека).
+        if (compressedSize > 0) {
+          await compressedFile.copy(absolutePath);
+          _compressedVideoPaths.add(relativePath);
+          compressedVideos.add(relativePath);
+
+          for (final markersList in _currentReport!.markers.values) {
+            for (final markers in markersList) {
+              for (final media in markers.media) {
+                if (media.localPath == relativePath) {
+                  media.compressedSize = compressedSize;
+                }
+              }
+            }
+          }
+        }
+        await compressedFile.delete();
+      } catch (e) {
+        if (kDebugMode) debugPrint('Error compressing video: $e');
+      }
+    }
+
+    if (compressedVideos.isNotEmpty) notifyListeners();
+    return compressedVideos;
   }
 
   /// Получить список всех отчётов.
@@ -2121,9 +2234,14 @@ class ReportState extends ChangeNotifier {
         );
       }
 
-      // HTML-версия отчёта генерируется на сервере (htmlGenerator.js) —
-      // в локальный ZIP не включаем. Серверный ZIP с index.html доступен
-      // через GET /reports/:publicId/zip.
+      // Сохраняем HTML-версию отчёта (офлайн-генерация, медиа по
+      // относительным путям — отчёт открывается из распакованного архива).
+      final htmlContent = html_service.generateReportHtml(_currentReport!);
+      final htmlFile = File('$_currentReportPath/report.html');
+      await htmlFile.writeAsString(htmlContent);
+      if (kDebugMode) {
+        debugPrint('HTML saved to: ${htmlFile.path}');
+      }
 
       final folderPath = _currentReportPath!;
       final safeName = _currentReport!.reportName
@@ -2162,6 +2280,7 @@ class ReportState extends ChangeNotifier {
       final Set<String> neededFiles = {};
 
       neededFiles.add('report.json');
+      neededFiles.add('report.html');
       neededFiles.add('report.xlsx');
 
       if (_currentReport != null) {

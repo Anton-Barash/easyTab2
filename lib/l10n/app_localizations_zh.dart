@@ -720,4 +720,96 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get shareLinkCopied => '已复制';
+
+  @override
+  String get templateSourceFile => 'Excel (.xlsx), JSON, ZIP';
+
+  @override
+  String get templateSourceFileDesc => '上传模板文件';
+
+  @override
+  String get templateSourceJson => '粘贴 JSON';
+
+  @override
+  String get templateSourceJsonDesc => '手动粘贴JSON代码';
+
+  @override
+  String get templateDownloadSample => '下载示例';
+
+  @override
+  String get templateDownloadSampleDesc => 'JSON模板示例';
+
+  @override
+  String get jsonTemplateTitle => '粘贴JSON模板';
+
+  @override
+  String get jsonTemplateHint => 'questions: [...], availableLanguages: [...]';
+
+  @override
+  String get loadJsonButton => '加载';
+
+  @override
+  String get jsonParseError => 'JSON解析错误';
+
+  @override
+  String templateSampleSaved(String path) {
+    return '示例已保存: $path';
+  }
+
+  @override
+  String templateSaveError(String error) {
+    return '保存错误: $error';
+  }
+
+  @override
+  String get takePhotoCamera => '拍照';
+
+  @override
+  String get takePhotoCameraDesc => '使用相机拍照';
+
+  @override
+  String get photoFromGalleryHeader => '从图库选择';
+
+  @override
+  String get photoFromGalleryHeaderDesc => '加载现有照片';
+
+  @override
+  String get compressVideoTitle => '压缩视频';
+
+  @override
+  String get highQuality => '高质量';
+
+  @override
+  String get highQualityDesc => '较少压缩，更好质量';
+
+  @override
+  String get mediumQuality => '中等质量';
+
+  @override
+  String get mediumQualityDesc => '平衡压缩';
+
+  @override
+  String get lowQuality => '低质量';
+
+  @override
+  String get lowQualityDesc => '最大压缩';
+
+  @override
+  String get compressingVideo => '正在压缩视频...';
+
+  @override
+  String get noVideoToCompress => '没有视频可压缩或已全部压缩';
+
+  @override
+  String get compressionComplete => '压缩完成';
+
+  @override
+  String compressedVideoCount(int count) {
+    return '已压缩视频：$count';
+  }
+
+  @override
+  String compressionError(String error) {
+    return '压缩错误：$error';
+  }
 }

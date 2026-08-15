@@ -303,5 +303,53 @@
   "shareLinkSaveFirst": "Save the report to the server first",
   "shareLinkError": "Failed to create share link",
   "shareAccess": "Access",
-  "shareLinkCopied": "Copied"
+  "shareLinkCopied": "Copied",
+  "templateSourceFile": "Excel (.xlsx), JSON, ZIP",
+  "templateSourceFileDesc": "Upload template file",
+  "templateSourceJson": "Paste JSON",
+  "templateSourceJsonDesc": "Paste JSON code manually",
+  "templateDownloadSample": "Download sample",
+  "templateDownloadSampleDesc": "Sample JSON template",
+  "jsonTemplateTitle": "Paste JSON template",
+  "jsonTemplateHint": "questions: [...], availableLanguages: [...]",
+  "loadJsonButton": "Load",
+  "jsonParseError": "JSON parse error",
+  "templateSampleSaved": "Sample saved: {path}",
+  "@templateSampleSaved": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "templateSaveError": "Save error: {error}",
+  "@templateSaveError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "takePhotoCamera": "Take photo",
+  "takePhotoCameraDesc": "Take photo with camera",
+  "photoFromGalleryHeader": "Choose from gallery",
+  "photoFromGalleryHeaderDesc": "Load existing photo",
+  "compressVideoTitle": "Compress Video",
+  "highQuality": "High quality",
+  "highQualityDesc": "Less compression, better quality",
+  "mediumQuality": "Medium quality",
+  "mediumQualityDesc": "Balanced compression",
+  "lowQuality": "Low quality",
+  "lowQualityDesc": "Maximum compression",
+  "compressingVideo": "Compressing video...",
+  "noVideoToCompress": "No video to compress or all already compressed",
+  "compressionComplete": "Compression complete",
+  "compressedVideoCount": "Compressed videos: {count}",
+  "@compressedVideoCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "compressionError": "Compression error: {error}",
+  "@compressionError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  }
 }

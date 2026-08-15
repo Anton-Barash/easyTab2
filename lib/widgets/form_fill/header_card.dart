@@ -14,6 +14,10 @@ class HeaderCard extends StatelessWidget {
   final VoidCallback onNavigateToHeader;
   final VoidCallback onEditHeader;
 
+  /// Вызывается при нажатии на область фото (добавление/замена фото).
+  /// Если null — область фото не кликабельна.
+  final VoidCallback? onPhotoAreaTap;
+
   const HeaderCard({
     super.key,
     required this.report,
@@ -21,6 +25,7 @@ class HeaderCard extends StatelessWidget {
     required this.onOpenSidePanel,
     required this.onNavigateToHeader,
     required this.onEditHeader,
+    this.onPhotoAreaTap,
   });
 
   @override
@@ -103,42 +108,57 @@ class HeaderCard extends StatelessWidget {
               ],
             ),
           ),
-          if (hasImage)
+          if (reportState.isUploadingHeader)
             Container(
               width: double.infinity,
               height: 250,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: fileImageProvider(
-                    '${reportState.currentReportPath}/$headerImagePath',
+              color: AppColors.grey100,
+              child: const Center(
+                child: CircularProgressIndicator(color: AppColors.border),
+              ),
+            )
+          else if (hasImage)
+            GestureDetector(
+              onTap: onPhotoAreaTap,
+              child: Container(
+                width: double.infinity,
+                height: 250,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: fileImageProvider(
+                      '${reportState.currentReportPath}/$headerImagePath',
+                    ),
+                    fit: BoxFit.cover,
                   ),
-                  fit: BoxFit.cover,
                 ),
               ),
             )
           else
-            Container(
-              width: double.infinity,
-              height: 150,
-              color: AppColors.surface,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.image,
-                      size: 48,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      loc.noPhoto,
-                      style: const TextStyle(
+            GestureDetector(
+              onTap: onPhotoAreaTap,
+              child: Container(
+                width: double.infinity,
+                height: 150,
+                color: AppColors.surface,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.add_a_photo,
+                        size: 48,
                         color: AppColors.textSecondary,
-                        fontSize: 14,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        loc.addPhoto,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

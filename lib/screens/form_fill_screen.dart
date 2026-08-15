@@ -62,7 +62,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   bool _isSidePanelCollapsed = false;
   bool _hideAnsweredQuestions = false;
-  final PageController _pageController = PageController();
+  final PageController _pageController = PageController(initialPage: 0);
   final ItemScrollController _listItemScrollController = ItemScrollController();
   final ItemScrollController _sidePanelItemScrollController =
       ItemScrollController();
@@ -1185,13 +1185,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
             final newText = answers[j]['text'] ?? '';
             if (controller.text != newText) {
               _isUpdatingControllers = true;
-              // Сохраняем позицию курсора перед обновлением
-              final selection = controller.selection;
+              // НЕ сохраняем позицию курсора — сбрасываем выделение
+              // и ставим курсор в конец текста. Это предотвращает
+              // нежелательное выделение при синхронизации.
               controller.value = TextEditingValue(
                 text: newText,
-                selection: selection.baseOffset > newText.length
-                    ? TextSelection.collapsed(offset: newText.length)
-                    : selection,
+                selection: TextSelection.collapsed(offset: newText.length),
               );
               _isUpdatingControllers = false;
             }
@@ -1367,6 +1366,20 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       ],
                     ),
                   ),
+                  // Сжатие видео — только на нативных платформах.
+                  // На web видео сжимается автоматически (ffmpeg.wasm)
+                  // при добавлении, ручная кнопка не нужна.
+                  if (!kIsWeb)
+                    PopupMenuItem(
+                      value: 6,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.video_call),
+                          const SizedBox(width: 8),
+                          Text(loc.compressVideoTitle),
+                        ],
+                      ),
+                    ),
                   // Создать share-ссылку — только для залогиненных пользователей.
                   if (authProvider.isLoggedIn)
                     PopupMenuItem(
@@ -1600,6 +1613,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     _showSyncMenuDialog();
                   } else if (value == 5) {
                     Navigator.pushReplacementNamed(context, '/');
+                  } else if (value == 6) {
+                    // Сжать все видео отчёта (native)
+                    _showCompressVideoDialog();
                   } else if (value == 7) {
                     // Залить отчёт на сервер (только для залогиненных)
                     await _uploadReportToServer();
@@ -2725,6 +2741,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
             PageView.builder(
               controller: _pageController,
               onPageChanged: (page) {
+                // Снимаем фокус с полей предыдущей страницы: иначе курсор
+                // на невидимой карточке вызывает автоматическую прокрутку
+                // обратно (showOnScreen) при любом обновлении состояния.
+                FocusManager.instance.primaryFocus?.unfocus();
                 final realIndex = page < visiblePageIndices.length
                     ? visiblePageIndices[page]
                     : page;
@@ -2767,6 +2787,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         },
                         onEditHeader: () =>
                             _showEditHeaderDialog(context, reportState),
+                        onPhotoAreaTap: () =>
+                            _showHeaderPhotoPicker(context, reportState),
                       ),
                     ),
                   );
@@ -3092,12 +3114,258 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
+  /// Диалог выбора качества и запуск сжатия всех видео отчёта (native).
+  void _showCompressVideoDialog() {
+    final loc = AppLocalizations.of(context)!;
+    int selectedQuality = 2;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(loc.compressVideoTitle),
+        content: StatefulBuilder(
+          builder: (dialogCtx, setDialogState) => RadioGroup<int>(
+            groupValue: selectedQuality,
+            onChanged: (value) =>
+                setDialogState(() => selectedQuality = value ?? 2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<int>(
+                  title: Text(loc.highQuality),
+                  subtitle: Text(loc.highQualityDesc),
+                  value: 1,
+                ),
+                RadioListTile<int>(
+                  title: Text(loc.mediumQuality),
+                  subtitle: Text(loc.mediumQualityDesc),
+                  value: 2,
+                ),
+                RadioListTile<int>(
+                  title: Text(loc.lowQuality),
+                  subtitle: Text(loc.lowQualityDesc),
+                  value: 3,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(loc.cancel),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _compressVideosWithQuality(selectedQuality);
+            },
+            child: Text(loc.ok),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Сжатие всех видео с прогресс-диалогом (native, v_video_compressor).
+  Future<void> _compressVideosWithQuality(int quality) async {
+    final reportState = context.read<ReportState>();
+    final loc = AppLocalizations.of(context)!;
+
+    int current = 0;
+    int total = 0;
+    StateSetter? setDialogState;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setState) {
+          setDialogState = setState;
+          return AlertDialog(
+            title: Text(loc.compressVideoTitle),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(loc.compressingVideo),
+                const SizedBox(height: 16),
+                LinearProgressIndicator(value: total > 0 ? current / total : 0),
+                const SizedBox(height: 8),
+                Text(
+                  total > 0 ? '$current / $total' : '',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    try {
+      final compressed = await reportState.compressVideosWithSettings(
+        qualityLevel: quality,
+        onProgress: (c, t) {
+          current = c;
+          total = t;
+          // Перерисовываем прогресс-диалог (в старой версии этого
+          // вызова не было, и индикатор всегда стоял на нуле).
+          setDialogState?.call(() {});
+        },
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // закрыть прогресс-диалог
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            compressed.isEmpty
+                ? loc.noVideoToCompress
+                : '${loc.compressionComplete}: '
+                      '${loc.compressedVideoCount(compressed.length)}',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.compressionError(e.toString()))),
+      );
+    }
+  }
+
+  /// Показывает диалог выбора фото для шапки (только фото, без видео).
+  Future<void> _showHeaderPhotoPicker(
+    BuildContext context,
+    ReportState reportState,
+  ) async {
+    // Снимаем фокус с текстовых полей, чтобы после добавления фото
+    // PageView не прокручивался к полю с курсором.
+    FocusManager.instance.primaryFocus?.unfocus();
+    final loc = AppLocalizations.of(context)!;
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border, width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.addMediaTitle,
+                  style: const TextStyle(
+                    color: AppColors.border,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SectionTitle(title: loc.createSection),
+                const SizedBox(height: 8),
+                PickerItem(
+                  icon: Icons.camera_alt,
+                  label: loc.takePhoto,
+                  onTap: () => Navigator.pop(ctx, 'camera'),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Divider(
+                    color: AppColors.grey300,
+                    thickness: 1.5,
+                    height: 1.5,
+                  ),
+                ),
+                SectionTitle(title: loc.selectSection),
+                const SizedBox(height: 8),
+                PickerItem(
+                  icon: Icons.photo_library,
+                  label: loc.photoFromGallery,
+                  onTap: () => Navigator.pop(ctx, 'gallery'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted || action == null) return;
+
+    final picker = ImagePicker();
+    XFile? image;
+
+    if (action == 'camera') {
+      image = await picker.pickImage(source: ImageSource.camera);
+    } else if (action == 'gallery') {
+      image = await picker.pickImage(source: ImageSource.gallery);
+    }
+
+    if (image == null) return;
+
+    // Валидация: только изображения
+    final allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    final ext = image.path.split('.').last.toLowerCase();
+    if (!allowedExtensions.contains(ext)) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Неверный формат файла')),
+      );
+      return;
+    }
+
+    // Проверка размера (макс 10MB)
+    final fileSize = kIsWeb
+        ? (await image.readAsBytes()).length
+        : File(image.path).lengthSync();
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (fileSize > maxSize) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Файл слишком большой (макс. 10MB)')),
+      );
+      return;
+    }
+
+    try {
+      if (kIsWeb) {
+        final bytes = await image.readAsBytes();
+        final fileName = 'header_${DateTime.now().millisecondsSinceEpoch}.$ext';
+        await reportState.addHeaderImageFromBytes(bytes, fileName);
+      } else {
+        await reportState.addHeaderImage(File(image.path));
+      }
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Фото добавлено')),
+      );
+    } catch (e) {
+      debugPrint('Header photo error: $e');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    }
+  }
+
   Future<void> _showMediaPicker(
     BuildContext context,
     int questionIndex,
     int answerIndex,
     bool isAttention,
   ) async {
+    // Снимаем фокус с текстовых полей, чтобы после добавления медиа
+    // PageView не прокручивался к полю с курсором.
+    FocusManager.instance.primaryFocus?.unfocus();
     final loc = AppLocalizations.of(context)!;
     final action = await showDialog<String>(
       context: context,
@@ -3392,7 +3660,7 @@ void _showEditQuestionDialog(
         content: TextField(
           controller: controller,
           maxLines: fieldType == 'description' ? 3 : 1,
-          autofocus: true,
+          autofocus: false,
           decoration: InputDecoration(
             hintText: fieldType == 'name' ? loc.enterName : loc.enterDecryption,
             border: const OutlineInputBorder(),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:easy_tab/services/template_parser_service.dart';
 import 'package:easy_tab/utils/app_colors.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
@@ -6,6 +7,8 @@ import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
 import 'package:easy_tab/widgets/dotted_background.dart';
 import 'package:easy_tab/widgets/easy_tab_button.dart';
+import 'package:easy_tab/widgets/form_fill/picker_item.dart';
+import 'package:easy_tab/widgets/form_fill/section_title.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +32,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   final _modelController = TextEditingController();
   Report? _selectedReport;
   String? _headerImagePath;
+  bool _isPickingPhoto = false;
 
   final List<Question> _defaultTemplate = [
     Question(
@@ -274,7 +278,25 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      if (_headerImagePath != null) ...[
+                      if (_isPickingPhoto)
+                        Container(
+                          width: double.infinity,
+                          height: 150,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.border,
+                              width: 2,
+                            ),
+                            color: AppColors.grey100,
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.border,
+                            ),
+                          ),
+                        )
+                      else if (_headerImagePath != null) ...[
                         Stack(
                           children: [
                             Container(
@@ -440,7 +462,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                                     child: Text(
                                       loc.addTranslationButton,
                                       style: const TextStyle(
-                                        color: AppColors.primary,
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ),
@@ -575,13 +598,16 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(width: 1.5, color: AppColors.border),
                     ),
                     child: Text(
                       loc.selected,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
               ],
@@ -628,29 +654,247 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   }
 
   Future<void> _pickFile() async {
-    final state = Provider.of<ReportState>(context, listen: false);
+    // Показываем диалог выбора типа шаблона
+    final action = await _showTemplateSourceDialog();
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case 'file':
+        await _pickTemplateFile();
+        break;
+      case 'json_text':
+        await _showJsonTextDialog();
+        break;
+      case 'download_sample':
+        await _downloadSampleJson();
+        break;
+    }
+  }
+
+  /// Диалог выбора источника шаблона (в стиле выбора фото/видео)
+  Future<String?> _showTemplateSourceDialog() async {
+    final loc = AppLocalizations.of(context)!;
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border, width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.selectTemplate,
+                  style: const TextStyle(
+                    color: AppColors.border,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SectionTitle(title: loc.createSection),
+                const SizedBox(height: 8),
+                PickerItem(
+                  icon: Icons.upload_file,
+                  label: loc.templateSourceFile,
+                  onTap: () => Navigator.pop(ctx, 'file'),
+                ),
+                const SizedBox(height: 8),
+                PickerItem(
+                  icon: Icons.code,
+                  label: loc.templateSourceJson,
+                  onTap: () => Navigator.pop(ctx, 'json_text'),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Divider(
+                    color: AppColors.grey300,
+                    thickness: 1.5,
+                    height: 1.5,
+                  ),
+                ),
+                SectionTitle(title: loc.selectSection),
+                const SizedBox(height: 8),
+                PickerItem(
+                  icon: Icons.download,
+                  label: loc.templateDownloadSample,
+                  onTap: () => Navigator.pop(ctx, 'download_sample'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Выбор файла шаблона (Excel, JSON, ZIP)
+  Future<void> _pickTemplateFile() async {
+    final loc = AppLocalizations.of(context)!;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['xlsx'],
+      allowedExtensions: ['xlsx', 'json', 'zip'],
     );
     if (result == null || result.files.single.path == null) return;
 
     final path = result.files.single.path!;
-    final report = await state.parseTemplate(path);
+    final parseResult = await TemplateParserService.parseFromFile(path);
 
     if (!mounted) return;
 
-    if (report == null) {
-      final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.templateLoadError)));
+    if (!parseResult.isValid || parseResult.report == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(parseResult.error ?? loc.templateLoadError),
+        ),
+      );
       return;
     }
 
     setState(() {
-      _selectedReport = report;
+      _selectedReport = parseResult.report!;
     });
+  }
+
+  /// Диалог вставки JSON-кода
+  Future<void> _showJsonTextDialog() async {
+    final jsonController = TextEditingController();
+    final loc = AppLocalizations.of(context)!;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border, width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.jsonTemplateTitle,
+                  style: const TextStyle(
+                    color: AppColors.border,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: TextField(
+                    controller: jsonController,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: InputDecoration(
+                      hintText: loc.jsonTemplateHint,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: AppColors.border,
+                          width: 2,
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.all(12),
+                    ),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text(
+                        loc.cancel,
+                        style: const TextStyle(color: AppColors.textLight),
+                      ),
+                    ),
+                    const Spacer(),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.surface,
+                        foregroundColor: AppColors.textPrimary,
+                        side: const BorderSide(
+                          color: AppColors.border,
+                          width: 2,
+                        ),
+                      ),
+                      child: Text(loc.loadJsonButton),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (result != true || !mounted) return;
+
+    final jsonText = jsonController.text.trim();
+    if (jsonText.isEmpty) return;
+
+    final parseResult = TemplateParserService.parseJsonString(jsonText);
+
+    if (!mounted) return;
+
+    if (!parseResult.isValid || parseResult.report == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(parseResult.error ?? loc.jsonParseError),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _selectedReport = parseResult.report!;
+    });
+  }
+
+  /// Скачивание примера JSON-шаблона
+  Future<void> _downloadSampleJson() async {
+    final loc = AppLocalizations.of(context)!;
+    try {
+      final sample = TemplateParserService.generateSampleJson();
+      final directory = await FilePicker.platform.getDirectoryPath();
+      if (directory == null) return;
+
+      final file = File('$directory/template_sample.json');
+      await file.writeAsString(sample);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.templateSampleSaved(file.path))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.templateSaveError(e.toString()))),
+      );
+    }
   }
 
   Future<void> _useTemplate(BuildContext context) async {
@@ -700,12 +944,89 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   }
 
   Future<void> _pickHeaderImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _headerImagePath = image.path;
-      });
+    final loc = AppLocalizations.of(context)!;
+    // Диалог выбора фото — точно такой же как в карточке 0
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.border, width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.addMediaTitle,
+                  style: const TextStyle(
+                    color: AppColors.border,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SectionTitle(title: loc.createSection),
+                const SizedBox(height: 8),
+                PickerItem(
+                  icon: Icons.camera_alt,
+                  label: loc.takePhoto,
+                  onTap: () => Navigator.pop(ctx, 'camera'),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Divider(
+                    color: AppColors.grey300,
+                    thickness: 1.5,
+                    height: 1.5,
+                  ),
+                ),
+                SectionTitle(title: loc.selectSection),
+                const SizedBox(height: 8),
+                PickerItem(
+                  icon: Icons.photo_library,
+                  label: loc.photoFromGallery,
+                  onTap: () => Navigator.pop(ctx, 'gallery'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (action == null) return;
+
+    setState(() {
+      _isPickingPhoto = true;
+    });
+
+    try {
+      final picker = ImagePicker();
+      XFile? image;
+
+      if (action == 'camera') {
+        image = await picker.pickImage(source: ImageSource.camera);
+      } else if (action == 'gallery') {
+        image = await picker.pickImage(source: ImageSource.gallery);
+      }
+
+      if (image != null) {
+        setState(() {
+          _headerImagePath = image!.path;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingPhoto = false;
+        });
+      }
     }
   }
 
@@ -1103,8 +1424,8 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
                     child: ElevatedButton(
                       onPressed: _importTemplate,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.surface,
+                        foregroundColor: AppColors.textPrimary,
                         side: const BorderSide(
                           color: AppColors.border,
                           width: 2,
@@ -1139,8 +1460,8 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
           ElevatedButton(
             onPressed: _importTemplate,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.surface,
+              foregroundColor: AppColors.textPrimary,
               side: const BorderSide(color: AppColors.border, width: 2),
             ),
             child: Text(loc.addTranslationButton),
@@ -1148,5 +1469,68 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
         ],
       );
     }
+  }
+}
+
+/// Виджет элемента выбора источника шаблона (в стиле PickerItem)
+class _TemplateSourceItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _TemplateSourceItem({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border, width: 2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 28, color: AppColors.border),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

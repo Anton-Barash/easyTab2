@@ -1467,6 +1467,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copied'**
   String get shareLinkCopied;
+
+  /// No description provided for @templateSourceFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Excel (.xlsx), JSON, ZIP'**
+  String get templateSourceFile;
+
+  /// No description provided for @templateSourceFileDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload template file'**
+  String get templateSourceFileDesc;
+
+  /// No description provided for @templateSourceJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste JSON'**
+  String get templateSourceJson;
+
+  /// No description provided for @templateSourceJsonDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste JSON code manually'**
+  String get templateSourceJsonDesc;
+
+  /// No description provided for @templateDownloadSample.
+  ///
+  /// In en, this message translates to:
+  /// **'Download sample'**
+  String get templateDownloadSample;
+
+  /// No description provided for @templateDownloadSampleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample JSON template'**
+  String get templateDownloadSampleDesc;
+
+  /// No description provided for @jsonTemplateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste JSON template'**
+  String get jsonTemplateTitle;
+
+  /// No description provided for @jsonTemplateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'questions: [...], availableLanguages: [...]'**
+  String get jsonTemplateHint;
+
+  /// No description provided for @loadJsonButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Load'**
+  String get loadJsonButton;
+
+  /// No description provided for @jsonParseError.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON parse error'**
+  String get jsonParseError;
+
+  /// No description provided for @templateSampleSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample saved: {path}'**
+  String templateSampleSaved(String path);
+
+  /// No description provided for @templateSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Save error: {error}'**
+  String templateSaveError(String error);
+
+  /// No description provided for @takePhotoCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Take photo'**
+  String get takePhotoCamera;
+
+  /// No description provided for @takePhotoCameraDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Take photo with camera'**
+  String get takePhotoCameraDesc;
+
+  /// No description provided for @photoFromGalleryHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from gallery'**
+  String get photoFromGalleryHeader;
+
+  /// No description provided for @photoFromGalleryHeaderDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Load existing photo'**
+  String get photoFromGalleryHeaderDesc;
+
+  /// No description provided for @compressVideoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compress Video'**
+  String get compressVideoTitle;
+
+  /// No description provided for @highQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'High quality'**
+  String get highQuality;
+
+  /// No description provided for @highQualityDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Less compression, better quality'**
+  String get highQualityDesc;
+
+  /// No description provided for @mediumQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium quality'**
+  String get mediumQuality;
+
+  /// No description provided for @mediumQualityDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced compression'**
+  String get mediumQualityDesc;
+
+  /// No description provided for @lowQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Low quality'**
+  String get lowQuality;
+
+  /// No description provided for @lowQualityDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum compression'**
+  String get lowQualityDesc;
+
+  /// No description provided for @compressingVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressing video...'**
+  String get compressingVideo;
+
+  /// No description provided for @noVideoToCompress.
+  ///
+  /// In en, this message translates to:
+  /// **'No video to compress or all already compressed'**
+  String get noVideoToCompress;
+
+  /// No description provided for @compressionComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Compression complete'**
+  String get compressionComplete;
+
+  /// No description provided for @compressedVideoCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressed videos: {count}'**
+  String compressedVideoCount(int count);
+
+  /// No description provided for @compressionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Compression error: {error}'**
+  String compressionError(String error);
 }
 
 class _AppLocalizationsDelegate

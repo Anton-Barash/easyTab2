@@ -131,6 +131,9 @@ void _showFullMediaViewer(
   ReportState? reportState,
   bool startInSelectionMode = false,
 }) {
+  // Снимаем фокус с текстовых полей, чтобы после закрытия просмотрщика
+  // PageView не прокручивался к полю с курсором.
+  FocusManager.instance.primaryFocus?.unfocus();
   Navigator.of(context).push(
     MaterialPageRoute(
       builder: (ctx) => FullMediaViewerScreen(

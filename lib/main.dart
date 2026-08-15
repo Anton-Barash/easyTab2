@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import './providers/report_provider.dart';
 import './providers/settings_provider.dart';
 import './providers/locale_provider.dart';
@@ -157,9 +158,22 @@ class _StartScreenState extends State<StartScreen> {
     _versionFuture = _loadVersion();
   }
 
-  /// Загружает версию приложения из version.json, сгенерированного Flutter при сборке.
-  /// Добавляем cache-busting, чтобы браузер не показывал старую версию после обновления.
+  /// Загружает версию приложения.
+  /// Web: из version.json (cache-busting для браузера).
+  /// Native: из PackageInfo (Android/iOS).
   Future<String?> _loadVersion() async {
+    if (!kIsWeb) {
+      // Android / iOS / Desktop
+      try {
+        final info = await PackageInfo.fromPlatform();
+        return info.version;
+      } catch (e) {
+        if (kDebugMode) debugPrint('Failed to load native version: $e');
+      }
+      return null;
+    }
+
+    // Web only
     try {
       final cacheBuster = DateTime.now().millisecondsSinceEpoch;
       final uri = Uri.base.resolve('version.json?v=$cacheBuster');

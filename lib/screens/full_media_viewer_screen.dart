@@ -14,6 +14,7 @@ import 'package:easy_tab/utils/file_image.dart'
 import 'package:easy_tab/utils/native_file_ops.dart'
     if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import 'package:easy_tab/widgets/video_thumbnail.dart';
+import 'package:easy_tab/widgets/zoomable_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -308,46 +309,8 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
 
               if (isVideo) {
                 return _buildVideoPlayer(index);
-              } else {
-                final localPath = _getAbsolutePath(
-                  media['localPath'] as String?,
-                );
-                final webUrl = media['webUrl'] as String?;
-                return Center(
-                  child: (!kIsWeb && localPath != null)
-                      ? fileImageWidget(localPath, fit: BoxFit.contain)
-                      : (kIsWeb && webUrl != null && webUrl.isNotEmpty
-                            ? InteractiveViewer(
-                                child: Image.network(
-                                  webUrl,
-                                  fit: BoxFit.contain,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return const Center(
-                                      child: SizedBox(
-                                        width: 40,
-                                        height: 40,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 3,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.broken_image,
-                                    size: 60,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              )
-                            : const Icon(
-                                Icons.image,
-                                size: 60,
-                                color: Colors.white,
-                              )),
-                );
               }
+              return _buildPhotoPage(media);
             },
           ),
         ),
@@ -358,41 +321,51 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     );
   }
 
-  Widget _buildVideoPlayer(int index) {
-    final media = widget.mediaList[index] as Map<String, dynamic>;
+  /// Страница с фото: pinch-zoom + двойной тап (см. [ZoomableImage]).
+  Widget _buildPhotoPage(Map<String, dynamic> media) {
     final localPath = _getAbsolutePath(media['localPath'] as String?);
     final webUrl = media['webUrl'] as String?;
 
-    final bool isInitialized =
-        _videoController != null && _videoController!.value.isInitialized;
-
-    if (!kIsWeb && localPath != null && isInitialized) {
-      return Center(
-        child: Stack(
-          children: [
-            AspectRatio(
-              aspectRatio: _videoController!.value.aspectRatio,
-              child: VideoPlayer(_videoController!),
-            ),
-            if (!_isPlaying)
-              Center(
-                child: IconButton(
-                  icon: const Icon(Icons.play_circle_filled, size: 60),
-                  color: Colors.white,
-                  onPressed: () {
-                    setState(() {
-                      _isPlaying = true;
-                      _videoController!.play();
-                    });
-                  },
-                ),
+    final Widget image;
+    if (!kIsWeb && localPath != null) {
+      image = fileImageWidget(localPath, fit: BoxFit.contain);
+    } else if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
+      image = Image.network(
+        webUrl,
+        fit: BoxFit.contain,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return const Center(
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: Colors.white,
               ),
-          ],
-        ),
+            ),
+          );
+        },
+        errorBuilder: (_, _, _) =>
+            const Icon(Icons.broken_image, size: 60, color: Colors.white),
+      );
+    } else {
+      return const Center(
+        child: Icon(Icons.image, size: 60, color: Colors.white),
       );
     }
 
-    if (kIsWeb && webUrl != null && webUrl.isNotEmpty && isInitialized) {
+    return Center(child: ZoomableImage(child: image));
+  }
+
+  Widget _buildVideoPlayer(int index) {
+    // Контроллер создаётся в _initializeVideo только при наличии
+    // источника (файл на native, webUrl/webBytes на web), поэтому
+    // здесь достаточно проверить инициализацию.
+    final bool isInitialized =
+        _videoController != null && _videoController!.value.isInitialized;
+
+    if (isInitialized) {
       return Center(
         child: Stack(
           children: [
@@ -453,11 +426,6 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                 backgroundColor: Colors.black,
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.fullscreen),
-            color: Colors.white,
-            onPressed: () {},
           ),
         ],
       ),

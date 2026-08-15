@@ -303,5 +303,53 @@
   "shareLinkSaveFirst": "请先保存报告到服务器",
   "shareLinkError": "创建链接失败",
   "shareAccess": "访问权限",
-  "shareLinkCopied": "已复制"
+  "shareLinkCopied": "已复制",
+  "templateSourceFile": "Excel (.xlsx), JSON, ZIP",
+  "templateSourceFileDesc": "上传模板文件",
+  "templateSourceJson": "粘贴 JSON",
+  "templateSourceJsonDesc": "手动粘贴JSON代码",
+  "templateDownloadSample": "下载示例",
+  "templateDownloadSampleDesc": "JSON模板示例",
+  "jsonTemplateTitle": "粘贴JSON模板",
+  "jsonTemplateHint": "questions: [...], availableLanguages: [...]",
+  "loadJsonButton": "加载",
+  "jsonParseError": "JSON解析错误",
+  "templateSampleSaved": "示例已保存: {path}",
+  "@templateSampleSaved": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "templateSaveError": "保存错误: {error}",
+  "@templateSaveError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "takePhotoCamera": "拍照",
+  "takePhotoCameraDesc": "使用相机拍照",
+  "photoFromGalleryHeader": "从图库选择",
+  "photoFromGalleryHeaderDesc": "加载现有照片",
+  "compressVideoTitle": "压缩视频",
+  "highQuality": "高质量",
+  "highQualityDesc": "较少压缩，更好质量",
+  "mediumQuality": "中等质量",
+  "mediumQualityDesc": "平衡压缩",
+  "lowQuality": "低质量",
+  "lowQualityDesc": "最大压缩",
+  "compressingVideo": "正在压缩视频...",
+  "noVideoToCompress": "没有视频可压缩或已全部压缩",
+  "compressionComplete": "压缩完成",
+  "compressedVideoCount": "已压缩视频：{count}",
+  "@compressedVideoCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "compressionError": "压缩错误：{error}",
+  "@compressionError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  }
 }
