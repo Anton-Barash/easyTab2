@@ -99,7 +99,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleSubmit(BuildContext context) async {
+    final loc = AppLocalizations.of(context)!;
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.enterCredentials)));
       return;
     }
 
@@ -108,7 +112,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final loc = AppLocalizations.of(context)!;
 
     // Применяем текущий адрес сервера перед запросом.
     if (_serverController.text.isNotEmpty) {
@@ -122,11 +125,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _usernameController.text,
         _passwordController.text,
         email: _emailController.text,
+        loc: loc,
       );
     } else {
       success = await authProvider.login(
         _usernameController.text,
         _passwordController.text,
+        loc: loc,
       );
     }
 
@@ -144,7 +149,10 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.lastError ?? loc.loginError),
+          content: Text(
+            authProvider.lastError ??
+                (_isRegisterMode ? loc.registerFailed : loc.loginError),
+          ),
           duration: const Duration(seconds: 3),
         ),
       );

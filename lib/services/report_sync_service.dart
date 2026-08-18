@@ -18,6 +18,9 @@ List<int> getUnsyncQuestionIndices(Report report) {
   final unsyncIndices = <int>[];
   final languages = report.availableLanguages;
 
+  // #3: без языков сравнивать нечего — languages.first ниже упал бы StateError.
+  if (languages.isEmpty) return unsyncIndices;
+
   for (int i = 0; i < report.questions.length; i++) {
     int maxCount = 0;
     int minCount = 0;

@@ -351,5 +351,167 @@
     "placeholders": {
       "error": {"type": "String"}
     }
-  }
+  },
+  "reportIdMissing": "缺少报告ID",
+  "shareTokenMissing": "缺少分享链接令牌",
+  "@reportNumber": {
+    "placeholders": {
+      "id": {"type": "String"}
+    }
+  },
+  "reportNumber": "报告 #{id}",
+  "refresh": "刷新",
+  "retry": "重试",
+  "htmlWebOnly": "HTML查看仅在网页版中可用。",
+  "loadReportFailed": "无法加载报告",
+  "loadLinkFailed": "无法加载链接",
+  "reportFromLinkLoadFailed": "无法从链接加载报告",
+  "htmlOpenedInNewTab": "HTML报告已在新标签页中打开",
+  "invalidFileFormat": "文件格式无效",
+  "fileTooLarge": "文件太大（最大10MB）",
+  "photoAdded": "照片已添加",
+  "@errorWithDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "errorWithDetail": "错误：{error}",
+  "openHtmlTooltip": "打开HTML",
+  "deleteMediaTitle": "删除？",
+  "deleteMediaConfirm": "文件将被永久删除。",
+  "compressing": "正在压缩...",
+  "finalizing": "正在完成...",
+  "uploading": "正在上传...",
+  "enterCredentials": "请输入用户名和密码",
+  "registerFailed": "注册失败",
+  "langCodeRequired": "language_code 字段必须是非空字符串",
+  "questionsMustBeArray": "questions 字段必须是数组",
+  "@questionsCountMismatch": {
+    "placeholders": {
+      "expected": {"type": "int"},
+      "actual": {"type": "int"}
+    }
+  },
+  "questionsCountMismatch": "应为 {expected} 个问题，实际收到 {actual}",
+  "@questionMustBeObject": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionMustBeObject": "问题 {index} 必须是对象",
+  "@questionIdMustBeNumber": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionIdMustBeNumber": "问题 {index}：id 字段必须是数字",
+  "@questionNameRequired": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionNameRequired": "问题 {index}：name 字段必须是非空字符串",
+  "@questionDescriptionRequired": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionDescriptionRequired": "问题 {index}：description 字段必须是非空字符串",
+  "@unsupportedFormat": {
+    "placeholders": {
+      "ext": {"type": "String"}
+    }
+  },
+  "unsupportedFormat": "不支持的文件格式：.{ext}\n支持：.xlsx, .json, .zip",
+  "excelMinRows": "Excel 文件必须至少包含3行：标题、语言代码和问题",
+  "excelNoQuestions": "在 Excel 文件中未找到问题。请确保问题从第3行开始。",
+  "@excelReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "excelReadError": "读取 Excel 文件错误：{error}",
+  "@jsonReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonReadError": "读取 JSON 文件错误：{error}",
+  "@invalidJsonDetail": {
+    "placeholders": {
+      "message": {"type": "String"}
+    }
+  },
+  "invalidJsonDetail": "JSON 无效：{message}",
+  "@jsonParseDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonParseDetail": "JSON 解析错误：{error}",
+  "jsonNoQuestions": "JSON 不包含问题（\"questions\" 字段缺失或为空）",
+  "jsonNoValidQuestions": "在 JSON 中未找到有效问题。每个问题必须包含 \"localizations\"",
+  "@jsonStructureError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonStructureError": "JSON 结构错误：{error}",
+  "zipNoJson": "在 ZIP 存档中未找到报告 JSON 文件。应为 report.json 或其他 .json 文件",
+  "@zipReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "zipReadError": "读取 ZIP 存档错误：{error}",
+  "sharedReport": "共享报告",
+  "editAccess": "编辑权限",
+  "viewOnlyAccess": "仅查看权限",
+  "linkValidUntil": "链接有效期至",
+  "downloadApp": "下载应用",
+  "downloadAppDesc": "适用于 Android 或 Windows",
+  "openWebEditor": "打开网页版",
+  "openWebEditorDesc": "编辑报告",
+  "openHtmlDesc": "在浏览器中查看",
+  "downloadZipDesc": "包含媒体的离线报告",
+  "appLinksStub": "应用下载链接将在此处",
+  "viewOnlyWarning": "仅可查看。如需编辑，请向报告所有者申请权限。",
+  "downloadZip": "下载 ZIP",
+  "unknownError": "未知错误",
+  "@statusError": {
+    "placeholders": {
+      "statusCode": {"type": "int"}
+    }
+  },
+  "statusError": "错误 {statusCode}",
+  "@invalidServerResponse": {
+    "placeholders": {
+      "statusCode": {"type": "int"}
+    }
+  },
+  "invalidServerResponse": "服务器响应无效：{statusCode}",
+  "noServerConnection": "无法连接服务器",
+  "@networkError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "networkError": "网络错误：{error}",
+  "@uploadErrorDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "uploadErrorDetail": "上传错误：{error}",
+  "uploadNoneFailed": "未能上传任何文件",
+  "@uploadFailedStatus": {
+    "placeholders": {
+      "status": {"type": "int"}
+    }
+  },
+  "uploadFailedStatus": "上传失败（{status}）",
+  "uploadFailedGeneric": "上传错误",
+  "uploadTimeout": "上传超时",
+  "presignFailed": "无法创建上传链接",
+  "confirmFailed": "无法确认上传"
 }

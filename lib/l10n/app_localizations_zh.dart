@@ -812,4 +812,241 @@ class AppLocalizationsZh extends AppLocalizations {
   String compressionError(String error) {
     return '压缩错误：$error';
   }
+
+  @override
+  String get reportIdMissing => '缺少报告ID';
+
+  @override
+  String get shareTokenMissing => '缺少分享链接令牌';
+
+  @override
+  String reportNumber(String id) {
+    return '报告 #$id';
+  }
+
+  @override
+  String get refresh => '刷新';
+
+  @override
+  String get retry => '重试';
+
+  @override
+  String get htmlWebOnly => 'HTML查看仅在网页版中可用。';
+
+  @override
+  String get loadReportFailed => '无法加载报告';
+
+  @override
+  String get loadLinkFailed => '无法加载链接';
+
+  @override
+  String get reportFromLinkLoadFailed => '无法从链接加载报告';
+
+  @override
+  String get htmlOpenedInNewTab => 'HTML报告已在新标签页中打开';
+
+  @override
+  String get invalidFileFormat => '文件格式无效';
+
+  @override
+  String get fileTooLarge => '文件太大（最大10MB）';
+
+  @override
+  String get photoAdded => '照片已添加';
+
+  @override
+  String errorWithDetail(String error) {
+    return '错误：$error';
+  }
+
+  @override
+  String get openHtmlTooltip => '打开HTML';
+
+  @override
+  String get deleteMediaTitle => '删除？';
+
+  @override
+  String get deleteMediaConfirm => '文件将被永久删除。';
+
+  @override
+  String get compressing => '正在压缩...';
+
+  @override
+  String get finalizing => '正在完成...';
+
+  @override
+  String get uploading => '正在上传...';
+
+  @override
+  String get enterCredentials => '请输入用户名和密码';
+
+  @override
+  String get registerFailed => '注册失败';
+
+  @override
+  String get langCodeRequired => 'language_code 字段必须是非空字符串';
+
+  @override
+  String get questionsMustBeArray => 'questions 字段必须是数组';
+
+  @override
+  String questionsCountMismatch(int expected, int actual) {
+    return '应为 $expected 个问题，实际收到 $actual';
+  }
+
+  @override
+  String questionMustBeObject(int index) {
+    return '问题 $index 必须是对象';
+  }
+
+  @override
+  String questionIdMustBeNumber(int index) {
+    return '问题 $index：id 字段必须是数字';
+  }
+
+  @override
+  String questionNameRequired(int index) {
+    return '问题 $index：name 字段必须是非空字符串';
+  }
+
+  @override
+  String questionDescriptionRequired(int index) {
+    return '问题 $index：description 字段必须是非空字符串';
+  }
+
+  @override
+  String unsupportedFormat(String ext) {
+    return '不支持的文件格式：.$ext\n支持：.xlsx, .json, .zip';
+  }
+
+  @override
+  String get excelMinRows => 'Excel 文件必须至少包含3行：标题、语言代码和问题';
+
+  @override
+  String get excelNoQuestions => '在 Excel 文件中未找到问题。请确保问题从第3行开始。';
+
+  @override
+  String excelReadError(String error) {
+    return '读取 Excel 文件错误：$error';
+  }
+
+  @override
+  String jsonReadError(String error) {
+    return '读取 JSON 文件错误：$error';
+  }
+
+  @override
+  String invalidJsonDetail(String message) {
+    return 'JSON 无效：$message';
+  }
+
+  @override
+  String jsonParseDetail(String error) {
+    return 'JSON 解析错误：$error';
+  }
+
+  @override
+  String get jsonNoQuestions => 'JSON 不包含问题（\"questions\" 字段缺失或为空）';
+
+  @override
+  String get jsonNoValidQuestions =>
+      '在 JSON 中未找到有效问题。每个问题必须包含 \"localizations\"';
+
+  @override
+  String jsonStructureError(String error) {
+    return 'JSON 结构错误：$error';
+  }
+
+  @override
+  String get zipNoJson => '在 ZIP 存档中未找到报告 JSON 文件。应为 report.json 或其他 .json 文件';
+
+  @override
+  String zipReadError(String error) {
+    return '读取 ZIP 存档错误：$error';
+  }
+
+  @override
+  String get sharedReport => '共享报告';
+
+  @override
+  String get editAccess => '编辑权限';
+
+  @override
+  String get viewOnlyAccess => '仅查看权限';
+
+  @override
+  String get linkValidUntil => '链接有效期至';
+
+  @override
+  String get downloadApp => '下载应用';
+
+  @override
+  String get downloadAppDesc => '适用于 Android 或 Windows';
+
+  @override
+  String get openWebEditor => '打开网页版';
+
+  @override
+  String get openWebEditorDesc => '编辑报告';
+
+  @override
+  String get openHtmlDesc => '在浏览器中查看';
+
+  @override
+  String get downloadZipDesc => '包含媒体的离线报告';
+
+  @override
+  String get appLinksStub => '应用下载链接将在此处';
+
+  @override
+  String get viewOnlyWarning => '仅可查看。如需编辑，请向报告所有者申请权限。';
+
+  @override
+  String get downloadZip => '下载 ZIP';
+
+  @override
+  String get unknownError => '未知错误';
+
+  @override
+  String statusError(int statusCode) {
+    return '错误 $statusCode';
+  }
+
+  @override
+  String invalidServerResponse(int statusCode) {
+    return '服务器响应无效：$statusCode';
+  }
+
+  @override
+  String get noServerConnection => '无法连接服务器';
+
+  @override
+  String networkError(String error) {
+    return '网络错误：$error';
+  }
+
+  @override
+  String uploadErrorDetail(String error) {
+    return '上传错误：$error';
+  }
+
+  @override
+  String get uploadNoneFailed => '未能上传任何文件';
+
+  @override
+  String uploadFailedStatus(int status) {
+    return '上传失败（$status）';
+  }
+
+  @override
+  String get uploadFailedGeneric => '上传错误';
+
+  @override
+  String get uploadTimeout => '上传超时';
+
+  @override
+  String get presignFailed => '无法创建上传链接';
+
+  @override
+  String get confirmFailed => '无法确认上传';
 }

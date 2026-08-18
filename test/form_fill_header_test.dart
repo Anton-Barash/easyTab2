@@ -4,7 +4,6 @@ import 'package:easy_tab/providers/auth_provider.dart';
 import 'package:easy_tab/providers/locale_provider.dart';
 import 'package:easy_tab/providers/report_provider.dart';
 import 'package:easy_tab/screens/form_fill_screen.dart';
-import 'package:easy_tab/widgets/form_fill/header_card.dart';
 import 'package:easy_tab/widgets/form_fill/header_field.dart';
 import 'package:easy_tab/widgets/form_fill/header_list_tile.dart';
 import 'package:easy_tab/widgets/form_fill/header_photo_picker.dart';
@@ -144,7 +143,7 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(Icons.add_a_photo), findsOneWidget);
+      expect(find.byIcon(Icons.add_a_photo_outlined), findsOneWidget);
       expect(find.text('Добавить фото'), findsOneWidget);
       expect(find.text('Изменить фото'), findsNothing);
     });
@@ -163,39 +162,9 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(Icons.add_a_photo), findsNothing);
+      expect(find.byIcon(Icons.add_a_photo_outlined), findsNothing);
       expect(find.text('Добавить фото'), findsNothing);
       expect(find.text('Изменить фото'), findsOneWidget);
-    });
-  });
-
-  group('HeaderCard', () {
-    testWidgets('renders header info and edit button', (tester) async {
-      final reportState = createReportState(
-        productType: 'Airfryer',
-        factory: 'Factory A',
-        model: 'Model X',
-      );
-      var editCalled = false;
-      await tester.pumpWidget(
-        buildLocalizedWidget(
-          HeaderCard(
-            report: reportState.currentReport!,
-            reportState: reportState,
-            onOpenSidePanel: () {},
-            onNavigateToHeader: () {},
-            onEditHeader: () => editCalled = true,
-          ),
-        ),
-      );
-
-      expect(find.text('Airfryer'), findsOneWidget);
-      expect(find.text('Factory A'), findsOneWidget);
-      expect(find.text('Model X'), findsOneWidget);
-      expect(find.text('Редактировать заголовок'), findsOneWidget);
-
-      await tester.tap(find.text('Редактировать заголовок'));
-      expect(editCalled, isTrue);
     });
   });
 
@@ -214,8 +183,10 @@ void main() {
           HeaderListTile(
             report: reportState.currentReport!,
             reportState: reportState,
-            isMobile: false,
             onNavigateToHeader: () => navigateCalled = true,
+            onEditHeader: () {},
+            onPhotoAreaTap: () {},
+            onViewPhoto: () {},
           ),
         ),
       );
@@ -226,6 +197,30 @@ void main() {
       await tester.tap(find.text('0'));
       await tester.pump();
       expect(navigateCalled, isTrue);
+    });
+
+    testWidgets('edit icon calls onEditHeader', (tester) async {
+      final reportState = createReportState(
+        productType: 'Airfryer',
+        factory: 'Factory A',
+        model: 'Model X',
+      );
+      var editCalled = false;
+      await tester.pumpWidget(
+        buildLocalizedWidget(
+          HeaderListTile(
+            report: reportState.currentReport!,
+            reportState: reportState,
+            onNavigateToHeader: () {},
+            onEditHeader: () => editCalled = true,
+            onPhotoAreaTap: () {},
+            onViewPhoto: () {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.edit));
+      expect(editCalled, isTrue);
     });
   });
 

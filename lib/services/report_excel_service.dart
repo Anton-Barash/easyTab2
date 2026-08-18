@@ -15,11 +15,14 @@ const int maxLanguages = 5;
 
 const Map<String, int> languagePriority = {'RU': 0, 'EN': 1, 'ZH': 2};
 
+// Цвета дополнительных языков, 0-индексированные относительно первого
+// доп. языка (li==1 в циклах). Основной язык (li==0) всегда чёрный и
+// обходится вызывающим кодом, поэтому сюда не входит.
 const Map<int, String> languageColors = {
-  1: '#888888',
-  2: '#27ae60',
-  3: '#8e44ad',
-  4: '#2c7da0',
+  0: '#27ae60', // 1-й доп. язык (обычно EN) — зелёный
+  1: '#8e44ad', // 2-й доп. язык (обычно ZH) — фиолетовый
+  2: '#2c7da0', // 3-й доп. язык — синий
+  3: '#888888', // 4-й доп. язык — серый
 };
 
 List<String> sortLanguages(List<String> languages) {
@@ -38,8 +41,10 @@ List<String> sortLanguages(List<String> languages) {
   return sorted;
 }
 
+/// Цвет дополнительного языка по его индексу среди доп. языков.
+/// Вызывающий код передаёт (li - 1): li==1 (первый доп. язык) → индекс 0.
+/// Fallback — серый для языков сверх палитры.
 String getLanguageColor(int index) {
-  if (index == 0) return '#888888';
   return languageColors[index] ?? '#888888';
 }
 
@@ -574,7 +579,7 @@ Uint8List generateExcelBytes(Report report) {
 
         final qColor = li == 0
             ? ExcelColor.black
-            : ExcelColor.fromHexString(getLanguageColor(li));
+            : ExcelColor.fromHexString(getLanguageColor(li - 1));
         final qFontSize = li == 0 ? 12 : 10;
         sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
@@ -703,7 +708,7 @@ Uint8List generateExcelBytes(Report report) {
           if (ai == 0) {
             final qColor = li == 0
                 ? ExcelColor.black
-                : ExcelColor.fromHexString(getLanguageColor(li));
+                : ExcelColor.fromHexString(getLanguageColor(li - 1));
             final qFontSize = li == 0 ? 12 : 10;
             sheet
                 .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
@@ -784,7 +789,7 @@ Uint8List generateExcelBytes(Report report) {
               : ExcelColor.white;
           final aColor = li == 0
               ? ExcelColor.black
-              : ExcelColor.fromHexString(getLanguageColor(li));
+              : ExcelColor.fromHexString(getLanguageColor(li - 1));
           final aFontSize = li == 0 ? 12 : 10;
 
           sheet

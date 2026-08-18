@@ -1,4 +1,5 @@
 import 'package:easy_tab/providers/report_provider.dart';
+import 'package:easy_tab/l10n/app_localizations.dart';
 import 'package:easy_tab/screens/full_media_viewer_screen.dart';
 import 'package:easy_tab/utils/app_colors.dart';
 import 'package:easy_tab/widgets/media_item_widget.dart';
@@ -88,22 +89,21 @@ class MediaGrid extends StatelessWidget {
               startInSelectionMode: true,
             ),
             onDelete: () async {
+              final loc = AppLocalizations.of(context)!;
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('Удалить?'),
-                  content: const Text(
-                    'Файл будет удален без возможности восстановления.',
-                  ),
+                  title: Text(loc.deleteMediaTitle),
+                  content: Text(loc.deleteMediaConfirm),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Отмена'),
+                      child: Text(loc.cancel),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
                       style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('Удалить'),
+                      child: Text(loc.delete),
                     ),
                   ],
                 ),

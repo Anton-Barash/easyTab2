@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:excel_community/excel_community.dart';
 import 'package:flutter/foundation.dart';
+import '../l10n/app_localizations.dart';
 import '../models/report_models.dart';
 
 /// Результат валидации шаблона
@@ -32,20 +33,22 @@ class TemplateValidationResult {
 class TemplateParserService {
   /// Парсит шаблон из файла любого поддерживаемого формата.
   /// Автоматически определяет формат по расширению.
-  static Future<TemplateValidationResult> parseFromFile(String filePath) async {
+  static Future<TemplateValidationResult> parseFromFile(
+    String filePath, {
+    AppLocalizations? loc,
+  }) async {
     final ext = filePath.toLowerCase().split('.').last;
 
     switch (ext) {
       case 'xlsx':
-        return parseExcel(filePath);
+        return parseExcel(filePath, loc: loc);
       case 'json':
-        return parseJsonFile(filePath);
+        return parseJsonFile(filePath, loc: loc);
       case 'zip':
-        return parseZip(filePath);
+        return parseZip(filePath, loc: loc);
       default:
         return TemplateValidationResult.failure(
-          'Неподдерживаемый формат файла: .$ext\n'
-          'Поддерживаются: .xlsx, .json, .zip',
+          loc?.unsupportedFormat(ext) ?? 'Unsupported file format: .$ext',
         );
     }
   }
@@ -53,7 +56,10 @@ class TemplateParserService {
   /// Парсит шаблон из Excel файла (.xlsx).
   /// Формат: первая строка — заголовки, вторая — коды языков,
   /// остальные — вопросы (название, пример, описание для каждого языка).
-  static Future<TemplateValidationResult> parseExcel(String filePath) async {
+  static Future<TemplateValidationResult> parseExcel(
+    String filePath, {
+    AppLocalizations? loc,
+  }) async {
     try {
       final bytes = await File(filePath).readAsBytes();
       final excel = Excel.decodeBytes(bytes);
@@ -61,9 +67,8 @@ class TemplateParserService {
 
       final rows = sheet.rows;
       if (rows.length < 3) {
-        return const TemplateValidationResult.failure(
-          'Excel-файл должен содержать минимум 3 строки: '
-          'заголовок, коды языков и вопросы',
+        return TemplateValidationResult.failure(
+          loc?.excelMinRows ?? 'Excel file must contain at least 3 rows',
         );
       }
 
@@ -131,14 +136,14 @@ class TemplateParserService {
       }
 
       if (questions.isEmpty) {
-        return const TemplateValidationResult.failure(
-          'Не найдено вопросов в Excel-файле. '
-          'Убедитесь, что вопросы начинаются с 3-й строки.',
+        return TemplateValidationResult.failure(
+          loc?.excelNoQuestions ??
+              'No questions found in Excel file',
         );
       }
 
       final report = Report(
-        reportName: 'Новый отчёт',
+        reportName: loc?.newReport ?? 'New Report',
         availableLanguages: languages,
         currentLanguage: languages[0],
         questions: questions,
@@ -154,7 +159,7 @@ class TemplateParserService {
     } catch (e) {
       debugPrint('Error parsing Excel template: $e');
       return TemplateValidationResult.failure(
-        'Ошибка чтения Excel-файла: ${e.toString()}',
+        loc?.excelReadError(e.toString()) ?? 'Error reading Excel file: $e',
       );
     }
   }
@@ -163,30 +168,36 @@ class TemplateParserService {
   /// Поддерживает два формата:
   /// 1. Полный отчёт (с translations, markers) — извлекает только questions
   /// 2. Простой шаблон вопросов (только questions + availableLanguages)
-  static Future<TemplateValidationResult> parseJsonFile(String filePath) async {
+  static Future<TemplateValidationResult> parseJsonFile(
+    String filePath, {
+    AppLocalizations? loc,
+  }) async {
     try {
       final content = await File(filePath).readAsString();
       return parseJsonString(content);
     } catch (e) {
       debugPrint('Error reading JSON file: $e');
       return TemplateValidationResult.failure(
-        'Ошибка чтения JSON-файла: ${e.toString()}',
+        loc?.jsonReadError(e.toString()) ?? 'Error reading JSON file: $e',
       );
     }
   }
 
   /// Парсит шаблон из JSON-строки.
-  static TemplateValidationResult parseJsonString(String jsonText) {
+  static TemplateValidationResult parseJsonString(
+    String jsonText, {
+    AppLocalizations? loc,
+  }) {
     try {
       final data = jsonDecode(jsonText) as Map<String, dynamic>;
-      return parseJsonData(data);
+      return parseJsonData(data, loc: loc);
     } on FormatException catch (e) {
       return TemplateValidationResult.failure(
-        'Некорректный JSON: ${e.message}',
+        loc?.invalidJsonDetail(e.message) ?? 'Invalid JSON: ${e.message}',
       );
     } catch (e) {
       return TemplateValidationResult.failure(
-        'Ошибка парсинга JSON: ${e.toString()}',
+        loc?.jsonParseDetail(e.toString()) ?? 'JSON parsing error: $e',
       );
     }
   }
@@ -195,13 +206,16 @@ class TemplateParserService {
   /// Поддерживает форматы:
   /// - Полный отчёт (с translations, markers, mediaCounter)
   /// - Простой шаблон (только questions + availableLanguages)
-  static TemplateValidationResult parseJsonData(Map<String, dynamic> data) {
+  static TemplateValidationResult parseJsonData(
+    Map<String, dynamic> data, {
+    AppLocalizations? loc,
+  }) {
     try {
       // Проверяем наличие вопросов
       final questionsJson = data['questions'] as List<dynamic>?;
       if (questionsJson == null || questionsJson.isEmpty) {
-        return const TemplateValidationResult.failure(
-          'JSON не содержит вопросов (поле "questions" отсутствует или пусто)',
+        return TemplateValidationResult.failure(
+          loc?.jsonNoQuestions ?? 'JSON contains no questions',
         );
       }
 
@@ -256,14 +270,13 @@ class TemplateParserService {
       }
 
       if (questions.isEmpty) {
-        return const TemplateValidationResult.failure(
-          'Не найдено валидных вопросов в JSON. '
-          'Каждый вопрос должен содержать "localizations"',
+        return TemplateValidationResult.failure(
+          loc?.jsonNoValidQuestions ?? 'No valid questions found in JSON',
         );
       }
 
       final report = Report(
-        reportName: data['reportName'] as String? ?? 'Новый отчёт',
+        reportName: data['reportName'] as String? ?? loc?.newReport ?? 'New Report',
         availableLanguages: availableLanguages,
         currentLanguage: availableLanguages[0],
         questions: questions,
@@ -271,7 +284,7 @@ class TemplateParserService {
         markers: {},
         mediaCounter: {'photos': 1, 'X': 1},
         timestamp: DateTime.now().millisecondsSinceEpoch,
-        productType: data['productType'] as String? ?? 'Аэрогриль',
+        productType: data['productType'] as String? ?? '',
         factory: data['factory'] as String? ?? '',
         model: data['model'] as String? ?? '',
       );
@@ -282,14 +295,17 @@ class TemplateParserService {
     } catch (e) {
       debugPrint('Error parsing JSON template: $e');
       return TemplateValidationResult.failure(
-        'Ошибка структуры JSON: ${e.toString()}',
+        loc?.jsonStructureError(e.toString()) ?? 'JSON structure error: $e',
       );
     }
   }
 
   /// Парсит шаблон из ZIP-архива.
   /// Ищет JSON-файл с отчётом внутри архива (report.json или любой .json).
-  static Future<TemplateValidationResult> parseZip(String filePath) async {
+  static Future<TemplateValidationResult> parseZip(
+    String filePath, {
+    AppLocalizations? loc,
+  }) async {
     try {
       final bytes = await File(filePath).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -308,18 +324,17 @@ class TemplateParserService {
       }
 
       if (jsonFile == null) {
-        return const TemplateValidationResult.failure(
-          'В ZIP-архиве не найден JSON-файл с отчётом. '
-          'Ожидается report.json или другой .json файл',
+        return TemplateValidationResult.failure(
+          loc?.zipNoJson ?? 'No JSON file found in ZIP archive',
         );
       }
 
       final content = utf8.decode(jsonFile.content as List<int>);
-      return parseJsonString(content);
+      return parseJsonString(content, loc: loc);
     } catch (e) {
       debugPrint('Error parsing ZIP template: $e');
       return TemplateValidationResult.failure(
-        'Ошибка чтения ZIP-архива: ${e.toString()}',
+        loc?.zipReadError(e.toString()) ?? 'Error reading ZIP archive: $e',
       );
     }
   }

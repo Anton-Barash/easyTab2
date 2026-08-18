@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 
+import '../l10n/app_localizations.dart';
 import 'api_result.dart';
 import 'api_response_parser.dart';
 import 'upload_helper.dart';
@@ -69,14 +70,21 @@ class ApiService {
   static Future<ApiResult> _handleApiCall(
     Future<http.Response> request, {
     Duration? timeout,
+    AppLocalizations? loc,
   }) async {
     try {
       final response = await request.timeout(timeout ?? _timeout);
-      return _parseResponse(response);
+      return _parseResponse(response, loc: loc);
     } on SocketException {
-      return const ApiResult(success: false, error: 'Нет соединения с сервером');
+      return ApiResult(
+        success: false,
+        error: loc?.noServerConnection ?? 'Нет соединения с сервером',
+      );
     } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка сети: $e');
+      return ApiResult(
+        success: false,
+        error: loc?.networkError(e.toString()) ?? 'Ошибка сети: $e',
+      );
     }
   }
 
@@ -87,6 +95,7 @@ class ApiService {
     required String password,
     String? email,
     String? name,
+    AppLocalizations? loc,
   }) async {
     return _handleApiCall(
       http.post(
@@ -99,6 +108,7 @@ class ApiService {
           if (name != null && name.isNotEmpty) 'name': name,
         }),
       ),
+      loc: loc,
     );
   }
 
@@ -106,6 +116,7 @@ class ApiService {
   static Future<ApiResult> login({
     required String username,
     required String password,
+    AppLocalizations? loc,
   }) async {
     return _handleApiCall(
       http.post(
@@ -113,12 +124,16 @@ class ApiService {
         headers: _headers,
         body: jsonEncode({'username': username, 'password': password}),
       ),
+      loc: loc,
     );
   }
 
   /// Получить текущего пользователя по токену.
-  static Future<ApiResult> me() async {
-    return _handleApiCall(http.get(_uri('/auth/me'), headers: _headers));
+  static Future<ApiResult> me({AppLocalizations? loc}) async {
+    return _handleApiCall(
+      http.get(_uri('/auth/me'), headers: _headers),
+      loc: loc,
+    );
   }
 
   /// Проверка доступности сервера (health check).
@@ -148,6 +163,7 @@ class ApiService {
     required String filePath,
     required String relativePath,
     int? reportId,
+    AppLocalizations? loc,
   }) async {
     try {
       // Получаем имя файла из пути
@@ -175,11 +191,17 @@ class ApiService {
       );
       final response = await http.Response.fromStream(streamedResponse);
 
-      return _parseResponse(response);
+      return _parseResponse(response, loc: loc);
     } on SocketException {
-      return const ApiResult(success: false, error: 'Нет соединения с сервером');
+      return ApiResult(
+        success: false,
+        error: loc?.noServerConnection ?? 'Нет соединения с сервером',
+      );
     } catch (e) {
-      return ApiResult(success: false, error: 'Ошибка загрузки: $e');
+      return ApiResult(
+        success: false,
+        error: loc?.uploadErrorDetail(e.toString()) ?? 'Ошибка загрузки: $e',
+      );
     }
   }
 
@@ -197,6 +219,7 @@ class ApiService {
     required String relativePath,
     int? reportId,
     void Function(double progress)? onUploadProgress,
+    AppLocalizations? loc,
   }) async {
     return uploadFileFromBytesWithProgress(
       uri: _uri('/files/upload'),
@@ -206,6 +229,7 @@ class ApiService {
       headers: _authHeaders,
       reportId: reportId,
       onUploadProgress: onUploadProgress,
+      loc: loc,
     );
   }
 
@@ -221,6 +245,7 @@ class ApiService {
     required String fileName,
     String? relativePath,
     int? reportId,
+    AppLocalizations? loc,
   }) async {
     final body = jsonEncode({
       'fileName': fileName,
@@ -230,6 +255,7 @@ class ApiService {
 
     return _handleApiCall(
       http.post(_uri('/files/presign-upload'), headers: _headers, body: body),
+      loc: loc,
     );
   }
 
@@ -245,6 +271,7 @@ class ApiService {
     required String mimeType,
     required String relPath,
     int? reportId,
+    AppLocalizations? loc,
   }) async {
     final body = jsonEncode({
       'fileId': fileId,
@@ -259,6 +286,7 @@ class ApiService {
     return _handleApiCall(
       http.post(_uri('/files/confirm-upload'), headers: _headers, body: body),
       timeout: const Duration(seconds: 30),
+      loc: loc,
     );
   }
 
@@ -276,6 +304,7 @@ class ApiService {
     required String shareToken,
     String? relativePath,
     int? reportId,
+    AppLocalizations? loc,
   }) async {
     final body = jsonEncode({
       'fileName': fileName,
@@ -290,6 +319,7 @@ class ApiService {
         headers: _headers,
         body: body,
       ),
+      loc: loc,
     );
   }
 
@@ -304,6 +334,7 @@ class ApiService {
     required String mimeType,
     required String relPath,
     required String shareToken,
+    AppLocalizations? loc,
   }) async {
     final body = jsonEncode({
       'fileId': fileId,
@@ -322,6 +353,7 @@ class ApiService {
         body: body,
       ),
       timeout: const Duration(seconds: 30),
+      loc: loc,
     );
   }
 
@@ -338,6 +370,7 @@ class ApiService {
     required List<Map<String, String>> files,
     int? reportId,
     void Function(int current, int total)? onProgress,
+    AppLocalizations? loc,
   }) async {
     final results = <Map<String, dynamic>>[];
     var successCount = 0;
@@ -349,6 +382,7 @@ class ApiService {
         filePath: files[i]['filePath']!,
         relativePath: files[i]['relativePath']!,
         reportId: reportId,
+        loc: loc,
       );
 
       if (result.success) {
@@ -375,7 +409,9 @@ class ApiService {
         'successCount': successCount,
         'failedCount': files.length - successCount,
       },
-      error: successCount == 0 ? 'Не удалось загрузить ни одного файла' : null,
+      error: successCount == 0
+          ? loc?.uploadNoneFailed ?? 'Не удалось загрузить ни одного файла'
+          : null,
     );
   }
 
@@ -588,7 +624,10 @@ class ApiService {
     );
   }
 
-  static ApiResult _parseResponse(http.Response response) {
-    return parseApiResponse(response.body, response.statusCode);
+  static ApiResult _parseResponse(
+    http.Response response, {
+    AppLocalizations? loc,
+  }) {
+    return parseApiResponse(response.body, response.statusCode, loc: loc);
   }
 }

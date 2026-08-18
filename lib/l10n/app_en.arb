@@ -351,5 +351,167 @@
     "placeholders": {
       "error": {"type": "String"}
     }
-  }
+  },
+  "reportIdMissing": "Report ID is missing",
+  "shareTokenMissing": "Share link token is missing",
+  "@reportNumber": {
+    "placeholders": {
+      "id": {"type": "String"}
+    }
+  },
+  "reportNumber": "Report #{id}",
+  "refresh": "Refresh",
+  "retry": "Retry",
+  "htmlWebOnly": "HTML viewing is only available in the web version.",
+  "loadReportFailed": "Failed to load report",
+  "loadLinkFailed": "Failed to load link",
+  "reportFromLinkLoadFailed": "Failed to load report from link",
+  "htmlOpenedInNewTab": "HTML report opened in a new tab",
+  "invalidFileFormat": "Invalid file format",
+  "fileTooLarge": "File is too large (max 10MB)",
+  "photoAdded": "Photo added",
+  "@errorWithDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "errorWithDetail": "Error: {error}",
+  "openHtmlTooltip": "Open HTML",
+  "deleteMediaTitle": "Delete?",
+  "deleteMediaConfirm": "The file will be deleted permanently.",
+  "compressing": "Compressing...",
+  "finalizing": "Finalizing...",
+  "uploading": "Uploading...",
+  "enterCredentials": "Enter username and password",
+  "registerFailed": "Registration failed",
+  "langCodeRequired": "The language_code field must be a non-empty string",
+  "questionsMustBeArray": "The questions field must be an array",
+  "@questionsCountMismatch": {
+    "placeholders": {
+      "expected": {"type": "int"},
+      "actual": {"type": "int"}
+    }
+  },
+  "questionsCountMismatch": "Must be {expected} questions, got {actual}",
+  "@questionMustBeObject": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionMustBeObject": "Question {index} must be an object",
+  "@questionIdMustBeNumber": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionIdMustBeNumber": "Question {index}: id field must be a number",
+  "@questionNameRequired": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionNameRequired": "Question {index}: name field must be a non-empty string",
+  "@questionDescriptionRequired": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionDescriptionRequired": "Question {index}: description field must be a non-empty string",
+  "@unsupportedFormat": {
+    "placeholders": {
+      "ext": {"type": "String"}
+    }
+  },
+  "unsupportedFormat": "Unsupported file format: .{ext}\nSupported: .xlsx, .json, .zip",
+  "excelMinRows": "Excel file must contain at least 3 rows: header, language codes and questions",
+  "excelNoQuestions": "No questions found in Excel file. Make sure questions start from row 3.",
+  "@excelReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "excelReadError": "Error reading Excel file: {error}",
+  "@jsonReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonReadError": "Error reading JSON file: {error}",
+  "@invalidJsonDetail": {
+    "placeholders": {
+      "message": {"type": "String"}
+    }
+  },
+  "invalidJsonDetail": "Invalid JSON: {message}",
+  "@jsonParseDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonParseDetail": "JSON parsing error: {error}",
+  "jsonNoQuestions": "JSON does not contain questions (the \"questions\" field is missing or empty)",
+  "jsonNoValidQuestions": "No valid questions found in JSON. Each question must contain \"localizations\"",
+  "@jsonStructureError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonStructureError": "JSON structure error: {error}",
+  "zipNoJson": "No JSON file with the report found in the ZIP archive. Expected report.json or another .json file",
+  "@zipReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "zipReadError": "Error reading ZIP archive: {error}",
+  "sharedReport": "Shared Report",
+  "editAccess": "Edit access",
+  "viewOnlyAccess": "View only access",
+  "linkValidUntil": "Link valid until",
+  "downloadApp": "Download App",
+  "downloadAppDesc": "For Android or Windows",
+  "openWebEditor": "Open Web Editor",
+  "openWebEditorDesc": "To edit the report",
+  "openHtmlDesc": "To view in browser",
+  "downloadZipDesc": "Report with media for offline use",
+  "appLinksStub": "App download links will be here",
+  "viewOnlyWarning": "View only access. To edit, request access from the report owner.",
+  "downloadZip": "Download ZIP",
+  "unknownError": "Unknown error",
+  "@statusError": {
+    "placeholders": {
+      "statusCode": {"type": "int"}
+    }
+  },
+  "statusError": "Error {statusCode}",
+  "@invalidServerResponse": {
+    "placeholders": {
+      "statusCode": {"type": "int"}
+    }
+  },
+  "invalidServerResponse": "Invalid server response: {statusCode}",
+  "noServerConnection": "No connection to server",
+  "@networkError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "networkError": "Network error: {error}",
+  "@uploadErrorDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "uploadErrorDetail": "Upload error: {error}",
+  "uploadNoneFailed": "Failed to upload any file",
+  "@uploadFailedStatus": {
+    "placeholders": {
+      "status": {"type": "int"}
+    }
+  },
+  "uploadFailedStatus": "Upload failed ({status})",
+  "uploadFailedGeneric": "Upload error",
+  "uploadTimeout": "Upload timeout",
+  "presignFailed": "Failed to create upload link",
+  "confirmFailed": "Failed to confirm upload"
 }

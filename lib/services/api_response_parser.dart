@@ -8,6 +8,7 @@
 
 import 'dart:convert';
 
+import '../l10n/app_localizations.dart';
 import 'api_result.dart';
 
 /// Разобрать JSON-ответ сервера по тексту тела и HTTP-статусу.
@@ -19,7 +20,11 @@ import 'api_result.dart';
 /// На 2xx: success определяется полем `success` (не статусом),
 /// т.к. сервер может вернуть 200 с success=false при логической ошибке.
 /// На прочие статусы: всегда успех = false.
-ApiResult parseApiResponse(String responseBody, int statusCode) {
+ApiResult parseApiResponse(
+  String responseBody,
+  int statusCode, {
+  AppLocalizations? loc,
+}) {
   try {
     final body = jsonDecode(responseBody) as Map<String, dynamic>;
 
@@ -31,20 +36,26 @@ ApiResult parseApiResponse(String responseBody, int statusCode) {
         user: body['user'] as Map<String, dynamic>?,
         error: body['success'] == true
             ? null
-            : (body['error'] as String?) ?? 'Неизвестная ошибка',
+            : (body['error'] as String?) ??
+                loc?.unknownError ??
+                'Неизвестная ошибка',
         statusCode: statusCode,
       );
     }
 
     return ApiResult(
       success: false,
-      error: (body['error'] as String?) ?? 'Ошибка $statusCode',
+      error: (body['error'] as String?) ??
+          loc?.statusError(statusCode) ??
+          'Ошибка $statusCode',
       statusCode: statusCode,
     );
   } catch (_) {
     return ApiResult(
       success: false,
-      error: 'Некорректный ответ сервера: $statusCode',
+      error:
+          loc?.invalidServerResponse(statusCode) ??
+          'Некорректный ответ сервера: $statusCode',
       statusCode: statusCode,
     );
   }

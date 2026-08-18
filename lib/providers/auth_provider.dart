@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../utils/cookie.dart' as cookie_utils;
 
@@ -91,9 +92,13 @@ class AuthProvider extends ChangeNotifier {
 
   /// Вход по логину/паролю.
   /// Возвращает true при успехе, false при ошибке (см. lastError).
-  Future<bool> login(String username, String password) async {
+  Future<bool> login(
+    String username,
+    String password, {
+    AppLocalizations? loc,
+  }) async {
     if (username.isEmpty || password.isEmpty) {
-      _lastError = 'Введите имя пользователя и пароль';
+      _lastError = null;
       notifyListeners();
       return false;
     }
@@ -101,6 +106,7 @@ class AuthProvider extends ChangeNotifier {
     final result = await ApiService.login(
       username: username.trim(),
       password: password,
+      loc: loc,
     );
 
     if (result.success && result.token != null) {
@@ -118,7 +124,7 @@ class AuthProvider extends ChangeNotifier {
       return true;
     }
 
-    _lastError = result.error ?? 'Ошибка входа';
+    _lastError = result.error;
     notifyListeners();
     return false;
   }
@@ -130,9 +136,10 @@ class AuthProvider extends ChangeNotifier {
     String password, {
     String? email,
     String? name,
+    AppLocalizations? loc,
   }) async {
     if (username.isEmpty || password.isEmpty) {
-      _lastError = 'Введите имя пользователя и пароль';
+      _lastError = null;
       notifyListeners();
       return false;
     }
@@ -142,6 +149,7 @@ class AuthProvider extends ChangeNotifier {
       password: password,
       email: email?.trim().isEmpty ?? true ? null : email!.trim(),
       name: name?.trim().isEmpty ?? true ? null : name!.trim(),
+      loc: loc,
     );
 
     if (result.success && result.token != null) {
@@ -159,7 +167,7 @@ class AuthProvider extends ChangeNotifier {
       return true;
     }
 
-    _lastError = result.error ?? 'Ошибка регистрации';
+    _lastError = result.error;
     notifyListeners();
     return false;
   }

@@ -295,6 +295,10 @@ class Report {
   int? dateTimestamp;
   String? headerImagePath;
 
+  /// Runtime-only URL фото шапки на web (presigned KS3 или view-ссылка).
+  /// Не сериализуется — заполняется ReportState после загрузки/выгрузки.
+  String? headerImageWebUrl;
+
   Report({
     this.reportName = '',
     this.availableLanguages = const [],

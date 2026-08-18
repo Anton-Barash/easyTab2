@@ -1,6 +1,7 @@
 import 'package:easy_tab/l10n/app_localizations.dart';
 import 'package:easy_tab/providers/report_provider.dart';
 import 'package:easy_tab/utils/app_colors.dart';
+import 'package:easy_tab/utils/layout.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:file_picker/file_picker.dart';
@@ -133,7 +134,7 @@ class SyncMenuDialogState extends State<SyncMenuDialog> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final unsyncCount = widget.reportState.getUnsyncQuestionIndices().length;
-    final isMobile = MediaQuery.of(context).size.width <= 800;
+    final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,

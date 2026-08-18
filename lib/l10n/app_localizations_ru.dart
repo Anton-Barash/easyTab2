@@ -824,4 +824,248 @@ class AppLocalizationsRu extends AppLocalizations {
   String compressionError(String error) {
     return 'Ошибка сжатия: $error';
   }
+
+  @override
+  String get reportIdMissing => 'Не указан ID отчёта';
+
+  @override
+  String get shareTokenMissing => 'Не указан токен ссылки';
+
+  @override
+  String reportNumber(String id) {
+    return 'Отчёт #$id';
+  }
+
+  @override
+  String get refresh => 'Обновить';
+
+  @override
+  String get retry => 'Повторить';
+
+  @override
+  String get htmlWebOnly => 'Просмотр HTML доступен только на web-версии.';
+
+  @override
+  String get loadReportFailed => 'Не удалось загрузить отчёт';
+
+  @override
+  String get loadLinkFailed => 'Не удалось загрузить ссылку';
+
+  @override
+  String get reportFromLinkLoadFailed => 'Не удалось загрузить отчёт по ссылке';
+
+  @override
+  String get htmlOpenedInNewTab => 'HTML отчёт открыт в новой вкладке';
+
+  @override
+  String get invalidFileFormat => 'Неверный формат файла';
+
+  @override
+  String get fileTooLarge => 'Файл слишком большой (макс. 10MB)';
+
+  @override
+  String get photoAdded => 'Фото добавлено';
+
+  @override
+  String errorWithDetail(String error) {
+    return 'Ошибка: $error';
+  }
+
+  @override
+  String get openHtmlTooltip => 'Открыть HTML';
+
+  @override
+  String get deleteMediaTitle => 'Удалить?';
+
+  @override
+  String get deleteMediaConfirm =>
+      'Файл будет удален без возможности восстановления.';
+
+  @override
+  String get compressing => 'Сжатие...';
+
+  @override
+  String get finalizing => 'Завершение...';
+
+  @override
+  String get uploading => 'Загрузка...';
+
+  @override
+  String get enterCredentials => 'Введите имя пользователя и пароль';
+
+  @override
+  String get registerFailed => 'Ошибка регистрации';
+
+  @override
+  String get langCodeRequired =>
+      'Поле language_code должно быть непустой строкой';
+
+  @override
+  String get questionsMustBeArray => 'Поле questions должно быть массивом';
+
+  @override
+  String questionsCountMismatch(int expected, int actual) {
+    return 'Должно быть $expected вопросов, получено $actual';
+  }
+
+  @override
+  String questionMustBeObject(int index) {
+    return 'Вопрос $index должен быть объектом';
+  }
+
+  @override
+  String questionIdMustBeNumber(int index) {
+    return 'Вопрос $index: поле id должно быть числом';
+  }
+
+  @override
+  String questionNameRequired(int index) {
+    return 'Вопрос $index: поле name должно быть непустой строкой';
+  }
+
+  @override
+  String questionDescriptionRequired(int index) {
+    return 'Вопрос $index: поле description должно быть непустой строкой';
+  }
+
+  @override
+  String unsupportedFormat(String ext) {
+    return 'Неподдерживаемый формат файла: .$ext\nПоддерживаются: .xlsx, .json, .zip';
+  }
+
+  @override
+  String get excelMinRows =>
+      'Excel-файл должен содержать минимум 3 строки: заголовок, коды языков и вопросы';
+
+  @override
+  String get excelNoQuestions =>
+      'Не найдено вопросов в Excel-файле. Убедитесь, что вопросы начинаются с 3-й строки.';
+
+  @override
+  String excelReadError(String error) {
+    return 'Ошибка чтения Excel-файла: $error';
+  }
+
+  @override
+  String jsonReadError(String error) {
+    return 'Ошибка чтения JSON-файла: $error';
+  }
+
+  @override
+  String invalidJsonDetail(String message) {
+    return 'Некорректный JSON: $message';
+  }
+
+  @override
+  String jsonParseDetail(String error) {
+    return 'Ошибка парсинга JSON: $error';
+  }
+
+  @override
+  String get jsonNoQuestions =>
+      'JSON не содержит вопросов (поле \"questions\" отсутствует или пусто)';
+
+  @override
+  String get jsonNoValidQuestions =>
+      'Не найдено валидных вопросов в JSON. Каждый вопрос должен содержать \"localizations\"';
+
+  @override
+  String jsonStructureError(String error) {
+    return 'Ошибка структуры JSON: $error';
+  }
+
+  @override
+  String get zipNoJson =>
+      'В ZIP-архиве не найден JSON-файл с отчётом. Ожидается report.json или другой .json файл';
+
+  @override
+  String zipReadError(String error) {
+    return 'Ошибка чтения ZIP-архива: $error';
+  }
+
+  @override
+  String get sharedReport => 'Общий отчёт';
+
+  @override
+  String get editAccess => 'Доступ для редактирования';
+
+  @override
+  String get viewOnlyAccess => 'Доступ только для просмотра';
+
+  @override
+  String get linkValidUntil => 'Ссылка действует до';
+
+  @override
+  String get downloadApp => 'Скачайте приложение';
+
+  @override
+  String get downloadAppDesc => 'Для Android или Windows';
+
+  @override
+  String get openWebEditor => 'Открыть веб-версию';
+
+  @override
+  String get openWebEditorDesc => 'Для редактирования отчёта';
+
+  @override
+  String get openHtmlDesc => 'Для просмотра в браузере';
+
+  @override
+  String get downloadZipDesc => 'Отчёт с медиа для офлайн-работы';
+
+  @override
+  String get appLinksStub => 'Ссылки на приложения будут здесь';
+
+  @override
+  String get viewOnlyWarning =>
+      'Доступен только просмотр. Для редактирования запросите доступ у владельца отчёта.';
+
+  @override
+  String get downloadZip => 'Скачать ZIP';
+
+  @override
+  String get unknownError => 'Неизвестная ошибка';
+
+  @override
+  String statusError(int statusCode) {
+    return 'Ошибка $statusCode';
+  }
+
+  @override
+  String invalidServerResponse(int statusCode) {
+    return 'Некорректный ответ сервера: $statusCode';
+  }
+
+  @override
+  String get noServerConnection => 'Нет соединения с сервером';
+
+  @override
+  String networkError(String error) {
+    return 'Ошибка сети: $error';
+  }
+
+  @override
+  String uploadErrorDetail(String error) {
+    return 'Ошибка загрузки: $error';
+  }
+
+  @override
+  String get uploadNoneFailed => 'Не удалось загрузить ни одного файла';
+
+  @override
+  String uploadFailedStatus(int status) {
+    return 'Ошибка загрузки ($status)';
+  }
+
+  @override
+  String get uploadFailedGeneric => 'Ошибка загрузки';
+
+  @override
+  String get uploadTimeout => 'Таймаут загрузки';
+
+  @override
+  String get presignFailed => 'Не удалось создать ссылку на загрузку';
+
+  @override
+  String get confirmFailed => 'Не удалось подтвердить загрузку';
 }

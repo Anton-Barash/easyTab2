@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:typed_data';
 
+import '../l10n/app_localizations.dart';
 import 'api_result.dart';
 import 'api_response_parser.dart';
 import 'api_service.dart';
@@ -22,6 +23,7 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   required Map<String, String> headers,
   int? reportId,
   void Function(double progress)? onUploadProgress,
+  AppLocalizations? loc,
 }) async {
   final completer = Completer<ApiResult>();
 
@@ -92,25 +94,36 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
         request.status! >= 200 &&
         request.status! < 300) {
       completer.complete(
-        parseApiResponse(request.responseText ?? '', request.status!),
+        parseApiResponse(
+          request.responseText ?? '',
+          request.status!,
+          loc: loc,
+        ),
       );
     } else {
       completer.complete(
         ApiResult(
           success: false,
-          error: request.statusText ?? 'Upload failed (${request.status})',
+          error:
+              loc?.uploadFailedStatus(request.status ?? 0) ??
+              'Upload failed (${request.status})',
         ),
       );
     }
   });
 
   request.onError.listen((_) {
-    completer.complete(const ApiResult(success: false, error: 'Upload error'));
+    completer.complete(
+      ApiResult(
+        success: false,
+        error: loc?.uploadFailedGeneric ?? 'Upload error',
+      ),
+    );
   });
 
   request.onTimeout.listen((_) {
     completer.complete(
-      const ApiResult(success: false, error: 'Upload timeout'),
+      ApiResult(success: false, error: loc?.uploadTimeout ?? 'Upload timeout'),
     );
   });
 
@@ -132,6 +145,7 @@ Future<dynamic> uploadToPresignedUrl({
   required String uploadUrl,
   required Uint8List bytes,
   void Function(double progress)? onUploadProgress,
+  AppLocalizations? loc,
 }) async {
   final completer = Completer<dynamic>();
 
@@ -193,6 +207,7 @@ Future<UploadResult> uploadWithProgress({
   String? shareToken,
   void Function(double progress)? onProgress,
   void Function(String fileId)? onPresigned,
+  AppLocalizations? loc,
 }) async {
   // Шаг 1: presign
   final ApiResult presignResult;
@@ -202,19 +217,21 @@ Future<UploadResult> uploadWithProgress({
       shareToken: shareToken,
       relativePath: relativePath,
       reportId: reportId,
+      loc: loc,
     );
   } else {
     presignResult = await ApiService.presignUpload(
       fileName: fileName,
       relativePath: relativePath,
       reportId: reportId,
+      loc: loc,
     );
   }
 
   if (!presignResult.success) {
     return UploadResult(
       success: false,
-      error: presignResult.error ?? 'presign failed',
+      error: presignResult.error ?? loc?.presignFailed ?? 'presign failed',
     );
   }
 
@@ -234,6 +251,7 @@ Future<UploadResult> uploadWithProgress({
     uploadUrl: uploadUrl,
     bytes: fileBytes,
     onUploadProgress: onProgress,
+    loc: loc,
   );
 
   if (uploadResult != true) {
@@ -251,6 +269,7 @@ Future<UploadResult> uploadWithProgress({
       mimeType: serverMimeType,
       relPath: relPath,
       shareToken: shareToken,
+      loc: loc,
     );
   } else {
     confirmResult = await ApiService.confirmUpload(
@@ -261,13 +280,14 @@ Future<UploadResult> uploadWithProgress({
       mimeType: serverMimeType,
       relPath: relPath,
       reportId: reportId,
+      loc: loc,
     );
   }
 
   if (!confirmResult.success) {
     return UploadResult(
       success: false,
-      error: confirmResult.error ?? 'confirm failed',
+      error: confirmResult.error ?? loc?.confirmFailed ?? 'confirm failed',
     );
   }
 

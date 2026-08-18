@@ -73,7 +73,7 @@ class VideoThumbnailGeneratorImpl implements VideoThumbnailGenerator {
     if (!isBlob) {
       video.crossOrigin = 'anonymous';
     }
-    video.preload = 'auto';
+    video.preload = 'metadata';
     video.muted = true;
     video.style.display = 'none';
     video.setAttribute('playsinline', 'true');
@@ -82,11 +82,23 @@ class VideoThumbnailGeneratorImpl implements VideoThumbnailGenerator {
     html.document.body?.append(video);
     video.load();
 
+    // Останавливает скачивание и удаляет элемент.
+    //
+    // Просто video.remove() обрывает незавершённый range-стрим (206),
+    // и Chrome логирует net::ERR_CONTENT_LENGTH_MISMATCH. Сброс src
+    // до удаления корректно завершает загрузку и убирает шум в консоли.
+    void stopAndRemove() {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      video.remove();
+    }
+
     // Таймаут 10 секунд.
     Timer? timeout;
     timeout = Timer(const Duration(seconds: 10), () {
       if (!completer.isCompleted) {
-        video.remove();
+        stopAndRemove();
         completer.complete(null);
       }
     });
@@ -94,7 +106,7 @@ class VideoThumbnailGeneratorImpl implements VideoThumbnailGenerator {
     // Обработчик ошибок видео.
     video.onError.first.then((_) {
       timeout?.cancel();
-      video.remove();
+      stopAndRemove();
       if (!completer.isCompleted) {
         completer.complete(null);
       }
@@ -118,7 +130,7 @@ class VideoThumbnailGeneratorImpl implements VideoThumbnailGenerator {
           final videoHeight = video.videoHeight;
 
           if (videoWidth == 0 || videoHeight == 0) {
-            video.remove();
+            stopAndRemove();
             completer.complete(null);
             return;
           }
@@ -138,22 +150,22 @@ class VideoThumbnailGeneratorImpl implements VideoThumbnailGenerator {
           final base64 = dataUrl.split(',').last;
           final bytes = base64Decode(base64);
 
-          video.remove();
+          stopAndRemove();
           completer.complete(Uint8List.fromList(bytes));
         } catch (e) {
-          video.remove();
+          stopAndRemove();
           completer.complete(null);
         }
       }).catchError((_) {
         timeout?.cancel();
-        video.remove();
+        stopAndRemove();
         if (!completer.isCompleted) {
           completer.complete(null);
         }
       });
     }).catchError((_) {
       timeout?.cancel();
-      video.remove();
+      stopAndRemove();
       if (!completer.isCompleted) {
         completer.complete(null);
       }

@@ -1,6 +1,7 @@
 import 'package:easy_tab/l10n/app_localizations.dart';
 import 'package:easy_tab/utils/app_colors.dart';
-import 'package:easy_tab/utils/file_image.dart';
+import 'package:easy_tab/utils/file_image.dart'
+    if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
 import 'package:easy_tab/widgets/form_fill/picker_item.dart';
 import 'package:easy_tab/widgets/form_fill/section_title.dart';
 import 'package:flutter/foundation.dart';

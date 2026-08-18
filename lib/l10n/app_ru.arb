@@ -351,5 +351,167 @@
     "placeholders": {
       "error": {"type": "String"}
     }
-  }
+  },
+  "reportIdMissing": "Не указан ID отчёта",
+  "shareTokenMissing": "Не указан токен ссылки",
+  "@reportNumber": {
+    "placeholders": {
+      "id": {"type": "String"}
+    }
+  },
+  "reportNumber": "Отчёт #{id}",
+  "refresh": "Обновить",
+  "retry": "Повторить",
+  "htmlWebOnly": "Просмотр HTML доступен только на web-версии.",
+  "loadReportFailed": "Не удалось загрузить отчёт",
+  "loadLinkFailed": "Не удалось загрузить ссылку",
+  "reportFromLinkLoadFailed": "Не удалось загрузить отчёт по ссылке",
+  "htmlOpenedInNewTab": "HTML отчёт открыт в новой вкладке",
+  "invalidFileFormat": "Неверный формат файла",
+  "fileTooLarge": "Файл слишком большой (макс. 10MB)",
+  "photoAdded": "Фото добавлено",
+  "@errorWithDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "errorWithDetail": "Ошибка: {error}",
+  "openHtmlTooltip": "Открыть HTML",
+  "deleteMediaTitle": "Удалить?",
+  "deleteMediaConfirm": "Файл будет удален без возможности восстановления.",
+  "compressing": "Сжатие...",
+  "finalizing": "Завершение...",
+  "uploading": "Загрузка...",
+  "enterCredentials": "Введите имя пользователя и пароль",
+  "registerFailed": "Ошибка регистрации",
+  "langCodeRequired": "Поле language_code должно быть непустой строкой",
+  "questionsMustBeArray": "Поле questions должно быть массивом",
+  "@questionsCountMismatch": {
+    "placeholders": {
+      "expected": {"type": "int"},
+      "actual": {"type": "int"}
+    }
+  },
+  "questionsCountMismatch": "Должно быть {expected} вопросов, получено {actual}",
+  "@questionMustBeObject": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionMustBeObject": "Вопрос {index} должен быть объектом",
+  "@questionIdMustBeNumber": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionIdMustBeNumber": "Вопрос {index}: поле id должно быть числом",
+  "@questionNameRequired": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionNameRequired": "Вопрос {index}: поле name должно быть непустой строкой",
+  "@questionDescriptionRequired": {
+    "placeholders": {
+      "index": {"type": "int"}
+    }
+  },
+  "questionDescriptionRequired": "Вопрос {index}: поле description должно быть непустой строкой",
+  "@unsupportedFormat": {
+    "placeholders": {
+      "ext": {"type": "String"}
+    }
+  },
+  "unsupportedFormat": "Неподдерживаемый формат файла: .{ext}\nПоддерживаются: .xlsx, .json, .zip",
+  "excelMinRows": "Excel-файл должен содержать минимум 3 строки: заголовок, коды языков и вопросы",
+  "excelNoQuestions": "Не найдено вопросов в Excel-файле. Убедитесь, что вопросы начинаются с 3-й строки.",
+  "@excelReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "excelReadError": "Ошибка чтения Excel-файла: {error}",
+  "@jsonReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonReadError": "Ошибка чтения JSON-файла: {error}",
+  "@invalidJsonDetail": {
+    "placeholders": {
+      "message": {"type": "String"}
+    }
+  },
+  "invalidJsonDetail": "Некорректный JSON: {message}",
+  "@jsonParseDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonParseDetail": "Ошибка парсинга JSON: {error}",
+  "jsonNoQuestions": "JSON не содержит вопросов (поле \"questions\" отсутствует или пусто)",
+  "jsonNoValidQuestions": "Не найдено валидных вопросов в JSON. Каждый вопрос должен содержать \"localizations\"",
+  "@jsonStructureError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "jsonStructureError": "Ошибка структуры JSON: {error}",
+  "zipNoJson": "В ZIP-архиве не найден JSON-файл с отчётом. Ожидается report.json или другой .json файл",
+  "@zipReadError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "zipReadError": "Ошибка чтения ZIP-архива: {error}",
+  "sharedReport": "Общий отчёт",
+  "editAccess": "Доступ для редактирования",
+  "viewOnlyAccess": "Доступ только для просмотра",
+  "linkValidUntil": "Ссылка действует до",
+  "downloadApp": "Скачайте приложение",
+  "downloadAppDesc": "Для Android или Windows",
+  "openWebEditor": "Открыть веб-версию",
+  "openWebEditorDesc": "Для редактирования отчёта",
+  "openHtmlDesc": "Для просмотра в браузере",
+  "downloadZipDesc": "Отчёт с медиа для офлайн-работы",
+  "appLinksStub": "Ссылки на приложения будут здесь",
+  "viewOnlyWarning": "Доступен только просмотр. Для редактирования запросите доступ у владельца отчёта.",
+  "downloadZip": "Скачать ZIP",
+  "unknownError": "Неизвестная ошибка",
+  "@statusError": {
+    "placeholders": {
+      "statusCode": {"type": "int"}
+    }
+  },
+  "statusError": "Ошибка {statusCode}",
+  "@invalidServerResponse": {
+    "placeholders": {
+      "statusCode": {"type": "int"}
+    }
+  },
+  "invalidServerResponse": "Некорректный ответ сервера: {statusCode}",
+  "noServerConnection": "Нет соединения с сервером",
+  "@networkError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "networkError": "Ошибка сети: {error}",
+  "@uploadErrorDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "uploadErrorDetail": "Ошибка загрузки: {error}",
+  "uploadNoneFailed": "Не удалось загрузить ни одного файла",
+  "@uploadFailedStatus": {
+    "placeholders": {
+      "status": {"type": "int"}
+    }
+  },
+  "uploadFailedStatus": "Ошибка загрузки ({status})",
+  "uploadFailedGeneric": "Ошибка загрузки",
+  "uploadTimeout": "Таймаут загрузки",
+  "presignFailed": "Не удалось создать ссылку на загрузку",
+  "confirmFailed": "Не удалось подтвердить загрузку"
 }

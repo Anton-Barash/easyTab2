@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import '../l10n/app_localizations.dart';
 import 'api_result.dart';
 import 'api_response_parser.dart';
 import 'mime_utils.dart';
@@ -16,6 +17,7 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   required Map<String, String> headers,
   int? reportId,
   void Function(double progress)? onUploadProgress,
+  AppLocalizations? loc,
 }) async {
   try {
     final request = http.MultipartRequest('POST', uri);
@@ -45,11 +47,17 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
     final response = await http.Response.fromStream(streamedResponse);
     onUploadProgress?.call(1.0);
 
-    return parseApiResponse(response.body, response.statusCode);
+    return parseApiResponse(response.body, response.statusCode, loc: loc);
   } on SocketException {
-    return const ApiResult(success: false, error: 'Нет соединения с сервером');
+    return ApiResult(
+      success: false,
+      error: loc?.noServerConnection ?? 'Нет соединения с сервером',
+    );
   } catch (e) {
-    return ApiResult(success: false, error: 'Ошибка загрузки: $e');
+    return ApiResult(
+      success: false,
+      error: loc?.uploadErrorDetail(e.toString()) ?? 'Ошибка загрузки: $e',
+    );
   }
 }
 

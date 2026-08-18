@@ -11,6 +11,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../utils/app_colors.dart';
 import '../services/api_service.dart';
 import '../utils/report_html_iframe.dart';
@@ -42,6 +43,8 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
       _error = null;
     });
 
+    final loc = AppLocalizations.of(context)!;
+
     // Если передан токен (новая вкладка), устанавливаем его в ApiService
     if (widget.token != null && widget.token!.isNotEmpty) {
       ApiService.authToken = widget.token;
@@ -60,14 +63,14 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
         });
       } else {
         setState(() {
-          _error = result.error ?? 'Не удалось загрузить отчёт';
+          _error = result.error ?? loc.loadReportFailed;
           _loading = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Ошибка: $e';
+        _error = loc.errorWithDetail(e.toString());
         _loading = false;
       });
     }
@@ -75,16 +78,17 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Отчёт #${widget.publicId}'),
+        title: Text(loc.reportNumber(widget.publicId)),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Обновить',
+            tooltip: loc.refresh,
             onPressed: _loading ? null : _loadHtml,
           ),
         ],
@@ -94,6 +98,7 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
   }
 
   Widget _buildBody() {
+    final loc = AppLocalizations.of(context)!;
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -115,7 +120,7 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadHtml,
-                child: const Text('Повторить'),
+                child: Text(loc.retry),
               ),
             ],
           ),
@@ -125,13 +130,13 @@ class _ViewReportHtmlScreenState extends State<ViewReportHtmlScreen> {
 
     if (_viewType == null || _viewType!.isEmpty) {
       // Non-web платформа или stub — показываем HTML как текст
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Text(
-            'Просмотр HTML доступен только на web-версии.',
+            loc.htmlWebOnly,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ),
       );

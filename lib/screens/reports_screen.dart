@@ -1,4 +1,5 @@
 import 'package:easy_tab/utils/app_colors.dart';
+import 'package:easy_tab/utils/layout.dart';
 import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
 import 'package:easy_tab/utils/open_html_stub.dart'
@@ -40,10 +41,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _loadReports() {
+    final loc = AppLocalizations.of(context)!;
     _reportsFuture = Provider.of<ReportState>(
       context,
       listen: false,
-    ).loadReportList();
+    ).loadReportList(loc: loc);
   }
 
   Future<void> _syncAllReports() async {
@@ -484,7 +486,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
-                      tooltip: 'Открыть HTML',
+                      tooltip: loc.openHtmlTooltip,
                       onPressed: () {
                         final origin = Uri.base.origin;
                         final viewUrl =
@@ -501,7 +503,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     onPressed: () async {
                       final loc = AppLocalizations.of(context)!;
                       final scaffoldMessenger = ScaffoldMessenger.of(context);
-                      final isMobile = MediaQuery.of(context).size.width <= 800;
+                      final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
                       final confirm = await showDialog(
                         context: context,
                         builder: (ctx) => AlertDialog(

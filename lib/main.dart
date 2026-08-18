@@ -110,8 +110,10 @@ class EasyTabApp extends StatelessWidget {
                 final token = uri.queryParameters['token'];
                 if (publicId == null || publicId.isEmpty) {
                   return MaterialPageRoute(
-                    builder: (_) => const Scaffold(
-                      body: Center(child: Text('Не указан ID отчёта')),
+                    builder: (ctx) => Scaffold(
+                      body: Center(
+                        child: Text(AppLocalizations.of(ctx)!.reportIdMissing),
+                      ),
                     ),
                   );
                 }
@@ -124,8 +126,11 @@ class EasyTabApp extends StatelessWidget {
                 final token = uri.queryParameters['token'];
                 if (token == null || token.isEmpty) {
                   return MaterialPageRoute(
-                    builder: (_) => const Scaffold(
-                      body: Center(child: Text('Не указан токен ссылки')),
+                    builder: (ctx) => Scaffold(
+                      body: Center(
+                        child:
+                            Text(AppLocalizations.of(ctx)!.shareTokenMissing),
+                      ),
                     ),
                   );
                 }
@@ -373,7 +378,8 @@ class _StartScreenState extends State<StartScreen> {
 
   Future<void> _continueLastReport(BuildContext context) async {
     final reportState = Provider.of<ReportState>(context, listen: false);
-    final reports = await reportState.loadReportList();
+    final loc = AppLocalizations.of(context)!;
+    final reports = await reportState.loadReportList(loc: loc);
 
     if (!context.mounted) return;
 

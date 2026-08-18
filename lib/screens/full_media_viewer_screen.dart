@@ -26,7 +26,7 @@ import 'package:video_player/video_player.dart';
 class FullMediaViewerScreen extends StatefulWidget {
   final List mediaList;
   final int initialIndex;
-  final Function(List<int>)? onDelete;
+  final Future<void> Function(List<int>)? onDelete;
   final String? reportPath;
   final bool startInSelectionMode;
 
@@ -150,18 +150,20 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     });
   }
 
-  void _deleteSelected() {
+  Future<void> _deleteSelected() async {
     if (widget.onDelete != null && _selectedIndices.isNotEmpty) {
-      widget.onDelete!(List.from(_selectedIndices));
+      // #17: ждём завершения удаления, иначе экран закроется раньше времени
+      // и колбэк может вызвать setState после dispose.
+      await widget.onDelete!(List.from(_selectedIndices));
     }
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
-  void _deleteCurrent() {
+  Future<void> _deleteCurrent() async {
     if (widget.onDelete != null) {
-      widget.onDelete!([_currentIndex]);
+      await widget.onDelete!([_currentIndex]);
     }
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -332,9 +334,13 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
 
     final localPath = _getAbsolutePath(media['localPath'] as String?);
     final webUrl = media['webUrl'] as String?;
+    final webBytes = media['webBytes'] as Uint8List?;
 
     if (!kIsWeb && localPath != null) {
       return fileImageProvider(localPath);
+    }
+    if (kIsWeb && webBytes != null) {
+      return MemoryImage(webBytes);
     }
     if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
       return NetworkImage(webUrl);
@@ -350,7 +356,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     if (isVideo) {
       // Плеер показываем только на текущей странице видео; соседние
       // видео-страницы (при перелисте) — иконка-заглушка.
-      if (index == _videoIndex) return _buildVideoPlayer();
+      if (index == _videoIndex) return _buildVideoPlayer(index);
       return const Center(
         child: Icon(Icons.videocam, size: 60, color: Colors.white),
       );
@@ -361,12 +367,14 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     );
   }
 
-  Widget _buildVideoPlayer() {
-    // Контроллер создаётся в _initializeVideo только при наличии
-    // источника (файл на native, webUrl/webBytes на web), поэтому
-    // здесь достаточно проверить инициализацию.
+  Widget _buildVideoPlayer(int index) {
+    // #14: плеер привязан к конкретной странице через _videoIndex, который
+    // выставляется синхронно в _initializeVideo ДО создания контроллера.
+    // Параметр index делает привязку явной (контроллер всегда текущей страницы).
     final bool isInitialized =
-        _videoController != null && _videoController!.value.isInitialized;
+        index == _videoIndex &&
+        _videoController != null &&
+        _videoController!.value.isInitialized;
 
     if (isInitialized) {
       return Center(

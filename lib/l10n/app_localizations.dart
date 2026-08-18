@@ -1635,6 +1635,402 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Compression error: {error}'**
   String compressionError(String error);
+
+  /// No description provided for @reportIdMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Report ID is missing'**
+  String get reportIdMissing;
+
+  /// No description provided for @shareTokenMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Share link token is missing'**
+  String get shareTokenMissing;
+
+  /// No description provided for @reportNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Report #{id}'**
+  String reportNumber(String id);
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @htmlWebOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'HTML viewing is only available in the web version.'**
+  String get htmlWebOnly;
+
+  /// No description provided for @loadReportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load report'**
+  String get loadReportFailed;
+
+  /// No description provided for @loadLinkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load link'**
+  String get loadLinkFailed;
+
+  /// No description provided for @reportFromLinkLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load report from link'**
+  String get reportFromLinkLoadFailed;
+
+  /// No description provided for @htmlOpenedInNewTab.
+  ///
+  /// In en, this message translates to:
+  /// **'HTML report opened in a new tab'**
+  String get htmlOpenedInNewTab;
+
+  /// No description provided for @invalidFileFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid file format'**
+  String get invalidFileFormat;
+
+  /// No description provided for @fileTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'File is too large (max 10MB)'**
+  String get fileTooLarge;
+
+  /// No description provided for @photoAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo added'**
+  String get photoAdded;
+
+  /// No description provided for @errorWithDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String errorWithDetail(String error);
+
+  /// No description provided for @openHtmlTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Open HTML'**
+  String get openHtmlTooltip;
+
+  /// No description provided for @deleteMediaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete?'**
+  String get deleteMediaTitle;
+
+  /// No description provided for @deleteMediaConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'The file will be deleted permanently.'**
+  String get deleteMediaConfirm;
+
+  /// No description provided for @compressing.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressing...'**
+  String get compressing;
+
+  /// No description provided for @finalizing.
+  ///
+  /// In en, this message translates to:
+  /// **'Finalizing...'**
+  String get finalizing;
+
+  /// No description provided for @uploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading...'**
+  String get uploading;
+
+  /// No description provided for @enterCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter username and password'**
+  String get enterCredentials;
+
+  /// No description provided for @registerFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Registration failed'**
+  String get registerFailed;
+
+  /// No description provided for @langCodeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'The language_code field must be a non-empty string'**
+  String get langCodeRequired;
+
+  /// No description provided for @questionsMustBeArray.
+  ///
+  /// In en, this message translates to:
+  /// **'The questions field must be an array'**
+  String get questionsMustBeArray;
+
+  /// No description provided for @questionsCountMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be {expected} questions, got {actual}'**
+  String questionsCountMismatch(int expected, int actual);
+
+  /// No description provided for @questionMustBeObject.
+  ///
+  /// In en, this message translates to:
+  /// **'Question {index} must be an object'**
+  String questionMustBeObject(int index);
+
+  /// No description provided for @questionIdMustBeNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Question {index}: id field must be a number'**
+  String questionIdMustBeNumber(int index);
+
+  /// No description provided for @questionNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Question {index}: name field must be a non-empty string'**
+  String questionNameRequired(int index);
+
+  /// No description provided for @questionDescriptionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Question {index}: description field must be a non-empty string'**
+  String questionDescriptionRequired(int index);
+
+  /// No description provided for @unsupportedFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsupported file format: .{ext}\nSupported: .xlsx, .json, .zip'**
+  String unsupportedFormat(String ext);
+
+  /// No description provided for @excelMinRows.
+  ///
+  /// In en, this message translates to:
+  /// **'Excel file must contain at least 3 rows: header, language codes and questions'**
+  String get excelMinRows;
+
+  /// No description provided for @excelNoQuestions.
+  ///
+  /// In en, this message translates to:
+  /// **'No questions found in Excel file. Make sure questions start from row 3.'**
+  String get excelNoQuestions;
+
+  /// No description provided for @excelReadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error reading Excel file: {error}'**
+  String excelReadError(String error);
+
+  /// No description provided for @jsonReadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error reading JSON file: {error}'**
+  String jsonReadError(String error);
+
+  /// No description provided for @invalidJsonDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid JSON: {message}'**
+  String invalidJsonDetail(String message);
+
+  /// No description provided for @jsonParseDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON parsing error: {error}'**
+  String jsonParseDetail(String error);
+
+  /// No description provided for @jsonNoQuestions.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON does not contain questions (the \"questions\" field is missing or empty)'**
+  String get jsonNoQuestions;
+
+  /// No description provided for @jsonNoValidQuestions.
+  ///
+  /// In en, this message translates to:
+  /// **'No valid questions found in JSON. Each question must contain \"localizations\"'**
+  String get jsonNoValidQuestions;
+
+  /// No description provided for @jsonStructureError.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON structure error: {error}'**
+  String jsonStructureError(String error);
+
+  /// No description provided for @zipNoJson.
+  ///
+  /// In en, this message translates to:
+  /// **'No JSON file with the report found in the ZIP archive. Expected report.json or another .json file'**
+  String get zipNoJson;
+
+  /// No description provided for @zipReadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error reading ZIP archive: {error}'**
+  String zipReadError(String error);
+
+  /// No description provided for @sharedReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared Report'**
+  String get sharedReport;
+
+  /// No description provided for @editAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit access'**
+  String get editAccess;
+
+  /// No description provided for @viewOnlyAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'View only access'**
+  String get viewOnlyAccess;
+
+  /// No description provided for @linkValidUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Link valid until'**
+  String get linkValidUntil;
+
+  /// No description provided for @downloadApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Download App'**
+  String get downloadApp;
+
+  /// No description provided for @downloadAppDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'For Android or Windows'**
+  String get downloadAppDesc;
+
+  /// No description provided for @openWebEditor.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Web Editor'**
+  String get openWebEditor;
+
+  /// No description provided for @openWebEditorDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'To edit the report'**
+  String get openWebEditorDesc;
+
+  /// No description provided for @openHtmlDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'To view in browser'**
+  String get openHtmlDesc;
+
+  /// No description provided for @downloadZipDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Report with media for offline use'**
+  String get downloadZipDesc;
+
+  /// No description provided for @appLinksStub.
+  ///
+  /// In en, this message translates to:
+  /// **'App download links will be here'**
+  String get appLinksStub;
+
+  /// No description provided for @viewOnlyWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'View only access. To edit, request access from the report owner.'**
+  String get viewOnlyWarning;
+
+  /// No description provided for @downloadZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Download ZIP'**
+  String get downloadZip;
+
+  /// No description provided for @unknownError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown error'**
+  String get unknownError;
+
+  /// No description provided for @statusError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error {statusCode}'**
+  String statusError(int statusCode);
+
+  /// No description provided for @invalidServerResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid server response: {statusCode}'**
+  String invalidServerResponse(int statusCode);
+
+  /// No description provided for @noServerConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection to server'**
+  String get noServerConnection;
+
+  /// No description provided for @networkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error: {error}'**
+  String networkError(String error);
+
+  /// No description provided for @uploadErrorDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload error: {error}'**
+  String uploadErrorDetail(String error);
+
+  /// No description provided for @uploadNoneFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to upload any file'**
+  String get uploadNoneFailed;
+
+  /// No description provided for @uploadFailedStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload failed ({status})'**
+  String uploadFailedStatus(int status);
+
+  /// No description provided for @uploadFailedGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload error'**
+  String get uploadFailedGeneric;
+
+  /// No description provided for @uploadTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload timeout'**
+  String get uploadTimeout;
+
+  /// No description provided for @presignFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create upload link'**
+  String get presignFailed;
+
+  /// No description provided for @confirmFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to confirm upload'**
+  String get confirmFailed;
 }
 
 class _AppLocalizationsDelegate

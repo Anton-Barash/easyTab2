@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../l10n/app_localizations.dart';
+import '../providers/locale_provider.dart';
 import '../services/anonymous_id_service.dart';
 import '../services/api_service.dart';
 import '../services/share_token_storage.dart';
@@ -23,114 +26,8 @@ import '../utils/share_link_opener_stub.dart'
 ///   3. Открыть HTML для просмотра
 ///   4. Скачать ZIP для офлайн-работы
 ///
-/// Поддерживает переключение языка интерфейса (RU/EN/CN).
-/// Весь текст можно выделять.
+/// Язык интерфейса управляется глобальной настройкой (LocaleProvider).
 /// ============================================================
-
-/// Локализованные строки для welcome-экрана.
-class _Strings {
-  final String appName;
-  final String sharedReport;
-  final String editAccess;
-  final String viewAccess;
-  final String validUntil;
-  final String downloadApp;
-  final String downloadAppDesc;
-  final String openWebEditor;
-  final String openWebEditorDesc;
-  final String openHtml;
-  final String openHtmlDesc;
-  final String downloadZip;
-  final String downloadZipDesc;
-  final String retry;
-  final String loadError;
-  final String appLinksStub;
-  final String viewOnlyWarning;
-
-  const _Strings({
-    required this.appName,
-    required this.sharedReport,
-    required this.editAccess,
-    required this.viewAccess,
-    required this.validUntil,
-    required this.downloadApp,
-    required this.downloadAppDesc,
-    required this.openWebEditor,
-    required this.openWebEditorDesc,
-    required this.openHtml,
-    required this.openHtmlDesc,
-    required this.downloadZip,
-    required this.downloadZipDesc,
-    required this.retry,
-    required this.loadError,
-    required this.appLinksStub,
-    required this.viewOnlyWarning,
-  });
-
-  static const Map<String, _Strings> _locales = {
-    'RU': _Strings(
-      appName: 'EasyTab',
-      sharedReport: 'Общий отчёт',
-      editAccess: 'Доступ для редактирования',
-      viewAccess: 'Доступ только для просмотра',
-      validUntil: 'Ссылка действует до',
-      downloadApp: 'Скачайте приложение',
-      downloadAppDesc: 'Для Android или Windows',
-      openWebEditor: 'Открыть веб-версию',
-      openWebEditorDesc: 'Для редактирования отчёта',
-      openHtml: 'Открыть HTML',
-      openHtmlDesc: 'Для просмотра в браузере',
-      downloadZip: 'Скачать ZIP',
-      downloadZipDesc: 'Отчёт с медиа для офлайн-работы',
-      retry: 'Обновить',
-      loadError: 'Не удалось загрузить ссылку',
-      appLinksStub: 'Ссылки на приложения будут здесь',
-      viewOnlyWarning:
-          'Доступен только просмотр. Для редактирования запросите доступ у владельца отчёта.',
-    ),
-    'EN': _Strings(
-      appName: 'EasyTab',
-      sharedReport: 'Shared Report',
-      editAccess: 'Edit access',
-      viewAccess: 'View only access',
-      validUntil: 'Link valid until',
-      downloadApp: 'Download App',
-      downloadAppDesc: 'For Android or Windows',
-      openWebEditor: 'Open Web Editor',
-      openWebEditorDesc: 'To edit the report',
-      openHtml: 'Open HTML',
-      openHtmlDesc: 'To view in browser',
-      downloadZip: 'Download ZIP',
-      downloadZipDesc: 'Report with media for offline use',
-      retry: 'Retry',
-      loadError: 'Failed to load link',
-      appLinksStub: 'App download links will be here',
-      viewOnlyWarning:
-          'View only access. To edit, request access from the report owner.',
-    ),
-    'CN': _Strings(
-      appName: 'EasyTab',
-      sharedReport: '共享报告',
-      editAccess: '编辑权限',
-      viewAccess: '仅查看权限',
-      validUntil: '链接有效期至',
-      downloadApp: '下载应用',
-      downloadAppDesc: '适用于 Android 或 Windows',
-      openWebEditor: '打开网页版',
-      openWebEditorDesc: '编辑报告',
-      openHtml: '打开 HTML',
-      openHtmlDesc: '在浏览器中查看',
-      downloadZip: '下载 ZIP',
-      downloadZipDesc: '包含媒体的离线报告',
-      retry: '重试',
-      loadError: '无法加载链接',
-      appLinksStub: '应用下载链接将在此处',
-      viewOnlyWarning: '仅可查看。如需编辑，请向报告所有者申请权限。',
-    ),
-  };
-
-  static _Strings get(String lang) => _locales[lang] ?? _locales['RU']!;
-}
 
 class ShareWelcomeScreen extends StatefulWidget {
   final String token;
@@ -147,7 +44,6 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
   String _reportTitle = '';
   String _permissions = 'edit';
   DateTime? _expiresAt;
-  String _uiLanguage = 'RU';
 
   @override
   void initState() {
@@ -166,21 +62,23 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
       if (!mounted) return;
 
       if (!result.success || result.data == null) {
+        final loc = AppLocalizations.of(context)!;
         setState(() {
           _isLoading = false;
-          _error = result.error ?? 'Не удалось загрузить ссылку';
+          _error = result.error ?? loc.loadLinkFailed;
         });
         return;
       }
 
       final data = result.data!;
+      final loc = AppLocalizations.of(context)!;
       final report = data['report'] ?? {};
       final share = data['share'] ?? {};
       final reportData = report['reportData'] ?? {};
 
       setState(() {
         _isLoading = false;
-        _reportTitle = (reportData['reportName'] ?? report['title'] ?? 'Отчёт')
+        _reportTitle = (reportData['reportName'] ?? report['title'] ?? loc.noName)
             .toString();
         _permissions = share['permissions']?.toString() ?? 'edit';
         final expiresRaw = share['expiresAt'];
@@ -193,9 +91,10 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
       await ShareTokenStorage.addToken(widget.token);
     } catch (e) {
       if (!mounted) return;
+      final loc = AppLocalizations.of(context)!;
       setState(() {
         _isLoading = false;
-        _error = 'Ошибка загрузки: $e';
+        _error = loc.loadError(e.toString());
       });
     }
   }
@@ -228,10 +127,10 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
   }
 
   void _showDownloadAppsStub() {
-    final s = _Strings.get(_uiLanguage);
+    final loc = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(s.appLinksStub)));
+    ).showSnackBar(SnackBar(content: Text(loc.appLinksStub)));
   }
 
   String _formatExpiresAt() {
@@ -247,17 +146,14 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = _Strings.get(_uiLanguage);
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          _LanguageSwitcher(
-            current: _uiLanguage,
-            onChanged: (lang) => setState(() => _uiLanguage = lang),
-          ),
+        actions: const [
+          _LanguageSwitcher(),
         ],
       ),
       body: SafeArea(
@@ -266,7 +162,7 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
             constraints: const BoxConstraints(maxWidth: 560),
             child: Padding(
               padding: const EdgeInsets.all(24.0),
-              child: _buildContent(s),
+              child: _buildContent(loc),
             ),
           ),
         ),
@@ -274,7 +170,7 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
     );
   }
 
-  Widget _buildContent(_Strings s) {
+  Widget _buildContent(AppLocalizations loc) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -291,7 +187,7 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
             style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 24),
-          EasyTabButton(label: s.retry, onTap: _loadShareInfo),
+          EasyTabButton(label: loc.retry, onTap: _loadShareInfo),
         ],
       );
     }
@@ -317,14 +213,14 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
         ),
         const SizedBox(height: 8),
         SelectableText(
-          _permissions == 'edit' ? s.editAccess : s.viewAccess,
+          _permissions == 'edit' ? loc.editAccess : loc.viewOnlyAccess,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
         if (_expiresAt != null) ...[
           const SizedBox(height: 4),
           SelectableText(
-            '${s.validUntil} ${_formatExpiresAt()}',
+            '${loc.linkValidUntil} ${_formatExpiresAt()}',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
           ),
@@ -351,7 +247,7 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: SelectableText(
-                    s.viewOnlyWarning,
+                    loc.viewOnlyWarning,
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.textPrimary,
@@ -364,36 +260,36 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
           const SizedBox(height: 24),
           _ActionCard(
             icon: Icons.html,
-            title: s.openHtml,
-            subtitle: s.openHtmlDesc,
+            title: loc.openHtmlTooltip,
+            subtitle: loc.openHtmlDesc,
             onTap: _openHtml,
           ),
         ] else ...[
           _ActionCard(
             icon: Icons.phone_android,
-            title: s.downloadApp,
-            subtitle: s.downloadAppDesc,
+            title: loc.downloadApp,
+            subtitle: loc.downloadAppDesc,
             onTap: _showDownloadAppsStub,
           ),
           const SizedBox(height: 12),
           _ActionCard(
             icon: Icons.open_in_browser,
-            title: s.openWebEditor,
-            subtitle: s.openWebEditorDesc,
+            title: loc.openWebEditor,
+            subtitle: loc.openWebEditorDesc,
             onTap: _openWebEditor,
           ),
           const SizedBox(height: 12),
           _ActionCard(
             icon: Icons.html,
-            title: s.openHtml,
-            subtitle: s.openHtmlDesc,
+            title: loc.openHtmlTooltip,
+            subtitle: loc.openHtmlDesc,
             onTap: _openHtml,
           ),
           const SizedBox(height: 12),
           _ActionCard(
             icon: Icons.folder_zip,
-            title: s.downloadZip,
-            subtitle: s.downloadZipDesc,
+            title: loc.downloadZip,
+            subtitle: loc.downloadZipDesc,
             onTap: _downloadZip,
           ),
         ],
@@ -402,17 +298,15 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
   }
 }
 
-/// Переключатель языка интерфейса.
+/// Переключатель языка интерфейса (управляет глобальной локалью).
 class _LanguageSwitcher extends StatelessWidget {
-  final String current;
-  final ValueChanged<String> onChanged;
+  const _LanguageSwitcher();
 
-  const _LanguageSwitcher({required this.current, required this.onChanged});
-
-  static const _languages = ['RU', 'EN', 'CN'];
+  static const _languages = ['ru', 'en', 'zh'];
 
   @override
   Widget build(BuildContext context) {
+    final localeProvider = Provider.of<LocaleProvider>(context);
     return PopupMenuButton<String>(
       icon: Row(
         mainAxisSize: MainAxisSize.min,
@@ -420,7 +314,7 @@ class _LanguageSwitcher extends StatelessWidget {
           const Icon(Icons.language, color: AppColors.textSecondary),
           const SizedBox(width: 4),
           Text(
-            current,
+            localeProvider.locale.languageCode.toUpperCase(),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -435,8 +329,8 @@ class _LanguageSwitcher extends StatelessWidget {
               value: lang,
               child: Row(
                 children: [
-                  Text(lang),
-                  if (lang == current)
+                  Text(lang.toUpperCase()),
+                  if (localeProvider.locale.languageCode == lang)
                     const Padding(
                       padding: EdgeInsets.only(left: 8),
                       child: Icon(Icons.check, size: 16),
@@ -446,7 +340,7 @@ class _LanguageSwitcher extends StatelessWidget {
             ),
           )
           .toList(),
-      onSelected: onChanged,
+      onSelected: (lang) => localeProvider.setLocale(Locale(lang)),
     );
   }
 }

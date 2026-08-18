@@ -16,6 +16,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../utils/app_colors.dart';
 import '../utils/native_video_thumbnail.dart'
     if (dart.library.html) '../utils/native_video_thumbnail_stub.dart';
@@ -150,6 +151,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final sizeToShow = widget.compressedSize ?? widget.fileSize;
     // P3-58: зелёная точка = файл РЕАЛЬНО сжат (compressedSize < fileSize).
     // Проверяем строгое неравенство, чтобы не показывать зелёную точку,
@@ -279,7 +281,7 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                   Text(
                     widget.compressProgress > 0
                         ? '${(widget.compressProgress * 100).toStringAsFixed(0)}%'
-                        : 'Сжатие...',
+                        : loc.compressing,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -319,10 +321,10 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget> {
                   const SizedBox(height: 6),
                   Text(
                     widget.uploadProgress >= 1.0
-                        ? 'Завершение...'
+                        ? loc.finalizing
                         : widget.uploadProgress > 0
                         ? '${(widget.uploadProgress * 100).toStringAsFixed(0)}%'
-                        : 'Загрузка...',
+                        : loc.uploading,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,

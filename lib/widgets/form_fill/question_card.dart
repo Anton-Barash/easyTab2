@@ -1,6 +1,7 @@
 import 'package:easy_tab/l10n/app_localizations.dart';
 import 'package:easy_tab/providers/report_provider.dart';
 import 'package:easy_tab/utils/app_colors.dart';
+import 'package:easy_tab/utils/layout.dart';
 import 'package:easy_tab/widgets/form_fill/answer_block.dart';
 import 'package:flutter/material.dart';
 
@@ -53,7 +54,7 @@ class QuestionCard extends StatelessWidget {
     final questionLoc = q.getLocalization(lang);
     final answers = report.getAnswersForQuestion(index, lang);
 
-    final isMobile = MediaQuery.of(context).size.width <= 800;
+    final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
 
     final width = isCardView && !isMobile ? 600.0 : double.infinity;
 

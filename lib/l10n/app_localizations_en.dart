@@ -824,4 +824,248 @@ class AppLocalizationsEn extends AppLocalizations {
   String compressionError(String error) {
     return 'Compression error: $error';
   }
+
+  @override
+  String get reportIdMissing => 'Report ID is missing';
+
+  @override
+  String get shareTokenMissing => 'Share link token is missing';
+
+  @override
+  String reportNumber(String id) {
+    return 'Report #$id';
+  }
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get htmlWebOnly =>
+      'HTML viewing is only available in the web version.';
+
+  @override
+  String get loadReportFailed => 'Failed to load report';
+
+  @override
+  String get loadLinkFailed => 'Failed to load link';
+
+  @override
+  String get reportFromLinkLoadFailed => 'Failed to load report from link';
+
+  @override
+  String get htmlOpenedInNewTab => 'HTML report opened in a new tab';
+
+  @override
+  String get invalidFileFormat => 'Invalid file format';
+
+  @override
+  String get fileTooLarge => 'File is too large (max 10MB)';
+
+  @override
+  String get photoAdded => 'Photo added';
+
+  @override
+  String errorWithDetail(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get openHtmlTooltip => 'Open HTML';
+
+  @override
+  String get deleteMediaTitle => 'Delete?';
+
+  @override
+  String get deleteMediaConfirm => 'The file will be deleted permanently.';
+
+  @override
+  String get compressing => 'Compressing...';
+
+  @override
+  String get finalizing => 'Finalizing...';
+
+  @override
+  String get uploading => 'Uploading...';
+
+  @override
+  String get enterCredentials => 'Enter username and password';
+
+  @override
+  String get registerFailed => 'Registration failed';
+
+  @override
+  String get langCodeRequired =>
+      'The language_code field must be a non-empty string';
+
+  @override
+  String get questionsMustBeArray => 'The questions field must be an array';
+
+  @override
+  String questionsCountMismatch(int expected, int actual) {
+    return 'Must be $expected questions, got $actual';
+  }
+
+  @override
+  String questionMustBeObject(int index) {
+    return 'Question $index must be an object';
+  }
+
+  @override
+  String questionIdMustBeNumber(int index) {
+    return 'Question $index: id field must be a number';
+  }
+
+  @override
+  String questionNameRequired(int index) {
+    return 'Question $index: name field must be a non-empty string';
+  }
+
+  @override
+  String questionDescriptionRequired(int index) {
+    return 'Question $index: description field must be a non-empty string';
+  }
+
+  @override
+  String unsupportedFormat(String ext) {
+    return 'Unsupported file format: .$ext\nSupported: .xlsx, .json, .zip';
+  }
+
+  @override
+  String get excelMinRows =>
+      'Excel file must contain at least 3 rows: header, language codes and questions';
+
+  @override
+  String get excelNoQuestions =>
+      'No questions found in Excel file. Make sure questions start from row 3.';
+
+  @override
+  String excelReadError(String error) {
+    return 'Error reading Excel file: $error';
+  }
+
+  @override
+  String jsonReadError(String error) {
+    return 'Error reading JSON file: $error';
+  }
+
+  @override
+  String invalidJsonDetail(String message) {
+    return 'Invalid JSON: $message';
+  }
+
+  @override
+  String jsonParseDetail(String error) {
+    return 'JSON parsing error: $error';
+  }
+
+  @override
+  String get jsonNoQuestions =>
+      'JSON does not contain questions (the \"questions\" field is missing or empty)';
+
+  @override
+  String get jsonNoValidQuestions =>
+      'No valid questions found in JSON. Each question must contain \"localizations\"';
+
+  @override
+  String jsonStructureError(String error) {
+    return 'JSON structure error: $error';
+  }
+
+  @override
+  String get zipNoJson =>
+      'No JSON file with the report found in the ZIP archive. Expected report.json or another .json file';
+
+  @override
+  String zipReadError(String error) {
+    return 'Error reading ZIP archive: $error';
+  }
+
+  @override
+  String get sharedReport => 'Shared Report';
+
+  @override
+  String get editAccess => 'Edit access';
+
+  @override
+  String get viewOnlyAccess => 'View only access';
+
+  @override
+  String get linkValidUntil => 'Link valid until';
+
+  @override
+  String get downloadApp => 'Download App';
+
+  @override
+  String get downloadAppDesc => 'For Android or Windows';
+
+  @override
+  String get openWebEditor => 'Open Web Editor';
+
+  @override
+  String get openWebEditorDesc => 'To edit the report';
+
+  @override
+  String get openHtmlDesc => 'To view in browser';
+
+  @override
+  String get downloadZipDesc => 'Report with media for offline use';
+
+  @override
+  String get appLinksStub => 'App download links will be here';
+
+  @override
+  String get viewOnlyWarning =>
+      'View only access. To edit, request access from the report owner.';
+
+  @override
+  String get downloadZip => 'Download ZIP';
+
+  @override
+  String get unknownError => 'Unknown error';
+
+  @override
+  String statusError(int statusCode) {
+    return 'Error $statusCode';
+  }
+
+  @override
+  String invalidServerResponse(int statusCode) {
+    return 'Invalid server response: $statusCode';
+  }
+
+  @override
+  String get noServerConnection => 'No connection to server';
+
+  @override
+  String networkError(String error) {
+    return 'Network error: $error';
+  }
+
+  @override
+  String uploadErrorDetail(String error) {
+    return 'Upload error: $error';
+  }
+
+  @override
+  String get uploadNoneFailed => 'Failed to upload any file';
+
+  @override
+  String uploadFailedStatus(int status) {
+    return 'Upload failed ($status)';
+  }
+
+  @override
+  String get uploadFailedGeneric => 'Upload error';
+
+  @override
+  String get uploadTimeout => 'Upload timeout';
+
+  @override
+  String get presignFailed => 'Failed to create upload link';
+
+  @override
+  String get confirmFailed => 'Failed to confirm upload';
 }
