@@ -44,5 +44,6 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         use_insecure_cipher: true
         script: |
-          pm2 restart easyTab
+          cd ~/easy_tab_Server
+          pm2 startOrReload ecosystem.config.js --env production --update-env
           echo "Web deployment completed successfully"
