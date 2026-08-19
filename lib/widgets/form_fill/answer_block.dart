@@ -1,7 +1,6 @@
 import 'package:easy_tab/l10n/app_localizations.dart';
 import 'package:easy_tab/providers/report_provider.dart';
 import 'package:easy_tab/utils/app_colors.dart';
-import 'package:easy_tab/utils/layout.dart';
 import 'package:easy_tab/widgets/form_fill/media_grid.dart';
 import 'package:flutter/material.dart';
 
@@ -42,7 +41,7 @@ class AnswerBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final attention = answer['attention'] == true;
-    final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
 
     final report = reportState.currentReport;
     String? exampleText;

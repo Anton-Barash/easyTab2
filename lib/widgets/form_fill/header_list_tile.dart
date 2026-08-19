@@ -4,7 +4,6 @@ import 'package:easy_tab/providers/report_provider.dart';
 import 'package:easy_tab/utils/app_colors.dart';
 import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Карточка №0 (шапка отчёта).
@@ -37,24 +36,6 @@ class HeaderListTile extends StatelessWidget {
     required this.onPhotoAreaTap,
     required this.onViewPhoto,
   });
-
-  /// ImageProvider фото шапки.
-  ///
-  /// На web локальных файлов нет: сначала байты только что добавленного
-  /// фото (до выгрузки), затем URL с сервера (после выгрузки/загрузки).
-  ImageProvider _headerImageProvider() {
-    if (kIsWeb) {
-      final bytes = reportState.headerImageBytes;
-      if (bytes != null) return MemoryImage(bytes);
-      final webUrl = report.headerImageWebUrl;
-      if (webUrl != null && webUrl.isNotEmpty) return NetworkImage(webUrl);
-      // Фото есть в JSON, но URL ещё не подтянулся — прозрачная заглушка.
-      return fileImageProvider('');
-    }
-    return fileImageProvider(
-      '${reportState.currentReportPath}/${report.headerImagePath}',
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +120,9 @@ class HeaderListTile extends StatelessWidget {
                 height: 150,
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: _headerImageProvider(),
+                    image: fileImageProvider(
+                      '${reportState.currentReportPath}/$headerImagePath',
+                    ),
                     fit: BoxFit.cover,
                   ),
                 ),

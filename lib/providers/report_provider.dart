@@ -12,7 +12,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:easy_tab/utils/native_file_ops.dart'
     if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import '../models/report_models.dart';
-import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../services/report_excel_service.dart' as excel_service;
 import '../services/report_html_service.dart' as html_service;
@@ -229,8 +228,6 @@ class ReportState extends ChangeNotifier {
     // На native: сохраняем файл на диск (если есть _currentReportPath)
     if (kIsWeb) {
       _currentReport!.headerImagePath = generatedName;
-      // Новое фото ещё не выгружено — старый URL невалиден.
-      _currentReport!.headerImageWebUrl = null;
       // Сохраняем байты в отчёте для последующей загрузки
       // (используем временное хранилище через webBytes в MediaItem-совместимом формате)
       _headerImageBytes = compressed;
@@ -269,9 +266,6 @@ class ReportState extends ChangeNotifier {
   Uint8List? _headerImageBytes;
   String? _headerImageFileName;
 
-  /// Байты только что добавленного фото шапки (web, до выгрузки на сервер).
-  Uint8List? get headerImageBytes => _headerImageBytes;
-
   Future<void> removeHeaderImage() async {
     if (_currentReport == null) return;
     if (_currentReportPath != null && _currentReport!.headerImagePath != null) {
@@ -283,9 +277,6 @@ class ReportState extends ChangeNotifier {
       }
     }
     _currentReport!.headerImagePath = null;
-    _currentReport!.headerImageWebUrl = null;
-    _headerImageBytes = null;
-    _headerImageFileName = null;
     notifyListeners();
   }
 
@@ -713,34 +704,21 @@ class ReportState extends ChangeNotifier {
     }
 
     try {
-      // Presigned PUT напрямую в KS3 — поддерживает и JWT, и share-ссылку.
-      // Multipart POST /files/upload требует JWT и возвращал 401
-      // при анонимном редактировании по share-ссылке.
-      final result = await _uploadViaPresignedUrl(
+      final result = await ApiService.uploadFileFromBytes(
         bytes: _headerImageBytes!,
-        fileName: _headerImageFileName!,
+        filename: _headerImageFileName!,
         relativePath: _headerImageFileName!,
-        mimeType: mimeTypeFromFilename(_headerImageFileName!),
+        reportId: _serverReportId,
+        onUploadProgress: (_) {},
       );
 
       if (result.success) {
         if (kDebugMode) {
           debugPrint('Header image uploaded: $_headerImageFileName');
         }
-        // Выставляем web-URL для отображения ДО очистки байтов,
-        // иначе на web карточка покажет пустую рамку.
-        if (_shareToken != null && _shareToken!.isNotEmpty) {
-          _currentReport?.headerImageWebUrl = _buildShareFileUrl(
-            _headerImageFileName!,
-          );
-        } else if (_serverReportId != null) {
-          // Owner-режим: подтягиваем свежие presigned URL (включая шапку).
-          await _populateMediaWebUrls(_serverReportId!);
-        }
         // Очищаем временное хранилище
         _headerImageBytes = null;
         _headerImageFileName = null;
-        notifyListeners();
       } else {
         if (kDebugMode) {
           debugPrint('Header image upload failed: ${result.error}');
@@ -987,7 +965,7 @@ class ReportState extends ChangeNotifier {
   ///   3. POST /files/confirm-upload (или /files/confirm-upload-share)
   ///      → создаём запись в БД
   Future<ApiResult> _uploadViaPresignedUrl({
-    MediaItem? mediaItem,
+    required MediaItem mediaItem,
     required Uint8List bytes,
     required String fileName,
     required String relativePath,
@@ -1034,7 +1012,7 @@ class ReportState extends ChangeNotifier {
             'KS3 direct upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%',
           );
         }
-        mediaItem?.uploadProgress = progress;
+        mediaItem.uploadProgress = progress;
         notifyListeners();
         onUploadProgress?.call(progress);
       },
@@ -1616,37 +1594,26 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  /// View-URL файла отчёта для share-режима.
+  /// Заполнить MediaItem.webUrl proxy-ссылками через share-ссылку.
   ///
   /// Использует endpoint /view/report/:publicId/files/:path?share_token=...
   /// (тот же, что и для HTML-просмотра). Не требует serverFileId —
   /// доступ определяется по localPath и share-токену.
-  String? _buildShareFileUrl(String relativePath) {
-    final publicId = _serverPublicId;
-    if (publicId == null || publicId.isEmpty || _shareToken == null) {
-      return null;
-    }
-    return Uri.http(
-      ApiService.baseUrl,
-      '/view/report/$publicId/files/$relativePath',
-      {'share_token': _shareToken},
-    ).toString();
-  }
-
   Future<void> _populateMediaWebUrlsForShare() async {
     if (_currentReport == null || _shareToken == null) return;
-
-    // Фото шапки — тот же view-эндпоинт, что и у медиа ответов.
-    final headerPath = _currentReport!.headerImagePath;
-    if (headerPath != null && headerPath.isNotEmpty) {
-      _currentReport!.headerImageWebUrl = _buildShareFileUrl(headerPath);
-    }
+    final publicId = _serverPublicId;
+    if (publicId == null || publicId.isEmpty) return;
 
     _currentReport!.markers.forEach((qid, markersList) {
       for (final markers in markersList) {
         for (final media in markers.media) {
           if (media.localPath == null || media.localPath!.isEmpty) continue;
-          media.webUrl = _buildShareFileUrl(media.localPath!);
+          final uri = Uri.http(
+            ApiService.baseUrl,
+            '/view/report/$publicId/files/${media.localPath}',
+            {'share_token': _shareToken},
+          );
+          media.webUrl = uri.toString();
         }
       }
     });
@@ -1657,12 +1624,11 @@ class ReportState extends ChangeNotifier {
   Future<ApiResult> createShareLink({
     DateTime? expiresAt,
     String permissions = 'edit',
-    AppLocalizations? loc,
   }) async {
     if (_serverReportId == null) {
-      return ApiResult(
+      return const ApiResult(
         success: false,
-        error: loc?.shareLinkSaveFirst ?? 'Report not saved to the server yet',
+        error: 'Отчёт ещё не сохранён на сервере',
       );
     }
     return ApiService.createShare(
@@ -1683,15 +1649,6 @@ class ReportState extends ChangeNotifier {
 
       final urlsData = urlsResult.data!['urls'] as Map<String, dynamic>;
       if (urlsData.isEmpty) return;
-
-      // Фото шапки: ключ — имя файла (header_XXX.jpg), оно же relativePath.
-      final headerPath = _currentReport?.headerImagePath;
-      if (headerPath != null && headerPath.isNotEmpty) {
-        final headerUrl = urlsData[headerPath];
-        if (headerUrl is String && headerUrl.isNotEmpty) {
-          _currentReport!.headerImageWebUrl = headerUrl;
-        }
-      }
 
       // Проходим по всем markers (Map<qid, List<AnswerMarkers>>),
       // заполняем webUrl для каждого медиа.
@@ -1990,10 +1947,10 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  Future<List<ReportInfo>> loadReportList({AppLocalizations? loc}) async {
+  Future<List<ReportInfo>> loadReportList() async {
     // ===== Web: загружаем список с сервера =====
     if (kIsWeb) {
-      return await _loadReportListFromServer(loc: loc);
+      return await _loadReportListFromServer();
     }
 
     // ===== Mobile/Desktop: читаем локальную папку =====
@@ -2009,7 +1966,7 @@ class ReportState extends ChangeNotifier {
             try {
               final jsonString = await jsonFile.readAsString();
               final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
-              final name = jsonData['reportName'] as String? ?? loc?.noName ?? 'Untitled';
+              final name = jsonData['reportName'] as String? ?? 'Без названия';
               final timestamp = jsonData['timestamp'] as int?;
               final dateTime = timestamp != null
                   ? DateTime.fromMillisecondsSinceEpoch(timestamp)
@@ -2040,9 +1997,7 @@ class ReportState extends ChangeNotifier {
   /// Загрузить список отчётов с сервера (web-режим).
   ///
   /// Возвращает список ReportInfo, где folderName = ID отчёта на сервере.
-  Future<List<ReportInfo>> _loadReportListFromServer({
-    AppLocalizations? loc,
-  }) async {
+  Future<List<ReportInfo>> _loadReportListFromServer() async {
     try {
       final List<ReportInfo> reportInfos = [];
 
@@ -2087,7 +2042,7 @@ class ReportState extends ChangeNotifier {
             final idStr = id is int ? id.toString() : id.toString();
             final publicId = report['publicId'] as String?;
             final title =
-                (reportData['reportName'] ?? report['title'] ?? loc?.noName ?? 'Report')
+                (reportData['reportName'] ?? report['title'] ?? 'Отчёт')
                     .toString();
             final createdAt =
                 DateTime.tryParse(report['createdAt'] as String? ?? '') ??
@@ -2160,14 +2115,11 @@ class ReportState extends ChangeNotifier {
   /// Сгенерировать упрощённую HTML-таблицу отчёта для вставки в Excel
   /// через буфер обмена. Работает офлайн, без сервера.
   String generateExcelHtmlContent() {
-    if (_currentReport == null) return '<html><body>No report</body></html>';
+    if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
     return excel_service.generateExcelHtmlContent(_currentReport!);
   }
 
-  Future<Report?> parseTemplate(
-    String filePath, {
-    AppLocalizations? loc,
-  }) async {
+  Future<Report?> parseTemplate(String filePath) async {
     try {
       final bytes = await File(filePath).readAsBytes();
       final excel = Excel.decodeBytes(bytes);
@@ -2239,7 +2191,7 @@ class ReportState extends ChangeNotifier {
       }
 
       final report = Report(
-        reportName: loc?.newReport ?? 'New Report',
+        reportName: 'Новый отчёт',
         availableLanguages: languages,
         currentLanguage: languages[0],
         questions: questions,

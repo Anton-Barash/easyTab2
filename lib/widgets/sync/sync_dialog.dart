@@ -1,7 +1,6 @@
 import 'package:easy_tab/l10n/app_localizations.dart';
 import 'package:easy_tab/providers/report_provider.dart';
 import 'package:easy_tab/utils/app_colors.dart';
-import 'package:easy_tab/utils/layout.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:file_picker/file_picker.dart';
@@ -135,7 +134,7 @@ class SyncDialogState extends State<SyncDialog> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
 
     return AlertDialog(
       insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),

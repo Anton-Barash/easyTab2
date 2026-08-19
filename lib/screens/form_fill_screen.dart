@@ -1,5 +1,4 @@
 import 'package:easy_tab/utils/app_colors.dart';
-import 'package:easy_tab/utils/layout.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/services/mime_utils.dart';
@@ -127,14 +126,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
     if (reportState.currentReport != null) return;
 
     setState(() => _isLoadingSharedReport = true);
-    final loc = AppLocalizations.of(context)!;
     final ok = await reportState.loadSharedReport(widget.shareToken!);
     if (!mounted) return;
     setState(() => _isLoadingSharedReport = false);
 
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.reportFromLinkLoadFailed)),
+        const SnackBar(content: Text('Не удалось загрузить отчёт по ссылке')),
       );
     }
   }
@@ -232,7 +230,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
             final result = await reportState.createShareLink(
               expiresAt: expiresAt,
               permissions: selectedPermission,
-              loc: loc,
             );
             if (!ctx.mounted) return;
             setDialogState(() => isCreating = false);
@@ -770,7 +767,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     ReportState reportState,
   ) {
     final loc = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
 
     showDialog(
       context: context,
@@ -889,7 +886,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     showDialog(
       context: context,
       builder: (ctx) {
-        final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
+        final isMobile = MediaQuery.of(context).size.width <= 800;
         return AlertDialog(
           insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
           contentPadding: isMobile
@@ -1089,7 +1086,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       openHtmlInBrowserUrl(viewUrl);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.htmlOpenedInNewTab)),
+          const SnackBar(content: Text('HTML отчёт открыт в новой вкладке')),
         );
       }
       return;
@@ -1109,7 +1106,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       openHtmlInBrowserUrl(uri.toString());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.htmlOpenedInNewTab)),
+          const SnackBar(content: Text('HTML отчёт открыт в новой вкладке')),
         );
       }
       return;
@@ -1633,7 +1630,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isMobile = constraints.maxWidth <= kMobileBreakpoint;
+          final isMobile = constraints.maxWidth <= 800;
           return Stack(
             children: [
               const DottedBackground(),
@@ -2670,7 +2667,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   Widget _buildListView(ReportState reportState, Report report) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth <= kMobileBreakpoint;
+        final isMobile = constraints.maxWidth <= 800;
         // Build list of visible items: always include index 0 (header),
         // then only questions that pass the filter
         final visibleIndices = <int>[0];
@@ -2734,7 +2731,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         if (report.questions.isEmpty) {
           return Center(child: Text(loc.noQuestions));
         }
-        final isMobile = constraints.maxWidth <= kMobileBreakpoint;
+        final isMobile = constraints.maxWidth <= 800;
         // Build list of visible page indices: always include 0 (header),
         // then only questions that pass the filter
         final visiblePageIndices = <int>[0];
@@ -3080,14 +3077,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       MaterialPageRoute(
         builder: (ctx) => FullMediaViewerScreen(
           mediaList: [
-            {
-              'type': 'image/*',
-              'localPath': imagePath,
-              // На web localPath бесполезен — передаём URL/байты,
-              // как это делают медиа ответов (media_grid.dart).
-              'webUrl': reportState.currentReport?.headerImageWebUrl,
-              'webBytes': reportState.headerImageBytes,
-            },
+            {'type': 'image/*', 'localPath': imagePath},
           ],
           initialIndex: 0,
           reportPath: reportState.currentReportPath,
@@ -3176,17 +3166,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     if (image == null) return;
 
-    // Валидация: только изображения.
-    // На web image.path — это blob-URL без расширения, поэтому расширение
-    // берём из image.name (оригинальное имя файла). На native name —
-    // basename того же пути, так что вариант универсален.
+    // Валидация: только изображения
     final allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
-    final ext = image.name.split('.').last.toLowerCase();
+    final ext = image.path.split('.').last.toLowerCase();
     if (!allowedExtensions.contains(ext)) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(loc.invalidFileFormat)));
+      ).showSnackBar(const SnackBar(content: Text('Неверный формат файла')));
       return;
     }
 
@@ -3198,7 +3185,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     if (fileSize > maxSize) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.fileTooLarge)),
+        const SnackBar(content: Text('Файл слишком большой (макс. 10MB)')),
       );
       return;
     }
@@ -3214,13 +3201,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(loc.photoAdded)));
+      ).showSnackBar(const SnackBar(content: Text('Фото добавлено')));
     } catch (e) {
       debugPrint('Header photo error: $e');
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(loc.errorWithDetail(e.toString()))));
+      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
@@ -3514,7 +3501,7 @@ void _showEditQuestionDialog(
   showDialog(
     context: context,
     builder: (ctx) {
-      final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
+      final isMobile = MediaQuery.of(context).size.width <= 800;
       return AlertDialog(
         insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
         contentPadding: isMobile

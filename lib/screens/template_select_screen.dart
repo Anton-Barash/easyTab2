@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:easy_tab/services/template_parser_service.dart';
 import 'package:easy_tab/utils/app_colors.dart';
-import 'package:easy_tab/utils/layout.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/utils/file_image.dart'
@@ -1166,32 +1165,26 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
     }
   }
 
-  Map<String, dynamic>? _validateAndParse(
-    String jsonText,
-    AppLocalizations loc,
-  ) {
+  Map<String, dynamic>? _validateAndParse(String jsonText) {
     try {
       final data = jsonDecode(jsonText) as Map<String, dynamic>;
 
       // Проверка наличия language_code
       final langCode = data['language_code'];
       if (langCode is! String || langCode.isEmpty) {
-        throw Exception(loc.langCodeRequired);
+        throw Exception('Поле language_code должно быть непустой строкой');
       }
 
       // Проверка наличия questions
       final questionsJson = data['questions'];
       if (questionsJson is! List) {
-        throw Exception(loc.questionsMustBeArray);
+        throw Exception('Поле questions должно быть массивом');
       }
 
       // Проверка количества вопросов
       if (questionsJson.length != widget.report.questions.length) {
         throw Exception(
-          loc.questionsCountMismatch(
-            widget.report.questions.length,
-            questionsJson.length,
-          ),
+          'Должно быть ${widget.report.questions.length} вопросов, получено ${questionsJson.length}',
         );
       }
 
@@ -1199,16 +1192,18 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
       for (int i = 0; i < questionsJson.length; i++) {
         final q = questionsJson[i];
         if (q is! Map) {
-          throw Exception(loc.questionMustBeObject(i));
+          throw Exception('Вопрос $i должен быть объектом');
         }
         if (q['id'] is! int) {
-          throw Exception(loc.questionIdMustBeNumber(i));
+          throw Exception('Вопрос $i: поле id должно быть числом');
         }
         if (q['name'] is! String || q['name'].isEmpty) {
-          throw Exception(loc.questionNameRequired(i));
+          throw Exception('Вопрос $i: поле name должно быть непустой строкой');
         }
         if (q['description'] is! String || q['description'].isEmpty) {
-          throw Exception(loc.questionDescriptionRequired(i));
+          throw Exception(
+            'Вопрос $i: поле description должно быть непустой строкой',
+          );
         }
         // example - не обязательное поле
       }
@@ -1230,7 +1225,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
     }
 
     try {
-      final data = _validateAndParse(jsonText, loc);
+      final data = _validateAndParse(jsonText);
       if (data == null) return;
 
       final langCode = data['language_code'] as String;
@@ -1262,7 +1257,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.width <= kMobileBreakpoint;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1474,5 +1469,68 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
         ],
       );
     }
+  }
+}
+
+/// Виджет элемента выбора источника шаблона (в стиле PickerItem)
+class _TemplateSourceItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _TemplateSourceItem({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border, width: 2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 28, color: AppColors.border),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

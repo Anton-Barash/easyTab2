@@ -2,7 +2,7 @@ import 'package:easy_tab/l10n/app_localizations.dart';
 import 'package:easy_tab/models/report_models.dart';
 import 'package:easy_tab/providers/report_provider.dart';
 import 'package:easy_tab/screens/form_fill_screen.dart';
-import 'package:easy_tab/widgets/form_fill/header_list_tile.dart';
+import 'package:easy_tab/widgets/form_fill/header_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,8 +80,10 @@ void main() {
       await tester.tap(find.byIcon(Icons.grid_view));
       await tester.pumpAndSettle();
 
-      expect(find.byType(HeaderListTile), findsOneWidget);
-      expect(find.text('Airfryer | Factory A | Model X'), findsWidgets);
+      expect(find.byType(HeaderCard), findsOneWidget);
+      expect(find.text('Airfryer'), findsOneWidget);
+      expect(find.text('Factory A'), findsOneWidget);
+      expect(find.text('Model X'), findsOneWidget);
     });
 
     testWidgets('opens header edit dialog', (tester) async {
@@ -92,12 +94,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.grid_view));
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.descendant(
-          of: find.byType(HeaderListTile),
-          matching: find.byIcon(Icons.edit),
-        ),
-      );
+      await tester.tap(find.text('Редактировать заголовок'));
       await tester.pumpAndSettle();
 
       expect(find.text('Airfryer'), findsWidgets);
