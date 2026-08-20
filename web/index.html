@@ -37,9 +37,61 @@
     flutter-view > flt-semantics-host {
       color: rgb(0, 0, 55) !important;
     }
+
+    /* Splash-экран: показывается мгновенно (inline CSS, без запросов),
+       пока грузится main.dart.js. Удаляется событием flutter-first-frame. */
+    #splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #f5f7fa;
+      z-index: 9999;
+      font-family: Arial, sans-serif;
+    }
+    #splash .splash-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      background: #4a6fa5;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+    #splash .splash-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #d0d7e2;
+      border-top-color: #4a6fa5;
+      border-radius: 50%;
+      animation: splash-spin 0.9s linear infinite;
+    }
+    @keyframes splash-spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
+  <!-- Splash: виден сразу, до загрузки JS-бандла (важно при медленном канале) -->
+  <div id="splash">
+    <div class="splash-logo">ET</div>
+    <div class="splash-spinner"></div>
+  </div>
+  <script>
+    // Flutter диспатчит flutter-first-frame при первом отрисованном кадре —
+    // в этот момент splash больше не нужен.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('splash');
+      if (el) el.remove();
+    });
+  </script>
+
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

@@ -5,7 +5,8 @@ import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+// share_plus (~50-80 KB) нужен только при экспорте ZIP — deferred.
+import 'package:share_plus/share_plus.dart' deferred as share_plus;
 import '../models/report_models.dart';
 import '../services/api_service.dart';
 // Тяжёлые сервисы (Excel/Sync/HTML/ZIP, видео-очередь, сжатие видео,
@@ -27,7 +28,8 @@ import '../services/api_result.dart';
 import '../services/anonymous_id_service.dart';
 import '../services/mime_utils.dart';
 import '../services/upload_helper.dart';
-import '../utils/image_compressor.dart';
+// Пакет image (~0.5 MB) нужен только при добавлении фото — deferred.
+import '../utils/image_compressor.dart' deferred as image_compressor;
 import '../services/video_upload_queue.dart'
     deferred as video_upload_queue;
 import '../utils/video_thumbnail_generator.dart'
@@ -217,7 +219,8 @@ class ReportState extends ChangeNotifier {
       final mimeType = mimeTypeFromFilename(file.path);
       if (mimeType.startsWith('image/')) {
         final bytes = await file.readAsBytes();
-        final compressed = ImageCompressor.compress(
+        await image_compressor.loadLibrary();
+        final compressed = image_compressor.ImageCompressor.compress(
           Uint8List.fromList(bytes),
           2000,
         );
@@ -239,8 +242,12 @@ class ReportState extends ChangeNotifier {
   Future<void> addHeaderImageFromBytes(Uint8List bytes, String fileName) async {
     if (_currentReport == null) return;
 
-    // Сжимаем изображение
-    final compressed = ImageCompressor.compress(bytes, 2000);
+    // Сжимаем изображение (deferred-чанк с пакетом image).
+    await image_compressor.loadLibrary();
+    final compressed = image_compressor.ImageCompressor.compress(
+      bytes,
+      2000,
+    );
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final ext = fileName.split('.').last;
@@ -568,7 +575,8 @@ class ReportState extends ChangeNotifier {
 
     if (mimeType.startsWith('image/')) {
       final bytes = await file.readAsBytes();
-      final compressed = ImageCompressor.compress(
+      await image_compressor.loadLibrary();
+      final compressed = image_compressor.ImageCompressor.compress(
         Uint8List.fromList(bytes),
         2000,
       );
@@ -654,10 +662,11 @@ class ReportState extends ChangeNotifier {
     final folderName = isAttention ? 'X' : 'photos';
     final relativePath = '$folderName/$generatedName';
 
-    // Сжимаем изображение, если нужно
+    // Сжимаем изображение, если нужно (deferred-чанк с пакетом image).
     Uint8List finalBytes = bytes;
     if (mimeType.startsWith('image/')) {
-      finalBytes = ImageCompressor.compress(bytes, 2000);
+      await image_compressor.loadLibrary();
+      finalBytes = image_compressor.ImageCompressor.compress(bytes, 2000);
     }
 
     // Создаём MediaItem с байтами для web.
@@ -2186,7 +2195,11 @@ class ReportState extends ChangeNotifier {
   Future<void> shareZip(String zipPath) async {
     if (kIsWeb) return;
     try {
-      await Share.shareXFiles([XFile(zipPath)], text: 'EasyTab Report');
+      await share_plus.loadLibrary();
+      await share_plus.Share.shareXFiles(
+        [share_plus.XFile(zipPath)],
+        text: 'EasyTab Report',
+      );
     } catch (e) {
       if (kDebugMode) debugPrint('Error sharing zip: $e');
     }
