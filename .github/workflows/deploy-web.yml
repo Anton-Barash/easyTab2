@@ -10,8 +10,10 @@ name: Deploy Frontend
 # «загрязнит» рабочую копию, и следующий git pull упадёт с конфликтом.
 # Единственный канал деплоя — через git, как у бэкенда.
 #
-# Требуемый секрет: BACKEND_REPO_TOKEN — GitHub PAT (scope: repo / contents
-# write) с доступом к Anton-Barash/easy-tab-Server.
+# Требуемый секрет: BACKEND_REPO_TOKEN — GitHub PAT (fine-grained:
+# Contents: Read and write на Anton-Barash/easy-tab-Server, либо classic
+# со scope: repo). Создаётся один раз в Settings → Secrets and variables
+# → Actions этого репозитория.
 on:
   push:
     branches: [ master ]
@@ -29,7 +31,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # Ранний fail с понятным сообщением. Без этой проверки пустой секрет
+      # падает позже внутри actions/checkout с криптичной ошибкой
+      # "Input required and not supplied: token" (см. запуск от 2026-08-20).
+      - name: Verify required secrets
+        env:
+          BACKEND_REPO_TOKEN: ${{ secrets.BACKEND_REPO_TOKEN }}
+        run: |
+          if [ -z "$BACKEND_REPO_TOKEN" ]; then
+            echo "::error::Секрет BACKEND_REPO_TOKEN не настроен в этом репозитории."
+            echo "::error::1) Создайте PAT: GitHub → Settings → Developer settings → Personal access tokens."
+            echo "::error::   (fine-grained: Contents Read+write на Anton-Barash/easy-tab-Server, или classic со scope repo)."
+            echo "::error::2) Добавьте: репозиторий easyTab2 → Settings → Secrets and variables → Actions → New repository secret."
+            echo "::error::   Имя: BACKEND_REPO_TOKEN, значение: токен."
+            echo "::error::3) Перезапустите этот workflow (Actions → Re-run jobs)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
 
       # Версия Flutter зафиксирована = локальной (3.41.9).
       # Это критично: canvaskit на сервере должен совпадать с движком,
@@ -56,7 +75,7 @@ jobs:
         run: flutter build web --release --no-wasm-dry-run
 
       # Checkout бэкенд-репозитория, куда коммитим собранный бандл.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: Anton-Barash/easy-tab-Server
           token: ${{ secrets.BACKEND_REPO_TOKEN }}
@@ -76,12 +95,15 @@ jobs:
           git config user.name "frontend-ci"
           git config user.email "ci@users.noreply.github.com"
           # Коммитим только если бандл реально изменился.
-          if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
+          if [ -z "$(git status --porcelain)" ]; then
             echo "No frontend changes to deploy."
             exit 0
           fi
           git add web/
           git commit -m "deploy: frontend build $(git -C .. rev-parse --short HEAD)"
+          # Если в бэкенд-репо успели запушить что-то ещё — подтягиваем
+          # перед push, иначе push упадёт (non-fast-forward).
+          git pull --rebase origin main
           git push
           # Push в бэкенд-репозиторий запустит его backend-workflow,
           # который сделает git pull + pm2 reload на сервере.
