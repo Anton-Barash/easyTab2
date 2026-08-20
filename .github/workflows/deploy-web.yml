@@ -1,49 +1,64 @@
-name: Deploy Web to Server
+name: Deploy Frontend
 
+# Деплой Flutter Web на сервер.
+# Сборка происходит в CI, на сервер по rsync уходят только изменённые
+# файлы (--checksum): типичный деплой = ~4-5 MB вместо полных ~68 MB,
+# т.к. ffmpeg/canvaskit/шрифты не меняются между сборками.
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch: # ручной запуск из вкладки Actions
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout frontend
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.41.9'
-        channel: stable
+      # Версия Flutter зафиксирована = локальной (3.41.9).
+      # Это критично: canvaskit на сервере должен совпадать с движком,
+      # которым собран main.dart.js.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          cache: true
 
-    - name: Install Flutter dependencies
-      run: flutter pub get
+      - name: Install dependencies
+        run: flutter pub get
 
-    - name: Build Flutter Web
-      run: flutter build web --release
+      - name: Analyze
+        run: flutter analyze
 
-    - name: Deploy frontend to Server
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        use_insecure_cipher: true
-        source: "build/web/*"
-        target: "~/easy_tab_Server/web/"
-        strip_components: 1
-        overwrite: true
+      - name: Tests
+        run: flutter test
 
-    - name: Restart Server
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        use_insecure_cipher: true
-        script: |
-          cd ~/easy_tab_Server
-          pm2 startOrReload ecosystem.config.js --env production --update-env
-          echo "Web deployment completed successfully"
+      # --no-wasm-dry-run: dart2js (Canvaskit) вместо Wasm —
+      # deferred loading не поддерживается в Wasm,
+      # а пакет win32 (dart:ffi) несовместим с Wasm-компиляцией.
+      - name: Build web
+        run: flutter build web --release --no-wasm-dry-run
+
+      # --checksum: сравнение по содержимому, а не mtime
+      #   (CI всегда собирает с нуля, mtime всегда новый — без checksum
+      #   rsync залил бы все 68 MB каждый раз).
+      # --delete: удалить на сервере файлы, исчезнувшие в новом билде
+      #   (например, лишние part-чанки). web/ содержит только билд-статику,
+      #   поэтому --delete безопасен.
+      - name: Deploy via rsync
+        uses: burnett01/rsync-deployments@7.1.0
+        with:
+          switches: -avzr --checksum --delete
+          path: build/web/
+          remote_path: ~/easy_tab_Server/web/
+          remote_host: ${{ secrets.SERVER_HOST }}
+          remote_user: ${{ secrets.SERVER_USER }}
+          remote_key: ${{ secrets.SSH_KEY }}
