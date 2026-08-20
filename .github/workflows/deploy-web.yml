@@ -99,7 +99,11 @@ jobs:
             echo "No frontend changes to deploy."
             exit 0
           fi
-          git add web/
+          # -f: в бэкенд-репо web/ исторически был в .gitignore, и пока фикс
+          # не запушен, новые part-чанки считаются игнорируемыми — git add
+          # без -f падает с "paths are ignored by .gitignore files".
+          # Force-add отслеживает все файлы бандла в любом случае.
+          git add -f web/
           git commit -m "deploy: frontend build $(git -C .. rev-parse --short HEAD)"
           # Если в бэкенд-репо успели запушить что-то ещё — подтягиваем
           # перед push, иначе push упадёт (non-fast-forward).
