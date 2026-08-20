@@ -1,12 +1,20 @@
 name: Deploy Frontend
 
-# Деплой Flutter Web на сервер.
-# Сборка происходит в CI, на сервер по rsync уходят только изменённые
-# файлы (--checksum): типичный деплой = ~4-5 MB вместо полных ~68 MB,
-# т.к. ffmpeg/canvaskit/шрифты не меняются между сборками.
+# Деплой Flutter Web через бэкенд-репозиторий.
+#
+# Схема: CI собирает бандл → коммитит build/web в easy-tab-Server →
+# backend-workflow (git pull + pm2) раскатывает его на сервер.
+#
+# Почему НЕ rsync напрямую на сервер: папка ~/easy_tab_Server/web — это
+# git working copy, из которой бэкенд-деплой делает git pull. Прямой rsync
+# «загрязнит» рабочую копию, и следующий git pull упадёт с конфликтом.
+# Единственный канал деплоя — через git, как у бэкенда.
+#
+# Требуемый секрет: BACKEND_REPO_TOKEN — GitHub PAT (scope: repo / contents
+# write) с доступом к Anton-Barash/easy-tab-Server.
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
     paths:
       - 'lib/**'
       - 'web/**'
@@ -47,18 +55,33 @@ jobs:
       - name: Build web
         run: flutter build web --release --no-wasm-dry-run
 
-      # --checksum: сравнение по содержимому, а не mtime
-      #   (CI всегда собирает с нуля, mtime всегда новый — без checksum
-      #   rsync залил бы все 68 MB каждый раз).
-      # --delete: удалить на сервере файлы, исчезнувшие в новом билде
-      #   (например, лишние part-чанки). web/ содержит только билд-статику,
-      #   поэтому --delete безопасен.
-      - name: Deploy via rsync
-        uses: burnett01/rsync-deployments@7.1.0
+      # Checkout бэкенд-репозитория, куда коммитим собранный бандл.
+      - uses: actions/checkout@v4
         with:
-          switches: -avzr --checksum --delete
-          path: build/web/
-          remote_path: ~/easy_tab_Server/web/
-          remote_host: ${{ secrets.SERVER_HOST }}
-          remote_user: ${{ secrets.SERVER_USER }}
-          remote_key: ${{ secrets.SSH_KEY }}
+          repository: Anton-Barash/easy-tab-Server
+          token: ${{ secrets.BACKEND_REPO_TOKEN }}
+          path: backend
+          ref: main
+
+      - name: Sync build into backend repo
+        run: |
+          # Полная замена: rm гарантирует удаление устаревших part-чанков
+          # (main.dart.js_N.part.js), которых может не быть в новой сборке.
+          rm -rf backend/web
+          cp -r build/web backend/web
+
+      - name: Commit and push build artifacts
+        working-directory: backend
+        run: |
+          git config user.name "frontend-ci"
+          git config user.email "ci@users.noreply.github.com"
+          # Коммитим только если бандл реально изменился.
+          if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
+            echo "No frontend changes to deploy."
+            exit 0
+          fi
+          git add web/
+          git commit -m "deploy: frontend build $(git -C .. rev-parse --short HEAD)"
+          git push
+          # Push в бэкенд-репозиторий запустит его backend-workflow,
+          # который сделает git pull + pm2 reload на сервере.

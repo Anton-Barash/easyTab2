@@ -32,6 +32,14 @@
   <title>easy_tab</title>
   <link rel="manifest" href="manifest.json">
 
+  <!-- Preload: браузер начинает загрузку главных ресурсов сразу при
+       парсинге HTML, не дожидаясь исполнения flutter_bootstrap.js
+       (~200-400 ms выигрыша). crossorigin обязателен для fetch-загрузки
+       canvaskit.wasm (иначе preload не совпадёт с реальным запросом). -->
+  <link rel="preload" href="main.dart.js" as="script">
+  <link rel="preload" href="canvaskit/canvaskit.js" as="script">
+  <link rel="preload" href="canvaskit/canvaskit.wasm" as="fetch" type="application/wasm" crossorigin>
+
   <!-- Custom CSS for flt-semantics-host -->
   <style>
     flutter-view > flt-semantics-host {
@@ -100,8 +108,9 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <!-- FFmpeg.wasm loader для сжатия видео (ffmpeg.js грузится лениво при первом сжатии) -->
-  <script src="ffmpeg-loader.js"></script>
+  <!-- FFmpeg.wasm loader для сжатия видео (ffmpeg.js грузится лениво при первом сжатии).
+       defer: не блокирует парсинг; вызывается приложением только при сжатии видео. -->
+  <script src="ffmpeg-loader.js" defer></script>
 
   <script src="flutter_bootstrap.js" async></script>
 </body>
