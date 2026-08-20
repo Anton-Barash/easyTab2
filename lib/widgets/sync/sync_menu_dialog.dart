@@ -29,8 +29,26 @@ class SyncMenuDialog extends StatefulWidget {
 
 class SyncMenuDialogState extends State<SyncMenuDialog> {
   final TextEditingController _jsonController = TextEditingController();
+  String _syncJson = '{}';
+  int _unsyncCount = 0;
+  bool _initialized = false;
 
-  String get _syncJson => widget.reportState.generateSyncJson();
+  @override
+  void initState() {
+    super.initState();
+    _initAsync();
+  }
+
+  Future<void> _initAsync() async {
+    final syncJson = await widget.reportState.generateSyncJson();
+    final unsyncIndices = await widget.reportState.getUnsyncQuestionIndices();
+    if (!mounted) return;
+    setState(() {
+      _syncJson = syncJson;
+      _unsyncCount = unsyncIndices.length;
+      _initialized = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -132,8 +150,19 @@ class SyncMenuDialogState extends State<SyncMenuDialog> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final unsyncCount = widget.reportState.getUnsyncQuestionIndices().length;
+    final unsyncCount = _unsyncCount;
     final isMobile = MediaQuery.of(context).size.width <= 800;
+
+    // Пока deferred sync-сервис подгружается, показываем загрузку.
+    if (!_initialized) {
+      return const Dialog(
+        child: SizedBox(
+          width: 200,
+          height: 120,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
 
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,

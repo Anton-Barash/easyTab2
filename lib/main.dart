@@ -12,14 +12,25 @@ import './providers/locale_provider.dart';
 import './utils/app_colors.dart';
 import './providers/auth_provider.dart';
 import './l10n/app_localizations.dart';
-import './screens/template_select_screen.dart';
-import './screens/form_fill_screen.dart';
-import './screens/reports_screen.dart';
-import './screens/view_report_html_screen.dart';
-import './screens/share_welcome_screen.dart';
 import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
 import './widgets/dotted_background.dart';
 import './widgets/easy_tab_button.dart';
+// Тяжёлые экраны загружаются лениво (deferred) — они не нужны на стартовой
+// странице и тянут Excel/Sync/Video-сервисы в бандл. Каждый экран станет
+// отдельным чанком, загружаемым при первом переходе на него.
+import './screens/template_select_screen.dart'
+    deferred as template_select_screen;
+import './screens/form_fill_screen.dart' deferred as form_fill_screen;
+import './screens/reports_screen.dart' deferred as reports_screen;
+import './screens/view_report_html_screen.dart'
+    deferred as view_report_html_screen;
+import './screens/share_welcome_screen.dart'
+    deferred as share_welcome_screen;
+
+/// Универсальный экран загрузки для deferred-частей приложения.
+Widget _deferredLoading(BuildContext context) {
+  return const Scaffold(body: Center(child: CircularProgressIndicator()));
+}
 
 void main() async {
   // P3: runZonedGuarded перехватывает необработанные async-ошибки,
@@ -94,9 +105,33 @@ class EasyTabApp extends StatelessWidget {
             initialRoute: '/',
             routes: {
               '/': (context) => const StartScreen(),
-              '/template': (context) => const TemplateSelectScreen(),
-              '/fill': (context) => const FormFillScreen(),
-              '/reports': (context) => const ReportsScreen(),
+              '/template': (context) => FutureBuilder<void>(
+                    future: template_select_screen.loadLibrary(),
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return _deferredLoading(context);
+                      }
+                      return template_select_screen.TemplateSelectScreen();
+                    },
+                  ),
+              '/fill': (context) => FutureBuilder<void>(
+                    future: form_fill_screen.loadLibrary(),
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return _deferredLoading(context);
+                      }
+                      return form_fill_screen.FormFillScreen();
+                    },
+                  ),
+              '/reports': (context) => FutureBuilder<void>(
+                    future: reports_screen.loadLibrary(),
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return _deferredLoading(context);
+                      }
+                      return reports_screen.ReportsScreen();
+                    },
+                  ),
             },
             // /view-report — открывается в новой вкладке браузера с
             // query-параметрами: /view-report?pid=abc123&token=xxx
@@ -118,8 +153,18 @@ class EasyTabApp extends StatelessWidget {
                   );
                 }
                 return MaterialPageRoute(
-                  builder: (_) =>
-                      ViewReportHtmlScreen(publicId: publicId, token: token),
+                  builder: (_) => FutureBuilder<void>(
+                    future: view_report_html_screen.loadLibrary(),
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return _deferredLoading(context);
+                      }
+                      return view_report_html_screen.ViewReportHtmlScreen(
+                        publicId: publicId,
+                        token: token,
+                      );
+                    },
+                  ),
                 );
               }
               if (uri.path == '/welcome') {
@@ -135,7 +180,17 @@ class EasyTabApp extends StatelessWidget {
                   );
                 }
                 return MaterialPageRoute(
-                  builder: (_) => ShareWelcomeScreen(token: token),
+                  builder: (_) => FutureBuilder<void>(
+                    future: share_welcome_screen.loadLibrary(),
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return _deferredLoading(context);
+                      }
+                      return share_welcome_screen.ShareWelcomeScreen(
+                        token: token,
+                      );
+                    },
+                  ),
                 );
               }
               return null;
@@ -378,8 +433,7 @@ class _StartScreenState extends State<StartScreen> {
 
   Future<void> _continueLastReport(BuildContext context) async {
     final reportState = Provider.of<ReportState>(context, listen: false);
-    final loc = AppLocalizations.of(context)!;
-    final reports = await reportState.loadReportList(loc: loc);
+    final reports = await reportState.loadReportList();
 
     if (!context.mounted) return;
 

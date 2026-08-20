@@ -4,27 +4,34 @@ import 'dart:convert';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:flutter/foundation.dart';
-import 'package:excel_community/excel_community.dart';
-import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'package:archive/archive_io.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:easy_tab/utils/native_file_ops.dart'
-    if (dart.library.html) 'package:easy_tab/utils/native_file_ops_web.dart';
 import '../models/report_models.dart';
 import '../services/api_service.dart';
-import '../services/report_excel_service.dart' as excel_service;
-import '../services/report_html_service.dart' as html_service;
-import '../services/report_sync_service.dart' as sync_service;
+// Тяжёлые сервисы (Excel/Sync/HTML/ZIP, видео-очередь, сжатие видео,
+// генерация превью) загружаются лениво (deferred) — они нужны только
+// на экране заполнения отчёта (form_fill), а не на старте.
+// Каждый станет отдельным чанком, подгружаемым при первом использовании.
+import '../services/report_excel_service.dart'
+    deferred as excel_service;
+import '../services/report_html_service.dart'
+    deferred as html_service;
+import '../services/report_sync_service.dart'
+    deferred as sync_service;
+import '../services/project_zip_service.dart'
+    deferred as zip_service;
+import '../services/native_video_compress_service.dart'
+    deferred as native_compress;
 import '../services/share_token_storage.dart';
 import '../services/api_result.dart';
 import '../services/anonymous_id_service.dart';
 import '../services/mime_utils.dart';
 import '../services/upload_helper.dart';
 import '../utils/image_compressor.dart';
-import '../services/video_upload_queue.dart';
-import '../utils/video_thumbnail_generator.dart';
-import 'package:v_video_compressor/v_video_compressor.dart';
+import '../services/video_upload_queue.dart'
+    deferred as video_upload_queue;
+import '../utils/video_thumbnail_generator.dart'
+    deferred as thumbnail_gen;
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
@@ -50,8 +57,29 @@ class ReportState extends ChangeNotifier {
   String? _currentReportPath;
 
   /// Фоновая очередь сжатия и загрузки видео (web only).
-  final VideoUploadQueue _videoQueue = VideoUploadQueue();
-  StreamSubscription<VideoUploadProgress>? _videoProgressSub;
+  ///
+  /// Создаётся лениво при первом enqueue: очередь тянет за собой
+  /// ffmpeg.wasm-обвязку и не должна входить в основной бандл.
+  ///
+  /// Тип dynamic: deferred-тип (VideoUploadQueue) нельзя использовать
+  /// в объявлениях полей — только после loadLibrary() в рантайме.
+  dynamic _videoQueue;
+  StreamSubscription<dynamic>? _videoProgressSub;
+
+  /// Ленивая инициализация видео-очереди (deferred chunk).
+  Future<dynamic> _getVideoQueue() async {
+    if (_videoQueue == null) {
+      await video_upload_queue.loadLibrary();
+      final queue = video_upload_queue.VideoUploadQueue();
+      _videoProgressSub = queue.progressStream.listen((_) {
+        // Прогресс хранится внутри MediaItem; UI сам его отрисовывает.
+        notifyListeners();
+        _flushPendingDeletions();
+      });
+      _videoQueue = queue;
+    }
+    return _videoQueue!;
+  }
 
   /// Медиа, которые нужно удалить с сервера после завершения фоновой
   /// обработки. Используется в removeQuestion/removeAnswer/removeMedia,
@@ -63,13 +91,7 @@ class ReportState extends ChangeNotifier {
   /// повторно. Очищается при загрузке отчёта (в [_sanitizeMediaState]).
   final Set<String> _compressedVideoPaths = {};
 
-  ReportState() {
-    _videoProgressSub = _videoQueue.progressStream.listen((_) {
-      // Прогресс хранится внутри MediaItem; UI сам его отрисовывает.
-      notifyListeners();
-      _flushPendingDeletions();
-    });
-  }
+  ReportState();
 
   Report? get currentReport => _currentReport;
   String? get currentReportPath => _currentReportPath;
@@ -336,7 +358,7 @@ class ReportState extends ChangeNotifier {
     if (markersList != null) {
       for (final markers in markersList) {
         for (final media in markers.media) {
-          _videoQueue.cancel(media);
+          _videoQueue?.cancel(media);
           if (media.isCompressing || media.isUploading) {
             // Фоновая обработка ещё идёт — удалим с сервера/диска,
             // как только задача завершится.
@@ -439,7 +461,7 @@ class ReportState extends ChangeNotifier {
       // P3-59: удаляем все медиафайлы ответа с сервера (web) или диска (native)
       // и отменяем фоновую обработку видео.
       for (final media in markers.media) {
-        _videoQueue.cancel(media);
+        _videoQueue?.cancel(media);
         if (media.isCompressing || media.isUploading) {
           _pendingDeletion.add(media);
         } else {
@@ -660,20 +682,23 @@ class ReportState extends ChangeNotifier {
     if (isVideo && kIsWeb) {
       // На web видео сжимается и загружается через фоновую очередь.
       // Оригинальные байты передаются в очередь; UI показывает прогресс.
-      _videoQueue.enqueue(
-        media: mediaItem,
-        originalBytes: bytes,
-        fileName: generatedName,
-        mimeType: mimeType,
-        relativePath: relativePath,
-        reportId: _serverReportId,
-        shareToken: _shareToken,
-        onError: (code) {
-          if (kDebugMode) {
-            debugPrint('Video queue error ($code): $generatedName');
-          }
-          onVideoError?.call(code);
-        },
+      final queue = await _getVideoQueue();
+      unawaited(
+        queue.enqueue(
+          media: mediaItem,
+          originalBytes: bytes,
+          fileName: generatedName,
+          mimeType: mimeType,
+          relativePath: relativePath,
+          reportId: _serverReportId,
+          shareToken: _shareToken,
+          onError: (code) {
+            if (kDebugMode) {
+              debugPrint('Video queue error ($code): $generatedName');
+            }
+            onVideoError?.call(code);
+          },
+        ),
       );
     } else if (_serverReportId != null &&
         (_ks3Folder != null ||
@@ -861,10 +886,13 @@ class ReportState extends ChangeNotifier {
     String videoRelativePath,
   ) async {
     try {
+      // Deferred: генератор превью подгружается при первом вызове.
+      await thumbnail_gen.loadLibrary();
+
       // Генерируем превью из видео-байтов.
       Uint8List? thumbnailBytes;
       if (kIsWeb) {
-        final generator = VideoThumbnailGenerator.create();
+        final generator = thumbnail_gen.VideoThumbnailGenerator.create();
         thumbnailBytes = await generator.generateThumbnail(
           videoBytes,
           maxWidth: 256,
@@ -883,7 +911,7 @@ class ReportState extends ChangeNotifier {
           }
           return;
         }
-        final nativeGenerator = VideoThumbnailGenerator.create();
+        final nativeGenerator = thumbnail_gen.VideoThumbnailGenerator.create();
         final fileBytes = Uint8List.fromList(await File(absPath).readAsBytes());
         thumbnailBytes = await nativeGenerator.generateThumbnail(
           fileBytes,
@@ -1178,7 +1206,7 @@ class ReportState extends ChangeNotifier {
     final media = _currentReport!.markers[qid]![answerIndex].media[mediaIndex];
 
     // Отменяем фоновую обработку видео, если она ещё в очереди.
-    _videoQueue.cancel(media);
+    _videoQueue?.cancel(media);
 
     if (media.isCompressing || media.isUploading) {
       _pendingDeletion.add(media);
@@ -1744,13 +1772,8 @@ class ReportState extends ChangeNotifier {
     }
     if (videoPaths.isEmpty) return [];
 
-    final config = switch (qualityLevel) {
-      1 => const VVideoCompressionConfig.high(),
-      2 => const VVideoCompressionConfig.medium(),
-      _ => const VVideoCompressionConfig.low(),
-    };
-
-    final compressor = VVideoCompressor();
+    // Deferred: плагин v_video_compressor подгружается при первом вызове.
+    await native_compress.loadLibrary();
     final compressedVideos = <String>[];
 
     for (int i = 0; i < videoPaths.length; i++) {
@@ -1758,43 +1781,25 @@ class ReportState extends ChangeNotifier {
       final relativePath = videoPaths[i];
       if (_compressedVideoPaths.contains(relativePath)) continue;
 
-      try {
-        final absolutePath = '$_currentReportPath/$relativePath';
-        final file = File(absolutePath);
-        if (!await file.exists()) continue;
-        // Маленькие видео сжимать бессмысленно.
-        if (await file.length() <= 5 * 1024 * 1024) continue;
+      final absolutePath = '$_currentReportPath/$relativePath';
+      final result = await native_compress.compressNativeVideo(
+        absolutePath: absolutePath,
+        relativePath: relativePath,
+        qualityLevel: qualityLevel,
+      );
+      if (result == null) continue;
 
-        final result = await compressor.compressVideo(
-          absolutePath,
-          config,
-          onProgress: (progress) {},
-        );
-        if (result == null) continue;
+      _compressedVideoPaths.add(relativePath);
+      compressedVideos.add(relativePath);
 
-        final compressedFile = File(result.compressedFilePath);
-        if (!await compressedFile.exists()) continue;
-
-        final compressedSize = await compressedFile.length();
-        // Не заменяем оригинал пустым файлом (0 байт при сбое кодека).
-        if (compressedSize > 0) {
-          await compressedFile.copy(absolutePath);
-          _compressedVideoPaths.add(relativePath);
-          compressedVideos.add(relativePath);
-
-          for (final markersList in _currentReport!.markers.values) {
-            for (final markers in markersList) {
-              for (final media in markers.media) {
-                if (media.localPath == relativePath) {
-                  media.compressedSize = compressedSize;
-                }
-              }
+      for (final markersList in _currentReport!.markers.values) {
+        for (final markers in markersList) {
+          for (final media in markers.media) {
+            if (media.localPath == relativePath) {
+              media.compressedSize = result.compressedSize;
             }
           }
         }
-        await compressedFile.delete();
-      } catch (e) {
-        if (kDebugMode) debugPrint('Error compressing video: $e');
       }
     }
 
@@ -1872,7 +1877,7 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  bool needsSyncAfterLoad() {
+  Future<bool> needsSyncAfterLoad() async {
     if (_currentReport == null) return false;
     final languages = _currentReport!.availableLanguages;
     if (languages.isEmpty) return false;
@@ -1882,55 +1887,23 @@ class ReportState extends ChangeNotifier {
       return false;
     }
 
-    return getUnsyncQuestionIndices().isNotEmpty;
+    return (await getUnsyncQuestionIndices()).isNotEmpty;
   }
 
   Future<String?> importProjectFromZip(String zipPath) async {
     try {
-      final zipFile = File(zipPath);
-      if (!await zipFile.exists()) {
-        if (kDebugMode) debugPrint('ZIP file not found: $zipPath');
-        return null;
-      }
-
       final reportsDir = await _getReportsDir();
       final folderName = 'imported_${DateTime.now().millisecondsSinceEpoch}';
       final targetPath = '$reportsDir/$folderName';
 
-      if (await Directory(targetPath).exists()) {
-        await Directory(targetPath).delete(recursive: true);
-      }
-      await Directory(targetPath).create(recursive: true);
-
-      final bytes = await zipFile.readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
-
-      // БЕЗОПАСНОСТЬ (H-23): Path traversal защита.
-      // ZIP-архив может содержать имена с "../" или абсолютные пути —
-      // записываем только те файлы, чей итоговый путь внутри targetPath.
-      final canonicalTarget = path.canonicalize(targetPath);
-
-      for (final file in archive) {
-        if (!file.isFile) continue;
-
-        // Склеиваем через path.join (обрабатывает разные разделители),
-        // затем нормализуем и проверяем, что путь остался внутри targetPath.
-        final joined = path.join(canonicalTarget, file.name);
-        final canonical = path.canonicalize(joined);
-        if (!path.isWithin(canonicalTarget, canonical)) {
-          if (kDebugMode) {
-            debugPrint('ZIP path traversal blocked: ${file.name}');
-          }
-          continue;
-        }
-
-        final filePath = canonical;
-        final fileDir = Directory(path.dirname(filePath));
-        if (!await fileDir.exists()) {
-          await fileDir.create(recursive: true);
-        }
-        await File(filePath).writeAsBytes(file.content);
-      }
+      // Deferred: пакет archive подгружается при первом импорте.
+      // Распаковка внутри сервиса защищена от path traversal (H-23).
+      await zip_service.loadLibrary();
+      final extracted = await zip_service.extractProjectZip(
+        zipPath,
+        targetPath,
+      );
+      if (!extracted) return null;
 
       final jsonFile = File('$targetPath/report.json');
       if (!await jsonFile.exists()) {
@@ -2107,113 +2080,19 @@ class ReportState extends ChangeNotifier {
 
   /// Сгенерировать Excel-файл как массив байтов.
   /// Используется при загрузке отчёта на сервер.
-  Uint8List generateExcelBytes() {
+  /// Deferred: excel-сервис подгружается при первом вызове.
+  Future<Uint8List> generateExcelBytes() async {
     if (_currentReport == null) return Uint8List(0);
+    await excel_service.loadLibrary();
     return excel_service.generateExcelBytes(_currentReport!);
   }
 
   /// Сгенерировать упрощённую HTML-таблицу отчёта для вставки в Excel
   /// через буфер обмена. Работает офлайн, без сервера.
-  String generateExcelHtmlContent() {
+  Future<String> generateExcelHtmlContent() async {
     if (_currentReport == null) return '<html><body>Нет отчёта</body></html>';
+    await excel_service.loadLibrary();
     return excel_service.generateExcelHtmlContent(_currentReport!);
-  }
-
-  Future<Report?> parseTemplate(String filePath) async {
-    try {
-      final bytes = await File(filePath).readAsBytes();
-      final excel = Excel.decodeBytes(bytes);
-      final sheet = excel.sheets.values.first;
-
-      final rows = sheet.rows;
-      if (rows.length < 3) return null;
-
-      final langRow = rows[1];
-      final languages = <String>[];
-      final langColumns = <String, int>{};
-
-      for (int col = 0; col < langRow.length; col++) {
-        final cell = langRow[col];
-        if (cell != null && cell.value != null) {
-          final lang = cell.value.toString().trim().toUpperCase();
-          if (lang.isNotEmpty && !languages.contains(lang)) {
-            languages.add(lang);
-            langColumns[lang] = col;
-          }
-        }
-      }
-
-      if (languages.isEmpty) {
-        languages.add('RU');
-      }
-
-      final questions = <Question>[];
-
-      for (int rowIdx = 2; rowIdx < rows.length; rowIdx++) {
-        final row = rows[rowIdx];
-        final question = Question(
-          id: DateTime.now().millisecondsSinceEpoch + rowIdx,
-          localizations: {},
-        );
-
-        bool hasData = false;
-
-        for (final lang in languages) {
-          final startCol = langColumns[lang];
-          if (startCol == null) continue;
-
-          final name = (startCol < row.length && row[startCol]?.value != null)
-              ? row[startCol]!.value.toString().trim()
-              : '';
-          final example =
-              (startCol + 1 < row.length && row[startCol + 1]?.value != null)
-              ? row[startCol + 1]!.value.toString().trim()
-              : '';
-          final desc =
-              (startCol + 2 < row.length && row[startCol + 2]?.value != null)
-              ? row[startCol + 2]!.value.toString().trim()
-              : '';
-
-          question.localizations[lang] = QuestionLocalization(
-            name: name.isEmpty ? null : name,
-            description: desc.isEmpty ? null : desc,
-            example: example.isEmpty ? null : example,
-          );
-
-          if (name.isNotEmpty || desc.isNotEmpty) {
-            hasData = true;
-          }
-        }
-
-        if (hasData) {
-          questions.add(question);
-        }
-      }
-
-      final report = Report(
-        reportName: 'Новый отчёт',
-        availableLanguages: languages,
-        currentLanguage: languages[0],
-        questions: questions,
-        translations: {},
-        markers: {},
-        mediaCounter: {'photos': 1, 'X': 1},
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-      );
-
-      for (int i = 0; i < questions.length; i++) {
-        report.translations[i.toString()] = {};
-        report.markers[i.toString()] = [AnswerMarkers()];
-        for (final lang in languages) {
-          report.translations[i.toString()]![lang] = [TranslationAnswer()];
-        }
-      }
-
-      return report;
-    } catch (e) {
-      if (kDebugMode) debugPrint('Error parsing template: $e');
-      return null;
-    }
   }
 
   Future<String?> exportZip({
@@ -2225,7 +2104,7 @@ class ReportState extends ChangeNotifier {
       await saveReport();
 
       // Сохраняем Excel
-      final excelBytes = generateExcelBytes();
+      final excelBytes = await generateExcelBytes();
       final excelFile = File('$_currentReportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
       if (kDebugMode) {
@@ -2236,6 +2115,7 @@ class ReportState extends ChangeNotifier {
 
       // Сохраняем HTML-версию отчёта (офлайн-генерация, медиа по
       // относительным путям — отчёт открывается из распакованного архива).
+      await html_service.loadLibrary();
       final htmlContent = html_service.generateReportHtml(_currentReport!);
       final htmlFile = File('$_currentReportPath/report.html');
       await htmlFile.writeAsString(htmlContent);
@@ -2263,20 +2143,6 @@ class ReportState extends ChangeNotifier {
         zipPath = '$reportsDir/$safeName.zip';
       }
 
-      // Создаем директорию для ZIP файла если не существует
-      final zipDir = Directory(path.dirname(zipPath));
-      if (!await zipDir.exists()) {
-        await zipDir.create(recursive: true);
-      }
-
-      final zipFile = File(zipPath);
-      if (await zipFile.exists()) {
-        await zipFile.delete();
-      }
-
-      final encoder = ZipFileEncoder();
-      encoder.create(zipFile.path);
-
       final Set<String> neededFiles = {};
 
       neededFiles.add('report.json');
@@ -2298,49 +2164,14 @@ class ReportState extends ChangeNotifier {
         }
       }
 
-      // P2-39: Валидация путей — защита от path traversal при экспорте.
-      // Отбрасываем пути с `..` или ведущие `/` — они могут выйти за пределы папки отчёта.
-      final Set<String> safeFiles = {};
-      for (final relativePath in neededFiles) {
-        if (relativePath.contains('..') ||
-            relativePath.startsWith('/') ||
-            relativePath.startsWith('\\') ||
-            relativePath.contains('\x00')) {
-          if (kDebugMode) {
-            debugPrint('ZIP export: skipping unsafe path: $relativePath');
-          }
-          continue;
-        }
-        safeFiles.add(relativePath);
-      }
-
       if (kDebugMode) {
-        debugPrint('Files to add to zip: $safeFiles');
+        debugPrint('Files to add to zip: $neededFiles');
       }
 
-      for (final relativePath in safeFiles) {
-        final filePath = '$folderPath/$relativePath';
-        final file = File(filePath);
-        if (await file.exists()) {
-          if (kDebugMode) debugPrint('Adding file to zip: $filePath');
-          zipAddFile(encoder, filePath, relativePath);
-          await Future.delayed(const Duration(milliseconds: 20));
-        } else {
-          if (kDebugMode) debugPrint('File not found: $filePath');
-        }
-      }
-
-      await Future.delayed(const Duration(milliseconds: 200));
-      encoder.close();
-
-      if (kDebugMode) {
-        final zipArchive = ZipDecoder().decodeBytes(
-          await zipFile.readAsBytes(),
-        );
-        debugPrint(
-          'ZIP content: ${zipArchive.files.map((f) => f.name).toList()}',
-        );
-      }
+      // Deferred: пакет archive подгружается при первом экспорте.
+      // Валидация путей (P2-39) выполняется внутри сервиса.
+      await zip_service.loadLibrary();
+      await zip_service.createProjectZip(zipPath, folderPath, neededFiles);
 
       return zipPath;
     } catch (e, stackTrace) {
@@ -2361,28 +2192,33 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  List<int> getUnsyncQuestionIndices() {
+  Future<List<int>> getUnsyncQuestionIndices() async {
     if (_currentReport == null) return [];
+    await sync_service.loadLibrary();
     return sync_service.getUnsyncQuestionIndices(_currentReport!);
   }
 
-  String generateSyncJson() {
+  Future<String> generateSyncJson() async {
     if (_currentReport == null) return '{}';
+    await sync_service.loadLibrary();
     return sync_service.generateSyncJson(_currentReport!);
   }
 
-  Map<String, dynamic>? validateSyncJson(String jsonStr) {
+  Future<Map<String, dynamic>?> validateSyncJson(String jsonStr) async {
+    await sync_service.loadLibrary();
     return sync_service.validateSyncJson(jsonStr);
   }
 
-  void clearAnswersInLanguage(String langCode) {
+  Future<void> clearAnswersInLanguage(String langCode) async {
     if (_currentReport == null) return;
+    await sync_service.loadLibrary();
     sync_service.clearAnswersInLanguage(_currentReport!, langCode);
     notifyListeners();
   }
 
   Future<void> applySyncAnswers(String jsonStr) async {
     if (_currentReport == null) return;
+    await sync_service.loadLibrary();
     if (sync_service.applySyncAnswers(_currentReport!, jsonStr)) {
       notifyListeners();
       // Автосохранение после успешной синхронизации переводов:
@@ -2395,7 +2231,7 @@ class ReportState extends ChangeNotifier {
   void dispose() {
     _videoProgressSub?.cancel();
     _pendingDeletion.clear();
-    _videoQueue.dispose();
+    _videoQueue?.dispose();
     super.dispose();
   }
 }

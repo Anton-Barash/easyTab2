@@ -34,7 +34,7 @@ class SyncDialog extends StatefulWidget {
 class SyncDialogState extends State<SyncDialog> {
   final TextEditingController _jsonController = TextEditingController();
 
-  String get _syncJson => widget.reportState.generateSyncJson();
+  Future<String> _generateSyncJson() => widget.reportState.generateSyncJson();
 
   @override
   void dispose() {
@@ -45,7 +45,9 @@ class SyncDialogState extends State<SyncDialog> {
   Future<void> _copyToClipboard() async {
     final loc = AppLocalizations.of(context)!;
     try {
-      await Clipboard.setData(ClipboardData(text: _syncJson));
+      final syncJson = await _generateSyncJson();
+      if (!mounted) return;
+      await Clipboard.setData(ClipboardData(text: syncJson));
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -67,7 +69,9 @@ class SyncDialogState extends State<SyncDialog> {
       if (directory == null) return;
 
       final file = File('$directory/sync_answers_${widget.targetLang}.json');
-      await file.writeAsString(_syncJson);
+      final syncJson = await _generateSyncJson();
+      if (!mounted) return;
+      await file.writeAsString(syncJson);
 
       if (mounted) {
         ScaffoldMessenger.of(

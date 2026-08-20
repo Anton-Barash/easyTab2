@@ -137,11 +137,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  void _checkSyncAfterLoad() {
+  Future<void> _checkSyncAfterLoad() async {
     if (_checkedSyncAfterLoad) return;
 
     final reportState = context.read<ReportState>();
-    if (reportState.needsSyncAfterLoad()) {
+    if (await reportState.needsSyncAfterLoad()) {
       _showSyncMenuDialog();
     }
     _checkedSyncAfterLoad = true;
@@ -602,7 +602,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
 
       // report.xlsx — Excel-экспорт
-      final excelBytes = reportState.generateExcelBytes();
+      final excelBytes = await reportState.generateExcelBytes();
       final excelFile = File('$reportPath/report.xlsx');
       await excelFile.writeAsBytes(excelBytes);
       filesToUpload.add({
@@ -705,12 +705,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  void _handleLanguageChange(String lang) {
+  Future<void> _handleLanguageChange(String lang) async {
     final reportState = context.read<ReportState>();
     final report = reportState.currentReport;
     if (report == null) return;
 
-    final unsyncIndices = reportState.getUnsyncQuestionIndices();
+    final unsyncIndices = await reportState.getUnsyncQuestionIndices();
     if (unsyncIndices.isNotEmpty) {
       _showSyncDialog(lang, unsyncIndices);
     } else {
@@ -743,12 +743,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
-  void _showSyncMenuDialog() {
+  Future<void> _showSyncMenuDialog() async {
     final reportState = context.read<ReportState>();
     final report = reportState.currentReport;
     if (report == null) return;
 
-    final unsyncIndices = reportState.getUnsyncQuestionIndices();
+    final unsyncIndices = await reportState.getUnsyncQuestionIndices();
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1498,7 +1499,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       await viewHtmlWithChooser();
                     }
                   } else if (value == 4) {
-                    final excelHtml = reportState.generateExcelHtmlContent();
+                    final excelHtml =
+                        await reportState.generateExcelHtmlContent();
                     try {
                       await Clipboard.setData(ClipboardData(text: excelHtml));
                       if (context.mounted) {

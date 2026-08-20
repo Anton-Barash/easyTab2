@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:easy_tab/l10n/app_localizations.dart';
+
 import 'api_result.dart';
 import 'upload_result.dart';
 
@@ -31,6 +33,7 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   required Map<String, String> headers,
   int? reportId,
   void Function(double progress)? onUploadProgress,
+  AppLocalizations? loc,
 }) async {
   throw UnsupportedError(
     'uploadFileFromBytesWithProgress is not available on this platform',
