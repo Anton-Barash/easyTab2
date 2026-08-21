@@ -75,6 +75,7 @@ class _StarField {
   static const int _count = 120;
   final List<_Star> _stars = [];
   double _maxZ = 1;
+  bool _initialized = false;
 
   _StarField() {
     final rng = Random();
@@ -98,11 +99,32 @@ class _StarField {
     return star;
   }
 
+  /// При первом кадре (когда известен реальный [size]) раскидываем звёзды
+  /// по всей глубине: часть — близко (сразу видна), часть — далеко.
+  /// Без этого все звёзды рождаются у камеры, на первом кадре улетают
+  /// за экран и респавнятся глубоко — небо пустует ~10 секунд, пока они
+  /// долетят обратно.
+  void _spreadOnFirstFrame(Random rng, double maxZ) {
+    if (_initialized) return;
+    _initialized = true;
+    for (int i = 0; i < _stars.length; i++) {
+      _stars[i] = _Star(
+        x: (rng.nextDouble() - 0.5) * 2000,
+        y: (rng.nextDouble() - 0.5) * 2000,
+        z: 1 + rng.nextDouble() * (maxZ * 1.4 - 1),
+        v: 0.7 + rng.nextDouble() * 0.6,
+        b: 0.7 + rng.nextDouble() * 0.3,
+      );
+    }
+  }
+
   /// Обновляет состояние всех звёзд под размер [size] и текущий прогресс
   /// [t] анимации, рисуя их через [canvas]. Возвращает true, если нужен
   /// перерисов в следующем кадре (всегда, пока цикл анимации идёт).
   void paint(Canvas canvas, Size size, double t) {
     final rng = Random();
+    _maxZ = size.width;
+    _spreadOnFirstFrame(rng, _maxZ);
     final cx = size.width / 2;
     final cy = size.height / 2;
 
