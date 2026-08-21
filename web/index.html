@@ -115,6 +115,30 @@
   </style>
 </head>
 <body>
+  <script>
+    // Облегчённый просмотр отчёта: /#/view-report2?pid=...&token=...
+    // Вместо загрузки Flutter (main.dart.js + canvaskit.wasm) сразу уходим на
+    // серверную страницу отчёта /view/report/:pid — сервер отдаёт готовый
+    // HTML, страница открывается в разы быстрее. Обычное приложение
+    // (#/view-report и др.) работает как раньше.
+    window.__viewReport2 = false;
+    (function () {
+      var hash = window.location.hash || '';
+      if (hash.indexOf('#/view-report2') === 0) {
+        var q = hash.indexOf('?') >= 0 ? hash.substring(hash.indexOf('?') + 1) : '';
+        var params = new URLSearchParams(q);
+        var pid = params.get('pid');
+        if (pid) {
+          // Редирект случился — Flutter грузить не нужно.
+          window.__viewReport2 = true;
+          var url = '/view/report/' + encodeURIComponent(pid);
+          var token = params.get('token');
+          if (token) url += '?token=' + encodeURIComponent(token);
+          window.location.replace(url);
+        }
+      }
+    })();
+  </script>
   <!-- Splash: виден сразу, до загрузки JS-бандла (важно при медленном канале) -->
   <div id="splash">
     <canvas id="stars"></canvas>
@@ -187,14 +211,24 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <!-- FFmpeg.wasm loader для сжатия видео (ffmpeg.js грузится лениво при первом сжатии).
-       defer: не блокирует парсинг; вызывается приложением только при сжатии видео.
-       ?v=2 — cache-bust: старая версия лоадера раздавалась с immutable-кэшем
-       на год и застряла в браузерах пользователей (ошибка "FFmpegWASM not
-       found"). Query-параметр создаёт новую запись кэша поверх испорченной.
-       При следующем изменении лоадера — инкрементировать. -->
-  <script src="ffmpeg-loader.js?v=2" defer></script>
+  <!-- Flutter-приложение грузим только в обычном режиме. Для /#/view-report2
+       ушли на серверную страницу отчёта (скрипт выше) — бандл не скачиваем. -->
+  <script>
+    if (!window.__viewReport2) {
+      var fbs = document.createElement('script');
+      fbs.src = 'flutter_bootstrap.js';
+      fbs.async = true;
+      document.body.appendChild(fbs);
 
-  <script src="flutter_bootstrap.js" async></script>
+      // FFmpeg.wasm loader для сжатия видео (ffmpeg.js грузится лениво при
+      // первом сжатии). defer: не блокирует парсинг; нужен только приложению.
+      // ?v=2 — cache-bust: старая версия лоадера раздавалась с immutable-
+      // кэшем на год и застряла в браузерах (ошибка "FFmpegWASM not found").
+      var ffm = document.createElement('script');
+      ffm.src = 'ffmpeg-loader.js?v=2';
+      ffm.defer = true;
+      document.body.appendChild(ffm);
+    }
+  </script>
 </body>
 </html>
