@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/settings_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/app_colors.dart';
 import 'package:easy_tab/widgets/easy_tab_button.dart';
@@ -418,6 +419,26 @@ Future<void> showSettingsDialog(BuildContext context) {
           Text(
             '${authProvider.serverHost}:${authProvider.serverPort}',
             style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 16),
+          // Настройка фона: звёзды вместо точечного узора
+          Consumer<SettingsState>(
+            builder: (ctx, settings, _) => CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(
+                loc.starsBackground,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              value: settings.starsBackground,
+              onChanged: (value) {
+                settings.setStarsBackground(value ?? false);
+              },
+            ),
           ),
         ],
       ),

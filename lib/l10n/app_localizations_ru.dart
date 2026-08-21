@@ -672,6 +672,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get accountSection => 'Аккаунт';
 
   @override
+  String get starsBackground => 'Звёздный фон';
+
+  @override
   String get uploadToServer => 'Залить на сервер';
 
   @override

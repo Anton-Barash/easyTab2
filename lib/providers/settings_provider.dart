@@ -6,11 +6,15 @@ class SettingsState extends ChangeNotifier {
   String _reportsFolder = '';
   String _mediaFolder = '';
   String _platform = 'unknown';
+  bool _starsBackground = false;
 
   String get templatesFolder => _templatesFolder;
   String get reportsFolder => _reportsFolder;
   String get mediaFolder => _mediaFolder;
   String get platform => _platform;
+
+  /// Фон со звёздами вместо точечного узора.
+  bool get starsBackground => _starsBackground;
 
   SettingsState() {
     // P1-55: _loadSettings() теперь вызывается через init(),
@@ -29,6 +33,7 @@ class SettingsState extends ChangeNotifier {
     _reportsFolder = prefs.getString('reportsFolder') ?? '';
     _mediaFolder = prefs.getString('mediaFolder') ?? '';
     _platform = _detectPlatform();
+    _starsBackground = prefs.getBool('starsBackground') ?? false;
     notifyListeners();
   }
 
@@ -52,7 +57,15 @@ class SettingsState extends ChangeNotifier {
     await prefs.setString('templatesFolder', _templatesFolder);
     await prefs.setString('reportsFolder', _reportsFolder);
     await prefs.setString('mediaFolder', _mediaFolder);
+    await prefs.setBool('starsBackground', _starsBackground);
     notifyListeners();
+  }
+
+  /// Включает/выключает звёздный фон и сохраняет выбор.
+  Future<void> setStarsBackground(bool value) async {
+    _starsBackground = value;
+    notifyListeners();
+    await saveSettings();
   }
 
   Future<void> resetSettings() async {
@@ -63,9 +76,11 @@ class SettingsState extends ChangeNotifier {
     await prefs.remove('templatesFolder');
     await prefs.remove('reportsFolder');
     await prefs.remove('mediaFolder');
+    await prefs.remove('starsBackground');
     _templatesFolder = '';
     _reportsFolder = '';
     _mediaFolder = '';
+    _starsBackground = false;
     notifyListeners();
   }
 }

@@ -278,6 +278,7 @@
   "syncErrorMessage": "Sync failed",
   "settingsTitle": "Settings",
   "accountSection": "Account",
+  "starsBackground": "Stars background",
   "uploadToServer": "Upload to server",
   "uploadingFiles": "Uploading files...",
   "uploadCompleteAll": "All files uploaded successfully",

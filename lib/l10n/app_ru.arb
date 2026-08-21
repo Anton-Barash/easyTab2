@@ -278,6 +278,7 @@
   "syncErrorMessage": "Ошибка синхронизации",
   "settingsTitle": "Настройки",
   "accountSection": "Аккаунт",
+  "starsBackground": "Звёздный фон",
   "uploadToServer": "Залить на сервер",
   "uploadingFiles": "Загрузка файлов...",
   "uploadCompleteAll": "Все файлы успешно загружены",

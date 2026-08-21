@@ -1348,6 +1348,12 @@ abstract class AppLocalizations {
   /// **'Account'**
   String get accountSection;
 
+  /// No description provided for @starsBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'Stars background'**
+  String get starsBackground;
+
   /// No description provided for @uploadToServer.
   ///
   /// In en, this message translates to:

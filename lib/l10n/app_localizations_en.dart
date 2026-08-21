@@ -671,6 +671,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountSection => 'Account';
 
   @override
+  String get starsBackground => 'Stars background';
+
+  @override
   String get uploadToServer => 'Upload to server';
 
   @override

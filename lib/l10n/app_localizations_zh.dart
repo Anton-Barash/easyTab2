@@ -660,6 +660,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountSection => '账户';
 
   @override
+  String get starsBackground => '星空背景';
+
+  @override
   String get uploadToServer => '上传到服务器';
 
   @override

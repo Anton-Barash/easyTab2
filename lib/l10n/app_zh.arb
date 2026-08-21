@@ -278,6 +278,7 @@
   "syncErrorMessage": "同步失败",
   "settingsTitle": "设置",
   "accountSection": "账户",
+  "starsBackground": "星空背景",
   "uploadToServer": "上传到服务器",
   "uploadingFiles": "正在上传文件...",
   "uploadCompleteAll": "所有文件上传成功",
