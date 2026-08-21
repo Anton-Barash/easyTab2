@@ -987,7 +987,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadAppDesc => '适用于 Android 或 Windows';
 
   @override
-  String get openWebEditor => '打开网页版';
+  String get openWebEditor => '编辑';
 
   @override
   String get openWebEditorDesc => '编辑报告';

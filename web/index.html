@@ -121,6 +121,10 @@
     // серверную страницу отчёта /view/report/:pid — сервер отдаёт готовый
     // HTML, страница открывается в разы быстрее. Обычное приложение
     // (#/view-report и др.) работает как раньше.
+    // /#/welcome?token=... (share-ссылка, в т.ч. с edit=1) открывается сразу
+    // как HTML на /reports/shares/:token/welcome — все кнопки на HTML.
+    // Во Flutter уходит только кнопка «Открыть веб-версию» на той странице:
+    // маршрут /#/share-edit (здесь не перехватывается).
     window.__viewReport2 = false;
     (function () {
       var hash = window.location.hash || '';
@@ -135,6 +139,18 @@
           var token = params.get('token');
           if (token) url += '?token=' + encodeURIComponent(token);
           window.location.replace(url);
+        }
+      } else if (hash.indexOf('#/welcome') === 0) {
+        var wq = hash.indexOf('?') >= 0 ? hash.substring(hash.indexOf('?') + 1) : '';
+        var wparams = new URLSearchParams(wq);
+        var wtoken = wparams.get('token');
+        // Любой /#/welcome (в т.ч. с edit=1) — сразу на HTML-welcome с
+        // кнопками. Во Flutter уходит только кнопка «Открыть веб-версию»
+        // (маршрут /#/share-edit, который здесь не перехватывается).
+        if (wtoken) {
+          // Редирект случился — Flutter грузить не нужно.
+          window.__viewReport2 = true;
+          window.location.replace('/reports/shares/' + encodeURIComponent(wtoken) + '/welcome');
         }
       }
     })();

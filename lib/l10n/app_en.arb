@@ -471,7 +471,7 @@
   "linkValidUntil": "Link valid until",
   "downloadApp": "Download App",
   "downloadAppDesc": "For Android or Windows",
-  "openWebEditor": "Open Web Editor",
+  "openWebEditor": "Edit",
   "openWebEditorDesc": "To edit the report",
   "openHtmlDesc": "To view in browser",
   "downloadZipDesc": "Report with media for offline use",

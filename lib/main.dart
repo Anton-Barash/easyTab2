@@ -12,6 +12,7 @@ import './providers/locale_provider.dart';
 import './utils/app_colors.dart';
 import './providers/auth_provider.dart';
 import './l10n/app_localizations.dart';
+import './services/share_token_storage.dart';
 import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
 import './widgets/dotted_background.dart';
 import './widgets/easy_tab_button.dart';
@@ -163,6 +164,34 @@ class EasyTabApp extends StatelessWidget {
                         publicId: publicId,
                         token: token,
                       );
+                    },
+                  ),
+                );
+              }
+              // /share-edit — переход во Flutter-редактор с HTML-welcome
+              // страницы (кнопка «Открыть веб-версию»): /share-edit?token=abc.
+              // Сразу открывает редактор отчёта, минуя welcome-экран с кнопками.
+              if (uri.path == '/share-edit') {
+                final token = uri.queryParameters['token'];
+                if (token == null || token.isEmpty) {
+                  return MaterialPageRoute(
+                    builder: (ctx) => Scaffold(
+                      body: Center(
+                        child: Text(AppLocalizations.of(ctx)!.shareTokenMissing),
+                      ),
+                    ),
+                  );
+                }
+                // Сохраняем токен, чтобы расшаренный отчёт появился в списке.
+                ShareTokenStorage.addToken(token);
+                return MaterialPageRoute(
+                  builder: (_) => FutureBuilder<void>(
+                    future: form_fill_screen.loadLibrary(),
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return _deferredLoading(context);
+                      }
+                      return form_fill_screen.FormFillScreen(shareToken: token);
                     },
                   ),
                 );

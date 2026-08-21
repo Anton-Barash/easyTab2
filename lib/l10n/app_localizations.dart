@@ -1927,7 +1927,7 @@ abstract class AppLocalizations {
   /// No description provided for @openWebEditor.
   ///
   /// In en, this message translates to:
-  /// **'Open Web Editor'**
+  /// **'Edit'**
   String get openWebEditor;
 
   /// No description provided for @openWebEditorDesc.

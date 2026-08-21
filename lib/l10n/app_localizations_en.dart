@@ -1005,7 +1005,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadAppDesc => 'For Android or Windows';
 
   @override
-  String get openWebEditor => 'Open Web Editor';
+  String get openWebEditor => 'Edit';
 
   @override
   String get openWebEditorDesc => 'To edit the report';

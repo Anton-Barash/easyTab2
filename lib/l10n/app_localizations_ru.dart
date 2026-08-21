@@ -1005,7 +1005,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadAppDesc => 'Для Android или Windows';
 
   @override
-  String get openWebEditor => 'Открыть веб-версию';
+  String get openWebEditor => 'Редактировать';
 
   @override
   String get openWebEditorDesc => 'Для редактирования отчёта';
