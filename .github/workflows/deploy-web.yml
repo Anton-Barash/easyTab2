@@ -72,7 +72,9 @@ jobs:
           use_insecure_cipher: true
           source: "build/web/*"
           target: "~/easy_tab_Server/web/"
-          strip_components: 1
+          # Срезаем 'build/web' (2 компонента), чтобы файлы сборки легли
+          # прямо в ~/easy_tab_Server/web/, а не в web/web/.
+          strip_components: 2
           overwrite: true
 
       - name: Restart Server
