@@ -1,10 +1,9 @@
 name: Build Windows
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  # Только ручной запуск: вкладка Actions → Build Windows → Run workflow.
+  # Автосборка на каждый push/PR отключена — сборка делается вручную.
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

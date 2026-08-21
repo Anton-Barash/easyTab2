@@ -35,9 +35,11 @@
   <!-- Preload: браузер начинает загрузку главных ресурсов сразу при
        парсинге HTML, не дожидаясь исполнения flutter_bootstrap.js
        (~200-400 ms выигрыша). crossorigin обязателен для fetch-загрузки
-       canvaskit.wasm (иначе preload не совпадёт с реальным запросом). -->
+       canvaskit.wasm (иначе preload не совпадёт с реальным запросом).
+       canvaskit.js намеренно НЕ preload'им: движок грузит его своим
+       способом, preload не дедуплицируется — файл качался ДВАЖДЫ
+       (замерено в DevTools 21.08: 29.5 KB × 2, лишние ~2 с на 1 Mbps). -->
   <link rel="preload" href="main.dart.js" as="script">
-  <link rel="preload" href="canvaskit/canvaskit.js" as="script">
   <link rel="preload" href="canvaskit/canvaskit.wasm" as="fetch" type="application/wasm" crossorigin>
 
   <!-- Custom CSS for flt-semantics-host -->
@@ -55,42 +57,119 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #f5f7fa;
+      background: #f8f7f2;
       z-index: 9999;
       font-family: Arial, sans-serif;
     }
+    /* Звёздное небо: канвас на весь сплэш, логотип и спиннер поверх */
+    #splash #stars {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #splash .splash-logo,
+    #splash .splash-progress {
+      position: relative;
+      z-index: 1;
+    }
+    /* Логотип-вордмарк в палитре приложения (AppColors):
+       primary #2563eb → primaryLight #3B82F6, textDark #111827. */
     #splash .splash-logo {
-      width: 72px;
-      height: 72px;
-      border-radius: 18px;
-      background: #4a6fa5;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 34px;
+      font-size: 40px;
       font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #111827;
       margin-bottom: 20px;
     }
-    #splash .splash-spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid #d0d7e2;
-      border-top-color: #4a6fa5;
-      border-radius: 50%;
-      animation: splash-spin 0.9s linear infinite;
+    #splash .splash-logo .logo-accent {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #fff;
+      border-radius: 12px;
+      padding: 2px 10px;
+      margin-left: 2px;
     }
-    @keyframes splash-spin {
-      to { transform: rotate(360deg); }
+    /* Полоса загрузки: indeterminate, в стиле Material LinearProgressIndicator.
+       Цвета primary #2563eb → primaryLight #3B82F6 из AppColors. */
+    #splash .splash-progress {
+      width: 200px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(37, 99, 235, 0.15);
+      overflow: hidden;
+    }
+    #splash .splash-progress::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 45%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #2563eb, #3b82f6);
+      animation: splash-slide 1.4s ease-in-out infinite;
+    }
+    @keyframes splash-slide {
+      0%   { left: -45%; }
+      100% { left: 100%; }
     }
   </style>
 </head>
 <body>
   <!-- Splash: виден сразу, до загрузки JS-бандла (важно при медленном канале) -->
   <div id="splash">
-    <div class="splash-logo">ET</div>
-    <div class="splash-spinner"></div>
+    <canvas id="stars"></canvas>
+    <div class="splash-logo">easy<span class="logo-accent">Tab</span></div>
+    <div class="splash-progress"></div>
   </div>
+  <script>
+    // Warp-звёзды: рождаются в центре и разлетаются к краям. Глубина z
+    // уменьшается с постоянной скоростью → проекция x/z сама даёт
+    // ускорение и рост у краёв. Стрик от предыдущей проекции к текущей —
+    // вытягивание по направлению движения (ближе = длиннее и толще).
+    (function () {
+      var c = document.getElementById('stars'), ctx = c.getContext('2d');
+      function resize() { c.width = innerWidth; c.height = innerHeight; }
+      resize(); addEventListener('resize', resize);
+      var N = 150, stars = [];
+      function spawn(s, initial) {
+        s.x = (Math.random() - 0.5) * c.width;
+        s.y = (Math.random() - 0.5) * c.height;
+        // Новая звезда — глубоко (проецируется почти в центр). При первой
+        // заливке раскидываем по всей глубине, чтобы небо не было пустым.
+        s.z = c.width * (initial ? Math.random() * 1.2 : 1.4);
+        s.v = 0.7 + Math.random() * 0.6; // личная скорость
+        s.b = 0.7 + Math.random() * 0.3; // личная яркость
+        s.px = null; // предыдущая проекция — для стрика
+      }
+      for (var i = 0; i < N; i++) { var s = {}; spawn(s, true); stars.push(s); }
+      (function loop() {
+        if (!document.body.contains(c)) return; // сплэш удалён — стоп
+        ctx.fillStyle = '#f8f7f2';
+        ctx.fillRect(0, 0, c.width, c.height);
+        var cx = c.width / 2, cy = c.height / 2, max = c.width;
+        for (var i = 0; i < N; i++) {
+          var s = stars[i];
+          var nx = cx + (s.x / s.z) * cx, ny = cy + (s.y / s.z) * cx;
+          var t = Math.max(0, 1 - s.z / max); // 0 далеко → 1 близко
+          if (s.px !== null) {
+            var shade = Math.round((165 - t * 95) * s.b); // серый: ближе — темнее
+            ctx.strokeStyle = 'rgba(' + shade + ',' + shade + ',' + shade + ',' + Math.min(1, t * 4) + ')';
+            ctx.lineWidth = 0.6 + t * 2.8; // ближе — толще
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(s.px, s.py); // хвост...
+            ctx.lineTo(nx, ny);     // ...голова: стрик по вектору полёта
+            ctx.stroke();
+          }
+          s.px = nx; s.py = ny;
+          s.z -= (2.5 + t * 7) * s.v; // ближе — быстрее
+          // Улетела за экран или «сквозь камеру» — респавн в центре
+          if (nx < -60 || nx > c.width + 60 || ny < -60 || ny > c.height + 60 || s.z < 1) spawn(s);
+        }
+        requestAnimationFrame(loop);
+      })();
+    })();
+  </script>
   <script>
     // Flutter диспатчит flutter-first-frame при первом отрисованном кадре —
     // в этот момент splash больше не нужен.
@@ -109,8 +188,12 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <!-- FFmpeg.wasm loader для сжатия видео (ffmpeg.js грузится лениво при первом сжатии).
-       defer: не блокирует парсинг; вызывается приложением только при сжатии видео. -->
-  <script src="ffmpeg-loader.js" defer></script>
+       defer: не блокирует парсинг; вызывается приложением только при сжатии видео.
+       ?v=2 — cache-bust: старая версия лоадера раздавалась с immutable-кэшем
+       на год и застряла в браузерах пользователей (ошибка "FFmpegWASM not
+       found"). Query-параметр создаёт новую запись кэша поверх испорченной.
+       При следующем изменении лоадера — инкрементировать. -->
+  <script src="ffmpeg-loader.js?v=2" defer></script>
 
   <script src="flutter_bootstrap.js" async></script>
 </body>

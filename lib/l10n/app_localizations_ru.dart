@@ -120,7 +120,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get exportExcel => 'Экспорт в Excel';
 
   @override
-  String get exit => '← Назад';
+  String get exit => 'Назад';
 
   @override
   String get showSidePanel => 'Показать боковую панель';

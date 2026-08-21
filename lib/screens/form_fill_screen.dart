@@ -1479,7 +1479,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     value: 5,
                     child: Row(
                       children: [
-                        const Icon(Icons.exit_to_app),
+                        const Icon(Icons.logout),
                         const SizedBox(width: 8),
                         Text(loc.exit),
                       ],
