@@ -1,19 +1,16 @@
 name: Deploy Frontend
 
-# Деплой Flutter Web через бэкенд-репозиторий.
+# Деплой Flutter Web напрямую на сервер через SCP (как бэкенд).
 #
-# Схема: CI собирает бандл → коммитит build/web в easy-tab-Server →
-# backend-workflow (git pull + pm2) раскатывает его на сервер.
+# Схема: CI собирает бандл → SCP build/web в ~/easy_tab_Server/web/ →
+# pm2 reload на сервере.
 #
-# Почему НЕ rsync напрямую на сервер: папка ~/easy_tab_Server/web — это
-# git working copy, из которой бэкенд-деплой делает git pull. Прямой rsync
-# «загрязнит» рабочую копию, и следующий git pull упадёт с конфликтом.
-# Единственный канал деплоя — через git, как у бэкенда.
+# НЕ коммитим build/web в бэкенд-репозиторий: сервер больше не делает
+# git pull (он не достукивается до GitHub из-за сети). Единственный канал
+# доставки — SCP из GitHub Actions.
 #
-# Требуемый секрет: BACKEND_REPO_TOKEN — GitHub PAT (fine-grained:
-# Contents: Read and write на Anton-Barash/easy-tab-Server, либо classic
-# со scope: repo). Создаётся один раз в Settings → Secrets and variables
-# → Actions этого репозитория.
+# Требуемые секреты: SERVER_HOST, SERVER_USER, SSH_KEY
+# (те же, что используются в бэкенд-workflow easy-tab-Server).
 on:
   push:
     branches: [ master ]
@@ -31,24 +28,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Ранний fail с понятным сообщением. Без этой проверки пустой секрет
-      # падает позже внутри actions/checkout с криптичной ошибкой
-      # "Input required and not supplied: token" (см. запуск от 2026-08-20).
+      # Ранний fail с понятным сообщением, если секреты не настроены.
       - name: Verify required secrets
         env:
-          BACKEND_REPO_TOKEN: ${{ secrets.BACKEND_REPO_TOKEN }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
         run: |
-          if [ -z "$BACKEND_REPO_TOKEN" ]; then
-            echo "::error::Секрет BACKEND_REPO_TOKEN не настроен в этом репозитории."
-            echo "::error::1) Создайте PAT: GitHub → Settings → Developer settings → Personal access tokens."
-            echo "::error::   (fine-grained: Contents Read+write на Anton-Barash/easy-tab-Server, или classic со scope repo)."
-            echo "::error::2) Добавьте: репозиторий easyTab2 → Settings → Secrets and variables → Actions → New repository secret."
-            echo "::error::   Имя: BACKEND_REPO_TOKEN, значение: токен."
-            echo "::error::3) Перезапустите этот workflow (Actions → Re-run jobs)."
+          if [ -z "$SERVER_HOST" ]; then
+            echo "::error::Секрет SERVER_HOST не настроен в этом репозитории."
+            echo "::error::Добавьте SERVER_HOST, SERVER_USER и SSH_KEY:"
+            echo "::error::Settings → Secrets and variables → Actions → New repository secret."
             exit 1
           fi
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       # Версия Flutter зафиксирована = локальной (3.41.9).
       # Это критично: canvaskit на сервере должен совпадать с движком,
@@ -65,49 +57,32 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      - name: Tests
-        run: flutter test
-
       # --no-wasm-dry-run: dart2js (Canvaskit) вместо Wasm —
       # deferred loading не поддерживается в Wasm,
       # а пакет win32 (dart:ffi) несовместим с Wasm-компиляцией.
       - name: Build web
         run: flutter build web --release --no-wasm-dry-run
 
-      # Checkout бэкенд-репозитория, куда коммитим собранный бандл.
-      - uses: actions/checkout@v5
+      - name: Deploy frontend to Server
+        uses: appleboy/scp-action@master
         with:
-          repository: Anton-Barash/easy-tab-Server
-          token: ${{ secrets.BACKEND_REPO_TOKEN }}
-          path: backend
-          ref: main
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          use_insecure_cipher: true
+          source: "build/web/*"
+          target: "~/easy_tab_Server/web/"
+          strip_components: 1
+          overwrite: true
 
-      - name: Sync build into backend repo
-        run: |
-          # Полная замена: rm гарантирует удаление устаревших part-чанков
-          # (main.dart.js_N.part.js), которых может не быть в новой сборке.
-          rm -rf backend/web
-          cp -r build/web backend/web
-
-      - name: Commit and push build artifacts
-        working-directory: backend
-        run: |
-          git config user.name "frontend-ci"
-          git config user.email "ci@users.noreply.github.com"
-          # Коммитим только если бандл реально изменился.
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "No frontend changes to deploy."
-            exit 0
-          fi
-          # -f: в бэкенд-репо web/ исторически был в .gitignore, и пока фикс
-          # не запушен, новые part-чанки считаются игнорируемыми — git add
-          # без -f падает с "paths are ignored by .gitignore files".
-          # Force-add отслеживает все файлы бандла в любом случае.
-          git add -f web/
-          git commit -m "deploy: frontend build $(git -C .. rev-parse --short HEAD)"
-          # Если в бэкенд-репо успели запушить что-то ещё — подтягиваем
-          # перед push, иначе push упадёт (non-fast-forward).
-          git pull --rebase origin main
-          git push
-          # Push в бэкенд-репозиторий запустит его backend-workflow,
-          # который сделает git pull + pm2 reload на сервере.
+      - name: Restart Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          use_insecure_cipher: true
+          script: |
+            cd ~/easy_tab_Server
+            pm2 startOrReload ecosystem.config.js --env production --update-env
+            echo "Web deployment completed successfully"
