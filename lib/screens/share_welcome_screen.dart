@@ -19,12 +19,11 @@ import '../utils/share_link_opener_stub.dart'
 /// ShareWelcomeScreen — приветственный экран по share-ссылке.
 ///
 /// Открывается по маршруту `/welcome?token=abc123`.
-/// Показывает название отчёта, срок действия ссылки и четыре
+/// Показывает название отчёта, срок действия ссылки и три
 /// действия:
-///   1. Скачать приложение Android/Windows (заглушка)
-///   2. Открыть веб-версию для редактирования
-///   3. Открыть HTML для просмотра
-///   4. Скачать ZIP для офлайн-работы
+///   1. Просмотр (лёгкая HTML-версия)
+///   2. Редактировать (веб-версия)
+///   3. Скачать ZIP для офлайн-работы
 ///
 /// Язык интерфейса управляется глобальной настройкой (LocaleProvider).
 /// ============================================================
@@ -124,13 +123,6 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
     });
     final zipName = buildShareZipName(_reportTitle, widget.token);
     downloadShareZip(uri.toString(), zipName);
-  }
-
-  void _showDownloadAppsStub() {
-    final loc = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(loc.appLinksStub)));
   }
 
   String _formatExpiresAt() {
@@ -266,10 +258,10 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
           ),
         ] else ...[
           _ActionCard(
-            icon: Icons.phone_android,
-            title: loc.downloadApp,
-            subtitle: loc.downloadAppDesc,
-            onTap: _showDownloadAppsStub,
+            icon: Icons.html,
+            title: loc.openHtmlTooltip,
+            subtitle: loc.openHtmlDesc,
+            onTap: _openHtml,
           ),
           const SizedBox(height: 12),
           _ActionCard(
@@ -277,13 +269,6 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
             title: loc.openWebEditor,
             subtitle: loc.openWebEditorDesc,
             onTap: _openWebEditor,
-          ),
-          const SizedBox(height: 12),
-          _ActionCard(
-            icon: Icons.html,
-            title: loc.openHtmlTooltip,
-            subtitle: loc.openHtmlDesc,
-            onTap: _openHtml,
           ),
           const SizedBox(height: 12),
           _ActionCard(
