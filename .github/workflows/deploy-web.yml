@@ -54,8 +54,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Анализ: info-сообщения не блокируют деплой (только error/warning).
+      # По аналогии с корневым .github/workflows/ci.yml.
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       # --no-wasm-dry-run: dart2js (Canvaskit) вместо Wasm —
       # deferred loading не поддерживается в Wasm,
