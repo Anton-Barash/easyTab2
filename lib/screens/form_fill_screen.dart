@@ -20,6 +20,7 @@ import '../l10n/app_localizations.dart';
 import '../models/report_models.dart';
 import '../utils/open_html.dart';
 import '../utils/filename_utils.dart';
+import '../utils/clipboard_utils.dart';
 import '../services/anonymous_id_service.dart';
 import '../utils/share_link_opener_stub.dart'
     if (dart.library.html) '../utils/share_link_opener_web.dart';
@@ -314,17 +315,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 child: EasyTabButton(
                                   label: loc.shareLinkCopy,
                                   onTap: () async {
-                                    await Clipboard.setData(
-                                      ClipboardData(text: createdLink!),
+                                    final ok =
+                                        await copyToClipboard(createdLink!);
+                                    if (!ctx.mounted) return;
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(
+                                        content: Text(ok
+                                            ? loc.shareLinkCopied
+                                            : loc.shareLinkCopy),
+                                      ),
                                     );
-                                    if (ctx.mounted) {
-                                      ScaffoldMessenger.of(ctx).showSnackBar(
-                                        SnackBar(
-                                          content: Text(loc.shareLinkCopied),
-                                        ),
-                                      );
-                                      Navigator.of(ctx).pop();
-                                    }
+                                    Navigator.of(ctx).pop();
                                   },
                                   fontSize: 14,
                                   verticalPadding: 12,
