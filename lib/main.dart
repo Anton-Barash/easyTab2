@@ -285,119 +285,132 @@ class _StartScreenState extends State<StartScreen> {
     final loc = AppLocalizations.of(context)!;
     final localeProvider = Provider.of<LocaleProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context);
+    // Адаптивность под узкий экран (мобильный телефон): уменьшаем отступы,
+    // чтобы карточка не вылезала за границы видимой области.
+    final isNarrow = MediaQuery.sizeOf(context).width < 400;
+    final cardMargin = isNarrow ? 12.0 : 20.0;
+    final cardPadding = isNarrow ? 24.0 : 40.0;
+    final btnVertical = isNarrow ? 14.0 : 18.0;
+    final btnHorizontal = isNarrow ? 16.0 : 20.0;
     return Scaffold(
       body: Stack(
         children: [
           const DottedBackground(),
-          Center(
-            child: Container(
-              margin: const EdgeInsets.all(20),
-              padding: const EdgeInsets.all(40),
-              constraints: const BoxConstraints(maxWidth: 500),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(width: 2, color: AppColors.border),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Language switcher + settings gear at top right
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (authProvider.isLoggedIn)
-                          IconButton(
-                            icon: const Icon(Icons.settings, size: 22),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => showSettingsDialog(context),
-                            tooltip: loc.settingsTitle,
-                          ),
-                        if (authProvider.isLoggedIn) const SizedBox(width: 8),
-                        _buildLanguageSwitcher(context, localeProvider, loc),
-                      ],
-                    ),
+          SafeArea(
+            // SingleChildScrollView: на низких экранах карточка скроллится
+            // вместо переполнения (BOTTOM OVERFLOWED).
+            child: Center(
+              child: SingleChildScrollView(
+                child: Container(
+                  margin: EdgeInsets.all(cardMargin),
+                  padding: EdgeInsets.all(cardPadding),
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(width: 2, color: AppColors.border),
                   ),
-                  const SizedBox(height: 15),
-                  const Text(
-                    'easyTab',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  EasyTabButton(
-                    label: loc.createNewReport,
-                    onTap: () => Navigator.pushNamed(context, '/template'),
-                    fontSize: 18,
-                    verticalPadding: 18,
-                    horizontalPadding: 20,
-                  ),
-                  const SizedBox(height: 15),
-                  EasyTabButton(
-                    label: loc.continueReport,
-                    onTap: () => _continueLastReport(context),
-                    fontSize: 18,
-                    verticalPadding: 18,
-                    horizontalPadding: 20,
-                  ),
-                  const SizedBox(height: 15),
-                  EasyTabButton(
-                    label: loc.yourReports,
-                    onTap: () => Navigator.pushNamed(context, '/reports'),
-                    fontSize: 18,
-                    verticalPadding: 18,
-                    horizontalPadding: 20,
-                  ),
-                  const SizedBox(height: 15),
-                  if (!authProvider.isLoggedIn)
-                    EasyTabButton(
-                      label: loc.loginButton,
-                      onTap: () => showLoginDialog(context),
-                      fontSize: 18,
-                      verticalPadding: 18,
-                      horizontalPadding: 20,
-                    )
-                  else
-                    EasyTabButton(
-                      label: loc.logoutAction,
-                      onTap: () => authProvider.logout(),
-                      fontSize: 18,
-                      verticalPadding: 18,
-                      horizontalPadding: 20,
-                    ),
-                  const SizedBox(height: 30),
-                  Text(
-                    loc.instructionsText,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 12,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  FutureBuilder<String?>(
-                    future: _versionFuture,
-                    builder: (context, snapshot) {
-                      final version = snapshot.data;
-                      if (version == null || version.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-                      return Text(
-                        'v$version',
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Language switcher + settings gear at top right
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (authProvider.isLoggedIn)
+                              IconButton(
+                                icon: const Icon(Icons.settings, size: 22),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () => showSettingsDialog(context),
+                                tooltip: loc.settingsTitle,
+                              ),
+                            if (authProvider.isLoggedIn) const SizedBox(width: 8),
+                            _buildLanguageSwitcher(context, localeProvider, loc),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      const Text(
+                        'easyTab',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      EasyTabButton(
+                        label: loc.createNewReport,
+                        onTap: () => Navigator.pushNamed(context, '/template'),
+                        fontSize: 18,
+                        verticalPadding: btnVertical,
+                        horizontalPadding: btnHorizontal,
+                      ),
+                      const SizedBox(height: 15),
+                      EasyTabButton(
+                        label: loc.continueReport,
+                        onTap: () => _continueLastReport(context),
+                        fontSize: 18,
+                        verticalPadding: btnVertical,
+                        horizontalPadding: btnHorizontal,
+                      ),
+                      const SizedBox(height: 15),
+                      EasyTabButton(
+                        label: loc.yourReports,
+                        onTap: () => Navigator.pushNamed(context, '/reports'),
+                        fontSize: 18,
+                        verticalPadding: btnVertical,
+                        horizontalPadding: btnHorizontal,
+                      ),
+                      const SizedBox(height: 15),
+                      if (!authProvider.isLoggedIn)
+                        EasyTabButton(
+                          label: loc.loginButton,
+                          onTap: () => showLoginDialog(context),
+                          fontSize: 18,
+                          verticalPadding: btnVertical,
+                          horizontalPadding: btnHorizontal,
+                        )
+                      else
+                        EasyTabButton(
+                          label: loc.logoutAction,
+                          onTap: () => authProvider.logout(),
+                          fontSize: 18,
+                          verticalPadding: btnVertical,
+                          horizontalPadding: btnHorizontal,
+                        ),
+                      const SizedBox(height: 30),
+                      Text(
+                        loc.instructionsText,
                         style: const TextStyle(
-                          color: AppColors.textTertiary,
-                          fontSize: 10,
+                          color: AppColors.textPrimary,
+                          fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
-                      );
-                    },
+                      ),
+                      const SizedBox(height: 10),
+                      FutureBuilder<String?>(
+                        future: _versionFuture,
+                        builder: (context, snapshot) {
+                          final version = snapshot.data;
+                          if (version == null || version.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return Text(
+                            'v$version',
+                            style: const TextStyle(
+                              color: AppColors.textTertiary,
+                              fontSize: 10,
+                            ),
+                            textAlign: TextAlign.center,
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
