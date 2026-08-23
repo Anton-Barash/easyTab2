@@ -138,7 +138,9 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
+    final isNarrow = MediaQuery.sizeOf(context).shortestSide < 400;
+    final outerPadding = isNarrow ? 12.0 : 24.0;
+    final contentSpacing = isNarrow ? 24.0 : 40.0;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -149,80 +151,157 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
         ],
       ),
       body: SafeArea(
+        // SingleChildScrollView + адаптивные отступы: на узких экранах
+        // контент не наплывает на кнопки и не переполняется (BOTTOM OVERFLOW).
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: _buildContent(loc),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isNarrow ? double.infinity : 560,
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(outerPadding),
+                child: _WelcomeContent(
+                  isLoading: _isLoading,
+                  error: _error,
+                  reportTitle: _reportTitle,
+                  permissions: _permissions,
+                  expiresAt: _expiresAt,
+                  isNarrow: isNarrow,
+                  contentSpacing: contentSpacing,
+                  onRetry: _loadShareInfo,
+                  onOpenHtml: _openHtml,
+                  onOpenWebEditor: _openWebEditor,
+                  onDownloadZip: _downloadZip,
+                  formatExpiresAt: _formatExpiresAt,
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildContent(AppLocalizations loc) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+class _WelcomeContent extends StatelessWidget {
+  final bool isLoading;
+  final String? error;
+  final String reportTitle;
+  final String permissions;
+  final DateTime? expiresAt;
+  final bool isNarrow;
+  final double contentSpacing;
+  final VoidCallback onRetry;
+  final Future<void> Function() onOpenHtml;
+  final VoidCallback onOpenWebEditor;
+  final Future<void> Function() onDownloadZip;
+  final String Function() formatExpiresAt;
 
-    if (_error != null) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: AppColors.error),
-          const SizedBox(height: 16),
-          SelectableText(
-            _error!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 24),
-          EasyTabButton(label: loc.retry, onTap: _loadShareInfo),
-        ],
+  const _WelcomeContent({
+    required this.isLoading,
+    required this.error,
+    required this.reportTitle,
+    required this.permissions,
+    required this.expiresAt,
+    required this.isNarrow,
+    required this.contentSpacing,
+    required this.onRetry,
+    required this.onOpenHtml,
+    required this.onOpenWebEditor,
+    required this.onDownloadZip,
+    required this.formatExpiresAt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const SizedBox(
+        height: 300,
+        child: Center(child: CircularProgressIndicator()),
       );
     }
 
+    if (error != null) {
+      return SizedBox(
+        height: 300,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: SelectableText(
+                error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            EasyTabButton(label: AppLocalizations.of(context)!.retry, onTap: onRetry),
+          ],
+        ),
+      );
+    }
+
+    final loc = AppLocalizations.of(context)!;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          _permissions == 'edit' ? Icons.edit_document : Icons.visibility,
-          size: 64,
+          permissions == 'edit' ? Icons.edit_document : Icons.visibility,
+          size: isNarrow ? 52 : 64,
           color: AppColors.grey700,
         ),
-        const SizedBox(height: 24),
-        SelectableText(
-          _reportTitle,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+        SizedBox(height: isNarrow ? 16 : 24),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isNarrow ? 4 : 0),
+          child: SelectableText(
+            reportTitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isNarrow ? 20 : 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+              height: 1.2,
+            ),
           ),
         ),
         const SizedBox(height: 8),
         SelectableText(
-          _permissions == 'edit' ? loc.editAccess : loc.viewOnlyAccess,
+          permissions == 'edit' ? loc.editAccess : loc.viewOnlyAccess,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          style: TextStyle(
+            fontSize: isNarrow ? 13 : 14,
+            color: AppColors.textSecondary,
+          ),
         ),
-        if (_expiresAt != null) ...[
+        if (expiresAt != null) ...[
           const SizedBox(height: 4),
-          SelectableText(
-            '${loc.linkValidUntil} ${_formatExpiresAt()}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: isNarrow ? 8 : 0),
+            child: SelectableText(
+              '${loc.linkValidUntil} ${formatExpiresAt()}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: isNarrow ? 12 : 13,
+                color: AppColors.textTertiary,
+              ),
+            ),
           ),
         ],
-        const SizedBox(height: 40),
+        SizedBox(height: contentSpacing),
         // Для view-only — только HTML просмотр + предупреждение.
         // Для edit — все действия.
-        if (_permissions == 'view') ...[
+        if (permissions == 'view') ...[
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(isNarrow ? 12 : 16),
             decoration: BoxDecoration(
               color: const Color(0xFFFFF8E1),
               borderRadius: BorderRadius.circular(12),
@@ -240,9 +319,10 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
                 Expanded(
                   child: SelectableText(
                     loc.viewOnlyWarning,
-                    style: const TextStyle(
-                      fontSize: 13,
+                    style: TextStyle(
+                      fontSize: isNarrow ? 12 : 13,
                       color: AppColors.textPrimary,
+                      height: 1.35,
                     ),
                   ),
                 ),
@@ -254,28 +334,32 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
             icon: Icons.html,
             title: loc.openHtmlTooltip,
             subtitle: loc.openHtmlDesc,
-            onTap: _openHtml,
+            onTap: onOpenHtml,
+            compact: isNarrow,
           ),
         ] else ...[
           _ActionCard(
             icon: Icons.html,
             title: loc.openHtmlTooltip,
             subtitle: loc.openHtmlDesc,
-            onTap: _openHtml,
+            onTap: onOpenHtml,
+            compact: isNarrow,
           ),
           const SizedBox(height: 12),
           _ActionCard(
             icon: Icons.open_in_browser,
             title: loc.openWebEditor,
             subtitle: loc.openWebEditorDesc,
-            onTap: _openWebEditor,
+            onTap: onOpenWebEditor,
+            compact: isNarrow,
           ),
           const SizedBox(height: 12),
           _ActionCard(
             icon: Icons.folder_zip,
             title: loc.downloadZip,
             subtitle: loc.downloadZipDesc,
-            onTap: _downloadZip,
+            onTap: onDownloadZip,
+            compact: isNarrow,
           ),
         ],
       ],
@@ -335,16 +419,25 @@ class _ActionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool compact;
 
   const _ActionCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = compact ? 12.0 : 16.0;
+    final verticalPadding = compact ? 10.0 : 14.0;
+    final iconSize = compact ? 18.0 : null;
+    final titleSize = compact ? 14.0 : 15.0;
+    final subtitleSize = compact ? 12.0 : 13.0;
+    final titleMaxLines = compact ? 1 : 2;
+
     return Card(
       elevation: 0,
       color: Colors.white,
@@ -356,43 +449,68 @@ class _ActionCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.grey200,
-                  borderRadius: BorderRadius.circular(20),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: compact ? 32 : 40,
+                  minHeight: compact ? 32 : 40,
                 ),
-                child: Icon(icon, color: AppColors.grey700),
+                child: Container(
+                  width: compact ? 32 : 40,
+                  height: compact ? 32 : 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.grey200,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: AppColors.grey700,
+                    size: iconSize,
+                  ),
+                ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: compact ? 10 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SelectableText(
+                    Text(
                       title,
-                      style: const TextStyle(
-                        fontSize: 15,
+                      maxLines: titleMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: titleSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
+                        height: 1.25,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    SelectableText(
+                    SizedBox(height: compact ? 1 : 2),
+                    Text(
                       subtitle,
-                      style: const TextStyle(
-                        fontSize: 13,
+                      maxLines: compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: subtitleSize,
                         color: AppColors.textSecondary,
+                        height: 1.25,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right,
+                color: AppColors.textTertiary,
+                size: compact ? 18 : 24,
+              ),
             ],
           ),
         ),

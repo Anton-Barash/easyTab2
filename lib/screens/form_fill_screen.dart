@@ -246,127 +246,154 @@ class _FormFillScreenState extends State<FormFillScreen> {
           return Dialog(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            child: Container(
-              width: 420,
-              constraints: const BoxConstraints(maxWidth: 420),
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(width: 2, color: AppColors.border),
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: createdLink != null
-                      ? [
-                          // Ссылка создана
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle,
-                                color: AppColors.grey700,
-                                size: 28,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  loc.shareLinkCreated,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: SelectableText(
-                              createdLink!,
-                              style: const TextStyle(
-                                color: AppColors.textDark,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: EasyTabButton(
-                                  label: loc.shareLinkClose,
-                                  onTap: () => Navigator.of(ctx).pop(),
-                                  fontSize: 14,
-                                  verticalPadding: 12,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: EasyTabButton(
-                                  label: loc.shareLinkCopy,
-                                  onTap: () async {
-                                    final ok =
-                                        await copyToClipboard(createdLink!);
-                                    if (!ctx.mounted) return;
-                                    ScaffoldMessenger.of(ctx).showSnackBar(
-                                      SnackBar(
-                                        content: Text(ok
-                                            ? loc.shareLinkCopied
-                                            : loc.shareLinkCopy),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 20,
+            ),
+            child: LayoutBuilder(
+              builder: (dialogCtx, _) {
+                final dialogWidth = MediaQuery.sizeOf(dialogCtx).width;
+                final isNarrow = dialogWidth < 420;
+                final dialogPadding = isNarrow ? 18.0 : 28.0;
+                final titleFont = isNarrow ? 14.0 : 16.0;
+                final labelFont = isNarrow ? 12.0 : 13.0;
+                final btnFont = isNarrow ? 13.0 : 14.0;
+                final btnVertical = isNarrow ? 10.0 : 12.0;
+                return ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: isNarrow ? double.infinity : 420,
+                  ),
+                  child: Container(
+                    padding: EdgeInsets.all(dialogPadding),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(width: 2, color: AppColors.border),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: createdLink != null
+                            ? [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle,
+                                      color: AppColors.grey700,
+                                      size: isNarrow ? 24 : 28,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        loc.shareLinkCreated,
+                                        style: TextStyle(
+                                          fontSize: titleFont,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
                                       ),
-                                    );
-                                    Navigator.of(ctx).pop();
-                                  },
-                                  fontSize: 14,
-                                  verticalPadding: 12,
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ]
-                      : [
-                          // Заголовок
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.share,
-                                color: AppColors.grey700,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  loc.createShareLink,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
+                                const SizedBox(height: 20),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.background,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: SelectableText(
+                                    createdLink!,
+                                    style: TextStyle(
+                                      color: AppColors.textDark,
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: labelFont,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Срок действия
-                          Text(
-                            loc.shareLinkExpiresIn,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
+                                SizedBox(height: isNarrow ? 16 : 24),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: EasyTabButton(
+                                        label: loc.shareLinkClose,
+                                        onTap: () =>
+                                            Navigator.of(dialogCtx).pop(),
+                                        fontSize: btnFont,
+                                        verticalPadding: btnVertical,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: EasyTabButton(
+                                        label: loc.shareLinkCopy,
+                                        onTap: () async {
+                                          final url = createdLink!;
+                                          final messenger =
+                                              ScaffoldMessenger.of(context);
+                                          final ok =
+                                              await copyToClipboard(url);
+                                          if (kDebugMode) {
+                                            debugPrint(
+                                              'share copy: ok=$ok; $url',
+                                            );
+                                          }
+                                          if (!context.mounted) return;
+                                          messenger.showSnackBar(
+                                            SnackBar(
+                                              content: Text(ok
+                                                  ? loc.shareLinkCopied
+                                                  : loc.shareLinkCopy),
+                                              duration: const Duration(
+                                                seconds: 2,
+                                              ),
+                                            ),
+                                          );
+                                          if (dialogCtx.mounted) {
+                                            Navigator.of(dialogCtx).pop();
+                                          }
+                                        },
+                                        fontSize: btnFont,
+                                        verticalPadding: btnVertical,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ]
+                            : [
+                                // Заголовок
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.share,
+                                      color: AppColors.grey700,
+                                      size: isNarrow ? 22 : 24,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        loc.createShareLink,
+                                        style: TextStyle(
+                                          fontSize: titleFont,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: isNarrow ? 16 : 24),
+                                // Срок действия
+                                Text(
+                                  loc.shareLinkExpiresIn,
+                                  style: TextStyle(
+                                    fontSize: labelFont,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
                           Row(
                             children: [1, 7, 30].map((days) {
                               final isSelected = selectedDays == days;
@@ -421,8 +448,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           // Права доступа
                           Text(
                             loc.shareAccess,
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: TextStyle(
+                              fontSize: labelFont,
                               color: AppColors.textSecondary,
                             ),
                           ),
@@ -437,8 +464,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 onTap: isCreating
                                     ? null
                                     : () => setDialogState(
-                                        () => selectedPermission = 'edit',
-                                      ),
+                                          () => selectedPermission = 'edit',
+                                        ),
                               ),
                               const SizedBox(width: 8),
                               PermissionOption(
@@ -449,12 +476,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 onTap: isCreating
                                     ? null
                                     : () => setDialogState(
-                                        () => selectedPermission = 'view',
-                                      ),
+                                          () => selectedPermission = 'view',
+                                        ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 28),
+                          SizedBox(height: isNarrow ? 18 : 28),
 
                           // Кнопки
                           Row(
@@ -464,9 +491,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   label: loc.cancel,
                                   onTap: isCreating
                                       ? null
-                                      : () => Navigator.of(ctx).pop(),
-                                  fontSize: 14,
-                                  verticalPadding: 12,
+                                      : () => Navigator.of(dialogCtx).pop(),
+                                  fontSize: btnFont,
+                                  verticalPadding: btnVertical,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -474,8 +501,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                 child: EasyTabButton(
                                   label: isCreating ? '' : loc.createShareLink,
                                   onTap: isCreating ? null : doCreate,
-                                  fontSize: 14,
-                                  verticalPadding: 12,
+                                  fontSize: btnFont,
+                                  verticalPadding: btnVertical,
                                   child: isCreating
                                       ? const Center(
                                           child: SizedBox(
@@ -492,9 +519,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
                               ),
                             ],
                           ),
-                        ],
-                ),
-              ),
+                              ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           );
         },
