@@ -15,7 +15,7 @@ import 'upload_helper.dart';
 /// при инициализации и при смене адреса пользователем.
 class ApiService {
   static String _host = 'localhost';
-  static int _port = 3000;
+  static int _port = 8000;
 
   static const Duration _timeout = Duration(seconds: 15);
 

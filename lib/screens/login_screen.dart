@@ -36,22 +36,43 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    // P1-56: инициализация _serverController.text в initState
-    // через addPostFrameCallback вместо побочного эффекта в build().
-    // Это гарантирует однократную установку и не сбивает позицию курсора.
+    // На момент initState provider уже инициализирован (App запускает
+    // EasyTabApp после await localeProvider.init() + authProvider.init()
+    // в main.dart), поэтому можно синхронно заполнить поле адреса сервера.
+    // addPostFrameCallback не нужен и не гоняется за TextEditingValue.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (_serverController.text.isEmpty) {
-        _serverController.text = authProvider.serverUrl;
-      }
+      if (!mounted) return;
+      _syncServerUrlFromProvider(force: false);
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Если пользователь закрыл диалог и снова открыл (mounted уже true,
+    // initState не вызывается повторно), а сохранённые prefs успели
+    // обновиться — подхватываем актуальный serverUrl.
+    _syncServerUrlFromProvider(force: false);
+  }
+
+  /// Заполнить поле «адрес сервера» актуальным значением из AuthProvider.
+  /// [force] — обновить даже если пользователь редактировал поле.
+  void _syncServerUrlFromProvider({required bool force}) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final value = authProvider.serverUrl;
+    if (force || _serverController.text.isEmpty) {
+      _serverController.value = TextEditingValue(
+        text: value,
+        selection: TextSelection.collapsed(offset: value.length),
+      );
+    }
+  }
+
   /// Разобрать строку "host:port" → (host, port).
-  /// Если порт не указан, используется 3000.
+  /// Если порт не указан, используется 8000 (default для easyTab backend).
   (String, int) _parseServerUrl(String value) {
     final trimmed = value.trim();
-    if (trimmed.isEmpty) return ('localhost', 3000);
+    if (trimmed.isEmpty) return ('localhost', 8000);
 
     // Поддержка http:// или https:// префикса.
     String cleaned = trimmed;
@@ -69,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return (cleaned.substring(0, lastColon), port);
       }
     }
-    return (cleaned, 3000);
+    return (cleaned, 8000);
   }
 
   Future<void> _testConnection(BuildContext context) async {
@@ -185,11 +206,20 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final isNarrow = MediaQuery.sizeOf(context).shortestSide < 420;
+    final contentPadding = isNarrow ? 18.0 : 24.0;
+    final titleSize = isNarrow ? 20.0 : 24.0;
 
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 14 : 24,
+        vertical: 20,
+      ),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 400),
+        constraints: BoxConstraints(
+          maxWidth: isNarrow ? double.infinity : 400,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -197,14 +227,14 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(contentPadding),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   _isRegisterMode ? loc.registerTitle : loc.loginTitle,
-                  style: const TextStyle(
-                    fontSize: 24,
+                  style: TextStyle(
+                    fontSize: titleSize,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
@@ -217,6 +247,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     onTap: () {
                       setState(() {
                         _showServerField = !_showServerField;
+                        if (_showServerField) {
+                          // Пользователь раскрыл настройки — подставляем
+                          // актуальный адрес (на случай, если успел измениться).
+                          _syncServerUrlFromProvider(force: true);
+                        }
                       });
                     },
                     child: Row(
@@ -279,34 +314,39 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                const SizedBox(height: 16),
+                SizedBox(height: isNarrow ? 10 : 16),
                 TextField(
                   controller: _usernameController,
                   decoration: _fieldDecoration(loc.usernameLabel),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: isNarrow ? 10 : 16),
                 if (_isRegisterMode) ...[
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: _fieldDecoration(loc.emailLabel),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: isNarrow ? 10 : 16),
                 ],
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
                   decoration: _fieldDecoration(loc.passwordLabel),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: isNarrow ? 18 : 24),
                 if (_isLoading)
-                  const CircularProgressIndicator()
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: CircularProgressIndicator(),
+                  )
                 else ...[
                   EasyTabButton(
                     label: _isRegisterMode
                         ? loc.registerAction
                         : loc.loginAction,
                     onTap: () => _handleSubmit(context),
+                    fontSize: isNarrow ? 13 : 14,
+                    verticalPadding: isNarrow ? 10 : 12,
                   ),
                   const SizedBox(height: 12),
                   EasyTabButton(
@@ -320,8 +360,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                     isOutline: true,
+                    fontSize: isNarrow ? 13 : 14,
+                    verticalPadding: isNarrow ? 10 : 12,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(

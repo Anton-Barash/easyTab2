@@ -21,6 +21,12 @@ class AuthProvider extends ChangeNotifier {
   static const String _serverHostKey = 'server_host';
   static const String _serverPortKey = 'server_port';
 
+  /// Боевой внешний адрес сервера — используется как fallback для мобильных
+  /// приложений (у них нет Uri.base = origin), если пользователь ещё ничего
+  /// не сохранил в настройках.
+  static const String _fallbackProductionHost = '110.43.49.137';
+  static const int _fallbackProductionPort = 8000;
+
   bool get isLoggedIn => _isLoggedIn;
   String? get userToken => _userToken;
   String? get username => _username;
@@ -31,6 +37,33 @@ class AuthProvider extends ChangeNotifier {
   int get serverPort => _serverPort;
   String get serverUrl => '$_serverHost:$_serverPort';
 
+  /// Вычислить дефолтный (host, port) при первом запуске.
+  /// - Web: автоматически берём origin (где запущено веб-приложение).
+  /// - Нативно: fallback на боевой адрес, чтобы пользователю не пришлось
+  ///   руками вводить localhost:8000 / 110.43.49.137:8000.
+  static (String host, int port) _defaultServerUrl() {
+    if (kIsWeb) {
+      try {
+        final uri = Uri.base;
+        // Uri.base для localhost/127.x имеет схему http(s) и реальный хост.
+        if (uri.host.isNotEmpty &&
+            uri.host.toLowerCase() != 'localhost' &&
+            uri.port != 0) {
+          final port = uri.hasPort ? uri.port : 80;
+          return (uri.host, port);
+        }
+      } catch (_) {/* ignore */}
+      // Локальный dev web — приложение и backend живут на :8000, а flutter
+      // dev сервер обычно запускают на другом порту. Default localhost:8000
+      // — в 99% случаев правильный для отладки (если backend запущен).
+      return ('localhost', 8000);
+    }
+
+    // Мобильное/desktop приложение: по умолчанию сразу пробуем боевой адрес.
+    // Если пользователь хочет dev — переопределит в настройках сервера.
+    return (_fallbackProductionHost, _fallbackProductionPort);
+  }
+
   /// Инициализация: восстановление сохранённого токена и адреса сервера.
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -38,8 +71,23 @@ class AuthProvider extends ChangeNotifier {
     _username = prefs.getString(_usernameKey);
     _email = prefs.getString(_emailKey);
     _userId = prefs.getInt(_userIdKey);
-    _serverHost = prefs.getString(_serverHostKey) ?? 'localhost';
-    _serverPort = prefs.getInt(_serverPortKey) ?? 8000;
+
+    // Если адрес сервера уже сохранён пользователем — используем его.
+    // Иначе вычисляем автоматически из origin / fallback.
+    final savedHost = prefs.getString(_serverHostKey);
+    final savedPort = prefs.getInt(_serverPortKey);
+    if (savedHost != null && savedPort != null) {
+      _serverHost = savedHost;
+      _serverPort = savedPort;
+    } else {
+      final (host, port) = _defaultServerUrl();
+      _serverHost = host;
+      _serverPort = port;
+      // Сохраняем сразу, чтобы пользователь при открытии «Настройки сервера»
+      // видел уже готовый адрес и не вводил руками.
+      await prefs.setString(_serverHostKey, _serverHost);
+      await prefs.setInt(_serverPortKey, _serverPort);
+    }
     _isLoggedIn = _userToken != null && _userToken!.isNotEmpty;
 
     // Применяем сохранённый адрес сервера и токен к API-клиенту.
