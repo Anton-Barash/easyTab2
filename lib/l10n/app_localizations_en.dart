@@ -695,8 +695,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mediaVideoQualityMedium => 'Medium — HD (balanced)';
 
   @override
-  String get mediaVideoQualityLow =>
-      'Low — 480p (max compression, default)';
+  String get mediaVideoQualityLow => 'Low — 480p (max compression, default)';
 
   @override
   String get attachmentsTitle => 'Attached files';

@@ -12,6 +12,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 Never _unsupported(String symbol) {
   throw UnsupportedError('dart:io.$symbol не доступно на web-платформе');
@@ -216,8 +217,8 @@ class File implements FileSystemEntity {
   void setLastModifiedSync(DateTime time) =>
       _unsupported('File.setLastModifiedSync');
 
-  Future<List<int>> readAsBytes() async => _unsupported('File.readAsBytes');
-  List<int> readAsBytesSync() => _unsupported('File.readAsBytesSync');
+  Future<Uint8List> readAsBytes() async => _unsupported('File.readAsBytes');
+  Uint8List readAsBytesSync() => _unsupported('File.readAsBytesSync');
   Future<String> readAsString({Encoding encoding = utf8}) async =>
       _unsupported('File.readAsString');
   String readAsStringSync({Encoding encoding = utf8}) =>
