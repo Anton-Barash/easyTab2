@@ -1200,12 +1200,7 @@ class _AddTranslationDialogState extends State<_AddTranslationDialog> {
         if (q['name'] is! String || q['name'].isEmpty) {
           throw Exception('Вопрос $i: поле name должно быть непустой строкой');
         }
-        if (q['description'] is! String || q['description'].isEmpty) {
-          throw Exception(
-            'Вопрос $i: поле description должно быть непустой строкой',
-          );
-        }
-        // example - не обязательное поле
+        // description (примечание) и example — необязательные поля
       }
 
       return data;

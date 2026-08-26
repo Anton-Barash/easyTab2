@@ -281,8 +281,9 @@ class QuestionLocalization {
       (description?.isEmpty ?? true) &&
       (example?.isEmpty ?? true);
 
-  bool get isComplete =>
-      (name?.isNotEmpty ?? false) && (description?.isNotEmpty ?? false);
+  /// Перевод считается добавленным, если заполнен сам вопрос (name).
+  /// Примечание (description) и пример (example) — необязательные поля.
+  bool get isComplete => (name?.isNotEmpty ?? false);
 
   Map<String, dynamic> toJson() => {
     'name': name,
