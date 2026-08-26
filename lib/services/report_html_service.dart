@@ -122,7 +122,7 @@ String generateReportHtml(Report report) {
   buffer.writeln('      table-layout: auto;');
   buffer.writeln('    }');
   buffer.writeln('    th, td {');
-  buffer.writeln('      padding: 7.5px 12.5px;');
+  buffer.writeln('      padding: 2.5px 3.5px;');
   buffer.writeln('      vertical-align: top;');
   buffer.writeln('      border-bottom: 1px solid #d0d0d0;');
   buffer.writeln('    }');
