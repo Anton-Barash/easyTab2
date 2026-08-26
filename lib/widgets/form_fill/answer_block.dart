@@ -257,14 +257,12 @@ class AnswerBlock extends StatelessWidget {
 /// поэтому повторяем её путь векторно — иконка однотонная,
 /// как остальные кнопки в приложении.
 class _PaperclipPainter extends CustomPainter {
-  const _PaperclipPainter({this.color = AppColors.textPrimary});
-
-  final Color color;
+  const _PaperclipPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color
+      ..color = AppColors.textPrimary
       ..style = PaintingStyle.fill;
 
     // Масштабируем 24x24 путь под фактический размер виджета,
@@ -304,6 +302,5 @@ class _PaperclipPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_PaperclipPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(_PaperclipPainter oldDelegate) => false;
 }
