@@ -32,6 +32,8 @@ import '../widgets/form_fill/permission_option.dart';
 import '../widgets/form_fill/picker_item.dart';
 import '../widgets/form_fill/question_card.dart';
 import '../widgets/form_fill/section_title.dart';
+import '../widgets/form_fill/attachments_dialog.dart';
+import '../widgets/form_fill/media_quality_section.dart';
 import '../widgets/sync/sync_dialog.dart';
 import '../widgets/sync/sync_menu_dialog.dart';
 import 'full_media_viewer_screen.dart';
@@ -1420,6 +1422,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ],
                       ),
                     ),
+                  // Выбор качества медиаданных (фото + видео).
+                  PopupMenuItem(
+                    value: 9,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.tune),
+                        const SizedBox(width: 8),
+                        Text(loc.mediaQualityMenuItem),
+                      ],
+                    ),
+                  ),
                   // Создать share-ссылку — только для залогиненных пользователей.
                   if (authProvider.isLoggedIn)
                     PopupMenuItem(
@@ -1663,6 +1676,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   } else if (value == 8) {
                     // Создать share-ссылку
                     await _handleCreateShareLink();
+                  } else if (value == 9) {
+                    // Выбор качества медиаданных — модальное окно.
+                    await showMediaQualityDialog(context);
                   }
                 },
               );
@@ -2977,6 +2993,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
         _markAsUnsaved();
       },
       onShowMediaPicker: (j) => _showMediaPicker(context, index, j, false),
+      onShowAttachments: (j) =>
+          showAttachmentsDialog(context, questionIndex: index, answerIndex: j),
       onShowLockDialog: (j, qid) =>
           _showLockDialog(context, index, j, qid, reportState),
       onShowDeleteAnswerDialog: (j) =>

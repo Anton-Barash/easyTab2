@@ -15,6 +15,7 @@ class AnswerBlock extends StatelessWidget {
   final bool enabled;
   final bool needsWork;
   final VoidCallback onShowMediaPicker;
+  final VoidCallback onShowAttachments;
   final ValueChanged<bool> onNeedsWorkChanged;
   final VoidCallback onMarkAsUnsaved;
   final VoidCallback onShowLockDialog;
@@ -31,6 +32,7 @@ class AnswerBlock extends StatelessWidget {
     required this.enabled,
     required this.needsWork,
     required this.onShowMediaPicker,
+    required this.onShowAttachments,
     required this.onNeedsWorkChanged,
     required this.onMarkAsUnsaved,
     required this.onShowLockDialog,
@@ -121,6 +123,31 @@ class AnswerBlock extends StatelessWidget {
                   icon: const Icon(Icons.camera_alt),
                   color: AppColors.textPrimary,
                   onPressed: onShowMediaPicker,
+                ),
+                // Скрепка — прикреплённые файлы отчёта (с бейджем количества).
+                Tooltip(
+                  message: loc.attachmentsTitle,
+                  child: Builder(
+                    builder: (context) {
+                      final count = reportState.attachmentsCount;
+                      return IconButton(
+                        icon: Badge(
+                          isLabelVisible: count > 0,
+                          label: Text(
+                            '$count',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                            ),
+                          ),
+                          backgroundColor: AppColors.primary,
+                          child: const Icon(Icons.attach_file),
+                        ),
+                        color: AppColors.textPrimary,
+                        onPressed: onShowAttachments,
+                      );
+                    },
+                  ),
                 ),
                 Tooltip(
                   message: loc.needsWorkTooltip,

@@ -21,6 +21,7 @@ class QuestionCard extends StatelessWidget {
   final VoidCallback onAddQuestionBelow;
   final Future<void> Function() onDeleteQuestion;
   final void Function(int answerIndex) onShowMediaPicker;
+  final void Function(int answerIndex) onShowAttachments;
   final void Function(int answerIndex, String qid) onShowLockDialog;
   final void Function(int answerIndex) onShowDeleteAnswerDialog;
 
@@ -40,6 +41,7 @@ class QuestionCard extends StatelessWidget {
     required this.onAddQuestionBelow,
     required this.onDeleteQuestion,
     required this.onShowMediaPicker,
+    required this.onShowAttachments,
     required this.onShowLockDialog,
     required this.onShowDeleteAnswerDialog,
   });
@@ -391,6 +393,7 @@ class QuestionCard extends StatelessWidget {
                     enabled: answerEnabledFor(index.toString(), j),
                     needsWork: needsWork,
                     onShowMediaPicker: () => onShowMediaPicker(j),
+                    onShowAttachments: () => onShowAttachments(j),
                     onNeedsWorkChanged: onNeedsWorkChanged,
                     onMarkAsUnsaved: onMarkAsUnsaved,
                     onShowLockDialog: () =>

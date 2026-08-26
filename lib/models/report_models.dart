@@ -1,6 +1,86 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+/// Attachment — произвольный файл (не фото/видео), прикреплённый к вопросу.
+/// Не сжимается, лимит — 55 MB. Хранится отдельно от AnswerMarkers.media,
+/// поскольку это не ответ-медиа, а вспомогательные документы (xls, zip, xml...).
+class Attachment {
+  /// Уникальный ID (uuid v4).
+  String id;
+
+  /// Индекс вопроса (в массиве Report.questions), к которому привязан файл.
+  int questionIndex;
+
+  /// Индекс ответа внутри вопроса (опционально, для группировки в UI).
+  int answerIndex;
+
+  /// Оригинальное имя файла (для отображения в списке).
+  String fileName;
+
+  /// MIME-тип файла.
+  String mimeType;
+
+  /// Размер файла в байтах.
+  int fileSize;
+
+  /// ID файла на сервере (заполняется после успешного upload).
+  String? serverFileId;
+
+  /// Presigned URL для скачивания/просмотра (заполняется из getReportFileUrls).
+  String? webUrl;
+
+  /// Локальный путь (mobile/desktop) до загрузки на сервер.
+  String? localPath;
+
+  /// Байты файла на web (хранятся в памяти до загрузки на сервер).
+  Uint8List? webBytes;
+
+  /// Флаг загрузки на сервер (защита от повторной загрузки).
+  bool isUploading = false;
+
+  /// Прогресс загрузки (0.0–1.0).
+  double uploadProgress = 0.0;
+
+  Attachment({
+    required this.id,
+    required this.questionIndex,
+    required this.answerIndex,
+    required this.fileName,
+    required this.mimeType,
+    required this.fileSize,
+    this.serverFileId,
+    this.webUrl,
+    this.localPath,
+    this.webBytes,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'questionIndex': questionIndex,
+    'answerIndex': answerIndex,
+    'fileName': fileName,
+    'mimeType': mimeType,
+    'fileSize': fileSize,
+    'serverFileId': serverFileId,
+    'localPath': localPath,
+    'isUploading': isUploading,
+    'uploadProgress': uploadProgress,
+  };
+
+  factory Attachment.fromJson(Map<String, dynamic> json) => Attachment(
+    id: json['id'] ?? '',
+    questionIndex: json['questionIndex'] ?? 0,
+    answerIndex: json['answerIndex'] ?? 0,
+    fileName: json['fileName'] ?? '',
+    mimeType: json['mimeType'] ?? 'application/octet-stream',
+    fileSize: json['fileSize'] ?? 0,
+    serverFileId: json['serverFileId'] as String?,
+    localPath: json['localPath'] as String?,
+  )
+    ..isUploading = json['isUploading'] as bool? ?? false
+    ..uploadProgress = (json['uploadProgress'] as num?)?.toDouble() ?? 0.0;
+}
+
 class MediaItem {
   String name;
   String type;
@@ -295,6 +375,11 @@ class Report {
   int? dateTimestamp;
   String? headerImagePath;
 
+  /// Прикреплённые произвольные файлы (не фото/видео), до 55 MB.
+  /// Глобальный список для всего отчёта; каждый attachment привязан к
+  /// конкретному questionIndex / answerIndex.
+  List<Attachment> attachments;
+
   Report({
     this.reportName = '',
     this.availableLanguages = const [],
@@ -310,7 +395,9 @@ class Report {
     this.model = '',
     this.dateTimestamp,
     this.headerImagePath,
-  }) : timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch {
+    List<Attachment>? attachments,
+  }) : timestamp = timestamp ?? DateTime.now().millisecondsSinceEpoch,
+       attachments = attachments ?? [] {
     mediaCounter = Map<String, int>.from(mediaCounter);
   }
 
@@ -416,6 +503,7 @@ class Report {
     'model': model,
     'dateTimestamp': dateTimestamp,
     'headerImagePath': headerImagePath,
+    'attachments': attachments.map((a) => a.toJson()).toList(),
   };
 
   factory Report.fromJson(Map<String, dynamic> json, {String? folderPath}) {
@@ -494,6 +582,11 @@ class Report {
       model: json['model'] ?? '',
       dateTimestamp: json['dateTimestamp'] as int?,
       headerImagePath: json['headerImagePath'] as String?,
+      attachments:
+          (json['attachments'] as List<dynamic>?)
+              ?.map((a) => Attachment.fromJson(a as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -512,6 +605,7 @@ class Report {
     String? model,
     int? dateTimestamp,
     String? headerImagePath,
+    List<Attachment>? attachments,
   }) {
     return Report(
       reportName: reportName ?? this.reportName,
@@ -528,6 +622,7 @@ class Report {
       model: model ?? this.model,
       dateTimestamp: dateTimestamp ?? this.dateTimestamp,
       headerImagePath: headerImagePath ?? this.headerImagePath,
+      attachments: attachments ?? this.attachments,
     );
   }
 

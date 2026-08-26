@@ -699,6 +699,47 @@ class AppLocalizationsEn extends AppLocalizations {
       'Low — 480p (max compression, default)';
 
   @override
+  String get attachmentsTitle => 'Attached files';
+
+  @override
+  String get attachmentsEmpty => 'No files uploaded';
+
+  @override
+  String get attachmentsAddNew => 'Add new file';
+
+  @override
+  String get attachmentsAddHint => 'Choose a file (up to 55 MB)';
+
+  @override
+  String get attachmentsTooLarge =>
+      'File is larger than 55 MB — please choose a smaller file';
+
+  @override
+  String get attachmentsUploadFailed => 'Failed to upload file to server';
+
+  @override
+  String get attachmentsDeleted => 'File deleted';
+
+  @override
+  String get attachmentsOpenFailed => 'Failed to open file';
+
+  @override
+  String get attachmentsNote =>
+      'When uploading photos or videos, they are saved on the server without compression. Maximum file size is 55 MB. For photos and videos, it is recommended to use the alternative method of adding.';
+
+  @override
+  String get attachmentsForQuestion => 'Question files';
+
+  @override
+  String get deleteAttachmentTooltip => 'Delete file';
+
+  @override
+  String get fileMenuDelete => 'Delete';
+
+  @override
+  String get mediaQualityMenuItem => 'Media quality selection';
+
+  @override
   String get starsBackground => 'Stars background';
 
   @override

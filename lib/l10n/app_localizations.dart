@@ -1402,6 +1402,84 @@ abstract class AppLocalizations {
   /// **'Low — 480p (max compression, default)'**
   String get mediaVideoQualityLow;
 
+  /// No description provided for @attachmentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Attached files'**
+  String get attachmentsTitle;
+
+  /// No description provided for @attachmentsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No files uploaded'**
+  String get attachmentsEmpty;
+
+  /// No description provided for @attachmentsAddNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Add new file'**
+  String get attachmentsAddNew;
+
+  /// No description provided for @attachmentsAddHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a file (up to 55 MB)'**
+  String get attachmentsAddHint;
+
+  /// No description provided for @attachmentsTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'File is larger than 55 MB — please choose a smaller file'**
+  String get attachmentsTooLarge;
+
+  /// No description provided for @attachmentsUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to upload file to server'**
+  String get attachmentsUploadFailed;
+
+  /// No description provided for @attachmentsDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'File deleted'**
+  String get attachmentsDeleted;
+
+  /// No description provided for @attachmentsOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to open file'**
+  String get attachmentsOpenFailed;
+
+  /// No description provided for @attachmentsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'When uploading photos or videos, they are saved on the server without compression. Maximum file size is 55 MB. For photos and videos, it is recommended to use the alternative method of adding.'**
+  String get attachmentsNote;
+
+  /// No description provided for @attachmentsForQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Question files'**
+  String get attachmentsForQuestion;
+
+  /// No description provided for @deleteAttachmentTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete file'**
+  String get deleteAttachmentTooltip;
+
+  /// No description provided for @fileMenuDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get fileMenuDelete;
+
+  /// No description provided for @mediaQualityMenuItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Media quality selection'**
+  String get mediaQualityMenuItem;
+
   /// No description provided for @starsBackground.
   ///
   /// In en, this message translates to:

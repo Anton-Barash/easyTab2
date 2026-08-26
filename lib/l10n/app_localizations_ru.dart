@@ -700,6 +700,47 @@ class AppLocalizationsRu extends AppLocalizations {
       'Низкое — 480p (макс. сжатие, по умолчанию)';
 
   @override
+  String get attachmentsTitle => 'Прикреплённые файлы';
+
+  @override
+  String get attachmentsEmpty => 'Файлы не загружены';
+
+  @override
+  String get attachmentsAddNew => 'Добавить новый файл';
+
+  @override
+  String get attachmentsAddHint => 'Выберите файл (не более 55 МБ)';
+
+  @override
+  String get attachmentsTooLarge =>
+      'Файл больше 55 МБ — выберите файл меньшего размера';
+
+  @override
+  String get attachmentsUploadFailed => 'Не удалось загрузить файл на сервер';
+
+  @override
+  String get attachmentsDeleted => 'Файл удалён';
+
+  @override
+  String get attachmentsOpenFailed => 'Не удалось открыть файл';
+
+  @override
+  String get attachmentsNote =>
+      'При загрузке фото или видео они сохраняются на сервере без сжатия. Максимальный размер файла — 55 МБ. Для фото и видео рекомендуется использовать альтернативный способ добавления.';
+
+  @override
+  String get attachmentsForQuestion => 'Файлы вопроса';
+
+  @override
+  String get deleteAttachmentTooltip => 'Удалить файл';
+
+  @override
+  String get fileMenuDelete => 'Удалить';
+
+  @override
+  String get mediaQualityMenuItem => 'Выбор качества медиаданных';
+
+  @override
   String get starsBackground => 'Звёздный фон';
 
   @override

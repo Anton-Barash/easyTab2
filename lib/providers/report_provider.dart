@@ -86,6 +86,306 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ============================================================
+  // Attachments — произвольные файлы (не фото/видео), ≤55 MB.
+  // Не сжимаются. Хранятся в Report.attachments, привязаны к
+  // конкретному questionIndex / answerIndex.
+  // ============================================================
+
+  /// Максимальный размер attachment (55 MB).
+  static const int kMaxAttachmentBytes = 55 * 1024 * 1024;
+
+  /// Все attachments текущего отчёта.
+  List<Attachment> get attachments =>
+      _currentReport?.attachments ?? const <Attachment>[];
+
+  /// Attachments для конкретного вопроса.
+  List<Attachment> attachmentsForQuestion(int questionIndex) =>
+      attachments.where((a) => a.questionIndex == questionIndex).toList();
+
+  /// Количество attachments текущего отчёта (для бейджа на скрепке).
+  int get attachmentsCount => attachments.length;
+
+  /// Добавить attachment на web (из байтов).
+  /// Автоматически загружает на сервер (presigned PUT на web / multipart на native).
+  Future<bool> addAttachmentFromBytes({
+    required int questionIndex,
+    required int answerIndex,
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+  }) async {
+    final report = _currentReport;
+    if (report == null) return false;
+
+    if (bytes.length > kMaxAttachmentBytes) {
+      if (kDebugMode) {
+        debugPrint(
+          'Attachment too large: $fileName (${bytes.length} bytes > $kMaxAttachmentBytes)',
+        );
+      }
+      return false;
+    }
+
+    final id = 'att_${DateTime.now().millisecondsSinceEpoch}_'
+        '${attachments.length}';
+    final attachment = Attachment(
+      id: id,
+      questionIndex: questionIndex,
+      answerIndex: answerIndex,
+      fileName: fileName,
+      mimeType: mimeType,
+      fileSize: bytes.length,
+      webBytes: bytes,
+    );
+    report.attachments.add(attachment);
+    notifyListeners();
+
+    // Загружаем на сервер (без компрессии).
+    await _uploadAttachmentToServer(
+      attachment,
+      bytes,
+      fileName,
+      'attachments/$fileName',
+      mimeType,
+    );
+    return attachment.serverFileId != null;
+  }
+
+  /// Добавить attachment на native (из пути файла).
+  /// Читает байты и вызывает [_uploadAttachmentToServer].
+  Future<bool> addAttachmentFromFile({
+    required int questionIndex,
+    required int answerIndex,
+    required String filePath,
+    required String fileName,
+    required String mimeType,
+  }) async {
+    final report = _currentReport;
+    if (report == null) return false;
+
+    Uint8List bytes;
+    try {
+      bytes = await File(filePath).readAsBytes();
+    } catch (e) {
+      if (kDebugMode) debugPrint('Attachment read error: $filePath — $e');
+      return false;
+    }
+
+    if (bytes.length > kMaxAttachmentBytes) {
+      if (kDebugMode) {
+        debugPrint(
+          'Attachment too large: $fileName (${bytes.length} bytes > $kMaxAttachmentBytes)',
+        );
+      }
+      return false;
+    }
+
+    final id = 'att_${DateTime.now().millisecondsSinceEpoch}_'
+        '${attachments.length}';
+    final attachment = Attachment(
+      id: id,
+      questionIndex: questionIndex,
+      answerIndex: answerIndex,
+      fileName: fileName,
+      mimeType: mimeType,
+      fileSize: bytes.length,
+      localPath: filePath,
+    );
+    report.attachments.add(attachment);
+    notifyListeners();
+
+    await _uploadAttachmentToServer(
+      attachment,
+      bytes,
+      fileName,
+      'attachments/$fileName',
+      mimeType,
+    );
+    return attachment.serverFileId != null;
+  }
+
+  /// Загрузить attachment на сервер (аналог _uploadMediaToServer, но без
+  /// компрессии и без генерации превью).
+  Future<void> _uploadAttachmentToServer(
+    Attachment attachment,
+    Uint8List bytes,
+    String fileName,
+    String relativePath,
+    String mimeType,
+  ) async {
+    if (attachment.isUploading) return;
+    attachment.isUploading = true;
+    attachment.uploadProgress = 0.0;
+    notifyListeners();
+
+    try {
+      ApiResult result;
+      if (kIsWeb) {
+        // Используем presigned PUT как для медиа — консистентно.
+        // _uploadViaPresignedUrl требует MediaItem; для attachment используем
+        // общий presign+PUT+confirm напрямую.
+        result = await _uploadAttachmentViaPresigned(
+          attachment: attachment,
+          bytes: bytes,
+          fileName: fileName,
+          relativePath: relativePath,
+          mimeType: mimeType,
+        );
+      } else {
+        result = await ApiService.uploadFileFromBytes(
+          bytes: bytes,
+          filename: fileName,
+          relativePath: relativePath,
+          reportId: _serverReportId,
+          onUploadProgress: (progress) {
+            attachment.uploadProgress = progress;
+            notifyListeners();
+          },
+        );
+      }
+
+      if (result.success && result.data?['file'] != null) {
+        final fileId = result.data!['file']['id'];
+        if (fileId is String) {
+          attachment.serverFileId = fileId;
+          attachment.uploadProgress = 1.0;
+          // После успешной загрузки очищаем webBytes (экономим память на web).
+          attachment.webBytes = null;
+          notifyListeners();
+        }
+      } else if (kDebugMode) {
+        debugPrint('Attachment upload failed: $fileName — ${result.error}');
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Attachment upload error: $fileName — $e');
+    } finally {
+      attachment.isUploading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Presigned-загрузка attachment (web only) — тот же flow, что и для медиа,
+  /// но без MediaItem.
+  Future<ApiResult> _uploadAttachmentViaPresigned({
+    required Attachment attachment,
+    required Uint8List bytes,
+    required String fileName,
+    required String relativePath,
+    required String mimeType,
+  }) async {
+    final isShare = _shareToken != null && _shareToken!.isNotEmpty;
+
+    final ApiResult presignResult;
+    if (isShare) {
+      presignResult = await ApiService.presignUploadForShare(
+        fileName: fileName,
+        shareToken: _shareToken!,
+        relativePath: relativePath,
+        reportId: _serverReportId,
+      );
+    } else {
+      presignResult = await ApiService.presignUpload(
+        fileName: fileName,
+        relativePath: relativePath,
+        reportId: _serverReportId,
+      );
+    }
+    if (!presignResult.success) return presignResult;
+
+    final uploadUrl = presignResult.data!['uploadUrl'] as String;
+    final fileId = presignResult.data!['fileId'] as String;
+    final storageKey = presignResult.data!['storageKey'] as String;
+    final serverMimeType =
+        presignResult.data!['mimeType'] as String? ?? mimeType;
+    final relPath = presignResult.data!['relPath'] as String? ?? relativePath;
+
+    final uploadResult = await uploadToPresignedUrl(
+      uploadUrl: uploadUrl,
+      bytes: bytes,
+      onUploadProgress: (progress) {
+        attachment.uploadProgress = progress;
+        notifyListeners();
+      },
+    );
+    if (uploadResult != true) {
+      return ApiResult(success: false, error: uploadResult.toString());
+    }
+
+    if (isShare) {
+      return ApiService.confirmUploadForShare(
+        fileId: fileId,
+        storageKey: storageKey,
+        fileName: fileName,
+        size: bytes.length,
+        mimeType: serverMimeType,
+        relPath: relPath,
+        shareToken: _shareToken!,
+      );
+    }
+    return ApiService.confirmUpload(
+      fileId: fileId,
+      storageKey: storageKey,
+      fileName: fileName,
+      size: bytes.length,
+      mimeType: serverMimeType,
+      relPath: relPath,
+    );
+  }
+
+  /// Удалить attachment (с сервера + из списка).
+  Future<bool> removeAttachment(String attachmentId) async {
+    final report = _currentReport;
+    if (report == null) return false;
+
+    final idx = report.attachments.indexWhere((a) => a.id == attachmentId);
+    if (idx < 0) return false;
+    final attachment = report.attachments[idx];
+
+    // Удаляем с сервера, если был загружен.
+    if (attachment.serverFileId != null) {
+      final res = await ApiService.deleteFile(attachment.serverFileId!);
+      if (!res.success && kDebugMode) {
+        debugPrint(
+          'Attachment delete server error: ${attachment.fileName} — ${res.error}',
+        );
+      }
+    }
+
+    // Удаляем локальный файл (native), если есть.
+    if (!kIsWeb && attachment.localPath != null) {
+      try {
+        final f = File(attachment.localPath!);
+        if (await f.exists()) await f.delete();
+      } catch (e) {
+        if (kDebugMode) debugPrint('Attachment local delete error: $e');
+      }
+    }
+
+    report.attachments.removeAt(idx);
+    notifyListeners();
+    return true;
+  }
+
+  /// Получить URL для открытия/скачивания attachment.
+  /// На web сначала пробуем webUrl (presigned из getReportFileUrls),
+  /// иначе запрашиваем через getDownloadUrl.
+  Future<String?> getAttachmentUrl(Attachment attachment) async {
+    if (attachment.webUrl != null && attachment.webUrl!.isNotEmpty) {
+      return attachment.webUrl;
+    }
+    if (attachment.serverFileId == null) return null;
+    final res = await ApiService.getDownloadUrl(attachment.serverFileId!);
+    if (res.success) {
+      final url = res.data?['url'] as String?;
+      if (url != null && url.isNotEmpty) {
+        attachment.webUrl = url;
+        return url;
+      }
+    }
+    return null;
+  }
+
   /// Фоновая очередь сжатия и загрузки видео (web only).
   ///
   /// Создаётся лениво при первом enqueue: очередь тянет за собой

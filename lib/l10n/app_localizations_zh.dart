@@ -687,6 +687,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mediaVideoQualityLow => '低 — 480p（最大压缩，默认）';
 
   @override
+  String get attachmentsTitle => '已附加文件';
+
+  @override
+  String get attachmentsEmpty => '未上传文件';
+
+  @override
+  String get attachmentsAddNew => '添加新文件';
+
+  @override
+  String get attachmentsAddHint => '选择文件（不超过 55 MB）';
+
+  @override
+  String get attachmentsTooLarge => '文件超过 55 MB — 请选择更小的文件';
+
+  @override
+  String get attachmentsUploadFailed => '文件上传到服务器失败';
+
+  @override
+  String get attachmentsDeleted => '文件已删除';
+
+  @override
+  String get attachmentsOpenFailed => '无法打开文件';
+
+  @override
+  String get attachmentsNote =>
+      '上传照片或视频时，它们将在服务器上未经压缩保存。最大文件大小为 55 MB。对于照片和视频，建议使用替代的添加方法。';
+
+  @override
+  String get attachmentsForQuestion => '问题文件';
+
+  @override
+  String get deleteAttachmentTooltip => '删除文件';
+
+  @override
+  String get fileMenuDelete => '删除';
+
+  @override
+  String get mediaQualityMenuItem => '媒体质量选择';
+
+  @override
   String get starsBackground => '星空背景';
 
   @override
