@@ -106,6 +106,14 @@ class ReportState extends ChangeNotifier {
   /// Количество attachments текущего отчёта (для бейджа на скрепке).
   int get attachmentsCount => attachments.length;
 
+  /// Количество attachments для конкретного ответа.
+  int attachmentsCountForAnswer(int questionIndex, int answerIndex) =>
+      attachments
+          .where(
+            (a) => a.questionIndex == questionIndex && a.answerIndex == answerIndex,
+          )
+          .length;
+
   /// Добавить attachment на web (из байтов).
   /// Автоматически загружает на сервер (presigned PUT на web / multipart на native).
   Future<bool> addAttachmentFromBytes({
@@ -1853,6 +1861,16 @@ class ReportState extends ChangeNotifier {
       if (kDebugMode) debugPrint('Error loading report: $e');
       return false;
     }
+  }
+
+  /// Загрузить отчёт с сервера по его строковому/числовому ID.
+  /// Используется при открытии прямой ссылки /#/fill?reportId=xxx.
+  Future<bool> loadReportByServerId(String reportId) async {
+    // На web loadReport уже умеет загружать по числовому ID.
+    if (kIsWeb) {
+      return loadReport(reportId);
+    }
+    return false;
   }
 
   /// Загрузить отчёт с сервера по ID (web-режим).

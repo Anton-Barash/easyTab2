@@ -933,7 +933,10 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
 
     await state.saveReport();
     if (!mounted) return;
-    navigator.pushReplacementNamed('/fill');
+    final reportId = state.serverReportId;
+    navigator.pushReplacementNamed(
+      reportId != null ? '/fill?reportId=$reportId' : '/fill',
+    );
   }
 
   void _updateReportName() {

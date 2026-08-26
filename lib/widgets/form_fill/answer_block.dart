@@ -124,27 +124,56 @@ class AnswerBlock extends StatelessWidget {
                   color: AppColors.textPrimary,
                   onPressed: onShowMediaPicker,
                 ),
-                // Скрепка — прикреплённые файлы отчёта (с бейджем количества).
+                // Скрепка — прикреплённые файлы отчёта.
+                // Единый стиль с соседними иконками: IconButton + Icon(Icons.attach_file).
+                // Бейдж показывает количество вложений только у данного ответа.
                 Tooltip(
                   message: loc.attachmentsTitle,
                   child: Builder(
                     builder: (context) {
-                      final count = reportState.attachmentsCount;
-                      return IconButton(
-                        icon: Badge(
-                          isLabelVisible: count > 0,
-                          label: Text(
-                            '$count',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.white,
+                      final count = reportState.attachmentsCountForAnswer(
+                        questionIndex,
+                        answerIndex,
+                      );
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            // Icons.attach_file не рендерится в CanvasKit web,
+                            // поэтому рисуем тот же глиф вручную через CustomPaint.
+                            icon: const CustomPaint(
+                              size: Size(24, 24),
+                              painter: _PaperclipPainter(),
                             ),
+                            color: AppColors.textPrimary,
+                            onPressed: onShowAttachments,
                           ),
-                          backgroundColor: AppColors.primary,
-                          child: const Icon(Icons.attach_file),
-                        ),
-                        color: AppColors.textPrimary,
-                        onPressed: onShowAttachments,
+                          if (count > 0)
+                            Positioned(
+                              right: 2,
+                              top: 2,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '$count',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    height: 1,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
                       );
                     },
                   ),
@@ -221,4 +250,60 @@ class AnswerBlock extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Рисует глиф скрепки (Icons.attach_file) вручную.
+/// Материал-иконка attach_file не рендерится в CanvasKit web,
+/// поэтому повторяем её путь векторно — иконка однотонная,
+/// как остальные кнопки в приложении.
+class _PaperclipPainter extends CustomPainter {
+  const _PaperclipPainter({this.color = AppColors.textPrimary});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    // Масштабируем 24x24 путь под фактический размер виджета,
+    // чтобы IconButton-констрейнты не сжали глиф до нуля.
+    canvas.save();
+    canvas.scale(size.width / 24, size.height / 24);
+
+    // Путь скопирован из Icons.attach_file (Material Icons, 24x24).
+    final path = Path()
+      ..moveTo(16.5, 6)
+      ..lineTo(16.5, 17.5)
+      ..cubicTo(16.5, 19.71, 14.71, 21.5, 12.5, 21.5)
+      ..cubicTo(10.29, 21.5, 6.29, 19.71, 8.5, 17.5)
+      ..lineTo(8.5, 5)
+      ..cubicTo(8.5, 3.62, 9.62, 2.5, 11, 2.5)
+      ..cubicTo(12.38, 2.5, 14.88, 3.62, 13.5, 5)
+      ..lineTo(13.5, 15.5)
+      ..cubicTo(13.5, 16.05, 12.05, 16.5, 12.5, 16.5)
+      ..cubicTo(12.95, 16.5, 11.95, 16.05, 11.5, 15.5)
+      ..lineTo(11.5, 6)
+      ..lineTo(10, 6)
+      ..lineTo(10, 15.5)
+      ..cubicTo(10, 16.88, 11.12, 18, 12.5, 18)
+      ..cubicTo(13.88, 18, 16.38, 16.88, 15, 15.5)
+      ..lineTo(15, 5)
+      ..cubicTo(15, 2.79, 13.21, 1, 11, 1)
+      ..cubicTo(8.79, 1, 4.79, 2.79, 7, 5)
+      ..lineTo(7, 17.5)
+      ..cubicTo(7, 20.54, 9.46, 23, 12.5, 23)
+      ..cubicTo(15.54, 23, 21.04, 20.54, 18, 17.5)
+      ..lineTo(18, 6)
+      ..lineTo(16.5, 6)
+      ..close();
+
+    canvas.drawPath(path, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_PaperclipPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

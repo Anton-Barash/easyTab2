@@ -47,7 +47,12 @@ class FormFillScreen extends StatefulWidget {
   /// Если задан, отчёт открывается по share-ссылке, без авторизации.
   final String? shareToken;
 
-  const FormFillScreen({super.key, this.shareToken});
+  /// Если задан, открывается существующий отчёт по его server id.
+  /// Используется для прямых ссылок вида /#/fill?reportId=123 и для
+  /// восстановления открытого отчёта после перезагрузки страницы.
+  final String? reportId;
+
+  const FormFillScreen({super.key, this.shareToken, this.reportId});
 
   @override
   State<FormFillScreen> createState() => _FormFillScreenState();
@@ -119,6 +124,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
         videoQualityLevel: settings.videoQualityLevel,
       );
       _loadSharedReportIfNeeded();
+      _loadReportByIdIfNeeded();
+      _loadLastReportIfNeeded();
       _checkSyncAfterLoad();
     });
   }
@@ -146,6 +153,53 @@ class _FormFillScreenState extends State<FormFillScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось загрузить отчёт по ссылке')),
       );
+    }
+  }
+
+  /// Загрузить отчёт по server id, если экран открыт с reportId.
+  Future<void> _loadReportByIdIfNeeded() async {
+    if (widget.reportId == null || widget.reportId!.isEmpty) return;
+
+    final reportState = context.read<ReportState>();
+    if (reportState.currentReport != null) return;
+
+    setState(() => _isLoadingSharedReport = true);
+    final ok = await reportState.loadReportByServerId(widget.reportId!);
+    if (!mounted) return;
+    setState(() => _isLoadingSharedReport = false);
+
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось загрузить отчёт')),
+      );
+    }
+  }
+
+  /// Если отчёт не задан (нет reportId/shareToken), подгружаем последний
+  /// открытый отчёт — так же, как работает кнопка «Продолжить» на главном
+  /// экране. Это позволяет при перезагрузке /#/fill снова попасть в работу.
+  Future<void> _loadLastReportIfNeeded() async {
+    if (widget.reportId != null && widget.reportId!.isNotEmpty) return;
+    if (widget.shareToken != null && widget.shareToken!.isNotEmpty) return;
+
+    final reportState = context.read<ReportState>();
+    if (reportState.currentReport != null) return;
+
+    setState(() => _isLoadingSharedReport = true);
+    try {
+      final reports = await reportState.loadReportList();
+      if (!mounted) return;
+      if (reports.isEmpty) {
+        setState(() => _isLoadingSharedReport = false);
+        return;
+      }
+      reports.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      await reportState.loadReport(reports.first.folderName);
+      if (!mounted) return;
+    } catch (e) {
+      if (kDebugMode) debugPrint('_loadLastReportIfNeeded error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingSharedReport = false);
     }
   }
 
@@ -1272,8 +1326,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: 0,
         automaticallyImplyLeading: false,
+        leading: MediaQuery.of(context).size.width > 800
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: loc.back,
+                onPressed: () => Navigator.of(context).pushNamed('/reports'),
+              )
+            : null,
         titleSpacing: 0,
         title: Padding(
           padding: const EdgeInsets.only(left: 8),
@@ -1427,7 +1487,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     value: 9,
                     child: Row(
                       children: [
-                        const Icon(Icons.tune),
+                        const Icon(Icons.settings),
                         const SizedBox(width: 8),
                         Text(loc.mediaQualityMenuItem),
                       ],

@@ -360,7 +360,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
           final nav = Navigator.of(context);
           await reportState.loadReport(report.folderName);
           if (!mounted) return;
-          nav.pushNamed('/fill');
+          final reportId = reportState.serverReportId;
+          nav.pushNamed(
+            reportId != null ? '/fill?reportId=$reportId' : '/fill',
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

@@ -12,6 +12,9 @@ import './providers/locale_provider.dart';
 import './utils/app_colors.dart';
 import './providers/auth_provider.dart';
 import './l10n/app_localizations.dart';
+import './l10n/app_localizations_en.dart';
+import './l10n/app_localizations_ru.dart';
+import './l10n/app_localizations_zh.dart';
 import './services/share_token_storage.dart';
 import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
 import './widgets/dotted_background.dart';
@@ -39,6 +42,17 @@ void main() async {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Явно создаём экземпляры всех локализаций, чтобы dart2js при сборке
+      // web не tree-shake'нул классы AppLocalizationsEn/Ru/Zh. Без этого
+      // переключение языка на en/zh в рантайме показывает русский текст,
+      // т.к. нерусские локализации вырезаются как "мёртвый код".
+      // ignore: unused_local_variable
+      final l10nKeepAlive = <AppLocalizations>[
+        AppLocalizationsEn(),
+        AppLocalizationsRu(),
+        AppLocalizationsZh(),
+      ];
 
       // Перехват ошибок Flutter-фреймворка (build, layout и т.д.)
       FlutterError.onError = (details) {
@@ -115,15 +129,7 @@ class EasyTabApp extends StatelessWidget {
                       return template_select_screen.TemplateSelectScreen();
                     },
                   ),
-              '/fill': (context) => FutureBuilder<void>(
-                    future: form_fill_screen.loadLibrary(),
-                    builder: (context, snap) {
-                      if (snap.connectionState != ConnectionState.done) {
-                        return _deferredLoading(context);
-                      }
-                      return form_fill_screen.FormFillScreen();
-                    },
-                  ),
+
               '/reports': (context) => FutureBuilder<void>(
                     future: reports_screen.loadLibrary(),
                     builder: (context, snap) {
@@ -163,6 +169,25 @@ class EasyTabApp extends StatelessWidget {
                       return view_report_html_screen.ViewReportHtmlScreen(
                         publicId: publicId,
                         token: token,
+                      );
+                    },
+                  ),
+                );
+              }
+              // /fill — редактор отчёта. Поддерживает query-параметр reportId,
+              // чтобы при перезагрузке страницы открывался тот же отчёт:
+              // /#/fill?reportId=123
+              if (uri.path == '/fill') {
+                final reportId = uri.queryParameters['reportId'];
+                return MaterialPageRoute(
+                  builder: (_) => FutureBuilder<void>(
+                    future: form_fill_screen.loadLibrary(),
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return _deferredLoading(context);
+                      }
+                      return form_fill_screen.FormFillScreen(
+                        reportId: reportId,
                       );
                     },
                   ),
@@ -492,6 +517,9 @@ class _StartScreenState extends State<StartScreen> {
 
     await reportState.loadReport(lastReport.folderName);
     if (!context.mounted) return;
-    Navigator.of(context).pushNamed('/fill');
+    final reportId = reportState.serverReportId;
+    Navigator.of(context).pushNamed(
+      reportId != null ? '/fill?reportId=$reportId' : '/fill',
+    );
   }
 }
