@@ -11,7 +11,11 @@ class WebVideoCompressorImpl implements WebVideoCompressor {
   Future<void> initialize() async {}
 
   @override
-  Future<Uint8List?> compressVideo(Uint8List videoBytes) async => null;
+  Future<Uint8List?> compressVideo(
+    Uint8List videoBytes, {
+    int qualityLevel = 3,
+  }) async =>
+      null;
 
   @override
   bool get isLoaded => false;

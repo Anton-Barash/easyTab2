@@ -1348,6 +1348,60 @@ abstract class AppLocalizations {
   /// **'Account'**
   String get accountSection;
 
+  /// No description provided for @mediaQualitySection.
+  ///
+  /// In en, this message translates to:
+  /// **'Media quality'**
+  String get mediaQualitySection;
+
+  /// No description provided for @mediaImageQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Image quality'**
+  String get mediaImageQuality;
+
+  /// No description provided for @mediaImageQualityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High — 2000px / Q85'**
+  String get mediaImageQualityHigh;
+
+  /// No description provided for @mediaImageQualityMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium — 1500px / Q85'**
+  String get mediaImageQualityMedium;
+
+  /// No description provided for @mediaImageQualityLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low — 1080px / Q80'**
+  String get mediaImageQualityLow;
+
+  /// No description provided for @mediaVideoQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Video quality'**
+  String get mediaVideoQuality;
+
+  /// No description provided for @mediaVideoQualityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High — Full HD (less compression)'**
+  String get mediaVideoQualityHigh;
+
+  /// No description provided for @mediaVideoQualityMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium — HD (balanced)'**
+  String get mediaVideoQualityMedium;
+
+  /// No description provided for @mediaVideoQualityLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low — 480p (max compression, default)'**
+  String get mediaVideoQualityLow;
+
   /// No description provided for @starsBackground.
   ///
   /// In en, this message translates to:

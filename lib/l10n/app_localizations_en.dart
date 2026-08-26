@@ -671,6 +671,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountSection => 'Account';
 
   @override
+  String get mediaQualitySection => 'Media quality';
+
+  @override
+  String get mediaImageQuality => 'Image quality';
+
+  @override
+  String get mediaImageQualityHigh => 'High — 2000px / Q85';
+
+  @override
+  String get mediaImageQualityMedium => 'Medium — 1500px / Q85';
+
+  @override
+  String get mediaImageQualityLow => 'Low — 1080px / Q80';
+
+  @override
+  String get mediaVideoQuality => 'Video quality';
+
+  @override
+  String get mediaVideoQualityHigh => 'High — Full HD (less compression)';
+
+  @override
+  String get mediaVideoQualityMedium => 'Medium — HD (balanced)';
+
+  @override
+  String get mediaVideoQualityLow =>
+      'Low — 480p (max compression, default)';
+
+  @override
   String get starsBackground => 'Stars background';
 
   @override

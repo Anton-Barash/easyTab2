@@ -672,6 +672,34 @@ class AppLocalizationsRu extends AppLocalizations {
   String get accountSection => 'Аккаунт';
 
   @override
+  String get mediaQualitySection => 'Качество медиаданных';
+
+  @override
+  String get mediaImageQuality => 'Качество фото';
+
+  @override
+  String get mediaImageQualityHigh => 'Высокое — 2000px / Q85';
+
+  @override
+  String get mediaImageQualityMedium => 'Среднее — 1500px / Q85';
+
+  @override
+  String get mediaImageQualityLow => 'Низкое — 1080px / Q80';
+
+  @override
+  String get mediaVideoQuality => 'Качество видео';
+
+  @override
+  String get mediaVideoQualityHigh => 'Высокое — Full HD (пониженное сжатие)';
+
+  @override
+  String get mediaVideoQualityMedium => 'Среднее — HD (сбалансированно)';
+
+  @override
+  String get mediaVideoQualityLow =>
+      'Низкое — 480p (макс. сжатие, по умолчанию)';
+
+  @override
   String get starsBackground => 'Звёздный фон';
 
   @override

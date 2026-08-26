@@ -660,6 +660,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountSection => '账户';
 
   @override
+  String get mediaQualitySection => '媒体质量';
+
+  @override
+  String get mediaImageQuality => '照片质量';
+
+  @override
+  String get mediaImageQualityHigh => '高 — 2000px / Q85';
+
+  @override
+  String get mediaImageQualityMedium => '中 — 1500px / Q85';
+
+  @override
+  String get mediaImageQualityLow => '低 — 1080px / Q80';
+
+  @override
+  String get mediaVideoQuality => '视频质量';
+
+  @override
+  String get mediaVideoQualityHigh => '高 — Full HD（低压缩）';
+
+  @override
+  String get mediaVideoQualityMedium => '中 — HD（均衡）';
+
+  @override
+  String get mediaVideoQualityLow => '低 — 480p（最大压缩，默认）';
+
+  @override
   String get starsBackground => '星空背景';
 
   @override

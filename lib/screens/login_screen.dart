@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/report_provider.dart';
 import '../providers/settings_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/app_colors.dart';
+import '../utils/media_quality.dart';
 import 'package:easy_tab/widgets/easy_tab_button.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -463,6 +465,138 @@ Future<void> showSettingsDialog(BuildContext context) {
             style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 16),
+          // Блок «Качество медиаданных»
+          Consumer<SettingsState>(
+            builder: (ctx, settings, _) {
+              // Сразу применяем текущие настройки к ReportState, чтобы
+              // последующие добавления фото/видео шли с нужным качеством.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!ctx.mounted) return;
+                ctx.read<ReportState>().applyMediaQualitySettings(
+                      imageMaxSize: settings.imageQualityConfig.imageMaxSize,
+                      imageJpegQuality:
+                          settings.imageQualityConfig.imageJpegQuality,
+                      videoQualityLevel: settings.videoQualityLevel,
+                    );
+              });
+
+              final imgCfg = settings.imageQualityConfig;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    loc.mediaQualitySection,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    loc.mediaImageQuality,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  for (final lvl in MediaQualityLevel.values)
+                    RadioListTile<MediaQualityLevel>(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      groupValue: settings.imageQualityLevel,
+                      value: lvl,
+                      onChanged: (v) async {
+                        if (v == null) return;
+                        await settings.setImageQualityLevel(v);
+                        if (!ctx.mounted) return;
+                        final newCfg = settings.imageQualityConfig;
+                        ctx.read<ReportState>().applyMediaQualitySettings(
+                              imageMaxSize: newCfg.imageMaxSize,
+                              imageJpegQuality: newCfg.imageJpegQuality,
+                              videoQualityLevel: settings.videoQualityLevel,
+                            );
+                      },
+                      title: Text(
+                        switch (lvl) {
+                          MediaQualityLevel.high =>
+                            loc.mediaImageQualityHigh,
+                          MediaQualityLevel.medium =>
+                            loc.mediaImageQualityMedium,
+                          MediaQualityLevel.low => loc.mediaImageQualityLow,
+                        },
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${MediaQuality.photo(lvl).imageMaxSize}px · Q${MediaQuality.photo(lvl).imageJpegQuality}',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  Text(
+                    loc.mediaVideoQuality,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  for (final vl in const [1, 2, 3])
+                    RadioListTile<int>(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      groupValue: settings.videoQualityLevel,
+                      value: vl,
+                      onChanged: (v) async {
+                        if (v == null) return;
+                        await settings.setVideoQualityLevel(v);
+                        if (!ctx.mounted) return;
+                        ctx.read<ReportState>().applyMediaQualitySettings(
+                              imageMaxSize: imgCfg.imageMaxSize,
+                              imageJpegQuality: imgCfg.imageJpegQuality,
+                              videoQualityLevel: v,
+                            );
+                      },
+                      title: Text(
+                        switch (vl) {
+                          1 => loc.mediaVideoQualityHigh,
+                          2 => loc.mediaVideoQualityMedium,
+                          _ => loc.mediaVideoQualityLow,
+                        },
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        () {
+                          final cfg = VideoCompressionConfig.byLevel(vl);
+                          return '${cfg.width}×${cfg.height} · CRF ${cfg.crf} · ${cfg.fps}fps';
+                        }(),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 6),
           // Настройка фона: звёзды вместо точечного узора
           Consumer<SettingsState>(
             builder: (ctx, settings, _) => CheckboxListTile(

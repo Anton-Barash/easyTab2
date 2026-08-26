@@ -58,6 +58,34 @@ class ReportState extends ChangeNotifier {
   Report? _currentReport;
   String? _currentReportPath;
 
+  // ===== Параметры компрессии медиа (из настроек) =====
+  // Значения по умолчанию — ТЗ: 1500px / 85%, видео — low (level 3).
+  int _imageMaxSize = 1500;
+  int _imageJpegQuality = 85;
+  int _videoQualityLevel = 3;
+
+  /// Текущие параметры компрессии фото (max px по стороне).
+  int get imageMaxSize => _imageMaxSize;
+
+  /// Текущие параметры компрессии фото (JPEG quality 0..100).
+  int get imageJpegQuality => _imageJpegQuality;
+
+  /// Текущий уровень качества видео (1 high / 2 medium / 3 low).
+  int get videoQualityLevel => _videoQualityLevel;
+
+  /// Применить настройки качества медиа. Вызывается из Settings UI
+  /// (LoginScreen при инициализации и при смене значений).
+  void applyMediaQualitySettings({
+    required int imageMaxSize,
+    required int imageJpegQuality,
+    required int videoQualityLevel,
+  }) {
+    _imageMaxSize = imageMaxSize;
+    _imageJpegQuality = imageJpegQuality;
+    _videoQualityLevel = videoQualityLevel;
+    notifyListeners();
+  }
+
   /// Фоновая очередь сжатия и загрузки видео (web only).
   ///
   /// Создаётся лениво при первом enqueue: очередь тянет за собой
@@ -222,7 +250,8 @@ class ReportState extends ChangeNotifier {
         await image_compressor.loadLibrary();
         final compressed = image_compressor.ImageCompressor.compress(
           Uint8List.fromList(bytes),
-          2000,
+          _imageMaxSize,
+          jpegQuality: _imageJpegQuality,
         );
         await destPath.writeAsBytes(compressed);
       } else {
@@ -246,7 +275,8 @@ class ReportState extends ChangeNotifier {
     await image_compressor.loadLibrary();
     final compressed = image_compressor.ImageCompressor.compress(
       bytes,
-      2000,
+      _imageMaxSize,
+      jpegQuality: _imageJpegQuality,
     );
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -578,7 +608,8 @@ class ReportState extends ChangeNotifier {
       await image_compressor.loadLibrary();
       final compressed = image_compressor.ImageCompressor.compress(
         Uint8List.fromList(bytes),
-        2000,
+        _imageMaxSize,
+        jpegQuality: _imageJpegQuality,
       );
       await destPath.writeAsBytes(compressed);
     } else {
@@ -666,7 +697,11 @@ class ReportState extends ChangeNotifier {
     Uint8List finalBytes = bytes;
     if (mimeType.startsWith('image/')) {
       await image_compressor.loadLibrary();
-      finalBytes = image_compressor.ImageCompressor.compress(bytes, 2000);
+      finalBytes = image_compressor.ImageCompressor.compress(
+        bytes,
+        _imageMaxSize,
+        jpegQuality: _imageJpegQuality,
+      );
     }
 
     // Создаём MediaItem с байтами для web.
@@ -701,6 +736,7 @@ class ReportState extends ChangeNotifier {
           relativePath: relativePath,
           reportId: _serverReportId,
           shareToken: _shareToken,
+          qualityLevel: _videoQualityLevel,
           onError: (code) {
             if (kDebugMode) {
               debugPrint('Video queue error ($code): $generatedName');

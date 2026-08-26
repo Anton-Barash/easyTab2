@@ -46,12 +46,16 @@ class WebVideoCompressorImpl implements WebVideoCompressor {
   }
 
   @override
-  Future<Uint8List?> compressVideo(Uint8List videoBytes) async {
+  Future<Uint8List?> compressVideo(
+    Uint8List videoBytes, {
+    int qualityLevel = 3,
+  }) async {
+    final cfg = VideoCompressionConfig.byLevel(qualityLevel);
     final config = JSObject()
-      ..setProperty('crf'.toJS, 28.toJS)
-      ..setProperty('width'.toJS, 1280.toJS)
-      ..setProperty('height'.toJS, 720.toJS)
-      ..setProperty('fps'.toJS, 24.toJS);
+      ..setProperty('crf'.toJS, cfg.crf.toJS)
+      ..setProperty('width'.toJS, cfg.width.toJS)
+      ..setProperty('height'.toJS, cfg.height.toJS)
+      ..setProperty('fps'.toJS, cfg.fps.toJS);
 
     final onProgress = (JSAny event) {
       if (event.isA<JSNumber>()) {

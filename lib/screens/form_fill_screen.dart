@@ -13,6 +13,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as path;
 import '../providers/report_provider.dart';
+import '../providers/settings_provider.dart';
 import '../providers/locale_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
@@ -107,6 +108,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
       _syncControllers(reportState);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Синхронизируем «Качество медиаданных» из SettingsState в
+      // ReportState перед первым добавлением файлов.
+      final settings = context.read<SettingsState>();
+      reportState.applyMediaQualitySettings(
+        imageMaxSize: settings.imageQualityConfig.imageMaxSize,
+        imageJpegQuality: settings.imageQualityConfig.imageJpegQuality,
+        videoQualityLevel: settings.videoQualityLevel,
+      );
       _loadSharedReportIfNeeded();
       _checkSyncAfterLoad();
     });
@@ -2978,7 +2987,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
   /// Диалог выбора качества и запуск сжатия всех видео отчёта (native).
   void _showCompressVideoDialog() {
     final loc = AppLocalizations.of(context)!;
-    int selectedQuality = 2;
+    final reportState = context.read<ReportState>();
+    // По умолчанию выбираем сохранённый уровень из настроек (по ТЗ default = 3 low).
+    int selectedQuality = reportState.videoQualityLevel;
 
     showDialog(
       context: context,
@@ -2988,7 +2999,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           builder: (dialogCtx, setDialogState) => RadioGroup<int>(
             groupValue: selectedQuality,
             onChanged: (value) =>
-                setDialogState(() => selectedQuality = value ?? 2),
+                setDialogState(() => selectedQuality = value ?? reportState.videoQualityLevel),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

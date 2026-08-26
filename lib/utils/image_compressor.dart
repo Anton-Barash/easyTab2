@@ -30,13 +30,18 @@ class ImageCompressor {
   ///
   /// Если изображение больше maxSize по любой стороне, оно масштабируется
   /// с сохранением пропорций. PNG сохраняется как PNG, остальные форматы
-  /// конвертируются в JPEG с качеством 90%.
+  /// конвертируются в JPEG с качеством [jpegQuality] (по умолчанию 85,
+  /// из MediaQualityConfig, см. utils/media_quality.dart).
   ///
   /// Возвращает оригинальные байты, если:
   /// - Изображение уже меньше maxSize
   /// - Не удалось декодировать
   /// - Сжатый файл пустой
-  static Uint8List compress(Uint8List bytes, int maxSize) {
+  static Uint8List compress(
+    Uint8List bytes,
+    int maxSize, {
+    int jpegQuality = 85,
+  }) {
     try {
       final image = img.decodeImage(bytes);
       if (image == null) {
@@ -60,13 +65,17 @@ class ImageCompressor {
 
       final resized = img.copyResize(image, width: width, height: height);
 
+      // Ограничим качество диапазоном 1..100, чтобы некорректные значения
+      // не ломали кодирование JPEG.
+      final q = jpegQuality.clamp(1, 100);
+
       Uint8List result;
       if (isPng(bytes)) {
         result = img.encodePng(resized);
       } else if (isWebp(bytes)) {
-        result = img.encodeJpg(resized, quality: 90);
+        result = img.encodeJpg(resized, quality: q);
       } else {
-        result = img.encodeJpg(resized, quality: 90);
+        result = img.encodeJpg(resized, quality: q);
       }
 
       if (result.isEmpty) {

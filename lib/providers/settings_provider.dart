@@ -1,12 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/media_quality.dart';
+
 class SettingsState extends ChangeNotifier {
   String _templatesFolder = '';
   String _reportsFolder = '';
   String _mediaFolder = '';
   String _platform = 'unknown';
   bool _starsBackground = false;
+  MediaQualityLevel _imageQualityLevel = MediaQualityLevel.medium;
+  int _videoQualityLevel = MediaQuality.defaultVideoLevel;
 
   String get templatesFolder => _templatesFolder;
   String get reportsFolder => _reportsFolder;
@@ -15,6 +19,18 @@ class SettingsState extends ChangeNotifier {
 
   /// Фон со звёздами вместо точечного узора.
   bool get starsBackground => _starsBackground;
+
+  /// Уровень качества фото: high / medium (default) / low.
+  /// Влияет на max px по стороне и JPEG-quality при сжатии изображений
+  /// (см. utils/media_quality.dart и utils/image_compressor.dart).
+  MediaQualityLevel get imageQualityLevel => _imageQualityLevel;
+
+  MediaQualityConfig get imageQualityConfig =>
+      MediaQuality.photo(_imageQualityLevel);
+
+  /// Уровень качества видео: 1 — high, 2 — medium, 3 — low (default).
+  /// Используется ffmpeg.wasm (web) и v_video_compressor (native).
+  int get videoQualityLevel => _videoQualityLevel;
 
   SettingsState() {
     // P1-55: _loadSettings() теперь вызывается через init(),
@@ -34,6 +50,10 @@ class SettingsState extends ChangeNotifier {
     _mediaFolder = prefs.getString('mediaFolder') ?? '';
     _platform = _detectPlatform();
     _starsBackground = prefs.getBool('starsBackground') ?? false;
+    _imageQualityLevel =
+        MediaQuality.levelFromKey(prefs.getString('imageQualityLevel'));
+    _videoQualityLevel =
+        MediaQuality.videoLevelFromKey(prefs.getString('videoQualityLevel'));
     notifyListeners();
   }
 
@@ -58,12 +78,38 @@ class SettingsState extends ChangeNotifier {
     await prefs.setString('reportsFolder', _reportsFolder);
     await prefs.setString('mediaFolder', _mediaFolder);
     await prefs.setBool('starsBackground', _starsBackground);
+    await prefs.setString(
+      'imageQualityLevel',
+      MediaQuality.keyForLevel(_imageQualityLevel),
+    );
+    await prefs.setString(
+      'videoQualityLevel',
+      MediaQuality.videoKeyForLevel(_videoQualityLevel),
+    );
     notifyListeners();
   }
 
   /// Включает/выключает звёздный фон и сохраняет выбор.
   Future<void> setStarsBackground(bool value) async {
     _starsBackground = value;
+    notifyListeners();
+    await saveSettings();
+  }
+
+  /// Установить уровень качества фото и сразу сохранить.
+  Future<void> setImageQualityLevel(MediaQualityLevel value) async {
+    if (_imageQualityLevel == value) return;
+    _imageQualityLevel = value;
+    notifyListeners();
+    await saveSettings();
+  }
+
+  /// Установить уровень качества видео (1 high / 2 medium / 3 low)
+  /// и сразу сохранить в prefs.
+  Future<void> setVideoQualityLevel(int level) async {
+    final clamped = level.clamp(1, 3);
+    if (_videoQualityLevel == clamped) return;
+    _videoQualityLevel = clamped;
     notifyListeners();
     await saveSettings();
   }
@@ -77,10 +123,14 @@ class SettingsState extends ChangeNotifier {
     await prefs.remove('reportsFolder');
     await prefs.remove('mediaFolder');
     await prefs.remove('starsBackground');
+    await prefs.remove('imageQualityLevel');
+    await prefs.remove('videoQualityLevel');
     _templatesFolder = '';
     _reportsFolder = '';
     _mediaFolder = '';
     _starsBackground = false;
+    _imageQualityLevel = MediaQualityLevel.medium;
+    _videoQualityLevel = MediaQuality.defaultVideoLevel;
     notifyListeners();
   }
 }

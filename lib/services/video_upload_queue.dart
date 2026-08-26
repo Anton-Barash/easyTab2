@@ -49,6 +49,7 @@ class _VideoUploadTask {
   final String relativePath;
   final int? reportId;
   final String? shareToken;
+  final int qualityLevel;
 
   _VideoUploadTask({
     required this.media,
@@ -58,6 +59,7 @@ class _VideoUploadTask {
     required this.relativePath,
     this.reportId,
     this.shareToken,
+    this.qualityLevel = 3,
   });
 }
 
@@ -77,6 +79,8 @@ class VideoUploadQueue {
   ///
   /// Если очередь пуста — запускает обработку. Видео обрабатываются
   /// строго по одному: сначала сжатие, затем загрузка.
+  ///
+  /// [qualityLevel]: 1=high, 2=medium, 3=low (default).
   Future<void> enqueue({
     required MediaItem media,
     required Uint8List originalBytes,
@@ -85,6 +89,7 @@ class VideoUploadQueue {
     required String relativePath,
     int? reportId,
     String? shareToken,
+    int qualityLevel = 3,
     void Function(String error)? onError,
   }) async {
     // Если медиа ранее помечалось отменённым — снимаем отметку,
@@ -99,6 +104,7 @@ class VideoUploadQueue {
       relativePath: relativePath,
       reportId: reportId,
       shareToken: shareToken,
+      qualityLevel: qualityLevel,
     );
     _tasks.add(task);
 
@@ -173,7 +179,10 @@ class VideoUploadQueue {
         _notifyProgress(media);
       });
 
-      compressedBytes = await _compressor.compressVideo(bytes);
+      compressedBytes = await _compressor.compressVideo(
+        bytes,
+        qualityLevel: task.qualityLevel,
+      );
       await progressSub.cancel();
     } catch (e) {
       if (kDebugMode) debugPrint('Video compression failed: $e');
