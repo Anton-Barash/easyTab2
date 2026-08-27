@@ -417,7 +417,13 @@ class AppLocalizationsEn extends AppLocalizations {
       '\"This json contains answers in different languages. Fill in empty answers with translations of existing answers.\"';
 
   @override
-  String get enterDecryption => 'Enter description...';
+  String get enterDecryption => 'Enter transcription...';
+
+  @override
+  String get transcription => 'Transcription';
+
+  @override
+  String get editTranscription => 'Edit transcription';
 
   @override
   String get questions => 'Questions';
@@ -509,7 +515,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editName => 'Edit name';
 
   @override
-  String get editDescription => 'Edit description';
+  String get editDescription => 'Transcription';
 
   @override
   String zipSaved(Object path) {

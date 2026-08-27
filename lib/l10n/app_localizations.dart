@@ -859,8 +859,20 @@ abstract class AppLocalizations {
   /// No description provided for @enterDecryption.
   ///
   /// In en, this message translates to:
-  /// **'Enter description...'**
+  /// **'Enter transcription...'**
   String get enterDecryption;
+
+  /// No description provided for @transcription.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription'**
+  String get transcription;
+
+  /// No description provided for @editTranscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit transcription'**
+  String get editTranscription;
 
   /// No description provided for @questions.
   ///
@@ -1039,7 +1051,7 @@ abstract class AppLocalizations {
   /// No description provided for @editDescription.
   ///
   /// In en, this message translates to:
-  /// **'Edit description'**
+  /// **'Transcription'**
   String get editDescription;
 
   /// No description provided for @zipSaved.

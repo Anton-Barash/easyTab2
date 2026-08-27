@@ -410,7 +410,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiPromptContent => '\"此json包含不同语言的答案。用现有答案的翻译填写空白答案。\"';
 
   @override
-  String get enterDecryption => '输入描述...';
+  String get enterDecryption => '输入转录文本...';
+
+  @override
+  String get transcription => '转录';
+
+  @override
+  String get editTranscription => '编辑转录';
 
   @override
   String get questions => '问题';
@@ -500,7 +506,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get editName => '编辑名称';
 
   @override
-  String get editDescription => '编辑描述';
+  String get editDescription => '转录';
 
   @override
   String zipSaved(Object path) {

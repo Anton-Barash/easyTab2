@@ -34,6 +34,7 @@ import '../widgets/form_fill/question_card.dart';
 import '../widgets/form_fill/section_title.dart';
 import '../widgets/form_fill/attachments_dialog.dart';
 import '../widgets/form_fill/media_quality_section.dart';
+import '../widgets/form_fill/transcription_editor.dart';
 import '../widgets/sync/sync_dialog.dart';
 import '../widgets/sync/sync_menu_dialog.dart';
 import 'full_media_viewer_screen.dart';
@@ -3614,8 +3615,17 @@ void _showEditQuestionDialog(
     title = loc.editName;
     currentValue = questionLoc?.name ?? q.getDisplayName(lang) ?? '';
   } else if (fieldType == 'description') {
-    title = loc.editDescription;
-    currentValue = questionLoc?.description ?? '';
+    // Для расшифровки открываем полноценный экран редактирования.
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TranscriptionEditor(
+          questionIndex: questionIndex,
+          reportState: reportState,
+          onSaved: onSaved,
+        ),
+      ),
+    );
+    return;
   }
 
   final controller = TextEditingController(text: currentValue);

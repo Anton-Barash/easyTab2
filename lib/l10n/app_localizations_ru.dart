@@ -420,6 +420,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get enterDecryption => 'Введите расшифровку...';
 
   @override
+  String get transcription => 'Расшифровка';
+
+  @override
+  String get editTranscription => 'Редактировать расшифровку';
+
+  @override
   String get questions => 'Вопросы';
 
   @override
@@ -511,7 +517,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get editName => 'Редактировать название';
 
   @override
-  String get editDescription => 'Редактировать расшифровку';
+  String get editDescription => 'Расшифровка';
 
   @override
   String zipSaved(Object path) {
