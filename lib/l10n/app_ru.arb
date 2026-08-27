@@ -538,5 +538,21 @@
   "uploadFailedGeneric": "Ошибка загрузки",
   "uploadTimeout": "Таймаут загрузки",
   "presignFailed": "Не удалось создать ссылку на загрузку",
-  "confirmFailed": "Не удалось подтвердить загрузку"
+  "confirmFailed": "Не удалось подтвердить загрузку",
+  "versionConflictTitle": "Отчёт изменён",
+  "versionConflictMessage": "Отчёт был изменён на другом устройстве (версия {version}). Перезагрузить для получения актуальной версии или сохранить поверх?",
+  "@versionConflictMessage": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "versionConflictReload": "Перезагрузить",
+  "versionConflictOverwrite": "Сохранить поверх",
+  "answerConflictTitle": "Конфликт ответа",
+  "answerConflictMessage": "Другой пользователь изменил этот же ответ. Выберите, как поступить: принять его версию, заменить своей или сохранить оба варианта.",
+  "answerConflictServerAnswer": "Ответ на сервере",
+  "answerConflictYourAnswer": "Ваш ответ",
+  "answerConflictUseServer": "Использовать ответ с сервера",
+  "answerConflictReplace": "Заменить своим",
+  "answerConflictSaveAsSecond": "Сохранить как второй ответ"
 }

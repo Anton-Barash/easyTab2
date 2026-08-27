@@ -1125,4 +1125,40 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get confirmFailed => '无法确认上传';
+
+  @override
+  String get versionConflictTitle => '报告已更改';
+
+  @override
+  String versionConflictMessage(String version) {
+    return '报告已在其他设备上更改（版本 $version）。重新加载以查看最新版本，或用您的更改覆盖。';
+  }
+
+  @override
+  String get versionConflictReload => '重新加载';
+
+  @override
+  String get versionConflictOverwrite => '覆盖保存';
+
+  @override
+  String get answerConflictTitle => '答案冲突';
+
+  @override
+  String get answerConflictMessage =>
+      '另一位用户修改了同一个答案。请选择如何处理：接受对方的版本、替换为您的版本，或保留两个答案。';
+
+  @override
+  String get answerConflictServerAnswer => '服务器上的答案';
+
+  @override
+  String get answerConflictYourAnswer => '您的答案';
+
+  @override
+  String get answerConflictUseServer => '使用服务器答案';
+
+  @override
+  String get answerConflictReplace => '替换为我的';
+
+  @override
+  String get answerConflictSaveAsSecond => '保存为第二个答案';
 }

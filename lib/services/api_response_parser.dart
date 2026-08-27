@@ -45,6 +45,7 @@ ApiResult parseApiResponse(
 
     return ApiResult(
       success: false,
+      data: body,
       error: (body['error'] as String?) ??
           loc?.statusError(statusCode) ??
           'Ошибка $statusCode',

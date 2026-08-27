@@ -111,6 +111,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final reportState = context.read<ReportState>();
     _reportState = reportState;
     reportState.addListener(_onReportStateChanged);
+    reportState.onVersionConflict = _showConflictDialog;
     final report = reportState.currentReport;
     if (report != null) {
       _syncControllers(reportState);
@@ -217,6 +218,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   @override
   void dispose() {
     _reportState.removeListener(_onReportStateChanged);
+    _reportState.onVersionConflict = null;
     _answerControllers.values
         .expand((map) => map.values)
         .forEach((c) => c.dispose());
@@ -252,6 +254,348 @@ class _FormFillScreenState extends State<FormFillScreen> {
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  /// Показывает диалог конфликта версий (409).
+  /// Возвращает выбранное пользователем действие.
+  Future<ConflictAction> _showConflictDialog(ConflictDetails details) async {
+    final loc = AppLocalizations.of(context)!;
+
+    // Если конфликт не на уровне отдельных ответов — показываем общий диалог.
+    if (details.answerConflicts.isEmpty) {
+      final isMobile = MediaQuery.of(context).size.width <= 800;
+      final result = await showDialog<ConflictAction>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+          contentPadding: isMobile
+              ? const EdgeInsets.all(16)
+              : const EdgeInsets.fromLTRB(24, 20, 24, 12),
+          shape: isMobile
+              ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+              : null,
+          title: Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: AppColors.warningAccent,
+                size: 26,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  loc.versionConflictTitle,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            loc.versionConflictMessage(details.currentVersion.toString()),
+            style: const TextStyle(
+              fontSize: 15,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            if (isMobile)
+              Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: _SecondaryDialogButton(
+                      label: loc.versionConflictReload,
+                      onPressed: () =>
+                          Navigator.of(context).pop(ConflictAction.reload),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _PrimaryDialogButton(
+                      label: loc.versionConflictOverwrite,
+                      onPressed: () =>
+                          Navigator.of(context).pop(ConflictAction.overwrite),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _SecondaryDialogButton(
+                    label: loc.versionConflictReload,
+                    onPressed: () =>
+                        Navigator.of(context).pop(ConflictAction.reload),
+                  ),
+                  const SizedBox(width: 12),
+                  _PrimaryDialogButton(
+                    label: loc.versionConflictOverwrite,
+                    onPressed: () =>
+                        Navigator.of(context).pop(ConflictAction.overwrite),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      );
+      return result ?? ConflictAction.reload;
+    }
+
+    // Последовательно разрешаем конфликты каждого подответа.
+    final reportState = context.read<ReportState>();
+    for (final conflict in details.answerConflicts) {
+      await _showAnswerConflictDialog(reportState, conflict);
+    }
+    return ConflictAction.resolved;
+  }
+
+  /// Диалог разрешения конфликта одного ответа.
+  Future<void> _showAnswerConflictDialog(
+    ReportState reportState,
+    AnswerConflict conflict,
+  ) async {
+    final loc = AppLocalizations.of(context)!;
+    final serverController = TextEditingController(text: conflict.serverText);
+    final ownController = TextEditingController(text: conflict.clientText);
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final isMobile = MediaQuery.of(context).size.width <= 800;
+        return AlertDialog(
+          insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+          contentPadding: isMobile
+              ? const EdgeInsets.all(16)
+              : const EdgeInsets.all(24),
+          shape: isMobile
+              ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+              : RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+          title: Row(
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: AppColors.warningAccent,
+                size: 26,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  loc.answerConflictTitle,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: isMobile ? double.infinity : 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Баннер-предупреждение
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.attentionBackground,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.attentionBorder),
+                    ),
+                    child: Text(
+                      loc.answerConflictMessage,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.warningDark,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Чужой ответ (только для чтения)
+                  _AnswerSectionLabel(label: loc.answerConflictServerAnswer),
+                  const SizedBox(height: 8),
+                  _AnswerGroupBox(
+                    child: TextField(
+                      controller: serverController,
+                      maxLines: null,
+                      readOnly: true,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: AppColors.textPrimary,
+                        height: 1.4,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: loc.enterAnswer,
+                        border: InputBorder.none,
+                        isCollapsed: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Свой ответ (редактируемый)
+                  _AnswerSectionLabel(label: loc.answerConflictYourAnswer),
+                  const SizedBox(height: 8),
+                  _AnswerGroupBox(
+                    child: TextField(
+                      controller: ownController,
+                      maxLines: null,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: AppColors.textPrimary,
+                        height: 1.4,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: loc.enterAnswer,
+                        hintStyle: const TextStyle(
+                          color: AppColors.textTertiary,
+                        ),
+                        border: InputBorder.none,
+                        isCollapsed: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Кнопки действий
+                  if (isMobile)
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: _SecondaryDialogButton(
+                            label: loc.answerConflictUseServer,
+                            onPressed: () {
+                              reportState.useServerAnswerForConflict(
+                                conflict.questionIndex,
+                                conflict.answerIndex,
+                                conflict.language,
+                                serverController.text,
+                              );
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: _SecondaryDialogButton(
+                            label: loc.answerConflictReplace,
+                            onPressed: () {
+                              reportState.keepOwnAnswerForConflict(
+                                conflict.questionIndex,
+                                conflict.answerIndex,
+                                conflict.language,
+                                serverController.text,
+                                ownController.text,
+                              );
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: _PrimaryDialogButton(
+                            label: loc.answerConflictSaveAsSecond,
+                            onPressed: () {
+                              reportState.saveAsSecondAnswerForConflict(
+                                conflict.questionIndex,
+                                conflict.answerIndex,
+                                conflict.language,
+                                serverController.text,
+                                ownController.text,
+                              );
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _SecondaryDialogButton(
+                                label: loc.answerConflictUseServer,
+                                onPressed: () {
+                                  reportState.useServerAnswerForConflict(
+                                    conflict.questionIndex,
+                                    conflict.answerIndex,
+                                    conflict.language,
+                                    serverController.text,
+                                  );
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _SecondaryDialogButton(
+                                label: loc.answerConflictReplace,
+                                onPressed: () {
+                                  reportState.keepOwnAnswerForConflict(
+                                    conflict.questionIndex,
+                                    conflict.answerIndex,
+                                    conflict.language,
+                                    serverController.text,
+                                    ownController.text,
+                                  );
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        _PrimaryDialogButton(
+                          label: loc.answerConflictSaveAsSecond,
+                          onPressed: () {
+                            reportState.saveAsSecondAnswerForConflict(
+                              conflict.questionIndex,
+                              conflict.answerIndex,
+                              conflict.language,
+                              serverController.text,
+                              ownController.text,
+                            );
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    serverController.dispose();
+    ownController.dispose();
   }
 
   /// Обработчик создания share-ссылки из меню отчёта.
@@ -3686,4 +4030,112 @@ void _showEditQuestionDialog(
       );
     },
   );
+}
+
+// ======================= Виджеты диалога конфликта =======================
+
+/// Основная (акцентная) кнопка диалога в стиле приложения:
+/// чёрный фон, белый текст, без elevation, скругление 8.
+class _PrimaryDialogButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _PrimaryDialogButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.border,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: AppColors.grey300,
+        disabledForegroundColor: AppColors.grey500,
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        elevation: 0,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// Вторичная кнопка диалога: белый фон, серая обводка, серый текст.
+class _SecondaryDialogButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _SecondaryDialogButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.textSecondary,
+        side: const BorderSide(color: AppColors.greyBorder, width: 1.5),
+        backgroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// Подпись секции ответа в диалоге конфликта.
+class _AnswerSectionLabel extends StatelessWidget {
+  final String label;
+
+  const _AnswerSectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        color: AppColors.border,
+        fontSize: 12,
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+}
+
+/// Контейнер с рамкой для текста ответа (как _GroupBox в edit_header_dialog).
+class _AnswerGroupBox extends StatelessWidget {
+  final Widget child;
+
+  const _AnswerGroupBox({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.greyBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.grey200, width: 1.5),
+      ),
+      child: child,
+    );
+  }
 }

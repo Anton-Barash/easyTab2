@@ -54,9 +54,46 @@ class ReportInfo {
   });
 }
 
+/// Действие, выбранное пользователем при конфликте версий (409).
+enum ConflictAction { reload, overwrite, resolved }
+
+/// Конфликт одного ответа: два пользователя изменили один и тот же подответ.
+class AnswerConflict {
+  final int questionIndex;
+  final int answerIndex;
+  final String language;
+  final String serverText;
+  final String clientText;
+
+  AnswerConflict({
+    required this.questionIndex,
+    required this.answerIndex,
+    required this.language,
+    required this.serverText,
+    required this.clientText,
+  });
+}
+
+/// Детали конфликта, передаваемые в UI для разрешения.
+class ConflictDetails {
+  final int currentVersion;
+  final List<AnswerConflict> answerConflicts;
+
+  ConflictDetails({
+    required this.currentVersion,
+    required this.answerConflicts,
+  });
+}
+
 class ReportState extends ChangeNotifier {
   Report? _currentReport;
   String? _currentReportPath;
+
+  /// Версия отчёта на сервере (optimistic locking).
+  int? _serverReportVersion;
+
+  /// Снимок отчёта при открытии (для PATCH/merge на сервере).
+  Map<String, dynamic>? _baseReportSnapshot;
 
   // ===== Параметры компрессии медиа (из настроек) =====
   // Значения по умолчанию — ТЗ: 1500px / 85%, видео — low (level 3).
@@ -479,6 +516,8 @@ class ReportState extends ChangeNotifier {
     _currentReportPath = null;
     // Сбрасываем ID отчёта на сервере — это новый отчёт
     _serverReportId = null;
+    _serverReportVersion = null;
+    _baseReportSnapshot = null;
     _serverPublicId = null;
     _ks3Folder = null;
     notifyListeners();
@@ -819,10 +858,15 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateAnswerText(int questionIndex, int answerIndex, String text) {
+  void updateAnswerText(
+    int questionIndex,
+    int answerIndex,
+    String text, {
+    String? language,
+  }) {
     if (_currentReport == null) return;
     final qid = questionIndex.toString();
-    final lang = _currentReport!.currentLanguage;
+    final lang = language ?? _currentReport!.currentLanguage;
 
     if (_currentReport!.translations.containsKey(qid) &&
         _currentReport!.translations[qid]!.containsKey(lang) &&
@@ -831,14 +875,19 @@ class ReportState extends ChangeNotifier {
       _currentReport!.translations[qid]![lang]![answerIndex].isEmpty =
           text.isEmpty;
 
-      for (final otherLang in _currentReport!.availableLanguages) {
-        if (otherLang != lang &&
-            _currentReport!.translations[qid]!.containsKey(otherLang) &&
-            answerIndex <
-                _currentReport!.translations[qid]![otherLang]!.length) {
-          _currentReport!.translations[qid]![otherLang]![answerIndex].text = '';
-          _currentReport!.translations[qid]![otherLang]![answerIndex].isEmpty =
-              true;
+      // При обычном редактировании текущего языка очищаем переводы в других
+      // языках. При разрешении конфликта для конкретного языка — не трогаем.
+      if (language == null) {
+        for (final otherLang in _currentReport!.availableLanguages) {
+          if (otherLang != lang &&
+              _currentReport!.translations[qid]!.containsKey(otherLang) &&
+              answerIndex <
+                  _currentReport!.translations[qid]![otherLang]!.length) {
+            _currentReport!.translations[qid]![otherLang]![answerIndex].text =
+                '';
+            _currentReport!.translations[qid]![otherLang]![answerIndex]
+                .isEmpty = true;
+          }
         }
       }
     }
@@ -1722,8 +1771,13 @@ class ReportState extends ChangeNotifier {
   /// публичной ссылки, без авторизации.
   String? _shareToken;
 
+  /// Callback для отображения диалога конфликта версий (409).
+  /// Устанавливается из UI (например, FormFillScreen).
+  Future<ConflictAction> Function(ConflictDetails)? onVersionConflict;
+
   /// Геттеры для внешнего доступа
   int? get serverReportId => _serverReportId;
+  int? get serverReportVersion => _serverReportVersion;
   String? get serverPublicId => _serverPublicId;
   String? get ks3Folder => _ks3Folder;
   String? get shareToken => _shareToken;
@@ -1748,7 +1802,59 @@ class ReportState extends ChangeNotifier {
           title: title,
           reportData: jsonData,
           reportId: _serverReportId,
+          baseVersion: _serverReportVersion,
+          baseSnapshot: _baseReportSnapshot,
         );
+      }
+
+      // Обработка конфликта версий (409).
+      if (!result.success &&
+          result.data?['code'] == 'VERSION_CONFLICT' &&
+          onVersionConflict != null) {
+        final currentVersion = result.data!['currentVersion'] as int? ?? 1;
+        final conflicts = _parseAnswerConflicts(result.data!['conflicts']);
+        final details = ConflictDetails(
+          currentVersion: currentVersion,
+          answerConflicts: conflicts,
+        );
+        final action = await onVersionConflict!(details);
+        if (action == ConflictAction.reload) {
+          // Перезагружаем отчёт с сервера — локальные изменения будут потеряны.
+          if (_shareToken != null && _shareToken!.isNotEmpty) {
+            return await loadSharedReport(_shareToken!);
+          }
+          if (_serverReportId != null) {
+            return await _loadReportFromServer(_serverReportId!);
+          }
+          return false;
+        }
+        if (action == ConflictAction.overwrite) {
+          // Пользователь решил сохранить поверх: повторяем без baseSnapshot/baseVersion.
+          if (_shareToken != null && _shareToken!.isNotEmpty) {
+            result = await _saveSharedReportToServer(title, jsonData, withLock: false);
+          } else {
+            result = await ApiService.saveReport(
+              title: title,
+              reportData: jsonData,
+              reportId: _serverReportId,
+            );
+          }
+        }
+        if (action == ConflictAction.resolved) {
+          // UI уже разрешил конфликты ответов внутри провайдера.
+          // Повторяем сохранение с актуальным baseSnapshot.
+          if (_shareToken != null && _shareToken!.isNotEmpty) {
+            result = await _saveSharedReportToServer(title, _currentReport!.toJson());
+          } else {
+            result = await ApiService.saveReport(
+              title: title,
+              reportData: _currentReport!.toJson(),
+              reportId: _serverReportId,
+              baseVersion: _serverReportVersion,
+              baseSnapshot: _baseReportSnapshot,
+            );
+          }
+        }
       }
 
       if (result.success && result.data?['report'] != null) {
@@ -1765,9 +1871,14 @@ class ReportState extends ChangeNotifier {
         if (folder is String && folder.isNotEmpty) {
           _ks3Folder = folder;
         }
+        // Запоминаем версию отчёта (optimistic locking)
+        final version = result.data!['report']['version'];
+        _serverReportVersion = version is int ? version : int.tryParse(version.toString());
+        // Обновляем baseSnapshot — теперь серверная версия является новой базой.
+        _baseReportSnapshot = _currentReport?.toJson();
         if (kDebugMode) {
           debugPrint(
-            'saveReport (web): saved as ID $_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder',
+            'saveReport (web): saved as ID=$_serverReportId, pid=$_serverPublicId, folder=$_ks3Folder, version=$_serverReportVersion',
           );
         }
 
@@ -1797,16 +1908,125 @@ class ReportState extends ChangeNotifier {
   }
 
   /// Сохранить отчёт через share-ссылку.
+  /// [withLock] — если false, не передаёт baseVersion (для overwrite поверх конфликта).
   Future<ApiResult> _saveSharedReportToServer(
     String title,
-    Map<String, dynamic> jsonData,
-  ) async {
+    Map<String, dynamic> jsonData, {
+    bool withLock = true,
+  }) async {
     final anonymousId = await AnonymousIdService.getId();
     return ApiService.saveSharedReport(
       token: _shareToken!,
       reportData: jsonData,
       anonymousId: anonymousId,
+      baseVersion: withLock ? _serverReportVersion : null,
     );
+  }
+
+  /// Разобрать список конфликтов ответов из тела 409-ответа сервера.
+  List<AnswerConflict> _parseAnswerConflicts(dynamic raw) {
+    final result = <AnswerConflict>[];
+    if (raw is! List) return result;
+    for (final item in raw) {
+      if (item is Map<String, dynamic>) {
+        result.add(
+          AnswerConflict(
+            questionIndex: item['questionIndex'] as int? ?? 0,
+            answerIndex: item['answerIndex'] as int? ?? 0,
+            language: item['language'] as String? ?? 'RU',
+            serverText: item['serverText'] as String? ?? '',
+            clientText: item['clientText'] as String? ?? '',
+          ),
+        );
+      }
+    }
+    return result;
+  }
+
+  /// Обновить текст в baseSnapshot для разрешения конфликта ответа.
+  /// Нужно, чтобы при повторном сохранении сервер не считал этот ответ
+  /// изменённым другим пользователем.
+  void _updateBaseAnswerText(
+    int questionIndex,
+    int answerIndex,
+    String language,
+    String text,
+  ) {
+    if (_baseReportSnapshot == null) return;
+    final qid = questionIndex.toString();
+    final translations = _baseReportSnapshot!['translations']
+        as Map<String, dynamic>?;
+    final langMap = translations?[qid] as Map<String, dynamic>?;
+    final answers = langMap?[language] as List<dynamic>?;
+    if (answers != null && answerIndex < answers.length) {
+      final answer = answers[answerIndex] as Map<String, dynamic>;
+      answer['text'] = text;
+      answer['_empty'] = text.isEmpty;
+    }
+  }
+
+  /// Принять серверный ответ: заменить локальный текст на серверный.
+  void useServerAnswerForConflict(
+    int questionIndex,
+    int answerIndex,
+    String language,
+    String serverText,
+  ) {
+    updateAnswerText(
+      questionIndex,
+      answerIndex,
+      serverText,
+      language: language,
+    );
+    _updateBaseAnswerText(questionIndex, answerIndex, language, serverText);
+    notifyListeners();
+  }
+
+  /// Оставить свой ответ: baseSnapshot приводим к серверному,
+  /// чтобы перезаписать серверный вариант своим (возможно отредактированным).
+  void keepOwnAnswerForConflict(
+    int questionIndex,
+    int answerIndex,
+    String language,
+    String serverText,
+    String ownText,
+  ) {
+    _updateBaseAnswerText(questionIndex, answerIndex, language, serverText);
+    updateAnswerText(
+      questionIndex,
+      answerIndex,
+      ownText,
+      language: language,
+    );
+    notifyListeners();
+  }
+
+  /// Сохранить свой ответ как второй ответ на тот же вопрос.
+  /// Серверный вариант остаётся на месте, пользовательский добавляется в конец.
+  void saveAsSecondAnswerForConflict(
+    int questionIndex,
+    int answerIndex,
+    String language,
+    String serverText,
+    String ownText,
+  ) {
+    updateAnswerText(
+      questionIndex,
+      answerIndex,
+      serverText,
+      language: language,
+    );
+    _updateBaseAnswerText(questionIndex, answerIndex, language, serverText);
+    addAnswer(questionIndex);
+    final newIndex =
+        (_currentReport?.getAnswersForQuestion(
+                  questionIndex,
+                  _currentReport!.currentLanguage,
+                ).length ??
+                1) -
+            1;
+    updateAnswerText(questionIndex, newIndex, ownText, language: language);
+    notifyListeners();
   }
 
   Future<bool> loadReport(String folderName) async {
@@ -1890,6 +2110,8 @@ class ReportState extends ChangeNotifier {
       );
       _currentReportPath = reportId.toString();
       _serverReportId = reportId; // запоминаем для будущих сохранений
+      // Сохраняем снимок отчёта при открытии — база для PATCH/merge.
+      _baseReportSnapshot = reportData;
 
       // Запоминаем публичный идентификатор (для URL просмотра)
       final publicId = result.data!['report']['publicId'];
@@ -1906,6 +2128,10 @@ class ReportState extends ChangeNotifier {
       } else {
         _ks3Folder = null;
       }
+
+      // Запоминаем версию отчёта (optimistic locking)
+      final version = result.data!['report']['version'];
+      _serverReportVersion = version is int ? version : int.tryParse(version.toString());
 
       // Заполняем webUrl для медиа — presigned URL с KS3.
       // Без этого на web фото/видео не отображаются (webBytes пустой,
@@ -1965,6 +2191,9 @@ class ReportState extends ChangeNotifier {
           : int.tryParse(result.data!['report']['id'].toString());
       _serverPublicId = result.data!['report']['publicId']?.toString();
       _ks3Folder = result.data!['report']['ks3Folder']?.toString();
+      final version = result.data!['report']['version'];
+      _serverReportVersion = version is int ? version : int.tryParse(version.toString());
+      _baseReportSnapshot = reportData;
 
       await _populateMediaWebUrlsForShare();
 

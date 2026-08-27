@@ -1146,4 +1146,40 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get confirmFailed => 'Не удалось подтвердить загрузку';
+
+  @override
+  String get versionConflictTitle => 'Отчёт изменён';
+
+  @override
+  String versionConflictMessage(String version) {
+    return 'Отчёт был изменён на другом устройстве (версия $version). Перезагрузить для получения актуальной версии или сохранить поверх?';
+  }
+
+  @override
+  String get versionConflictReload => 'Перезагрузить';
+
+  @override
+  String get versionConflictOverwrite => 'Сохранить поверх';
+
+  @override
+  String get answerConflictTitle => 'Конфликт ответа';
+
+  @override
+  String get answerConflictMessage =>
+      'Другой пользователь изменил этот же ответ. Выберите, как поступить: принять его версию, заменить своей или сохранить оба варианта.';
+
+  @override
+  String get answerConflictServerAnswer => 'Ответ на сервере';
+
+  @override
+  String get answerConflictYourAnswer => 'Ваш ответ';
+
+  @override
+  String get answerConflictUseServer => 'Использовать ответ с сервера';
+
+  @override
+  String get answerConflictReplace => 'Заменить своим';
+
+  @override
+  String get answerConflictSaveAsSecond => 'Сохранить как второй ответ';
 }

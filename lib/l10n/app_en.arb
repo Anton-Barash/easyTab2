@@ -538,5 +538,21 @@
   "uploadFailedGeneric": "Upload error",
   "uploadTimeout": "Upload timeout",
   "presignFailed": "Failed to create upload link",
-  "confirmFailed": "Failed to confirm upload"
+  "confirmFailed": "Failed to confirm upload",
+  "versionConflictTitle": "Report changed",
+  "versionConflictMessage": "The report was modified on another device (version {version}). Reload to see the latest version, or overwrite with your changes.",
+  "@versionConflictMessage": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "versionConflictReload": "Reload",
+  "versionConflictOverwrite": "Overwrite",
+  "answerConflictTitle": "Answer conflict",
+  "answerConflictMessage": "Another user has changed this same answer. Choose what to do: accept their version, replace it with yours, or keep both answers.",
+  "answerConflictServerAnswer": "Answer on server",
+  "answerConflictYourAnswer": "Your answer",
+  "answerConflictUseServer": "Use server answer",
+  "answerConflictReplace": "Replace with mine",
+  "answerConflictSaveAsSecond": "Save as second answer"
 }

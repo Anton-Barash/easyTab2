@@ -1145,4 +1145,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmFailed => 'Failed to confirm upload';
+
+  @override
+  String get versionConflictTitle => 'Report changed';
+
+  @override
+  String versionConflictMessage(String version) {
+    return 'The report was modified on another device (version $version). Reload to see the latest version, or overwrite with your changes.';
+  }
+
+  @override
+  String get versionConflictReload => 'Reload';
+
+  @override
+  String get versionConflictOverwrite => 'Overwrite';
+
+  @override
+  String get answerConflictTitle => 'Answer conflict';
+
+  @override
+  String get answerConflictMessage =>
+      'Another user has changed this same answer. Choose what to do: accept their version, replace it with yours, or keep both answers.';
+
+  @override
+  String get answerConflictServerAnswer => 'Answer on server';
+
+  @override
+  String get answerConflictYourAnswer => 'Your answer';
+
+  @override
+  String get answerConflictUseServer => 'Use server answer';
+
+  @override
+  String get answerConflictReplace => 'Replace with mine';
+
+  @override
+  String get answerConflictSaveAsSecond => 'Save as second answer';
 }

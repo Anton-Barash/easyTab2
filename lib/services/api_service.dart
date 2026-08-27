@@ -471,17 +471,46 @@ class ApiService {
   /// [title] — название отчёта.
   /// [reportData] — JSON-объект отчёта (Map).
   /// [reportId] — ID существующего отчёта (для обновления), null для нового.
+  /// [baseVersion] — версия отчёта, на основе которой выполняется обновление.
+  /// [baseSnapshot] — снимок отчёта при открытии, для PATCH/merge.
+  ///
+  /// Для существующего отчёта с [baseSnapshot] используется PATCH /reports/:id
+  /// (merge изменённых полей). Если PATCH недоступен (404) — fallback на POST.
   ///
   /// Возвращает ApiResult с data['report']['id'] — ID отчёта на сервере.
   static Future<ApiResult> saveReport({
     required String title,
     required Map<String, dynamic> reportData,
     int? reportId,
+    int? baseVersion,
+    Map<String, dynamic>? baseSnapshot,
   }) async {
+    // PATCH: частичное обновление с merge по дельте.
+    if (reportId != null && baseSnapshot != null && baseVersion != null) {
+      final patchResult = await _handleApiCall(
+        http.patch(
+          _uri('/reports/$reportId'),
+          headers: _headers,
+          body: jsonEncode({
+            'baseVersion': baseVersion,
+            'baseSnapshot': baseSnapshot,
+            'reportData': reportData,
+          }),
+        ),
+        timeout: const Duration(seconds: 30),
+      );
+      // Если PATCH поддерживается — возвращаем результат (успех или 409).
+      if (patchResult.success || patchResult.statusCode != 404) {
+        return patchResult;
+      }
+      // 404 — старый сервер без PATCH, fallback на POST ниже.
+    }
+
     final body = jsonEncode({
       'title': title,
       'reportData': reportData,
       'reportId': ?reportId, // ignore: use_null_aware_elements
+      'baseVersion': ?baseVersion, // ignore: use_null_aware_elements
     });
 
     return _handleApiCall(
@@ -569,6 +598,7 @@ class ApiService {
     required String token,
     required Map<String, dynamic> reportData,
     String? anonymousId,
+    int? baseVersion,
   }) async {
     return _handleApiCall(
       http.post(
@@ -577,6 +607,7 @@ class ApiService {
         body: jsonEncode({
           'reportData': reportData,
           'anonymousId': anonymousId,
+          'baseVersion': ?baseVersion, // ignore: use_null_aware_elements
         }),
       ),
     );

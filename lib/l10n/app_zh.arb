@@ -538,5 +538,21 @@
   "uploadFailedGeneric": "上传错误",
   "uploadTimeout": "上传超时",
   "presignFailed": "无法创建上传链接",
-  "confirmFailed": "无法确认上传"
+  "confirmFailed": "无法确认上传",
+  "versionConflictTitle": "报告已更改",
+  "versionConflictMessage": "报告已在其他设备上更改（版本 {version}）。重新加载以查看最新版本，或用您的更改覆盖。",
+  "@versionConflictMessage": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "versionConflictReload": "重新加载",
+  "versionConflictOverwrite": "覆盖保存",
+  "answerConflictTitle": "答案冲突",
+  "answerConflictMessage": "另一位用户修改了同一个答案。请选择如何处理：接受对方的版本、替换为您的版本，或保留两个答案。",
+  "answerConflictServerAnswer": "服务器上的答案",
+  "answerConflictYourAnswer": "您的答案",
+  "answerConflictUseServer": "使用服务器答案",
+  "answerConflictReplace": "替换为我的",
+  "answerConflictSaveAsSecond": "保存为第二个答案"
 }

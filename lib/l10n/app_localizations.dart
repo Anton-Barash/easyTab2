@@ -2181,6 +2181,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to confirm upload'**
   String get confirmFailed;
+
+  /// No description provided for @versionConflictTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report changed'**
+  String get versionConflictTitle;
+
+  /// No description provided for @versionConflictMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The report was modified on another device (version {version}). Reload to see the latest version, or overwrite with your changes.'**
+  String versionConflictMessage(String version);
+
+  /// No description provided for @versionConflictReload.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get versionConflictReload;
+
+  /// No description provided for @versionConflictOverwrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Overwrite'**
+  String get versionConflictOverwrite;
+
+  /// No description provided for @answerConflictTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer conflict'**
+  String get answerConflictTitle;
+
+  /// No description provided for @answerConflictMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Another user has changed this same answer. Choose what to do: accept their version, replace it with yours, or keep both answers.'**
+  String get answerConflictMessage;
+
+  /// No description provided for @answerConflictServerAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer on server'**
+  String get answerConflictServerAnswer;
+
+  /// No description provided for @answerConflictYourAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Your answer'**
+  String get answerConflictYourAnswer;
+
+  /// No description provided for @answerConflictUseServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Use server answer'**
+  String get answerConflictUseServer;
+
+  /// No description provided for @answerConflictReplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace with mine'**
+  String get answerConflictReplace;
+
+  /// No description provided for @answerConflictSaveAsSecond.
+  ///
+  /// In en, this message translates to:
+  /// **'Save as second answer'**
+  String get answerConflictSaveAsSecond;
 }
 
 class _AppLocalizationsDelegate
