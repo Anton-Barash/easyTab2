@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/report_summary.dart';
 import '../services/api_service.dart';
+import '../utils/diff_utils.dart';
 
 /// ReportSyncManager: minimal, iterative implementation.
 /// Provides methods to list combined reports, download a report from server
@@ -210,8 +211,8 @@ class ReportSyncManager {
   }
 
   /// Sync local report to server: compute diff and send PATCH via ApiService.saveReport.
-  /// This is an initial implementation — handles simple cases and new media upload
-  /// using presign/confirm. Returns true on success.
+  /// Uploads new local media (multipart native flow) and then sends updated report JSON.
+  /// Returns true on success, false on failure or conflict.
   Future<bool> syncReport({required String localFolderName, int? serverReportId, int? baseVersion}) async {
     // Read local report
     try {
@@ -221,31 +222,109 @@ class ReportSyncManager {
       if (!await jf.exists()) return false;
       final localJson = jsonDecode(await jf.readAsString()) as Map<String, dynamic>;
 
-      // For now: simple full-save if serverReportId is null -> create new report
-      if (serverReportId == null) {
-        final title = localJson['reportName']?.toString() ?? 'Report ${DateTime.now().toIso8601String()}';
-        final res = await ApiService.saveReport(title: title, reportData: localJson);
-        if (res.success) {
-          return true;
+      // 1) Collect local media files that lack serverFileId
+      final filesToUpload = <Map<String, String>>[]; // {filePath, relativePath}
+      final markers = localJson['markers'] as Map<String, dynamic>?;
+      if (markers != null) {
+        for (final qEntry in markers.entries) {
+          final qList = qEntry.value as List<dynamic>?;
+          if (qList == null) continue;
+          for (var i = 0; i < qList.length; i++) {
+            final marker = qList[i] as Map<String, dynamic>;
+            final mediaList = (marker['media'] as List<dynamic>?) ?? [];
+            for (var m in mediaList) {
+              final mm = m as Map<String, dynamic>;
+              final localPath = mm['localPath'] as String?;
+              final serverFileId = mm['serverFileId'] as String?;
+              if (localPath != null && (serverFileId == null || serverFileId.isEmpty)) {
+                final abs = '$folderPath${Platform.pathSeparator}$localPath';
+                filesToUpload.add({'filePath': abs, 'relativePath': localPath});
+              }
+            }
+          }
         }
-        return false;
       }
 
-      // If serverReportId exists and baseVersion provided, attempt PATCH via saveReport
-      final title = localJson['reportName']?.toString() ?? 'Report';
+      // 2) Upload files via ApiService.uploadFiles (native multipart flow)
+      if (filesToUpload.isNotEmpty) {
+        final uploadRes = await ApiService.uploadFiles(files: filesToUpload, reportId: serverReportId);
+        if (!uploadRes.success) {
+          if (kDebugMode) print('uploadFiles failed: ${uploadRes.error}');
+          // continue? return false to indicate failure
+          return false;
+        }
+
+        final results = uploadRes.data?['results'] as List<dynamic>?;
+        if (results != null) {
+          for (final r in results) {
+            try {
+              final rel = r['relativePath'] as String?;
+              final fileObj = r['file'];
+              String? fileId;
+              if (fileObj is Map) {
+                if (fileObj['id'] != null) fileId = fileObj['id'].toString();
+                else if (fileObj['file'] is Map && fileObj['file']['id'] != null) fileId = fileObj['file']['id'].toString();
+                else if (fileObj['fileId'] != null) fileId = fileObj['fileId'].toString();
+              }
+              if (rel != null && fileId != null) {
+                // find media entries with this relativePath and set serverFileId
+                for (final qEntry in markers.entries) {
+                  final qList = qEntry.value as List<dynamic>?;
+                  if (qList == null) continue;
+                  for (var i = 0; i < qList.length; i++) {
+                    final marker = qList[i] as Map<String, dynamic>;
+                    final mediaList = (marker['media'] as List<dynamic>?) ?? [];
+                    for (var miIdx = 0; miIdx < mediaList.length; miIdx++) {
+                      final mm = mediaList[miIdx] as Map<String, dynamic>;
+                      final lp = mm['localPath'] as String?;
+                      if (lp != null && lp == rel) {
+                        mm['serverFileId'] = fileId;
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              if (kDebugMode) print('processing upload result entry failed: $e');
+            }
+          }
+        }
+
+        // persist updated report.json (with serverFileId fields)
+        await jf.writeAsString(jsonEncode(localJson));
+      }
+
+      // 3) Send updated report JSON to server (create or update)
+      final title = localJson['reportName']?.toString() ?? 'Report ${DateTime.now().toIso8601String()}';
       final res = await ApiService.saveReport(
         title: title,
         reportData: localJson,
         reportId: serverReportId,
         baseVersion: baseVersion,
-        baseSnapshot: baseVersion != null ? localJson : null,
+        baseSnapshot: null,
       );
 
-      if (res.success) return true;
+      if (res.success) {
+        // Success: optionally update local metadata (e.g., write serverVersion if returned)
+        try {
+          final newVersion = res.data?['newVersion'] ?? res.data?['version'] ?? res.data?['report']?['version'];
+          if (newVersion != null) {
+            // store as meta file
+            final meta = {'serverVersion': newVersion};
+            final mf = File('$folderPath${Platform.pathSeparator}sync_meta.json');
+            await mf.writeAsString(jsonEncode(meta));
+          }
+        } catch (_) {}
+        return true;
+      }
+
       if (res.data != null && res.data!['code'] == 'VERSION_CONFLICT') {
-        // Caller should resolve conflict
+        // Conflict: caller should present resolution UI
+        if (kDebugMode) print('sync conflict: ${res.data}');
         return false;
       }
+
+      if (kDebugMode) print('saveReport failed: ${res.error}');
       return false;
     } catch (e) {
       if (kDebugMode) print('syncReport error: $e');
