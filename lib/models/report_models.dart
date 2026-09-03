@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:uuid/uuid.dart';
 
 /// Attachment — произвольный файл (не фото/видео), прикреплённый к вопросу.
 /// Не сжимается, лимит — 55 MB. Хранится отдельно от AnswerMarkers.media,
@@ -114,6 +115,7 @@ class MediaItem {
 
   /// Presigned URL превью видео (работает около часа).
   /// Заполняется при загрузке отчёта с сервера через getReportFileUrls.
+  /// Используется для отображения превью в UI.
   String? thumbnailUrl;
 
   /// P3-45: Флаг загрузки на сервер — защита от race condition.
@@ -255,18 +257,52 @@ class AnswerMarkers {
 }
 
 class TranslationAnswer {
+  String id;
   String text;
   bool isEmpty;
+  String? authorId;
+  String? authorDisplayName;
+  bool authorIsAnonymous;
+  int createdAt;
+  int? updatedAt;
+  String? fingerprint;
 
-  TranslationAnswer({this.text = '', this.isEmpty = true});
+  TranslationAnswer({
+    String? id,
+    this.text = '',
+    this.isEmpty = true,
+    this.authorId,
+    this.authorDisplayName,
+    this.authorIsAnonymous = false,
+    int? createdAt,
+    this.updatedAt,
+    this.fingerprint,
+  })  : id = id ?? Uuid().v4(),
+       createdAt = createdAt ?? DateTime.now().millisecondsSinceEpoch;
 
-  Map<String, dynamic> toJson() => {'text': text, '_empty': isEmpty};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'text': text,
+    '_empty': isEmpty,
+    'authorId': authorId,
+    'authorDisplayName': authorDisplayName,
+    'authorIsAnonymous': authorIsAnonymous,
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
+    'fingerprint': fingerprint,
+  };
 
-  factory TranslationAnswer.fromJson(Map<String, dynamic> json) =>
-      TranslationAnswer(
-        text: json['text'] ?? '',
-        isEmpty: json['_empty'] ?? true,
-      );
+  factory TranslationAnswer.fromJson(Map<String, dynamic> json) => TranslationAnswer(
+    id: json['id'] as String?,
+    text: json['text'] ?? '',
+    isEmpty: json['_empty'] ?? false,
+    authorId: json['authorId'] as String?,
+    authorDisplayName: json['authorDisplayName'] as String?,
+    authorIsAnonymous: json['authorIsAnonymous'] as bool? ?? false,
+    createdAt: json['createdAt'] as int?,
+    updatedAt: json['updatedAt'] as int?,
+    fingerprint: json['fingerprint'] as String?,
+  );
 }
 
 class QuestionLocalization {
