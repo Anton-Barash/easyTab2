@@ -598,6 +598,29 @@ class Report {
       }
     }
 
+    // Migration: ensure every answer has id/fingerprint/author metadata.
+    // This runs when loading older reports that may not have these fields.
+    final uuid = Uuid();
+    translations.forEach((qid, langMap) {
+      langMap.forEach((lang, answers) {
+        for (var idx = 0; idx < answers.length; idx++) {
+          final a = answers[idx];
+          // id is generated in TranslationAnswer ctor, but double-check
+          if (a.id.isEmpty) a.id = uuid.v4();
+          // fingerprint if missing: base64Url of qid|lang|index|text
+          if (a.fingerprint == null || a.fingerprint!.isEmpty) {
+            final bytes = utf8.encode('$qid|$lang|$idx|${a.text}');
+            a.fingerprint = base64Url.encode(bytes);
+          }
+          // authorId if missing -> anon:<uuid>
+          if (a.authorId == null || a.authorId!.isEmpty) {
+            a.authorId = 'anon:${uuid.v4()}';
+            a.authorIsAnonymous = true;
+          }
+        }
+      });
+    });
+
     return Report(
       reportName: json['reportName'] ?? '',
       availableLanguages: availableLanguages,
