@@ -12,6 +12,10 @@ import '../providers/report_provider.dart';
 import '../providers/auth_provider.dart';
 import '../l10n/app_localizations.dart';
 
+import '../models/report_summary.dart';
+import '../providers/report_sync_manager.dart';
+import '../widgets/sync_buttons.dart';
+
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
@@ -20,12 +24,14 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  Future<List<dynamic>>? _reportsFuture;
+  Future<List<ReportSummary>>? _reportsFuture;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSyncingAll = false;
   final Set<String> _syncedReports = {};
   final Set<String> _syncingReports = {};
+
+  final ReportSyncManager _syncManager = ReportSyncManager();
 
   @override
   void initState() {
@@ -40,17 +46,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _loadReports() {
-    _reportsFuture = Provider.of<ReportState>(
-      context,
-      listen: false,
-    ).loadReportList();
+    _reportsFuture = _syncManager.loadCombinedList();
   }
 
   Future<void> _syncAllReports() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       final loc = AppLocalizations.of(context)!;
-      // P2-36: loginRequired ("Сначала войдите") вместо loginError ("Ошибка входа").
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
@@ -63,18 +65,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
     setState(() {
       _isSyncingAll = true;
       for (var report in reports) {
-        _syncingReports.add(report.folderName);
+        _syncingReports.add(report.id);
       }
     });
 
-    // TODO: реализовать реальную загрузку отчётов на сервер через API.
-    // Пока используется заглушка с задержкой для демонстрации UI.
     for (var report in reports) {
-      await Future.delayed(const Duration(milliseconds: 500));
+      // try sync if local exists, otherwise try download
+      if (!mounted) return;
+      if (report.localExists) {
+        final ok = await _syncManager.syncReport(localFolderName: report.id, serverReportId: int.tryParse(report.id), baseVersion: report.serverVersion);
+        if (ok) _syncedReports.add(report.id);
+      } else if (report.onServer) {
+        final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
+        if (folder != null) _syncedReports.add(folder);
+      }
       if (!mounted) return;
       setState(() {
-        _syncingReports.remove(report.folderName);
-        _syncedReports.add(report.folderName);
+        _syncingReports.remove(report.id);
       });
     }
 
@@ -89,12 +96,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     ).showSnackBar(SnackBar(content: Text(loc.syncCompleteMessage)));
   }
 
-  Future<void> _syncReport(dynamic report) async {
+  Future<void> _syncReport(ReportSummary report) async {
     if (!mounted) return;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       final loc = AppLocalizations.of(context)!;
-      // P2-36: loginRequired вместо loginError.
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
@@ -102,24 +108,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
 
     setState(() {
-      _syncingReports.add(report.folderName);
+      _syncingReports.add(report.id);
     });
 
-    // TODO: реализовать реальную загрузку отчёта на сервер через API.
-    // Пока используется заглушка с задержкой для демонстрации UI.
-    await Future.delayed(const Duration(seconds: 1));
+    bool ok = false;
+    if (report.localExists) {
+      ok = await _syncManager.syncReport(localFolderName: report.id, serverReportId: int.tryParse(report.id), baseVersion: report.serverVersion);
+    } else if (report.onServer) {
+      final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
+      ok = folder != null;
+    }
 
     if (!mounted) return;
     setState(() {
-      _syncingReports.remove(report.folderName);
-      _syncedReports.add(report.folderName);
+      _syncingReports.remove(report.id);
+      if (ok) _syncedReports.add(report.id);
+      _loadReports();
     });
 
     if (!mounted) return;
     final loc = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(loc.syncCompleteMessage)));
+    ).showSnackBar(SnackBar(content: Text(ok ? loc.syncCompleteMessage : loc.syncError)));
   }
 
   @override
@@ -188,7 +199,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
               ),
               Expanded(
-                child: FutureBuilder<List<dynamic>>(
+                child: FutureBuilder<List<ReportSummary>>(
                   future: _reportsFuture,
                   builder: (ctx, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -202,7 +213,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     final reports = snapshot.data ?? [];
                     final filteredReports = reports.where((report) {
                       if (_searchQuery.isEmpty) return true;
-                      return report.name.toLowerCase().contains(_searchQuery);
+                      return report.title.toLowerCase().contains(_searchQuery);
                     }).toList();
                     if (filteredReports.isEmpty) {
                       return Center(
@@ -337,15 +348,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
-  Widget _buildReportCard(BuildContext context, dynamic report) {
+  Widget _buildReportCard(BuildContext context, ReportSummary report) {
     if (!mounted) return const SizedBox.shrink();
     final reportState = Provider.of<ReportState>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final loc = AppLocalizations.of(context)!;
-    final hasThumbnail =
-        report.thumbnailPath != null && report.thumbnailPath!.isNotEmpty;
-    final isSynced = _syncedReports.contains(report.folderName);
-    final isSyncing = _syncingReports.contains(report.folderName);
+
+    final hasThumbnail = false; // thumbnail not exposed in ReportSummary yet
+    final isSynced = _syncedReports.contains(report.id) || report.status == ReportSyncStatus.synced;
+    final isSyncing = _syncingReports.contains(report.id);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -358,12 +369,36 @@ class _ReportsScreenState extends State<ReportsScreen> {
       child: InkWell(
         onTap: () async {
           final nav = Navigator.of(context);
-          await reportState.loadReport(report.folderName);
-          if (!mounted) return;
-          final reportId = reportState.serverReportId;
-          nav.pushNamed(
-            reportId != null ? '/fill?reportId=$reportId' : '/fill',
-          );
+          if (report.localExists) {
+            await reportState.loadReport(report.id);
+            if (!mounted) return;
+            final reportId = reportState.serverReportId;
+            nav.pushNamed(
+              reportId != null ? '/fill?reportId=$reportId' : '/fill',
+            );
+          } else if (report.onServer) {
+            // Offer to download
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Text(loc.downloadReport),
+                content: Text(loc.downloadReportPrompt),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(loc.cancel)),
+                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(loc.download)),
+                ],
+              ),
+            );
+            if (confirmed == true) {
+              setState(() => _syncingReports.add(report.id));
+              final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
+              setState(() {
+                _syncingReports.remove(report.id);
+                if (folder != null) _syncedReports.add(folder);
+                _loadReports();
+              });
+            }
+          }
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -385,7 +420,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(6),
                             child: fileImageWidget(
-                              '${report.folderName}/${report.thumbnailPath}',
+                              '${report.id}/${"thumbnail.jpg"}',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
                                 return const Center(
@@ -412,7 +447,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            report.name,
+                            report.title,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -424,10 +459,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         if (authProvider.isLoggedIn) ...[
                           const SizedBox(width: 8),
-                          // Состояния облачка:
-                          //   синее облако (cloud_done) — файл залит, синхронизация не требуется
-                          //   серое облако (cloud_upload) — файл ещё не залит
-                          //   стрелки по кругу рядом с облаком — нужна синхронизация (тап = загрузить)
                           if (isSyncing)
                             const SizedBox(
                               width: 18,
@@ -440,26 +471,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           else ...[
                             Icon(
                               isSynced ? Icons.cloud_done : Icons.cloud_upload,
-                              color: isSynced
-                                  ? AppColors.primary
-                                  : AppColors.greyMuted,
+                              color: isSynced ? AppColors.primary : AppColors.greyMuted,
                               size: 20,
                             ),
-                            // Стрелки по кругу показываем, когда нужна синхронизация.
-                            if (!isSynced) ...[
-                              const SizedBox(width: 4),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.sync,
-                                  color: AppColors.textSecondary,
-                                  size: 18,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                tooltip: loc.syncToCloud,
-                                onPressed: () => _syncReport(report),
-                              ),
-                            ],
+                            const SizedBox(width: 8),
+                            SyncButtons(
+                              showDownload: report.onServer && !report.localExists,
+                              showSync: report.localExists && report.onServer,
+                              inProgress: isSyncing,
+                              onDownload: report.onServer && !report.localExists
+                                  ? () async {
+                                      setState(() => _syncingReports.add(report.id));
+                                      final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
+                                      setState(() {
+                                        _syncingReports.remove(report.id);
+                                        if (folder != null) _syncedReports.add(folder);
+                                        _loadReports();
+                                      });
+                                    }
+                                  : null,
+                              onSync: report.localExists && report.onServer
+                                  ? () => _syncReport(report)
+                                  : null,
+                            ),
                           ],
                         ],
                       ],
@@ -472,14 +506,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    report.dateTime.toLocal().toString().substring(0, 16),
+                    report.modified.toLocal().toString().substring(0, 16),
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (kIsWeb && report.publicId != null)
+                  if (kIsWeb && report.onServer) ...[
                     IconButton(
                       icon: const Icon(
                         Icons.open_in_new,
@@ -490,13 +524,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       tooltip: 'Открыть HTML',
                       onPressed: () {
                         final origin = Uri.base.origin;
-                        final viewUrl =
-                            '$origin/#/view-report?pid=${report.publicId}';
+                        final viewUrl = '$origin/#/view-report?pid=${report.id}';
                         openHtmlInBrowserUrl(viewUrl);
                       },
                     ),
-                  if (kIsWeb && report.publicId != null)
                     const SizedBox(width: 8),
+                  ],
                   IconButton(
                     icon: const Icon(Icons.delete, color: AppColors.errorLight),
                     padding: EdgeInsets.zero,
@@ -530,16 +563,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                       children: [
                                         Expanded(
                                           child: TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(ctx, false),
+                                            onPressed: () => Navigator.pop(ctx, false),
                                             child: Text(loc.cancel),
                                           ),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(ctx, true),
+                                            onPressed: () => Navigator.pop(ctx, true),
                                             child: Text(loc.delete),
                                           ),
                                         ),
@@ -556,14 +587,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
                                         TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx, false),
+                                          onPressed: () => Navigator.pop(ctx, false),
                                           child: Text(loc.cancel),
                                         ),
                                         const SizedBox(width: 12),
                                         TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx, true),
+                                          onPressed: () => Navigator.pop(ctx, true),
                                           child: Text(loc.delete),
                                         ),
                                       ],
@@ -574,7 +603,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       );
                       if (confirm == true) {
                         final deleted = await reportState.deleteReport(
-                          report.folderName,
+                          report.id,
                         );
                         setState(() {
                           _loadReports();
