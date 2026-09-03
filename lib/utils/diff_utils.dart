@@ -1,45 +1,110 @@
-// Minimal diff utilities used by sync manager.
+import 'package:collection/collection.dart';
+import '../models/report_models.dart';
 
-Map<String, dynamic> computeDiff(Map<String, dynamic> local, Map<String, dynamic>? base) {
-  // Very small naive implementation: if base is null -> return full reportData
-  if (base == null) {
-    return {'reportData': local};
+/// Diff operation structure:
+/// {
+///   'path': 'translations.<qid>.<lang>',
+///   'op': 'add' | 'update' | 'remove' | 'move',
+///   'id': '<answerId>',
+///   'index': <index>, // target index for add/move, original index for remove
+///   'value': <TranslationAnswer.toJson()> // for add/update
+/// }
+
+List<Map<String, dynamic>> computeReportDiff(Report base, Report updated) {
+  final ops = <Map<String, dynamic>>[];
+
+  // Gather all question ids (as strings) present in either report
+  final qids = <String>{}..addAll(base.translations.keys)..addAll(updated.translations.keys);
+
+  for (final qid in qids) {
+    final baseLangMap = base.translations[qid] ?? {};
+    final updatedLangMap = updated.translations[qid] ?? {};
+
+    final langs = <String>{}..addAll(baseLangMap.keys)..addAll(updatedLangMap.keys);
+
+    for (final lang in langs) {
+      final baseList = List<TranslationAnswer>.from(baseLangMap[lang] ?? []);
+      final updatedList = List<TranslationAnswer>.from(updatedLangMap[lang] ?? []);
+
+      // Build id -> index maps
+      final baseIndexById = <String, int>{};
+      for (var i = 0; i < baseList.length; i++) {
+        baseIndexById[baseList[i].id] = i;
+      }
+
+      final updatedIndexById = <String, int>{};
+      for (var i = 0; i < updatedList.length; i++) {
+        updatedIndexById[updatedList[i].id] = i;
+      }
+
+      // Removals: ids present in base but not in updated
+      for (final id in baseIndexById.keys) {
+        if (!updatedIndexById.containsKey(id)) {
+          ops.add({
+            'path': 'translations.$qid.$lang',
+            'op': 'remove',
+            'id': id,
+            'index': baseIndexById[id],
+          });
+        }
+      }
+
+      // Additions: ids present in updated but not in base
+      for (final id in updatedIndexById.keys) {
+        if (!baseIndexById.containsKey(id)) {
+          final answer = updatedList[updatedIndexById[id]!];
+          ops.add({
+            'path': 'translations.$qid.$lang',
+            'op': 'add',
+            'id': id,
+            'index': updatedIndexById[id],
+            'value': answer.toJson(),
+          });
+        }
+      }
+
+      // Updates: ids in both but content changed
+      for (final id in baseIndexById.keys) {
+        if (updatedIndexById.containsKey(id)) {
+          final baseAns = baseList[baseIndexById[id]!];
+          final updatedAns = updatedList[updatedIndexById[id]!];
+
+          // Compare meaningful fields: text, authorId, fingerprint, updatedAt
+          final eq = baseAns.text == updatedAns.text &&
+              (baseAns.authorId ?? '') == (updatedAns.authorId ?? '') &&
+              (baseAns.fingerprint ?? '') == (updatedAns.fingerprint ?? '') &&
+              (baseAns.updatedAt ?? 0) == (updatedAns.updatedAt ?? 0);
+
+          if (!eq) {
+            ops.add({
+              'path': 'translations.$qid.$lang',
+              'op': 'update',
+              'id': id,
+              'index': updatedIndexById[id],
+              'value': updatedAns.toJson(),
+            });
+          }
+        }
+      }
+
+      // Moves: same ids but index changed
+      for (final id in updatedIndexById.keys) {
+        if (baseIndexById.containsKey(id)) {
+          final oldIdx = baseIndexById[id]!;
+          final newIdx = updatedIndexById[id]!;
+          if (oldIdx != newIdx) {
+            ops.add({
+              'path': 'translations.$qid.$lang',
+              'op': 'move',
+              'id': id,
+              'from': oldIdx,
+              'to': newIdx,
+            });
+          }
+        }
+      }
+    }
   }
 
-  // For now, detect changes by simple deep comparison of top-level keys like translations, markers, questions.
-  // A production implementation should compute per-answer diffs.
-  final Map<String, dynamic> changes = {};
-
-  for (final key in local.keys) {
-    final l = local[key];
-    final b = base[key];
-    if (b == null) {
-      changes[key] = l;
-      continue;
-    }
-    if (!_deepEquals(l, b)) {
-      changes[key] = l;
-    }
-  }
-
-  return changes;
-}
-
-bool _deepEquals(dynamic a, dynamic b) {
-  if (a is Map && b is Map) {
-    if (a.length != b.length) return false;
-    for (final k in a.keys) {
-      if (!b.containsKey(k)) return false;
-      if (!_deepEquals(a[k], b[k])) return false;
-    }
-    return true;
-  }
-  if (a is List && b is List) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (!_deepEquals(a[i], b[i])) return false;
-    }
-    return true;
-  }
-  return a == b;
+  return ops;
 }
