@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/report_summary.dart';
 import '../services/api_service.dart';
@@ -32,7 +33,7 @@ class ReportSyncManager {
 
   Future<String> _getReportsDir() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final reportsDir = Directory('${appDir.path}/reports');
+    final reportsDir = Directory('${appDir.path}${Platform.pathSeparator}reports');
     if (!await reportsDir.exists()) {
       await reportsDir.create(recursive: true);
     }
@@ -177,17 +178,21 @@ class ReportSyncManager {
           final urls = Map<String, dynamic>.from(urlsRes.data!['urls'] ?? urlsRes.data!);
           // Each key is relPath, value is url
           for (final entry in urls.entries) {
-            final rel = entry.key;
+            final rel = entry.key.toString();
             final url = entry.value?.toString();
             if (url == null || url.isEmpty) continue;
-            // simple download via http.get
             try {
               final uri = Uri.parse(url);
-              final resp = await ApiService._handleApiCall(Future(() async {
-                // perform GET using http client to stream bytes
-                return await httpGetAsResponse(uri);
-              }));
-              // Note: http wrapper not exposed here; skipping actual bytes download
+              final resp = await http.get(uri);
+              if (resp.statusCode == 200) {
+                // ensure directory exists
+                final target = File('$folderPath${Platform.pathSeparator}$rel');
+                final parent = target.parent;
+                if (!await parent.exists()) await parent.create(recursive: true);
+                await target.writeAsBytes(resp.bodyBytes);
+              } else {
+                if (kDebugMode) print('download file $url failed status ${resp.statusCode}');
+              }
             } catch (e) {
               if (kDebugMode) print('download file $url failed: $e');
             }
