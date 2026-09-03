@@ -33,6 +33,10 @@ dependencies:
   package_info_plus: ^8.0.0
   web: ^1.1.1
 
+  # Added dependencies required by analyzer and some utilities
+  collection: ^1.17.0
+  uuid: ^3.0.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
