@@ -1167,4 +1167,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get downloadReportPrompt => '您想要下载这份报告吗？';
+
+  @override
+  String get openReportFailed => '无法打开报告';
 }

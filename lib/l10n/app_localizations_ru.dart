@@ -1188,4 +1188,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadReportPrompt => 'Вы хотите скачать этот отчёт?';
+
+  @override
+  String get openReportFailed => 'Не удалось открыть отчёт';
 }

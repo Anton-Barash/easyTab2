@@ -2259,6 +2259,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Do you want to download this report?'**
   String get downloadReportPrompt;
+
+  /// No description provided for @openReportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to open report'**
+  String get openReportFailed;
 }
 
 class _AppLocalizationsDelegate

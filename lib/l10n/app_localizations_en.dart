@@ -1187,4 +1187,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadReportPrompt => 'Do you want to download this report?';
+
+  @override
+  String get openReportFailed => 'Failed to open report';
 }

@@ -556,5 +556,6 @@
   "answerConflictReplace": "Replace with mine",
   "answerConflictSaveAsSecond": "Save as second answer",
   "downloadReport": "Download Report",
-  "downloadReportPrompt": "Do you want to download this report?"
+  "downloadReportPrompt": "Do you want to download this report?",
+  "openReportFailed": "Failed to open report"
 }

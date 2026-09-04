@@ -377,24 +377,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
             );
           } else if (report.onServer) {
             if (kIsWeb) {
-              // Auto-download and open for web version
+              // Auto-open for web version (uses native web support in loadReport)
               setState(() => _syncingReports.add(report.id));
               try {
-                final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
-                if (folder != null) {
-                  setState(() {
-                    _syncedReports.add(folder);
-                  });
-                  await reportState.loadReport(folder);
+                // On web, loadReport directly uses server API without local filesystem
+                final loaded = await reportState.loadReport(report.id);
+                if (loaded) {
                   if (!mounted) return;
                   final reportId = reportState.serverReportId;
                   nav.pushNamed(
                     reportId != null ? '/fill?reportId=$reportId' : '/fill',
                   );
+                  // Refresh reports list to mark as synced
                   setState(() => _loadReports());
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(loc.openReportFailed)),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (kDebugMode) print('Web report open error: $e');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(loc.openReportFailed)),
+                  );
                 }
               } finally {
-                setState(() => _syncingReports.remove(report.id));
+                if (mounted) {
+                  setState(() => _syncingReports.remove(report.id));
+                }
               }
             } else {
               // Original mobile: offer to download

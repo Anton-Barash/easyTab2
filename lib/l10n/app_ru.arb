@@ -556,5 +556,6 @@
   "answerConflictReplace": "Заменить своим",
   "answerConflictSaveAsSecond": "Сохранить как второй ответ",
   "downloadReport": "Скачать отчёт",
-  "downloadReportPrompt": "Вы хотите скачать этот отчёт?"
+  "downloadReportPrompt": "Вы хотите скачать этот отчёт?",
+  "openReportFailed": "Не удалось открыть отчёт"
 }
