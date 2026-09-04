@@ -376,26 +376,48 @@ class _ReportsScreenState extends State<ReportsScreen> {
               reportId != null ? '/fill?reportId=$reportId' : '/fill',
             );
           } else if (report.onServer) {
-            // Offer to download
-            final confirmed = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: Text(loc.downloadReport),
-                content: Text(loc.downloadReportPrompt),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(loc.cancel)),
-                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(loc.downloadButton)),
-                ],
-              ),
-            );
-            if (confirmed == true) {
+            if (kIsWeb) {
+              // Auto-download and open for web version
               setState(() => _syncingReports.add(report.id));
-              final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
-              setState(() {
-                _syncingReports.remove(report.id);
-                if (folder != null) _syncedReports.add(folder);
-                _loadReports();
-              });
+              try {
+                final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
+                if (folder != null) {
+                  setState(() {
+                    _syncedReports.add(folder);
+                  });
+                  await reportState.loadReport(folder);
+                  if (!mounted) return;
+                  final reportId = reportState.serverReportId;
+                  nav.pushNamed(
+                    reportId != null ? '/fill?reportId=$reportId' : '/fill',
+                  );
+                  setState(() => _loadReports());
+                }
+              } finally {
+                setState(() => _syncingReports.remove(report.id));
+              }
+            } else {
+              // Original mobile: offer to download
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text(loc.downloadReport),
+                  content: Text(loc.downloadReportPrompt),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(loc.cancel)),
+                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(loc.downloadButton)),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                setState(() => _syncingReports.add(report.id));
+                final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
+                setState(() {
+                  _syncingReports.remove(report.id);
+                  if (folder != null) _syncedReports.add(folder);
+                  _loadReports();
+                });
+              }
             }
           }
         },
