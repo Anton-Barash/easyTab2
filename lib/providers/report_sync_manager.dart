@@ -134,26 +134,23 @@ class ReportSyncManager {
       if (!res.success || res.data == null) return null;
 
       final responseData = res.data!;
-
       Map<String, dynamic> reportData = {};
-      if (responseData is Map) {
-        if (responseData.containsKey('report')) {
-          final r = responseData['report'];
-          if (r is Map) {
-            if (r.containsKey('reportData')) {
-              final rd = r['reportData'];
-              if (rd is Map) reportData = Map<String, dynamic>.from(rd);
-            } else if (r.containsKey('data')) {
-              final rd = r['data'];
-              if (rd is Map) reportData = Map<String, dynamic>.from(rd);
-            }
+      if (responseData.containsKey('report')) {
+        final r = responseData['report'];
+        if (r is Map) {
+          if (r.containsKey('reportData')) {
+            final rd = r['reportData'];
+            if (rd is Map) reportData = Map<String, dynamic>.from(rd);
+          } else if (r.containsKey('data')) {
+            final rd = r['data'];
+            if (rd is Map) reportData = Map<String, dynamic>.from(rd);
           }
-        } else if (responseData.containsKey('reportData')) {
-          final rd = responseData['reportData'];
-          if (rd is Map) reportData = Map<String, dynamic>.from(rd);
-        } else {
-          reportData = Map<String, dynamic>.from(responseData);
         }
+      } else if (responseData.containsKey('reportData')) {
+        final rd = responseData['reportData'];
+        if (rd is Map) reportData = Map<String, dynamic>.from(rd);
+      } else {
+        reportData = Map<String, dynamic>.from(responseData as Map);
       }
 
       final reportsDir = await _getReportsDir();
