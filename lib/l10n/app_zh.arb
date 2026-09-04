@@ -554,5 +554,7 @@
   "answerConflictYourAnswer": "您的答案",
   "answerConflictUseServer": "使用服务器答案",
   "answerConflictReplace": "替换为我的",
-  "answerConflictSaveAsSecond": "保存为第二个答案"
+  "answerConflictSaveAsSecond": "保存为第二个答案",
+  "downloadReport": "下载报告",
+  "downloadReportPrompt": "您想要下载这份报告吗？"
 }

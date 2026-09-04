@@ -554,5 +554,7 @@
   "answerConflictYourAnswer": "Ваш ответ",
   "answerConflictUseServer": "Использовать ответ с сервера",
   "answerConflictReplace": "Заменить своим",
-  "answerConflictSaveAsSecond": "Сохранить как второй ответ"
+  "answerConflictSaveAsSecond": "Сохранить как второй ответ",
+  "downloadReport": "Скачать отчёт",
+  "downloadReportPrompt": "Вы хотите скачать этот отчёт?"
 }

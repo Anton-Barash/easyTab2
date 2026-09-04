@@ -7,15 +7,11 @@ import 'package:http/http.dart' as http;
 
 import '../models/report_summary.dart';
 import '../services/api_service.dart';
-import '../utils/diff_utils.dart';
 
 /// ReportSyncManager: minimal, iterative implementation.
-/// Provides methods to list combined reports, download a report from server
-/// and perform a sync (partial) by computing a diff and sending to server.
 class ReportSyncManager {
   ReportSyncManager();
 
-  /// Read local reports directory and return list of local report ids (folder names)
   Future<List<String>> _listLocalReportFolders() async {
     try {
       final dir = await _getReportsDir();
@@ -41,9 +37,6 @@ class ReportSyncManager {
     return reportsDir.path;
   }
 
-  /// Combined list: merges local folders and server entries (if logged in).
-  /// This implementation is conservative — it returns simple ReportSummary objects
-  /// with best-effort status detection.
   Future<List<ReportSummary>> loadCombinedList() async {
     final localFolders = await _listLocalReportFolders();
 
@@ -51,17 +44,16 @@ class ReportSyncManager {
     if (ApiService.authToken != null && ApiService.authToken!.isNotEmpty) {
       final res = await ApiService.listReports();
       if (res.success && res.data != null) {
-        // Expecting data['reports'] or data itself a list. Be defensive.
         final data = res.data;
-        if (data is Map && data['reports'] is List) {
-          serverList = (data['reports'] as List).cast<Map<String, dynamic>>();
+        final reports = (data is Map) ? (data as Map)['reports'] : null;
+        if (reports is List) {
+          serverList = reports.cast<Map<String, dynamic>>();
         } else if (data is List) {
           serverList = (data as List).cast<Map<String, dynamic>>();
         }
       }
     }
 
-    // Build map by server id -> server meta
     final serverById = <String, Map<String, dynamic>>{};
     for (final s in serverList) {
       final id = (s['id'] ?? s['reportId'] ?? s['publicId'])?.toString();
@@ -70,7 +62,6 @@ class ReportSyncManager {
 
     final out = <ReportSummary>[];
 
-    // First, entries that are on server
     for (final s in serverList) {
       final id = (s['id'] ?? s['reportId'])?.toString() ?? s['publicId']?.toString() ?? '';
       final title = (s['title'] ?? s['name'] ?? 'Untitled').toString();
@@ -81,7 +72,6 @@ class ReportSyncManager {
           modified = DateTime.parse(modRaw.toString()).toLocal();
         } catch (_) {}
       }
-      // try detect local existence by folder named server_<id>
       final localFolderName = 'server_$id';
       final localExists = localFolders.contains(localFolderName);
 
@@ -98,13 +88,10 @@ class ReportSyncManager {
         status: status,
       ));
 
-      // remove from localFolders set so we don't duplicate
       localFolders.remove(localFolderName);
     }
 
-    // Then remaining local-only folders
     for (final f in localFolders) {
-      // For local-only we try to read report.json to get title and modified
       final summary = await _readLocalReportSummary(f);
       out.add(summary);
     }
@@ -114,7 +101,7 @@ class ReportSyncManager {
 
   Future<ReportSummary> _readLocalReportSummary(String folderName) async {
     final reportsDir = await _getReportsDir();
-    final folder = Directory('${reportsDir}${Platform.pathSeparator}$folderName');
+    final folder = Directory('$reportsDir${Platform.pathSeparator}$folderName');
     String title = folderName;
     DateTime modified = DateTime.now();
     try {
@@ -141,43 +128,50 @@ class ReportSyncManager {
     );
   }
 
-  /// Download a report from server into local reports folder.
-  /// Returns local folder name on success, null on failure.
   Future<String?> downloadReportFromServer(int serverReportId) async {
     try {
       final res = await ApiService.getReport(serverReportId);
       if (!res.success || res.data == null) return null;
-      // Expect data['report'] or data['reportData']
+
+      final responseData = res.data!;
+
       Map<String, dynamic> reportData = {};
-      if (res.data is Map && res.data.containsKey('report')) {
-        final r = res.data!['report'];
-        if (r is Map && r.containsKey('reportData')) {
-          reportData = Map<String, dynamic>.from(r['reportData'] as Map);
-        } else if (r is Map && r.containsKey('data')) {
-          reportData = Map<String, dynamic>.from(r['data'] as Map);
+      if (responseData is Map) {
+        if (responseData.containsKey('report')) {
+          final r = responseData['report'];
+          if (r is Map) {
+            if (r.containsKey('reportData')) {
+              final rd = r['reportData'];
+              if (rd is Map) reportData = Map<String, dynamic>.from(rd);
+            } else if (r.containsKey('data')) {
+              final rd = r['data'];
+              if (rd is Map) reportData = Map<String, dynamic>.from(rd);
+            }
+          }
+        } else if (responseData.containsKey('reportData')) {
+          final rd = responseData['reportData'];
+          if (rd is Map) reportData = Map<String, dynamic>.from(rd);
+        } else {
+          reportData = Map<String, dynamic>.from(responseData);
         }
-      } else if (res.data is Map && res.data.containsKey('reportData')) {
-        reportData = Map<String, dynamic>.from(res.data!['reportData'] as Map);
-      } else if (res.data is Map) {
-        reportData = Map<String, dynamic>.from(res.data as Map);
       }
 
       final reportsDir = await _getReportsDir();
       final folderName = 'server_$serverReportId';
-      final folderPath = '${reportsDir}${Platform.pathSeparator}$folderName';
+      final folderPath = '$reportsDir${Platform.pathSeparator}$folderName';
       final folder = Directory(folderPath);
-      if (!await folder.exists()) await folder.create(recursive: true);
+      if (!await folder.exists()) {
+        await folder.create(recursive: true);
+      }
 
-      // write report.json
       final jf = File('$folderPath${Platform.pathSeparator}report.json');
       await jf.writeAsString(jsonEncode(reportData));
 
-      // download files if server provided file urls
       try {
         final urlsRes = await ApiService.getReportFileUrls(serverReportId);
         if (urlsRes.success && urlsRes.data != null && urlsRes.data is Map) {
-          final urls = Map<String, dynamic>.from(urlsRes.data!['urls'] ?? urlsRes.data!);
-          // Each key is relPath, value is url
+          final urlsMap = urlsRes.data! as Map;
+          final urls = Map<String, dynamic>.from(urlsMap['urls'] ?? urlsMap);
           for (final entry in urls.entries) {
             final rel = entry.key.toString();
             final url = entry.value?.toString();
@@ -186,7 +180,6 @@ class ReportSyncManager {
               final uri = Uri.parse(url);
               final resp = await http.get(uri);
               if (resp.statusCode == 200) {
-                // ensure directory exists
                 final target = File('$folderPath${Platform.pathSeparator}$rel');
                 final parent = target.parent;
                 if (!await parent.exists()) await parent.create(recursive: true);
@@ -210,32 +203,27 @@ class ReportSyncManager {
     }
   }
 
-  /// Sync local report to server: compute diff and send PATCH via ApiService.saveReport.
-  /// Uploads new local media (multipart native flow) and then sends updated report JSON.
-  /// Returns true on success, false on failure or conflict.
   Future<bool> syncReport({required String localFolderName, int? serverReportId, int? baseVersion}) async {
-    // Read local report
     try {
       final reportsDir = await _getReportsDir();
-      final folderPath = '${reportsDir}${Platform.pathSeparator}$localFolderName';
+      final folderPath = '$reportsDir${Platform.pathSeparator}$localFolderName';
       final jf = File('$folderPath${Platform.pathSeparator}report.json');
       if (!await jf.exists()) return false;
       final localJson = jsonDecode(await jf.readAsString()) as Map<String, dynamic>;
 
-      // 1) Collect local media files that lack serverFileId
-      final filesToUpload = <Map<String, String>>[]; // {filePath, relativePath}
+      final filesToUpload = <Map<String, String>>[];
       final markers = localJson['markers'] as Map<String, dynamic>?;
       if (markers != null) {
         for (final qEntry in markers.entries) {
           final qList = qEntry.value as List<dynamic>?;
           if (qList == null) continue;
-          for (var i = 0; i < qList.length; i++) {
-            final marker = qList[i] as Map<String, dynamic>;
+          for (final marker in qList) {
+            if (marker is! Map<String, dynamic>) continue;
             final mediaList = (marker['media'] as List<dynamic>?) ?? [];
-            for (var m in mediaList) {
-              final mm = m as Map<String, dynamic>;
-              final localPath = mm['localPath'] as String?;
-              final serverFileId = mm['serverFileId'] as String?;
+            for (final m in mediaList) {
+              if (m is! Map<String, dynamic>) continue;
+              final localPath = m['localPath'] as String?;
+              final serverFileId = m['serverFileId'] as String?;
               if (localPath != null && (serverFileId == null || serverFileId.isEmpty)) {
                 final abs = '$folderPath${Platform.pathSeparator}$localPath';
                 filesToUpload.add({'filePath': abs, 'relativePath': localPath});
@@ -245,12 +233,10 @@ class ReportSyncManager {
         }
       }
 
-      // 2) Upload files via ApiService.uploadFiles (native multipart flow)
       if (filesToUpload.isNotEmpty) {
         final uploadRes = await ApiService.uploadFiles(files: filesToUpload, reportId: serverReportId);
         if (!uploadRes.success) {
-          if (kDebugMode) print('uploadFiles failed: ${uploadRes.error}');
-          // continue? return false to indicate failure
+          if (kDebugMode) print('uploadFiles failed: $uploadRes.error');
           return false;
         }
 
@@ -258,26 +244,29 @@ class ReportSyncManager {
         if (results != null) {
           for (final r in results) {
             try {
+              if (r is! Map) continue;
               final rel = r['relativePath'] as String?;
               final fileObj = r['file'];
               String? fileId;
               if (fileObj is Map) {
-                if (fileObj['id'] != null) fileId = fileObj['id'].toString();
-                else if (fileObj['file'] is Map && fileObj['file']['id'] != null) fileId = fileObj['file']['id'].toString();
-                else if (fileObj['fileId'] != null) fileId = fileObj['fileId'].toString();
+                if (fileObj['id'] != null) {
+                  fileId = fileObj['id'].toString();
+                } else if (fileObj['file'] is Map && (fileObj['file'] as Map)['id'] != null) {
+                  fileId = (fileObj['file'] as Map)['id'].toString();
+                } else if (fileObj['fileId'] != null) {
+                  fileId = fileObj['fileId'].toString();
+                }
               }
-              if (rel != null && fileId != null) {
-                // find media entries with this relativePath and set serverFileId
+              if (rel != null && fileId != null && markers != null) {
                 for (final qEntry in markers.entries) {
                   final qList = qEntry.value as List<dynamic>?;
                   if (qList == null) continue;
-                  for (var i = 0; i < qList.length; i++) {
-                    final marker = qList[i] as Map<String, dynamic>;
+                  for (final marker in qList) {
+                    if (marker is! Map<String, dynamic>) continue;
                     final mediaList = (marker['media'] as List<dynamic>?) ?? [];
-                    for (var miIdx = 0; miIdx < mediaList.length; miIdx++) {
-                      final mm = mediaList[miIdx] as Map<String, dynamic>;
-                      final lp = mm['localPath'] as String?;
-                      if (lp != null && lp == rel) {
+                    for (final mm in mediaList) {
+                      if (mm is! Map<String, dynamic>) continue;
+                      if (mm['localPath'] == rel) {
                         mm['serverFileId'] = fileId;
                       }
                     }
@@ -289,12 +278,9 @@ class ReportSyncManager {
             }
           }
         }
-
-        // persist updated report.json (with serverFileId fields)
         await jf.writeAsString(jsonEncode(localJson));
       }
 
-      // 3) Send updated report JSON to server (create or update)
       final title = localJson['reportName']?.toString() ?? 'Report ${DateTime.now().toIso8601String()}';
       final res = await ApiService.saveReport(
         title: title,
@@ -305,11 +291,9 @@ class ReportSyncManager {
       );
 
       if (res.success) {
-        // Success: optionally update local metadata (e.g., write serverVersion if returned)
         try {
           final newVersion = res.data?['newVersion'] ?? res.data?['version'] ?? res.data?['report']?['version'];
           if (newVersion != null) {
-            // store as meta file
             final meta = {'serverVersion': newVersion};
             final mf = File('$folderPath${Platform.pathSeparator}sync_meta.json');
             await mf.writeAsString(jsonEncode(meta));
@@ -318,13 +302,12 @@ class ReportSyncManager {
         return true;
       }
 
-      if (res.data != null && res.data!['code'] == 'VERSION_CONFLICT') {
-        // Conflict: caller should present resolution UI
+      if (res.data != null && res.data is Map && res.data!['code'] == 'VERSION_CONFLICT') {
         if (kDebugMode) print('sync conflict: ${res.data}');
         return false;
       }
 
-      if (kDebugMode) print('saveReport failed: ${res.error}');
+      if (kDebugMode) print('saveReport failed: $res.error');
       return false;
     } catch (e) {
       if (kDebugMode) print('syncReport error: $e');

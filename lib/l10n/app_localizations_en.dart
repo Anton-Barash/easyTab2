@@ -1181,4 +1181,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get answerConflictSaveAsSecond => 'Save as second answer';
+
+  @override
+  String get downloadReport => 'Download Report';
+
+  @override
+  String get downloadReportPrompt => 'Do you want to download this report?';
 }

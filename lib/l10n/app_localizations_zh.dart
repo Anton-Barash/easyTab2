@@ -1161,4 +1161,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get answerConflictSaveAsSecond => '保存为第二个答案';
+
+  @override
+  String get downloadReport => '下载报告';
+
+  @override
+  String get downloadReportPrompt => '您想要下载这份报告吗？';
 }

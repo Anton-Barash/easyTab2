@@ -554,5 +554,7 @@
   "answerConflictYourAnswer": "Your answer",
   "answerConflictUseServer": "Use server answer",
   "answerConflictReplace": "Replace with mine",
-  "answerConflictSaveAsSecond": "Save as second answer"
+  "answerConflictSaveAsSecond": "Save as second answer",
+  "downloadReport": "Download Report",
+  "downloadReportPrompt": "Do you want to download this report?"
 }

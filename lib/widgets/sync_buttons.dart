@@ -19,7 +19,7 @@ class SyncButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (inProgress) {
-      return SizedBox(
+      return const SizedBox(
         width: 56,
         height: 36,
         child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
@@ -31,13 +31,13 @@ class SyncButtons extends StatelessWidget {
       children: [
         if (showDownload)
           IconButton(
-            icon: Icon(Icons.download_rounded),
+            icon: const Icon(Icons.download_rounded),
             tooltip: 'Download',
             onPressed: onDownload,
           ),
         if (showSync)
           IconButton(
-            icon: Icon(Icons.sync),
+            icon: const Icon(Icons.sync),
             tooltip: 'Sync',
             onPressed: onSync,
           ),

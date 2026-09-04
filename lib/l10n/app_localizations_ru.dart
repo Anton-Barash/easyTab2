@@ -1182,4 +1182,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get answerConflictSaveAsSecond => 'Сохранить как второй ответ';
+
+  @override
+  String get downloadReport => 'Скачать отчёт';
+
+  @override
+  String get downloadReportPrompt => 'Вы хотите скачать этот отчёт?';
 }

@@ -1,6 +1,5 @@
 import 'package:easy_tab/utils/app_colors.dart';
-import 'package:easy_tab/utils/file_image.dart'
-    if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
+
 import 'package:easy_tab/utils/open_html_stub.dart'
     if (dart.library.html) 'package:easy_tab/utils/open_html_web.dart';
 import 'package:easy_tab/widgets/dotted_background.dart';
@@ -130,7 +129,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final loc = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(ok ? loc.syncCompleteMessage : loc.syncError)));
+    ).showSnackBar(SnackBar(content: Text(ok ? loc.syncCompleteMessage : loc.syncErrorMessage)));
   }
 
   @override
@@ -354,7 +353,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final loc = AppLocalizations.of(context)!;
 
-    final hasThumbnail = false; // thumbnail not exposed in ReportSummary yet
+
     final isSynced = _syncedReports.contains(report.id) || report.status == ReportSyncStatus.synced;
     final isSyncing = _syncingReports.contains(report.id);
 
@@ -385,7 +384,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 content: Text(loc.downloadReportPrompt),
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(loc.cancel)),
-                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(loc.download)),
+                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(loc.downloadButton)),
                 ],
               ),
             );
@@ -416,30 +415,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(width: 2, color: AppColors.border),
                     ),
-                    child: hasThumbnail
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: fileImageWidget(
-                              '${report.id}/${"thumbnail.jpg"}',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(
-                                  child: Icon(
-                                    Icons.note,
-                                    size: 32,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                );
-                              },
-                            ),
-                          )
-                        : const Center(
-                            child: Icon(
-                              Icons.note,
-                              size: 32,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
+                    child: const Icon(
+                        Icons.description_outlined,
+                        size: 32,
+                        color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(

@@ -1,13 +1,13 @@
-import 'package:collection/collection.dart';
+
 import '../models/report_models.dart';
 
 /// Diff operation structure:
 /// {
-///   'path': 'translations.<qid>.<lang>',
+///   'path': 'translations.&lt;qid&gt;.&lt;lang&gt;',
 ///   'op': 'add' | 'update' | 'remove' | 'move',
-///   'id': '<answerId>',
-///   'index': <index>, // target index for add/move, original index for remove
-///   'value': <TranslationAnswer.toJson()> // for add/update
+///   'id': '&lt;answerId&gt;',
+///   'index': &lt;index&gt;, // target index for add/move, original index for remove
+///   'value': &lt;TranslationAnswer.toJson()&gt; // for add/update
 /// }
 
 List<Map<String, dynamic>> computeReportDiff(Report base, Report updated) {

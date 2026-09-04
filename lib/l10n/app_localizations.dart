@@ -2247,6 +2247,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save as second answer'**
   String get answerConflictSaveAsSecond;
+
+  /// No description provided for @downloadReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Download Report'**
+  String get downloadReport;
+
+  /// No description provided for @downloadReportPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you want to download this report?'**
+  String get downloadReportPrompt;
 }
 
 class _AppLocalizationsDelegate
