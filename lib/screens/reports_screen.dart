@@ -238,20 +238,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                       );
                     }
-                    return ListView.builder(
-                      // На мобильных добавляем снизу запас, чтобы последний
-                      // отчёт можно было проскроллить выше плавающих кнопок.
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        0,
-                        16,
-                        isMobile ? 140 : 16,
+                    return SelectionArea(
+                      child: ListView.builder(
+                        // На мобильных добавляем снизу запас, чтобы последний
+                        // отчёт можно было проскроллить выше плавающих кнопок.
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          0,
+                          16,
+                          isMobile ? 140 : 16,
+                        ),
+                        itemCount: filteredReports.length,
+                        itemBuilder: (ctx, index) {
+                          final report = filteredReports[index];
+                          return _buildReportCard(context, report);
+                        },
                       ),
-                      itemCount: filteredReports.length,
-                      itemBuilder: (ctx, index) {
-                        final report = filteredReports[index];
-                        return _buildReportCard(context, report);
-                      },
                     );
                   },
                 ),
