@@ -13,6 +13,9 @@ class ReportSyncManager {
   ReportSyncManager();
 
   Future<List<String>> _listLocalReportFolders(String reportsDir) async {
+    // На web нет локальной файловой системы (path_provider отсутствует) —
+    // локальные отчёты не существуют, список строится только из сервера.
+    if (kIsWeb) return [];
     try {
       final d = Directory(reportsDir);
       if (!await d.exists()) return [];
@@ -28,6 +31,8 @@ class ReportSyncManager {
   }
 
   Future<String> _getReportsDir() async {
+    // На web path_provider недоступен; локальные папки там не используются.
+    if (kIsWeb) return '';
     final appDir = await getApplicationDocumentsDirectory();
     final reportsDir = Directory('${appDir.path}${Platform.pathSeparator}reports');
     if (!await reportsDir.exists()) {
@@ -162,6 +167,8 @@ class ReportSyncManager {
   }
 
   Future<String?> downloadReportFromServer(int serverReportId) async {
+    // На web нет локального хранилища — скачивание недоступно.
+    if (kIsWeb) return null;
     try {
       final res = await ApiService.getReport(serverReportId);
       if (!res.success || res.data == null) return null;
@@ -234,6 +241,8 @@ class ReportSyncManager {
   }
 
   Future<bool> syncReport({required String localFolderName, int? serverReportId, int? baseVersion}) async {
+    // На web нет локальных файлов — синхронизация локальной папки недоступна.
+    if (kIsWeb) return false;
     try {
       final reportsDir = await _getReportsDir();
       final folderPath = '$reportsDir${Platform.pathSeparator}$localFolderName';
