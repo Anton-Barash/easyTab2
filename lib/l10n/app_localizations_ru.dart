@@ -536,6 +536,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get unlockAnswerTooltip => 'Разблокировать ответ';
 
   @override
+  String get unlockModeKeep => 'Уточнить формулировку — переводы сохраняются';
+
+  @override
+  String get unlockModeReplace => 'Изменить текст и удалить переводы';
+
+  @override
+  String get unlockModeAdd => 'Добавить новый ответ (переводы остаются)';
+
+  @override
   String get saved => 'Сохранено';
 
   @override
@@ -751,6 +760,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get uploadToServer => 'Залить на сервер';
+
+  @override
+  String get syncWithCloud => 'Синхронизировать с облаком';
 
   @override
   String get uploadingFiles => 'Загрузка файлов...';
@@ -1188,6 +1200,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadReportPrompt => 'Вы хотите скачать этот отчёт?';
+
+  @override
+  String get createdLabel => 'Создан:';
+
+  @override
+  String get modifiedLabel => 'Изменён:';
 
   @override
   String get openReportFailed => 'Не удалось открыть отчёт';

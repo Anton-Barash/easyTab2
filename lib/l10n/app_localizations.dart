@@ -1078,6 +1078,24 @@ abstract class AppLocalizations {
   /// **'Unlock answer'**
   String get unlockAnswerTooltip;
 
+  /// No description provided for @unlockModeKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Refine wording — keep translations'**
+  String get unlockModeKeep;
+
+  /// No description provided for @unlockModeReplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Change text and delete translations'**
+  String get unlockModeReplace;
+
+  /// No description provided for @unlockModeAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a new answer (keep translations)'**
+  String get unlockModeAdd;
+
   /// No description provided for @saved.
   ///
   /// In en, this message translates to:
@@ -1503,6 +1521,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Upload to server'**
   String get uploadToServer;
+
+  /// No description provided for @syncWithCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync with cloud'**
+  String get syncWithCloud;
 
   /// No description provided for @uploadingFiles.
   ///
@@ -2259,6 +2283,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Do you want to download this report?'**
   String get downloadReportPrompt;
+
+  /// No description provided for @createdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Created:'**
+  String get createdLabel;
+
+  /// No description provided for @modifiedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Modified:'**
+  String get modifiedLabel;
 
   /// No description provided for @openReportFailed.
   ///

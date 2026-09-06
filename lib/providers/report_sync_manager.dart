@@ -12,10 +12,9 @@ import '../services/api_service.dart';
 class ReportSyncManager {
   ReportSyncManager();
 
-  Future<List<String>> _listLocalReportFolders() async {
+  Future<List<String>> _listLocalReportFolders(String reportsDir) async {
     try {
-      final dir = await _getReportsDir();
-      final d = Directory(dir);
+      final d = Directory(reportsDir);
       if (!await d.exists()) return [];
       final folders = <String>[];
       await for (final e in d.list()) {
@@ -38,7 +37,8 @@ class ReportSyncManager {
   }
 
   Future<List<ReportSummary>> loadCombinedList() async {
-    final localFolders = await _listLocalReportFolders();
+    final reportsDirPath = await _getReportsDir();
+    final localFolders = await _listLocalReportFolders(reportsDirPath);
 
     List<Map<String, dynamic>> serverList = [];
     if (ApiService.authToken != null && ApiService.authToken!.isNotEmpty) {
@@ -65,13 +65,23 @@ class ReportSyncManager {
     for (final s in serverList) {
       final id = (s['id'] ?? s['reportId'])?.toString() ?? s['publicId']?.toString() ?? '';
       final title = (s['title'] ?? s['name'] ?? 'Untitled').toString();
-      final modRaw = s['modifiedAt'] ?? s['updatedAt'] ?? s['modified'];
-      DateTime modified = DateTime.now();
-      if (modRaw != null) {
-        try {
-          modified = DateTime.parse(modRaw.toString()).toLocal();
-        } catch (_) {}
+
+      // Дата создания отчёта на сервере.
+      final createdRaw = s['createdAt'] ?? s['created'];
+      DateTime createdAt = DateTime.now();
+      if (createdRaw != null) {
+        final parsed = DateTime.tryParse(createdRaw.toString());
+        if (parsed != null) createdAt = parsed.toLocal();
       }
+
+      // Дата последнего изменения (если сервер её не отдал — берём дату создания).
+      final modRaw = s['modifiedAt'] ?? s['updatedAt'] ?? s['modified'];
+      DateTime modified = createdAt;
+      if (modRaw != null) {
+        final parsed = DateTime.tryParse(modRaw.toString());
+        if (parsed != null) modified = parsed.toLocal();
+      }
+
       final localFolderName = 'server_$id';
       final localExists = localFolders.contains(localFolderName);
 
@@ -81,37 +91,58 @@ class ReportSyncManager {
       out.add(ReportSummary(
         id: id,
         title: title,
+        createdAt: createdAt,
         modified: modified,
         localExists: localExists,
         onServer: true,
         serverVersion: version,
         status: status,
+        localFolderPath: localExists
+            ? '$reportsDirPath${Platform.pathSeparator}$localFolderName'
+            : null,
       ));
 
       localFolders.remove(localFolderName);
     }
 
     for (final f in localFolders) {
-      final summary = await _readLocalReportSummary(f);
+      final summary = await _readLocalReportSummary(
+        f,
+        '$reportsDirPath${Platform.pathSeparator}$f',
+      );
       out.add(summary);
     }
+
+    // Сортируем по дате последнего изменения (сначала новые).
+    out.sort((a, b) => b.modified.compareTo(a.modified));
 
     return out;
   }
 
-  Future<ReportSummary> _readLocalReportSummary(String folderName) async {
-    final reportsDir = await _getReportsDir();
-    final folder = Directory('$reportsDir${Platform.pathSeparator}$folderName');
+  Future<ReportSummary> _readLocalReportSummary(
+    String folderName,
+    String folderPath,
+  ) async {
+    final folder = Directory(folderPath);
     String title = folderName;
     DateTime modified = DateTime.now();
+    DateTime createdAt = modified;
     try {
       final jf = File('${folder.path}${Platform.pathSeparator}report.json');
       if (await jf.exists()) {
+        final stat = await jf.lastModified();
+        modified = stat;
         final str = await jf.readAsString();
         final map = jsonDecode(str) as Map<String, dynamic>;
         title = map['reportName']?.toString() ?? map['name']?.toString() ?? title;
-        final stat = await jf.lastModified();
-        modified = stat;
+        // В отчёте хранится метка создания (timestamp, мс с эпохи).
+        final ts = map['timestamp'];
+        if (ts is int) {
+          createdAt = DateTime.fromMillisecondsSinceEpoch(ts);
+        } else if (ts != null) {
+          final parsed = DateTime.tryParse(ts.toString());
+          if (parsed != null) createdAt = parsed;
+        }
       }
     } catch (e) {
       if (kDebugMode) print('readLocalReportSummary error: $e');
@@ -120,11 +151,13 @@ class ReportSyncManager {
     return ReportSummary(
       id: folderName,
       title: title,
+      createdAt: createdAt,
       modified: modified,
       localExists: true,
       onServer: false,
       serverVersion: null,
       status: ReportSyncStatus.localOnly,
+      localFolderPath: folderPath,
     );
   }
 

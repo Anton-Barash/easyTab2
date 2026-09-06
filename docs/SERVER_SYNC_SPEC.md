@@ -1,148 +1,381 @@
-# Server Sync Specification — merge-by-id for report answers
+# Server Sync Specification — merge-by-ID (v2)
 
-Дата: 2026-09-03
-Реализовано: предложение спецификации для безопасной синхронизации "подвопросов" (answers) в отчётах.
+Статус: **согласованный контракт** (ред. 2026-09-04).
 
-Цель
-- Обеспечить корректное слияние параллельных изменений в массивных полях (подвопросах/answers), чтобы две параллельные вставки от разных пользователей не терялись.
-- Поддержать анонимные правки (share/guest) с минимальным риском потери данных.
-- Сохранить обратную совместимость со старыми отчетами (answers без id).
+Цель — заменить позиционное слияние отчётов на слияние по стабильным UUID, чтобы:
 
-Ключевые идеи
-- Каждый подответ (TranslationAnswer) получает уникальный id (UUID v4), authorId (user / anon token), createdAt, optional fingerprint.
-- Клиент формирует минимальные операции (add/update/remove/move) по id и отправляет их в PATCH /reports/:id с baseVersion.
-- Сервер применяет операции атомарно в транзакции, выполняет merge-by-id (union), возвращает 409 с детальным описанием конфликтов при concurrent edits.
-
-Поле в answer (минимум)
-- id: string (UUID v4) — уникальный идентификатор
-- text: string
-- _empty: bool
-- authorId: string? — форматы: "user:<id>", "share:<token>:<anonId>", "anon:<uuid>"
-- authorDisplayName: string? — для UI
-- authorIsAnonymous: bool
-- createdAt: int (ms since epoch)
-- updatedAt: int? (ms)
-- fingerprint: string? — sha256(content+context), опционально
-
-Формат authorId для анонимов
-- Если сервер предоставляет anonymousId в share flow: "share:<token>:<anonymousId>"
-- Если сервера нет anon id: создать device-scoped "anon:<uuid>" и сохранять локально
-
-PATCH /reports/:id — новый контракт (merge-by-id)
-Request body (JSON):
-{
-  "baseVersion": <int>,
-  "changes": {
-    "questions": {
-      "<questionIndex>": {
-        "order": ["id1","id2","id3"], // опц.
-        "answers": [
-          {"action":"add", "answer": { id, text, _empty, authorId, authorDisplayName, authorIsAnonymous, createdAt, fingerprint }, "afterId":"id2" /* opt */},
-          {"action":"update", "id":"id3", "fields": {"text":"new text", "updatedAt": 169...}},
-          {"action":"remove","id":"id4"},
-          {"action":"move","id":"id7","afterId":"id2"}
-        ]
-      }
-    },
-    "metadata": { /* optional */ }
-  }
-}
-
-Семантика обработки на сервере
-- baseVersion обязателен; сервер сравнивает с текущей версией отчёта.
-- Сервер применяет изменения в транзакции:
-  - add: если id уже существует — трактуется как update; если нет — вставка (afterId/append)
-  - update: validate id exists; проверить concurrent changes (updatedAt) — при расхождении → конфликт
-  - remove: пометка удаления
-  - move/order: применить новую упорядоченность
-- После успешного применения увеличить report.version, вернуть 200 и merged snapshot/newVersion.
-- При конфликте вернуть 409 с детальным conflicts[] (см. ниже).
-
-409 — формат конфликта (пример)
-Status: 409
-{
-  "success": false,
-  "code": "VERSION_CONFLICT",
-  "currentVersion": <int>,
-  "conflicts": [
-    {
-      "id": "uuid-123",
-      "path": "questions.3.answers",
-      "field": "text",
-      "serverValue": "текст от другого пользователя",
-      "clientValue": "мой локальный текст",
-      "serverEditor": "user:42" | "share:token:anon1",
-      "serverUpdatedAt": 169xxxxxxx,
-      "clientUpdatedAt": 169yyyyyyy
-    }
-  ]
-}
-
-Legacy reports (answers without id) — миграция
-- Клиент при первом открытии/перед sync:
-  - присваивает UUID каждому answer без id, вычисляет fingerprint (sha256(questionIndex + text + optional timestamp)), проставляет authorId:
-    - если пользователь залогинен → authorId = user:<id>
-    - иначе authorIsAnonymous = true и authorId = anon:<uuid> или share:<token>:<anonId>
-  - сохраняет report.json локально (migration). Не обязан сразу перезаписывать сервер.
-- Сервер при получении legacy answers может:
-  - генерировать id и вернуть mapping (newIds) в ответе, или
-  - принять client-provided ids (preferred) и выполнять dedup по fingerprint при желании.
-- Для дедупа сервер может объединять элементы с одинаковым fingerprint.
-
-Media flow (существующее)
-- Клиент загружает файлы через POST /files/upload (multipart) или presign PUT flow.
-- После успешной загрузки получает fileId и включает serverFileId в media references при PATCH.
-- Сервер валидирует права на fileId.
-
-Security & validation
-- Если caller authenticated user U — server SHOULD set authorId = user:U.id for add actions (игнорировать client-supplied user id), для anonymous accept share:/anon: values.
-- Ограничить ops per PATCH (например max 200), лимиты длины полей.
-- Audit: хранить authorId/createdAt/updatedAt в БД.
-
-Dedup и ordering
-- Клиент может указывать order array; сервер применяет ordering post-merge.
-- Для миграции сервер может выполнять optional dedup по fingerprint; если дедуп выполнен — вернуть mapping.
-
-Тесты (обязательные сценарии)
-- Параллельные добавления: A добавил C, B добавил D — после синка оба присутствуют.
-- Concurrent edits same id → сервер возвращает 409 с конфликтом.
-- Migration: старые отчёты -> client assigns ids -> server accepts and dedups by fingerprint.
-- Anonymous share edits: use share:<token>:<anonId> and persist authorIsAnonymous true.
-
-Rollout план (low-risk)
-1. Server: поддержка backward-compatible PATCH (принимать старый формат и новый), feature flag на strict merge-by-id.
-2. Client: migration + client-generated ids + new PATCH format.
-3. Server: включить merge-by-id, вернуть 409 при конфликте.
-4. Client: UI для конфликта, claim-anon mapping (optional).
-
-Примеры ответов
-- Success 200:
-{
-  "success": true,
-  "newVersion": 43,
-  "report": { /* merged snapshot */ },
-  "applied": { "ops": 12 }
-}
-- Legacy id mapping:
-{
-  "success": true,
-  "newVersion": 43,
-  "newIds": {
-    "localIndex_0": "uuid-abc",
-    "localIndex_1": "uuid-def"
-  },
-  "report": { /* ... */ }
-}
-
-Следующие deliverables (я могу создать в PR)
-- docs/SERVER_SYNC_SPEC.md (этот файл) — уже добавлен в ветку feature/sync-reports.
-- Пример псевдокода merge handler (Node/Python) — могу приложить.
-- Client PR (зависит от серверной поддержки) с изменениями моделей, миграцией и id-based diff.
-
-Контактные вопросы для backend команды
-- Хотите ли вы, чтобы сервер выполнял dedup по fingerprint автоматически или возвращал кандидаты для ручечной проверки?
-- Какая политика по authorId доверия: should server override client-supplied user:<id> and set it to requestor's id?
-- Хотите ли endpoint для claiming anonymous edits (map share:...:anon -> user:<id>)?
+- два пользователя могли **одновременно добавлять вопросы и ответы** без конфликтов и переиндексации;
+- одновременные правки **разных языков / разных строк** сливались автоматически;
+- одновременная правка **одного и того же текста (rid + lang)** давала пользователю явный выбор (без потери данных);
+- **старые отчёты (schemaVersion 1)** продолжали работать в новых приложениях (телефон и web) и мигрировали без потерь.
 
 ---
 
+## 1. Идентификаторы (что стабильно)
+
+| Сущность | ID | Назначается |
+|---|---|---|
+| Отчёт | `report.id` (сервер), `version` (сервер) | сервер |
+| Вопрос | `qid` (UUID v4) | клиент при создании; старым — при миграции |
+| Строка ответа («ряд», общая для всех языков) | `rid` (UUID v4) | клиент при создании; старым — при миграции |
+| Ячейка перевода (текст одного языка одной строки) | `id` (UUID v4) + `authorId`/`authorIsAnonymous`, `createdAt`/`updatedAt`, `fingerprint` | клиент |
+| Медиа / вложение | `serverFileId` | сервер после upload |
+
+Строка ответа **одна** (`rid`) и содержит переводы по языкам — это и есть единица слияния.
+Ячейки одного ряда разделяют общий `rowId` (клиент держит его и на ячейках, и на маркерах).
+
+### schemaVersion
+- Документ с stable-идентификаторами пишется с `schemaVersion: 2`.
+- Документы без `schemaVersion`/`qid`/`rowId` считаются **legacy (v1)** и мигрируются (см. §5).
+
+---
+
+## 2. Целевая схема документа (canonical v2)
+
+Сервер хранит один JSON-документ. Для merge используется **порядок списков** + stable-id:
+
+```jsonc
+{
+  "schemaVersion": 2,
+  "reportName": "...",
+  "availableLanguages": ["RU", "EN"],
+  "currentLanguage": "RU",
+  "questions": [
+    { "qid": "q-1", "legacyId": 0,
+      "localizations": { "RU": { "name": "...", "description": "..." } } }
+  ],
+  "answers": {
+    "q-1": [
+      { "rid": "r-1", "legacyIndex": 0,
+        "localizations": {
+          "RU": { "text": "...", "isEmpty": false, "authorId": "user:42",
+                  "authorIsAnonymous": false, "createdAt": 1, "updatedAt": 2,
+                  "fingerprint": "..." },
+          "EN": { /* ... */ }
+        },
+        "markers": { "attention": false, "needsWork": false, "media": [ /* MediaItem */ ] } }
+    ]
+  },
+  "attachments": [ { "id": "...", "qid": "q-1", "rid": "r-1", "serverFileId": "..." } ],
+  "mediaCounter": { "q-1:r-1:photos": 2 },
+  "timestamp": 1690000000000
+}
+```
+
+> **Переходный шаг 1a (реализован в клиенте).** Пока клиент не нормализован до `answers`-карты,
+> стабильные `qid` и `rowId` пишутся в текущий формат:
+> `questions[].qid`, `translations[qid][lang][].rowId`, `markers[qid][].rowId`, `schemaVersion: 2`.
+> Это уже даёт стабильные идентификаторы и обратную совместимость.
+
+> **Переходный шаг 1b (реализован в клиенте).** Сериализация уже умеет и писать, и читать
+> canonical `answers` (§2). Для обратной совместимости со старым сервером/инструментами
+> `toJson` временно пишет **двойной формат**: canonical `answers` + legacy-зеркала
+> `translations`/`markers`. При чтении legacy-документа используется legacy-ветка,
+> canonical-документ (без зеркал) разбирается в переходные внутренние структуры.
+> Перевод UI/сервисов на внутренние AnswerRow выполняется в Фазе 2 (вместе с diff-движком).
+
+---
+
+## 3. Контракт API
+
+### 3.1 Сохранение — PATCH /reports/:id (ops)
+
+Клиент шлёт **операции**, а не «полный документ + baseSnapshot»:
+
+```jsonc
+{
+  "ops": [
+    { "t": "question.add",    "qid": "q-new", "afterQid": "q-1" | null,
+      "question": { "localizations": { "RU": { "name": "...", "description": "..." } } } },
+    { "t": "question.remove", "qid": "q-old" },
+    { "t": "question.update", "qid": "q-1", "lang": "RU", "field": "name",
+      "baseUpdatedAt": 1690000000000, "value": "...", "updatedAt": 1690000000001 },
+
+    { "t": "answer.add",      "qid": "q-1", "rid": "r-new", "afterRid": "r-2" | null,
+      "row": { "localizations": { "RU": { "text": "...", "authorId": "user:42",
+                 "createdAt": 1, "updatedAt": 2 },
+                "EN": { "text": "", "isEmpty": true } },
+               "markers": { "attention": false, "needsWork": false, "media": [] } } },
+    { "t": "answer.update",   "qid": "q-1", "rid": "r-1", "lang": "RU",
+      "baseUpdatedAt": 1690000000000, "fields": { "text": "...", "updatedAt": 1690000000001 } },
+    { "t": "answer.setMedia", "qid": "q-1", "rid": "r-1", "media": [ { "serverFileId": "f-1", ... } ] },
+    { "t": "answer.remove",   "qid": "q-1", "rid": "r-1" },
+    { "t": "meta",            "fields": { "reportName": "...", "productType": "...", "headerImage": { "serverFileId": "..." } } }
+  ]
+}
+```
+
+Ключевые требования:
+
+- **`baseUpdatedAt` обязателен** для `answer.update` и `question.update` — это per-cell optimistic lock.
+  Без него сервер не сможет отличить «последовательную правку» от «двое правили из одной базы».
+- Всё остальное (add/remove/order/meta) не требует базы: merge выполняется по id.
+- `add` с уже существующим id трактуется как `update` (идемпотентность на случай ретраев).
+- `remove` идемпотентно.
+- Авторизация/валидация: сервер переопределяет `authorId` у аутентифицированных пользователей на `user:<id>`.
+
+### 3.2 Ответ сервера (успех)
+
+```jsonc
+{
+  "success": true,
+  "newVersion": 43,
+  "merged": { /* полный документ schemaVersion 2 в canonical виде */ },
+  "applied": [{ "t": "...", "qid": "...", "rid": "..." }],
+  "dedup": { "r-old": "r-new" }   // опционально: серверные rid для легаси-дедупа
+}
+```
+
+Клиент **всегда** применяет к себе `merged` и делает его новой базой (`_baseReport`).
+
+### 3.3 409 — только для «одной ячейки»
+
+409 возвращается **только** когда два пользователя меняли одну и ту же ячейку
+(`rid` + `lang` + одно поле текста вопроса/ответа) на основе разных версий:
+
+```jsonc
+{
+  "success": false,
+  "code": "VERSION_CONFLICT",
+  "conflicts": [
+    {
+      "kind": "answer" | "question",
+      "qid": "q-1",
+      "rid": "r-1",                // для вопроса — rid отсутствует
+      "lang": "RU",
+      "field": "text" | "name" | "description",
+      "clientText": "мой текст",
+      "serverText": "текст другого пользователя",
+      "clientUpdatedAt": 1690000000001,
+      "serverUpdatedAt": 1690000000000
+    }
+  ]
+}
+```
+
+**Что НЕ даёт 409 (автоматически сливается):**
+
+- добавление вопросов/ответов (два новых объекта просто оба появляются);
+- удаление;
+- правка **разных языков** одной строки;
+- правка **разных строк**;
+- одинаковый текст в одной ячейке (no-op).
+
+---
+
+## 4. Правила merge и порядок
+
+### 4.1 Вставка без конфликтов
+
+Вопросы и ответы упорядочены списком; клиент вставляет новый объект по якорю:
+
+- `answer.add` содержит `afterRid` (null = в самое начало).
+- `question.add` содержит `afterQid`.
+
+Серверный merge:
+1. берёт текущий (упорядоченный) список;
+2. вставляет новые объекты по якорю;
+3. если два объекта вставлены «в одно место», порядок детерминирован:
+   **`createdAt` (по возрастанию) → при равенстве лексикографический `rid`/`qid`**;
+4. возвращает канонический порядок в `merged`.
+
+Переиндексация больше не нужна и не выполняется: позиция в UI вычисляется из порядка списка.
+
+### 4.2 Обновление текста
+
+- Поле-условие: сервер сравнивает `baseUpdatedAt` с текущим `updatedAt` ячейки.
+  - `baseUpdatedAt == DB.updatedAt` → применить, вернуть `newVersion`.
+  - иначе и текст отличается → **409** (§3.3).
+  - иначе (текст совпадает) → считать no-op, без 409.
+- `updatedAt` проставляет клиент в момент последнего изменения (это время «события правки»).
+
+### 4.3 Удаление
+
+- Удаление по `rid`/`qid` применяется всегда; правки удалённого объекта игнорируются
+  (клиент получит `merged` без объекта). Медиа-файлы помечаются на очистку отдельно.
+
+### 4.4 Медиа
+
+- Медиа загружаются как раньше (upload → `serverFileId`).
+- `answer.setMedia` заменяет список media строки целиком — ссылки уже содержат `serverFileId`.
+- Физические файлы не дублируются при `duplicate`-разрешении (копируются только ссылки).
+
+---
+
+## 5. Совместимость со старыми отчётами (schemaVersion 1)
+
+### 5.1 Миграция на клиенте (выполняется при открытии)
+
+При загрузке legacy-документа клиент:
+
+1. определяет `schemaVersion != 2`;
+2. выдаёт каждому вопросу `qid`, каждой строке (общий индекс по всем языкам + маркер) — `rid`;
+3. каждой ячейке без метаданных — `id` (uuid), `fingerprint`, `authorId` (`anon:<uuid>`),
+   если их нет;
+4. записывает документ как v2.
+
+Автосохранение:
+- **native**: мигрированный документ сразу пишется обратно в `report.json`
+  (уже реализовано в `loadReport`);
+- **web**: при следующем сохранении на сервер уходит v2 (правка пользователя сохраняет
+  мигрированную форму); дополнительно можно инициировать сохранение сразу после открытия.
+
+Результат миграции идемпотентен: при повторном открытии v2 идентификаторы перечитываются,
+а не пересоздаются.
+
+### 5.2 Сервер: приём legacy-документов
+
+Сервер должен принимать и **полный документ без `ops`** (текущий формат). Тогда:
+
+- `reportData` без stable-id → сервер применяет ту же миграцию (§5.1) на своей стороне;
+- `reportData` с v2 (полный документ) → сервер воспринимает его как одно большое
+  «обновление» и сливает по id (ничего не удаляя без явного `remove`),
+  либо (упрощение) заменяет при отсутствии конкурентных изменений.
+
+### 5.3 Дедуп при параллельной миграции одного документа
+
+Два новых клиента могли мигрировать один и тот же старый документ независимо
+(каждый выдал свои rid). Чтобы не получить дубликаты строк:
+
+- каждая строка несёт `legacyIndex` (старый индекс) и `fingerprint`-метку ряда
+  (нормализованная конкатенация текстов по языкам);
+- сервер при `answer.add` ищет существующую строку с тем же `legacyIndex`+fingerprint
+  и возвращает **существующий rid** (`dedup` в ответе);
+- клиент перезаписывает свои ссылки на канонический rid из `merged`/`dedup`.
+
+### 5.4 Смешанные версии приложений и сервера
+
+- Новый клиент при сохранении пробует ops-PATCH; если сервер не поддерживает
+  (404/признак), откатывается на старый полный PATCH с `baseVersion` —
+  система деградирует, но не ломается.
+- Старый клиент продолжает слать полный документ: сервер с merge принимает его
+  (см. §5.2) и возвращает merged. Старый клиент не понимает `merged` — сервер
+  должен возвращать данные в совместимом виде (обратная совместимость ответа) до
+  полного вывода старых версий.
+
+---
+
+## 6. Разрешение конфликта (клиентский UI)
+
+Показывается **только** для списка `conflicts` из 409 (одна ячейка — один диалог).
+
+В диалоге:
+- два редактируемых текстовых поля: «Ваш вариант» (clientText) и «Вариант другого
+  пользователя» (serverText) — оба можно править до выбора;
+- три действия:
+
+| Действие | Результат | Повторная отправка |
+|---|---|---|
+| **Оставить свой** | побеждает текст из поля «ваш вариант» | `answer.update`/`question.update`: base = `serverUpdatedAt`, value = отредактированный свой текст |
+| **Взять с сервера** | побеждает текст из поля «чужой вариант» | update: value = отредактированный чужой текст |
+| **Сохранить оба как отдельные ответы** | создаётся **новая строка** `rid2` (копия всей строки, конфликтная ячейка = ваш текст), оригинал остаётся с чужим | `answer.add` новой строки + update оригинала |
+
+Важно:
+
+- Побеждает **текст из поля**, соответствующего выбранной кнопке (если пользователь
+  правил поле — сохраняется правленый текст).
+- `duplicate`: новая строка копирует маркеры/медиа-ссылки и остальные языки;
+  вставляется сразу после оригинала.
+- После выбора все применённые значения получают `updatedAt = now` и отправляются
+  с `baseUpdatedAt = serverUpdatedAt` из 409 (перебазирование).
+- Если между 409 и повторным PATCH пришла ещё одна правка → новый 409 с актуальным
+  `serverText`, диалог показывается снова (без потери данных).
+
+---
+
+## 7. Многоязычие
+
+- Каждая строка ответа = `rid`, внутри — ячейки по `lang`.
+- Правка ячейки одного языка не «очищает» другие языки (в новой модели автоочистка
+  переводов из `updateAnswerText` не выполняется — переводы управляются явно через
+  «Синхронизацию переводов»). Это исключает ложные 409 между автором текста и
+  переводчиком.
+- Правки разных языков одной строки сливаются автоматически (разные поля).
+
+---
+
+## 8. Версионирование
+
+- `version` отчёта увеличивается на каждый успешный merge.
+- Клиент хранит `_baseReport` (документ после последнего `merged`) и считает дельту
+  по id от него.
+- `baseVersion` больше не является жёстким gate для merge (конфликты считаются
+  per-cell через `baseUpdatedAt`); поле остаётся для аудита и обратной совместимости.
+
+---
+
+## 9. Фазы внедрения
+
+### Фаза 1 — идентификаторы + миграция (клиент)
+- 1a. **Сделано**: `qid` у вопросов, `rowId` на ячейках/маркерах, миграция legacy при
+  загрузке, `schemaVersion: 2`, автосохранение мигрированного файла на native.
+  Новые вопросы/ответы создаются сразу со stable-id.
+- 1b. **Сделано (serialization)**: `toJson`/`fromJson` умеют canonical `answers`
+  (dual-write с legacy-зеркалами, чтение canonical-only документов). Внутренняя
+  нормализация до `AnswerRow` перенесена в Фазу 2 вместе с diff-движком.
+
+### Фаза 2 — ops + merge на клиенте
+- 2a. **Сделано (diff-движок)**: чистый модуль `lib/services/report_merge_service.dart`
+  (`buildReportOps(base, current)`) строит ops по qid/rid с `baseUpdatedAt` для
+  text-updates и `answer.setMedia` при изменении media-списка строки (сигнатура
+  по serverFileId/localPath/name); покрыт unit-тестами (8 кейсов: параллельные
+  add, один rid+lang, разные языки, no-op, remove, meta, setMedia).
+  Правки ячеек фиксируют `updatedAt`; при открытии/создании отчёта клиент хранит
+  `_baseReportSnapshot` для последующего diff.
+- 2b. **Сделано (клиент, за флагом `ReportState.mergeOpsEnabled = false`)**:
+  `ApiService.patchReportOps` (PATCH `/reports/:id` c `{"ops":[...]}`);
+  `ReportState.saveReportToServer` при включённом флаге идёт через ops:
+  `_saveViaMergeOps()` → build ops → PATCH → применяет `merged`
+  (`_applyMergedSnapshot`), при 409 разбирает conflicts (qid/rid/lang),
+  перебазирует базу (`_rebaseBaseToServer`) и повторяет. Фолбэк на legacy
+  PATCH при 400/404/405 или отсутствии `merged`. Если серверный документ ещё
+  legacy (нет canonical answers) — клиент сначала «сеет» canonical полным
+  legacy-сохранением, затем переключается на ops. Флаг включается, когда сервер
+  реализует контракт (Фаза 4).
+- 2c. Внутренняя нормализация UI/провайдера на `AnswerRow` (сейчас внутренние
+  структуры переходные, canonical — на границе сериализации).
+
+### Фаза 3 — UI разрешения конфликтов
+- **Сделано (клиент, reuse)**: новый 409 (rid+lang) транслируется в индексы
+  (`_parseCellConflicts`, `_answerIndexByRid`) и открывает существующий диалог
+  «принять серверный / заменить своим / сохранить как второй ответ» с
+  редактированием обоих текстов. Глобальные диалоги reload/overwrite остаются
+  только для не-ячеечных случаев и legacy-пути.
+
+### Фаза 4 — сервер
+- **Сделано (core)**: `src/services/reportOpsService.js` — canonicalize legacy->v2,
+  apply ops (question.add/remove, answer.add/update/remove/**setMedia**, meta),
+  per-cell конфликт по `baseUpdatedAt` -> conflicts[], автоприкрепление legacy-
+  зеркал. **Dedup параллельной миграции**: вопросы и строки с одинаковым
+  `legacyId/legacyIndex` + fingerprint не дублируются — qid/rid клиента
+  алиасятся на серверные (qidAlias/ridAlias внутри applyOps). **Аудит authorId**:
+  для аутентифицированных запросов сервер переопределяет
+  `authorId=user:<id>` в добавляемых/изменяемых ячейках. Врезка:
+  `PATCH /reports/:id` с `{ops:[...]}` (контроллер) -> `reportsService.patchReportOps`
+  (транзакция + атомарный UPDATE по версии + KS3-бэкап + sync `title` из meta).
+  Ответ: `{success, newVersion, merged}`; конфликт: 409 `VERSION_CONFLICT` c
+  `conflicts[]` (qid/rid/lang). Тесты: `tests/reportOps.test.js` (10 кейсов).
+- **Share-путь через ops** (`PATCH /reports/shares/:token`): анонимный редактор
+  шлёт `{ops, anonymousId}`, доступ — только permissions='edit', автор правок —
+  `share:<token>:<anonId>`, результат — `{success,newVersion,merged}`; доступ
+  логируется. Клиент: `ApiService.patchSharedReportOps` + ops-путь при активной
+  share-ссылке (fallback на legacy для анонимов/«посев» canonical).
+- Осталось: live-E2E после деплоя. Чек-лист включения:
+  `docs/MERGE_BY_ID_CHECKLIST.md`.
+
+### Фаза 5 — тесты и валидация
+- Два пользователя параллельно добавляют вопрос/ответ в одно место → оба сохранены.
+- Правка разных языков одной строки → автослияние.
+- Правка одной ячейки из одной базы → 409 → диалог → повторный PATCH.
+- Миграция legacy (открытие, автосохранение, повторное открытие — id стабильны).
+- Два клиента мигрируют один документ → дедуп по fingerprint, без дубликатов.
+- Старый сервер/старый клиент → fallback на legacy-формат.
+- Медиа: duplicate не дублирует файлы; удаление строки с медиа корректно.
+
+---
+
+## 10. Вне скоупа v1
+- Перетаскивание вопросов/ответов как отдельная op (`move`) — механизм якорей это
+  уже допускает, добавится позже.
+- CRDT/OT-слияние текста внутри одной ячейки (только выбор пользователя из §6).
+- Claim анонимных правок `anon:` → `user:`.

@@ -256,6 +256,44 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
+  /// Кнопка «Сохранить» на нативных платформах.
+  ///
+  /// Сначала сохраняет отчёт локально, а затем, если отчёт уже привязан
+  /// к серверу (папка server_* или sync_meta.json) и пользователь
+  /// залогинен, синхронизирует его с облаком (обновляет запись на
+  /// сервере, новые медиафайлы догружаются в фоне).
+  Future<void> _doSaveAndSync() async {
+    if (!_hasUnsavedChanges) return;
+
+    setState(() => _isSaving = true);
+    try {
+      final reportState = context.read<ReportState>();
+      final authProvider = context.read<AuthProvider>();
+      final onServer =
+          reportState.serverReportId != null ||
+          (reportState.serverPublicId?.isNotEmpty ?? false) ||
+          (reportState.shareToken?.isNotEmpty ?? false);
+
+      await reportState.saveReport();
+
+      if (!kIsWeb && onServer && authProvider.isLoggedIn) {
+        await reportState.saveReportToServer();
+      }
+
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _hasUnsavedChanges = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Save error: $e');
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
   /// Показывает диалог конфликта версий (409).
   /// Возвращает выбранное пользователем действие.
   Future<ConflictAction> _showConflictDialog(ConflictDetails details) async {
@@ -1306,6 +1344,48 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
   }
 
+  /// Строка-радио для диалога разблокировки ответа (без устаревшего Radio API).
+  Widget _lockOption({
+    required BuildContext context,
+    required bool selected,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_off,
+              size: 20,
+              color: selected
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showLockDialog(
     BuildContext context,
     int i,
@@ -1325,110 +1405,135 @@ class _FormFillScreenState extends State<FormFillScreen> {
     );
     final TextEditingController newController = TextEditingController();
 
+    // 0 — уточнить формулировку (переводы сохраняются)
+    // 1 — изменить текст и удалить переводы
+    // 2 — добавить новый ответ (переводы остаются)
+    int mode = 0;
+
     showDialog(
       context: context,
       builder: (ctx) {
         final isMobile = MediaQuery.of(context).size.width <= 800;
-        return AlertDialog(
-          insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
-          contentPadding: isMobile
-              ? const EdgeInsets.all(16)
-              : const EdgeInsets.all(24),
-          shape: isMobile
-              ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
-              : null,
-          title: Text(loc.changeAnswerTitle),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loc.lockWarningText,
-                  style: const TextStyle(color: AppColors.errorLight),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  loc.replaceExistingAnswer,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: replaceController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: loc.enterNewAnswerText,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: AppColors.grey200),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+              contentPadding: isMobile
+                  ? const EdgeInsets.all(16)
+                  : const EdgeInsets.all(24),
+              shape: isMobile
+                  ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+                  : null,
+              title: Text(loc.changeAnswerTitle),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      loc.lockWarningText,
+                      style: const TextStyle(color: AppColors.errorLight),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                    const SizedBox(height: 16),
+                    _lockOption(
+                      context: context,
+                      selected: mode == 0,
+                      title: loc.unlockModeKeep,
+                      onTap: () => setDialogState(() => mode = 0),
                     ),
+                    _lockOption(
+                      context: context,
+                      selected: mode == 1,
+                      title: loc.unlockModeReplace,
+                      onTap: () => setDialogState(() => mode = 1),
+                    ),
+                    _lockOption(
+                      context: context,
+                      selected: mode == 2,
+                      title: loc.unlockModeAdd,
+                      onTap: () => setDialogState(() => mode = 2),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: mode == 2 ? newController : replaceController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: mode == 2
+                            ? loc.enterNewAnswerPlaceholder
+                            : loc.enterNewAnswerText,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: AppColors.grey200),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                // «Не менять ничего».
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(loc.cancel),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  loc.orAddNewAnswer,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: newController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: loc.enterNewAnswerPlaceholder,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(color: AppColors.grey200),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
+                  onPressed: () {
+                    if (mode == 2) {
+                      // Добавить новый ответ — старый (и переводы) не трогаем.
+                      if (newController.text.isNotEmpty) {
+                        reportState.addAnswer(i);
+                        final newJ =
+                            (reportState.currentReport
+                                    ?.getAnswersForQuestion(
+                                      i,
+                                      reportState.currentReport!.currentLanguage,
+                                    )
+                                    .length ??
+                                1) -
+                            1;
+                        reportState.updateAnswerText(
+                          i,
+                          newJ,
+                          newController.text,
+                        );
+                      }
+                    } else {
+                      final text = replaceController.text;
+                      if (text.isNotEmpty && text != currentText) {
+                        if (mode == 0) {
+                          // Уточнение формулировки: правим только эту ячейку,
+                          // переводы в других языках сохраняются.
+                          reportState.updateAnswerText(
+                            i,
+                            j,
+                            text,
+                            language:
+                                reportState.currentReport!.currentLanguage,
+                          );
+                        } else {
+                          // Изменение смысла: удаляем переводы в других языках.
+                          reportState.updateAnswerText(i, j, text);
+                          setState(() {
+                            _enabledAnswers[qid]![j] = true;
+                          });
+                        }
+                      }
+                    }
+                    Navigator.pop(ctx);
+                  },
+                  child: Text(loc.ok),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(loc.cancel),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                setState(() {
-                  _enabledAnswers[qid]![j] = true;
-                });
-
-                if (newController.text.isNotEmpty) {
-                  reportState.addAnswer(i);
-                  final newJ =
-                      (reportState.currentReport
-                              ?.getAnswersForQuestion(
-                                i,
-                                reportState.currentReport!.currentLanguage,
-                              )
-                              .length ??
-                          1) -
-                      1;
-                  reportState.updateAnswerText(i, newJ, newController.text);
-                } else if (replaceController.text.isNotEmpty &&
-                    replaceController.text != currentText) {
-                  reportState.updateAnswerText(i, j, replaceController.text);
-                }
-
-                Navigator.pop(ctx);
-              },
-              child: Text(loc.ok),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -1644,11 +1749,31 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
+  /// Вернуться к списку отчётов (используется кликом по названию в шапке
+  /// на мобильных устройствах). Оставляем корневой экран '/' в стеке,
+  /// открываем список поверх и убираем промежуточные маршруты (/fill и т.п.),
+  /// чтобы не копились дубликаты экрана списка.
+  void _openReportsList() {
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/reports',
+      (route) => route.settings.name == '/',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final reportState = context.watch<ReportState>();
     final report = reportState.currentReport;
+
+    // Отчёт уже привязан к серверу (server_<id> папка / sync_meta.json /
+    // загрузка с сервера на web). Для таких отчётов вместо «Залить на сервер»
+    // показываем «Синхронизировать с облаком», а «Сохранить» дополнительно
+    // обновляет копию в облаке.
+    final bool reportOnServer =
+        reportState.serverReportId != null ||
+        (reportState.serverPublicId?.isNotEmpty ?? false) ||
+        (reportState.shareToken?.isNotEmpty ?? false);
 
     if (report == null) {
       return Scaffold(
@@ -1668,11 +1793,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
     // Контроллеры синхронизируются в _onReportStateChanged (listener),
     // build() остаётся чистой функцией без побочных эффектов.
+    final bool isDesktop = MediaQuery.of(context).size.width > 800;
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        leading: MediaQuery.of(context).size.width > 800
+        leading: isDesktop
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
                 tooltip: loc.back,
@@ -1680,13 +1806,29 @@ class _FormFillScreenState extends State<FormFillScreen> {
               )
             : null,
         titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: Text(
-            report.reportName,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+        title: InkWell(
+          onTap: isDesktop ? null : _openReportsList,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                if (!isDesktop) ...[
+                  const Icon(Icons.arrow_back_ios_new, size: 16),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(
+                  child: Text(
+                    report.reportName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         backgroundColor: AppColors.surface,
@@ -1774,7 +1916,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ? AppColors.primaryLight
                         : AppColors.greyDisabled,
                   ),
-            onPressed: _hasUnsavedChanges && !_isSaving ? _doSave : null,
+            onPressed: _hasUnsavedChanges && !_isSaving ? _doSaveAndSync : null,
             tooltip: _hasUnsavedChanges ? loc.save : loc.saved,
           ),
           Consumer<LocaleProvider>(
@@ -1853,14 +1995,25 @@ class _FormFillScreenState extends State<FormFillScreen> {
                   // "Залить на сервер" — только для залогиненных пользователей
                   // на нативных платформах. На web медиа грузятся через
                   // presigned сразу при добавлении, кнопка не нужна.
+                  // Кнопка облака: если отчёт уже на сервере — показываем
+                  // «Синхронизировать с облаком» (обновление существующей
+                  // копии, без создания дубликата), иначе «Залить на сервер».
                   if (authProvider.isLoggedIn && !kIsWeb)
                     PopupMenuItem(
                       value: 7,
                       child: Row(
                         children: [
-                          const Icon(Icons.cloud_upload),
+                          Icon(
+                            reportOnServer
+                                ? Icons.cloud_sync
+                                : Icons.cloud_upload,
+                          ),
                           const SizedBox(width: 8),
-                          Text(loc.uploadToServer),
+                          Text(
+                            reportOnServer
+                                ? loc.syncWithCloud
+                                : loc.uploadToServer,
+                          ),
                         ],
                       ),
                     ),

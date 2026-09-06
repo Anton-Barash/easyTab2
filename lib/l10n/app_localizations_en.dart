@@ -534,6 +534,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unlockAnswerTooltip => 'Unlock answer';
 
   @override
+  String get unlockModeKeep => 'Refine wording — keep translations';
+
+  @override
+  String get unlockModeReplace => 'Change text and delete translations';
+
+  @override
+  String get unlockModeAdd => 'Add a new answer (keep translations)';
+
+  @override
   String get saved => 'Saved';
 
   @override
@@ -749,6 +758,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get uploadToServer => 'Upload to server';
+
+  @override
+  String get syncWithCloud => 'Sync with cloud';
 
   @override
   String get uploadingFiles => 'Uploading files...';
@@ -1187,6 +1199,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadReportPrompt => 'Do you want to download this report?';
+
+  @override
+  String get createdLabel => 'Created:';
+
+  @override
+  String get modifiedLabel => 'Modified:';
 
   @override
   String get openReportFailed => 'Failed to open report';

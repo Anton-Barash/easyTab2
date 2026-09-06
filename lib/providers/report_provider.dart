@@ -5,10 +5,12 @@ import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 // share_plus (~50-80 KB) нужен только при экспорте ZIP — deferred.
 import 'package:share_plus/share_plus.dart' deferred as share_plus;
 import '../models/report_models.dart';
 import '../services/api_service.dart';
+import '../services/report_merge_service.dart';
 // Тяжёлые сервисы (Excel/Sync/HTML/ZIP, видео-очередь, сжатие видео,
 // генерация превью) загружаются лениво (deferred) — они нужны только
 // на экране заполнения отчёта (form_fill), а не на старте.
@@ -57,13 +59,26 @@ class ReportInfo {
 /// Действие, выбранное пользователем при конфликте версий (409).
 enum ConflictAction { reload, overwrite, resolved }
 
-/// Конфликт одного ответа: два пользователя изменили один и тот же подответ.
+/// Результат попытки сохранения через ops-PATCH (merge-by-ID).
+enum _OpsSaveResult { saved, fallbackLegacy, failed }
+
+/// Конфликт одного ответа/ячейки: два пользователя изменили один и тот же
+/// подответ. При новом (merge-by-ID) контракте сервер возвращает qid/rid/lang,
+/// клиент транслирует их в позиционные индексы для существующего UI-диалога.
 class AnswerConflict {
   final int questionIndex;
   final int answerIndex;
   final String language;
+
+  /// Стабильные id из нового 409-формата (merge-by-ID).
+  final String? qid;
+  final String? rid;
+  final String? field;
+
   final String serverText;
   final String clientText;
+  final int? clientUpdatedAt;
+  final int? serverUpdatedAt;
 
   AnswerConflict({
     required this.questionIndex,
@@ -71,6 +86,11 @@ class AnswerConflict {
     required this.language,
     required this.serverText,
     required this.clientText,
+    this.qid,
+    this.rid,
+    this.field,
+    this.clientUpdatedAt,
+    this.serverUpdatedAt,
   });
 }
 
@@ -86,6 +106,12 @@ class ConflictDetails {
 }
 
 class ReportState extends ChangeNotifier {
+  /// Включает ops-путь сохранения (merge-by-ID, Фаза 2b).
+  /// Держать выключенным, пока сервер не реализует ops-контракт
+  /// (см. docs/SERVER_SYNC_SPEC.md §3). При 400/404/«merged отсутствует»
+  /// клиент автоматически откатывается на legacy-путь.
+  static const bool mergeOpsEnabled = false;
+
   Report? _currentReport;
   String? _currentReportPath;
 
@@ -94,6 +120,9 @@ class ReportState extends ChangeNotifier {
 
   /// Снимок отчёта при открытии (для PATCH/merge на сервере).
   Map<String, dynamic>? _baseReportSnapshot;
+
+  /// true, если текущий сервер не понимает ops-PATCH — используем legacy-путь.
+  bool _mergeOpsUnsupported = false;
 
   // ===== Параметры компрессии медиа (из настроек) =====
   // Значения по умолчанию — ТЗ: 1500px / 85%, видео — low (level 3).
@@ -512,12 +541,19 @@ class ReportState extends ChangeNotifier {
           TranslationAnswer(),
         ];
       }
+      // Выдаём первому (единственному) ряду вопроса стабильный rid.
+      final rid = const Uuid().v4();
+      _currentReport!.markers[i.toString()]!.first.rowId = rid;
+      for (final lang in languages) {
+        _currentReport!.translations[i.toString()]![lang]!.first.rowId = rid;
+      }
     }
     _currentReportPath = null;
     // Сбрасываем ID отчёта на сервере — это новый отчёт
     _serverReportId = null;
     _serverReportVersion = null;
-    _baseReportSnapshot = null;
+    // База для diff-движка (Фаза 2): документ в том виде, в котором он создан.
+    _baseReportSnapshot = _currentReport?.toJson();
     _serverPublicId = null;
     _ks3Folder = null;
     notifyListeners();
@@ -726,6 +762,13 @@ class ReportState extends ChangeNotifier {
     }
     newMarkers[newIndex.toString()] = [AnswerMarkers()];
 
+    // Новый вопрос (qid уже в newQuestion) получает первый ряд с rid.
+    final rid = const Uuid().v4();
+    newMarkers[newIndex.toString()]!.first.rowId = rid;
+    for (final lang in _currentReport!.availableLanguages) {
+      newTranslations[newIndex.toString()]![lang]!.first.rowId = rid;
+    }
+
     _currentReport!.translations = newTranslations;
     _currentReport!.markers = newMarkers;
     notifyListeners();
@@ -824,6 +867,17 @@ class ReportState extends ChangeNotifier {
     }
     _currentReport!.markers[qid]!.add(AnswerMarkers());
 
+    // Новая строка ответа получает стабильный rid (одинаковый во всех языках
+    // и в маркере) — основа будущего merge-by-id.
+    final rid = const Uuid().v4();
+    for (final lang in _currentReport!.availableLanguages) {
+      final list = _currentReport!.translations[qid]![lang];
+      if (list != null && list.isNotEmpty) {
+        list.last.rowId = rid;
+      }
+    }
+    _currentReport!.markers[qid]!.last.rowId = rid;
+
     notifyListeners();
   }
 
@@ -871,9 +925,15 @@ class ReportState extends ChangeNotifier {
     if (_currentReport!.translations.containsKey(qid) &&
         _currentReport!.translations[qid]!.containsKey(lang) &&
         answerIndex < _currentReport!.translations[qid]![lang]!.length) {
-      _currentReport!.translations[qid]![lang]![answerIndex].text = text;
-      _currentReport!.translations[qid]![lang]![answerIndex].isEmpty =
-          text.isEmpty;
+      final cell = _currentReport!.translations[qid]![lang]![answerIndex];
+      final changed = cell.text != text;
+      cell.text = text;
+      cell.isEmpty = text.isEmpty;
+      if (changed) {
+        // updatedAt фиксирует момент последнего изменения ячейки — он нужен
+        // diff-движку (Фаза 2) как per-cell optimistic lock (baseUpdatedAt).
+        cell.updatedAt = DateTime.now().millisecondsSinceEpoch;
+      }
 
       // При обычном редактировании текущего языка очищаем переводы в других
       // языках. При разрешении конфликта для конкретного языка — не трогаем.
@@ -883,10 +943,14 @@ class ReportState extends ChangeNotifier {
               _currentReport!.translations[qid]!.containsKey(otherLang) &&
               answerIndex <
                   _currentReport!.translations[qid]![otherLang]!.length) {
-            _currentReport!.translations[qid]![otherLang]![answerIndex].text =
-                '';
-            _currentReport!.translations[qid]![otherLang]![answerIndex]
-                .isEmpty = true;
+            final otherCell =
+                _currentReport!.translations[qid]![otherLang]![answerIndex];
+            final otherChanged = otherCell.text != '';
+            otherCell.text = '';
+            otherCell.isEmpty = true;
+            if (otherChanged) {
+              otherCell.updatedAt = DateTime.now().millisecondsSinceEpoch;
+            }
           }
         }
       }
@@ -1753,7 +1817,255 @@ class ReportState extends ChangeNotifier {
   /// платформах, а также вызывается из [saveReport] на web.
   Future<bool> saveReportToServer() async {
     if (_currentReport == null) return false;
+
+    final canMergeOps = mergeOpsEnabled &&
+        !_mergeOpsUnsupported &&
+        _serverReportId != null &&
+        _baseReportSnapshot != null;
+    if (canMergeOps) {
+      final result = await _saveViaMergeOps();
+      if (result == _OpsSaveResult.saved) return true;
+      if (result == _OpsSaveResult.fallbackLegacy) {
+        return await _saveReportToServer();
+      }
+      return false;
+    }
     return await _saveReportToServer();
+  }
+
+  /// Сохранить отчёт через ops-PATCH (merge-by-ID, Фаза 2b).
+  ///
+  /// Строит ops из [_baseReportSnapshot] -> текущий документ, отправляет на
+  /// сервер, применяет `merged`. При 409 (конфликт одной ячейки) переустанавливает
+  /// базу на серверную версию ячейки и через [onVersionConflict] показывает
+  /// существующий диалог (rid транслируется в индексы), затем повторяет ops.
+  Future<_OpsSaveResult> _saveViaMergeOps() async {
+    if (_currentReport == null) return _OpsSaveResult.failed;
+    final serverId = _serverReportId;
+    final base = _baseReportSnapshot;
+    if (serverId == null || base == null) return _OpsSaveResult.fallbackLegacy;
+    final shareToken = (_shareToken == null || _shareToken!.isEmpty)
+        ? null
+        : _shareToken;
+
+    // ops оперируют ids, которые должны совпадать с сервером. Пока серверный
+    // документ legacy (нет canonical answers) — сначала шлём полный документ
+    // legacy-путём (он «посеет» на сервере canonical c теми же qid/rid),
+    // и только следующие сохранения идут через ops.
+    final baseAnswers = base['answers'];
+    if (baseAnswers is! Map || baseAnswers.isEmpty) {
+      return _OpsSaveResult.fallbackLegacy;
+    }
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final ops = buildReportOps(base, _currentReport!.toJson());
+      if (ops.isEmpty) return _OpsSaveResult.saved;
+
+      final ApiResult result;
+      if (shareToken != null) {
+        final anonymousId = await AnonymousIdService.getId();
+        result = await ApiService.patchSharedReportOps(
+          token: shareToken,
+          anonymousId: anonymousId,
+          ops: ops,
+        );
+      } else {
+        result = await ApiService.patchReportOps(
+          reportId: serverId,
+          ops: ops,
+        );
+      }
+
+      if (result.success) {
+        final merged = result.data?['merged'];
+        if (merged is Map) {
+          _applyMergedSnapshot(
+            Map<String, dynamic>.from(merged),
+            result.data?['newVersion'],
+          );
+          return _OpsSaveResult.saved;
+        }
+        // Сервер не вернул merged — ops-контракт не поддерживается.
+        _mergeOpsUnsupported = true;
+        return _OpsSaveResult.fallbackLegacy;
+      }
+
+      if (result.statusCode == 409 &&
+          result.data?['code'] == 'VERSION_CONFLICT') {
+        final details = _parseCellConflicts(result.data);
+        if (details == null || details.answerConflicts.isEmpty) {
+          _mergeOpsUnsupported = true;
+          return _OpsSaveResult.fallbackLegacy;
+        }
+        // База ячеек = серверная версия, чтобы повторные ops не конфликтовали.
+        _rebaseBaseToServer(details);
+        if (onVersionConflict == null) return _OpsSaveResult.failed;
+        final action = await onVersionConflict!(details);
+        if (action == ConflictAction.reload) {
+          if (shareToken != null) {
+            await loadSharedReport(shareToken);
+          } else {
+            await _loadReportFromServer(serverId);
+          }
+          return _OpsSaveResult.saved;
+        }
+        if (action == ConflictAction.overwrite) {
+          _mergeOpsUnsupported = true;
+          return _OpsSaveResult.fallbackLegacy;
+        }
+        continue; // resolved: пользователь разрешил — пробуем ops ещё раз
+      }
+
+      // Код 4xx/5xx без VERSION_CONFLICT — вероятно, сервер без ops.
+      if (result.statusCode == 400 ||
+          result.statusCode == 404 ||
+          result.statusCode == 405) {
+        _mergeOpsUnsupported = true;
+        return _OpsSaveResult.fallbackLegacy;
+      }
+      return _OpsSaveResult.failed;
+    }
+    return _OpsSaveResult.failed;
+  }
+
+  /// Разобрать новый (merge-by-ID) 409 и спроецировать на существующий диалог.
+  ConflictDetails? _parseCellConflicts(dynamic raw) {
+    if (raw is! Map) return null;
+    final currentVersion =
+        raw['currentVersion'] is int ? raw['currentVersion'] as int : 0;
+    final conflictsRaw = raw['conflicts'];
+    if (conflictsRaw is! List || conflictsRaw.isEmpty) return null;
+
+    final out = <AnswerConflict>[];
+    for (final c in conflictsRaw) {
+      if (c is! Map) continue;
+      final qid = c['qid']?.toString();
+      final rid = c['rid']?.toString();
+      final lang = c['lang']?.toString() ?? '';
+      final field = c['field']?.toString();
+      final serverText = c['serverText']?.toString() ?? '';
+      final clientText = c['clientText']?.toString() ?? '';
+      final serverUpdatedAt =
+          c['serverUpdatedAt'] is int ? c['serverUpdatedAt'] as int : null;
+      final clientUpdatedAt =
+          c['clientUpdatedAt'] is int ? c['clientUpdatedAt'] as int : null;
+
+      int qIndex = -1;
+      int aIndex = -1;
+      if (qid != null && _currentReport != null) {
+        qIndex = _currentReport!.questions.indexWhere((q) => q.qid == qid);
+        if (rid != null && qIndex >= 0) {
+          aIndex = _answerIndexByRid(qIndex, rid);
+        }
+      }
+      // Fallback: legacy-сервер мог вернуть индексы напрямую.
+      if (qIndex < 0) {
+        qIndex = c['questionIndex'] is int ? c['questionIndex'] as int : -1;
+      }
+      if (aIndex < 0) {
+        aIndex = c['answerIndex'] is int ? c['answerIndex'] as int : -1;
+      }
+      if (qIndex < 0 || aIndex < 0) continue;
+
+      out.add(AnswerConflict(
+        questionIndex: qIndex,
+        answerIndex: aIndex,
+        language: lang,
+        serverText: serverText,
+        clientText: clientText,
+        qid: qid,
+        rid: rid,
+        field: field,
+        clientUpdatedAt: clientUpdatedAt,
+        serverUpdatedAt: serverUpdatedAt,
+      ));
+    }
+    if (out.isEmpty) return null;
+    return ConflictDetails(
+      currentVersion: currentVersion,
+      answerConflicts: out,
+    );
+  }
+
+  /// Индекс строки (ряда) ответа в вопросе по её rid.
+  int _answerIndexByRid(int questionIndex, String rid) {
+    final report = _currentReport;
+    if (report == null) return -1;
+    final key = questionIndex.toString();
+    final markerList = report.markers[key];
+    if (markerList != null) {
+      for (var i = 0; i < markerList.length; i++) {
+        if (markerList[i].rowId == rid) return i;
+      }
+    }
+    final langMap = report.translations[key];
+    if (langMap != null) {
+      for (final answers in langMap.values) {
+        for (var i = 0; i < answers.length; i++) {
+          if (answers[i].rowId == rid) return i;
+        }
+      }
+    }
+    return -1;
+  }
+
+  /// После 409 ставим базу ячеек равной серверной версии, чтобы повторные
+  /// ops несли корректный baseUpdatedAt и не конфликтовали повторно.
+  void _rebaseBaseToServer(ConflictDetails details) {
+    final base = _baseReportSnapshot;
+    if (base == null) return;
+    final canonicalAnswers = base['answers'];
+    final legacyTranslations = base['translations'];
+
+    for (final c in details.answerConflicts) {
+      // Legacy-зеркало в базе (индексный путь).
+      if (legacyTranslations is Map) {
+        final perLang = legacyTranslations[c.questionIndex.toString()];
+        if (perLang is Map) {
+          final list = perLang[c.language];
+          if (list is List && c.answerIndex < list.length) {
+            final cell = (list[c.answerIndex] as Map);
+            cell['text'] = c.serverText;
+            cell['_empty'] = c.serverText.isEmpty;
+            if (c.serverUpdatedAt != null) cell['updatedAt'] = c.serverUpdatedAt;
+          }
+        }
+      }
+      // Canonical-часть базы (qid/rid).
+      if (c.qid != null && c.rid != null && canonicalAnswers is Map) {
+        final rows = canonicalAnswers[c.qid];
+        if (rows is List) {
+          for (final rowRaw in rows) {
+            if (rowRaw is! Map) continue;
+            if ((rowRaw['rid']?.toString() ?? '') != c.rid) continue;
+            final cells = rowRaw['localizations'];
+            if (cells is Map) {
+              final cell = cells[c.language];
+              if (cell is Map) {
+                cell['text'] = c.serverText;
+                cell['isEmpty'] = c.serverText.isEmpty;
+                if (c.serverUpdatedAt != null) {
+                  cell['updatedAt'] = c.serverUpdatedAt;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// Применить серверный `merged`-документ как новое состояние и новую базу.
+  void _applyMergedSnapshot(Map<String, dynamic> merged, dynamic newVersion) {
+    final folderPath =
+        _currentReportPath ?? (_serverReportId?.toString());
+    _currentReport = Report.fromJson(merged, folderPath: folderPath);
+    if (newVersion != null) {
+      _serverReportVersion =
+          newVersion is int ? newVersion : int.tryParse(newVersion.toString());
+    }
+    _baseReportSnapshot = merged;
+    notifyListeners();
   }
 
   /// ID отчёта на сервере (используется на web для обновления существующего отчёта).
@@ -1894,6 +2206,24 @@ class ReportState extends ChangeNotifier {
           _uploadPendingMedia().catchError((e) {
             if (kDebugMode) debugPrint('Pending media upload error: $e');
           });
+        }
+
+        // На native сохраняем привязку к серверу в папке отчёта, чтобы
+        // после перезапуска приложение знало: отчёт уже есть в облаке.
+        if (!kIsWeb && _currentReportPath != null) {
+          try {
+            final metaFile = File('$_currentReportPath/sync_meta.json');
+            await metaFile.writeAsString(
+              jsonEncode({
+                'serverReportId': _serverReportId,
+                'serverPublicId': _serverPublicId,
+                'serverVersion': _serverReportVersion,
+                'ks3Folder': _ks3Folder,
+              }),
+            );
+          } catch (e) {
+            if (kDebugMode) debugPrint('sync_meta write error: $e');
+          }
         }
 
         return true;
@@ -2067,19 +2397,84 @@ class ReportState extends ChangeNotifier {
       }
 
       // ===== Mobile/Desktop: загружаем локально =====
+      // Сбрасываем привязку к серверу от предыдущего открытого отчёта.
+      _serverReportId = null;
+      _serverReportVersion = null;
+      _serverPublicId = null;
+      _ks3Folder = null;
+
       final folder = Directory(folderName);
       if (!await folder.exists()) return false;
       final jsonFile = File('${folder.path}/$reportFilename');
       if (!await jsonFile.exists()) return false;
       final jsonString = await jsonFile.readAsString();
       final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+      final wasLegacy = jsonData['schemaVersion'] != 2;
       _currentReport = Report.fromJson(jsonData, folderPath: folderName);
       _currentReportPath = folderName;
+      await _restoreServerLinkFromLocalFolder(folder.path);
+
+      // Старый (schemaVersion 1) отчёт мигрирован в v2 (добавлены qid/rid,
+      // авторская метадата). Сразу автосохраняем локально, чтобы id не
+      // пересоздавались при каждом последующем открытии до первого save.
+      if (wasLegacy) {
+        try {
+          await jsonFile.writeAsString(jsonEncode(_currentReport!.toJson()));
+        } catch (e) {
+          if (kDebugMode) debugPrint('Autosave migration (v1->v2) error: $e');
+        }
+      }
+
+      // База для diff-движка (Фаза 2) — состояние на момент открытия.
+      _baseReportSnapshot = _currentReport?.toJson();
+
       notifyListeners();
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('Error loading report: $e');
       return false;
+    }
+  }
+
+  /// Восстановить привязку локального отчёта к серверу (native).
+  ///
+  /// Связь с серверной копией хранится в папке отчёта: в файле
+  /// sync_meta.json (после заливки/синхронизации) либо закодирована
+  /// в имени папки со служебным префиксом server_ (после скачивания
+  /// с сервера).
+  /// Без этого приложение не знало бы, что отчёт уже есть в облаке, и
+  /// кнопка «Залить на сервер» создавала бы дубликат.
+  Future<void> _restoreServerLinkFromLocalFolder(String folderPath) async {
+    final metaFile = File('$folderPath/sync_meta.json');
+    if (await metaFile.exists()) {
+      try {
+        final meta =
+            jsonDecode(await metaFile.readAsString()) as Map<String, dynamic>;
+        final id = meta['serverReportId'] ?? meta['id'];
+        if (id != null) {
+          _serverReportId = id is int ? id : int.tryParse(id.toString());
+        }
+        final publicId = meta['serverPublicId'] ?? meta['publicId'];
+        if (publicId is String && publicId.isNotEmpty) {
+          _serverPublicId = publicId;
+        }
+        final version = meta['serverVersion'] ?? meta['version'];
+        if (version != null) {
+          _serverReportVersion =
+              version is int ? version : int.tryParse(version.toString());
+        }
+        final ks3 = meta['ks3Folder'];
+        if (ks3 is String && ks3.isNotEmpty) {
+          _ks3Folder = ks3;
+        }
+        return;
+      } catch (_) {
+        // Повреждённый sync_meta.json — пробуем определить по имени папки.
+      }
+    }
+    final folderName = folderPath.split(Platform.pathSeparator).last;
+    if (folderName.startsWith('server_')) {
+      _serverReportId = int.tryParse(folderName.substring('server_'.length));
     }
   }
 

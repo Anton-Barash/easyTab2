@@ -519,6 +519,43 @@ class ApiService {
     );
   }
 
+  /// PATCH /reports/:id с merge-by-ID операциями (Фаза 2b).
+  ///
+  /// Тело: {"ops": [...]}. Успешный ответ — {success, newVersion, merged},
+  /// конфликт ячейки — 409 VERSION_CONFLICT с conflicts[] (qid/rid/lang).
+  static Future<ApiResult> patchReportOps({
+    required int reportId,
+    required List<Map<String, dynamic>> ops,
+  }) {
+    return _handleApiCall(
+      http.patch(
+        _uri('/reports/$reportId'),
+        headers: _headers,
+        body: jsonEncode({'ops': ops}),
+      ),
+      timeout: const Duration(seconds: 30),
+    );
+  }
+
+  /// PATCH /reports/shares/:token с merge-by-ID операциями (анонимный редактор).
+  ///
+  /// Тело: {"ops": [...], "anonymousId": "..."}. Успех — {success,newVersion,merged},
+  /// конфликт ячейки — 409 VERSION_CONFLICT c conflicts[].
+  static Future<ApiResult> patchSharedReportOps({
+    required String token,
+    required String anonymousId,
+    required List<Map<String, dynamic>> ops,
+  }) {
+    return _handleApiCall(
+      http.patch(
+        _uri('/reports/shares/$token'),
+        headers: _headers,
+        body: jsonEncode({'ops': ops, 'anonymousId': anonymousId}),
+      ),
+      timeout: const Duration(seconds: 30),
+    );
+  }
+
   /// Получить список отчётов пользователя с сервера.
   ///
   /// Возвращает ApiResult с data['reports'] — массив метаданных.

@@ -233,6 +233,9 @@
   "saveZipError": "保存ZIP错误：{error}",
   "lockAnswerTooltip": "锁定答案",
   "unlockAnswerTooltip": "解锁答案",
+  "unlockModeKeep": "润色表述——保留译文",
+  "unlockModeReplace": "修改文本并删除译文",
+  "unlockModeAdd": "添加新答案（保留译文）",
   "saved": "已保存",
   "processingZip": "正在处理ZIP...",
   "processingMedia": "正在添加文件，请稍候...",
@@ -304,6 +307,7 @@
   "mediaQualityMenuItem": "媒体质量选择",
   "starsBackground": "星空背景",
   "uploadToServer": "上传到服务器",
+  "syncWithCloud": "与云端同步",
   "uploadingFiles": "正在上传文件...",
   "uploadCompleteAll": "所有文件上传成功",
   "uploadCompletePartial": "上传完成：{count}/{total} 个文件",
@@ -557,5 +561,7 @@
   "answerConflictSaveAsSecond": "保存为第二个答案",
   "downloadReport": "下载报告",
   "downloadReportPrompt": "您想要下载这份报告吗？",
+  "createdLabel": "创建：",
+  "modifiedLabel": "修改：",
   "openReportFailed": "无法打开报告"
 }

@@ -224,20 +224,26 @@ class AnswerMarkers {
   List<MediaItem> media;
   bool needsWork;
 
+  /// Стабильный UUID строки ответа (rid), к которой относятся эти маркеры.
+  String? rowId;
+
   AnswerMarkers({
     this.attention = false,
     List<MediaItem>? media,
     this.needsWork = false,
+    this.rowId,
   }) : media = media ?? [];
 
   Map<String, dynamic> toJson() => {
     'attention': attention,
+    'rowId': rowId,
     'media': media.map((m) => m.toJson()).toList(),
     'needsWork': needsWork,
   };
 
   Map<String, dynamic> toJsonWithRelativePaths(String? folderPath) => {
     'attention': attention,
+    'rowId': rowId,
     'media': media.map((m) => m.toJsonWithRelativePaths(folderPath)).toList(),
     'needsWork': needsWork,
   };
@@ -247,6 +253,7 @@ class AnswerMarkers {
     String? folderPath,
   }) => AnswerMarkers(
     attention: json['attention'] ?? false,
+    rowId: json['rowId'] as String?,
     media:
         (json['media'] as List<dynamic>?)
             ?.map((m) => MediaItem.fromJson(m, folderPath: folderPath))
@@ -267,6 +274,10 @@ class TranslationAnswer {
   int? updatedAt;
   String? fingerprint;
 
+  /// Стабильный UUID строки ответа (rid). Все языковые ячейки одного
+  /// «ряда» ответа разделяют один rowId (merge-by-id).
+  String? rowId;
+
   TranslationAnswer({
     String? id,
     this.text = '',
@@ -277,7 +288,8 @@ class TranslationAnswer {
     int? createdAt,
     this.updatedAt,
     this.fingerprint,
-  })  : id = id ?? Uuid().v4(),
+    this.rowId,
+  })  : id = id ?? const Uuid().v4(),
        createdAt = createdAt ?? DateTime.now().millisecondsSinceEpoch;
 
   Map<String, dynamic> toJson() => {
@@ -290,6 +302,7 @@ class TranslationAnswer {
     'createdAt': createdAt,
     'updatedAt': updatedAt,
     'fingerprint': fingerprint,
+    'rowId': rowId,
   };
 
   factory TranslationAnswer.fromJson(Map<String, dynamic> json) => TranslationAnswer(
@@ -302,6 +315,7 @@ class TranslationAnswer {
     createdAt: json['createdAt'] as int?,
     updatedAt: json['updatedAt'] as int?,
     fingerprint: json['fingerprint'] as String?,
+    rowId: json['rowId'] as String?,
   );
 }
 
@@ -337,9 +351,18 @@ class QuestionLocalization {
 
 class Question {
   int id;
+
+  /// Стабильный UUID вопроса (merge-by-id). Назначается при создании,
+  /// старым документам выдаётся при миграции на schemaVersion 2.
+  String qid;
+
   Map<String, QuestionLocalization> localizations; // lang code -> localization
 
-  Question({required this.id, this.localizations = const {}});
+  Question({
+    required this.id,
+    this.localizations = const {},
+    String? qid,
+  }) : qid = qid ?? const Uuid().v4();
 
   QuestionLocalization? getLocalization(String langCode) =>
       localizations[langCode];
@@ -373,21 +396,25 @@ class Question {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'qid': qid,
     'localizations': localizations.map((k, v) => MapEntry(k, v.toJson())),
   };
 
   Question copyWith({
     int? id,
+    String? qid,
     Map<String, QuestionLocalization>? localizations,
   }) {
     return Question(
       id: id ?? this.id,
+      qid: qid ?? this.qid,
       localizations: localizations ?? this.localizations,
     );
   }
 
   factory Question.fromJson(Map<String, dynamic> json) => Question(
     id: json['id'] ?? 0,
+    qid: json['qid'] as String?,
     localizations:
         (json['localizations'] as Map<String, dynamic>?)?.map(
           (k, v) => MapEntry(k, QuestionLocalization.fromJson(v)),
@@ -517,10 +544,15 @@ class Report {
   }
 
   Map<String, dynamic> toJson() => {
+    'schemaVersion': 2,
     'reportName': reportName,
     'availableLanguages': availableLanguages,
     'currentLanguage': currentLanguage,
     'questions': questions.map((q) => q.toJson()).toList(),
+    // Canonical v2: ответы как строки (rid) с ячейками по языкам.
+    // Переходный период: legacy-зеркала translations/markers пишутся рядом
+    // (см. docs/SERVER_SYNC_SPEC.md §2) для совместимости со старым сервером.
+    'answers': _toCanonicalAnswers(),
     'translations': translations.map(
       (k, v) => MapEntry(
         k,
@@ -542,6 +574,99 @@ class Report {
     'headerImagePath': headerImagePath,
     'attachments': attachments.map((a) => a.toJson()).toList(),
   };
+
+  /// Canonical v2-представление ответов (для PATCH/merge и нового сервера).
+  ///
+  /// Преобразует внутренние (переходные) карты translations/markers в
+  /// строки с rid: questions -> qid, каждый «ряд» -> rid, внутри ячейки по
+  /// языкам и маркеры/медиа. Порядок строк сохраняется из списков.
+  Map<String, dynamic> _toCanonicalAnswers() {
+    final answers = <String, dynamic>{};
+    for (int i = 0; i < questions.length; i++) {
+      final q = questions[i];
+      final key = i.toString();
+      final langMap = translations[key];
+      final markersList = markers[key];
+      if (langMap == null) continue;
+
+      int rowCount = 0;
+      for (final list in langMap.values) {
+        if (list.length > rowCount) rowCount = list.length;
+      }
+      if (markersList != null && markersList.length > rowCount) {
+        rowCount = markersList.length;
+      }
+
+      final allLangs = <String>[];
+      for (final lang in langMap.keys) {
+        if (!allLangs.contains(lang)) allLangs.add(lang);
+      }
+      // Языки, которые есть у отчёта в целом (не только у вопроса) — чтобы
+      // canonical-строка всегда содержала ячейку для каждого языка.
+      for (final lang in availableLanguages) {
+        if (!allLangs.contains(lang)) allLangs.add(lang);
+      }
+
+      final outRows = <Map<String, dynamic>>[];
+      for (int r = 0; r < rowCount; r++) {
+        // Существующий rid ряда (маркер или любая ячейка).
+        String? rid;
+        if (markersList != null &&
+            r < markersList.length &&
+            markersList[r].rowId != null &&
+            markersList[r].rowId!.isNotEmpty) {
+          rid = markersList[r].rowId;
+        }
+        if (rid == null) {
+          for (final list in langMap.values) {
+            if (r < list.length &&
+                list[r].rowId != null &&
+                list[r].rowId!.isNotEmpty) {
+              rid = list[r].rowId;
+              break;
+            }
+          }
+        }
+        rid ??= _canonicalUuid();
+
+        final cells = <String, dynamic>{};
+        for (final lang in allLangs) {
+          final list = langMap[lang];
+          if (list != null && r < list.length) {
+            final cell = list[r];
+            cells[lang] = cell.toJson();
+            if (cell.rowId == null || cell.rowId!.isEmpty) {
+              cells[lang] = {...cells[lang] as Map<String, dynamic>, 'rowId': rid};
+            }
+          } else {
+            // Нет ячейки в этом языке для ряда — добавляем пустую.
+            cells[lang] = TranslationAnswer(rowId: rid).toJson();
+          }
+        }
+
+        Map<String, dynamic>? markersJson;
+        if (markersList != null && r < markersList.length) {
+          final marker = markersList[r];
+          markersJson = marker.toJsonWithRelativePaths(folderPath);
+          final markerRid = marker.rowId;
+          if (markerRid == null || markerRid.isEmpty) {
+            markersJson['rowId'] = rid;
+          }
+        }
+
+        outRows.add({
+          'rid': rid,
+          'legacyIndex': r,
+          'localizations': cells,
+          'markers': ?markersJson,
+        });
+      }
+      answers[q.qid] = outRows;
+    }
+    return answers;
+  }
+
+  static String _canonicalUuid() => const Uuid().v4();
 
   factory Report.fromJson(Map<String, dynamic> json, {String? folderPath}) {
     final translationsJson = json['translations'] as Map<String, dynamic>?;
@@ -581,6 +706,86 @@ class Report {
     final questionsList = json['questions'] as List?;
     final questionsCount = questionsList?.length ?? 0;
 
+    // Canonical v2 (без legacy-зеркал): answers { qid: [ {rid, localizations, markers} ] }.
+    // Внутренние (переходные) структуры translations/markers строятся по строкам.
+    final canonicalAnswers = json['answers'];
+    final hasLegacyShape = translationsJson != null || markersJson != null;
+    if (canonicalAnswers is Map && !hasLegacyShape) {
+      // Порядок вопросов задаёт соответствие qid -> индекс (внутренний ключ).
+      final indexByQid = <String, int>{};
+      if (questionsList != null) {
+        for (var i = 0; i < questionsList.length; i++) {
+          final q = questionsList[i];
+          if (q is Map) {
+            final qid = q['qid'] as String?;
+            if (qid != null && qid.isNotEmpty) indexByQid[qid] = i;
+          }
+        }
+      }
+      canonicalAnswers.forEach((qidRaw, rowsRaw) {
+        final qid = qidRaw.toString();
+        final idx = indexByQid[qid] ?? int.tryParse(qid);
+        if (idx == null || rowsRaw is! List) return;
+        final indexKey = idx.toString();
+        translations[indexKey] = {};
+        markers[indexKey] = [];
+
+        // Собираем множество языков вопроса, чтобы у каждого ряда были
+        // ячейки для всех языков (пустые при отсутствии).
+        final questionLangs = <String>[];
+        for (final lang in availableLanguages) {
+          if (!questionLangs.contains(lang)) questionLangs.add(lang);
+        }
+
+        for (final rowRaw in rowsRaw) {
+          if (rowRaw is! Map) continue;
+          final rid = (rowRaw['rid'] as String?) ?? '';
+          final rowLangs = <String>[];
+          final cellsRaw = rowRaw['localizations'];
+          if (cellsRaw is Map) {
+            for (final lang in (cellsRaw).keys) {
+              if (!rowLangs.contains(lang.toString())) {
+                rowLangs.add(lang.toString());
+              }
+            }
+          }
+          for (final lang in questionLangs) {
+            if (!rowLangs.contains(lang)) rowLangs.add(lang);
+          }
+
+          for (final lang in rowLangs) {
+            translations[indexKey]![lang] ??= [];
+            Map<String, dynamic> cellRaw = {};
+            if (cellsRaw is Map) {
+              final v = cellsRaw[lang];
+              if (v is Map) {
+                cellRaw = Map<String, dynamic>.from(v);
+              }
+            }
+            final cell = TranslationAnswer.fromJson(cellRaw);
+            if (rid.isNotEmpty &&
+                (cell.rowId == null || cell.rowId!.isEmpty)) {
+              cell.rowId = rid;
+            }
+            translations[indexKey]![lang]!.add(cell);
+          }
+
+          final markerRaw = rowRaw['markers'];
+          final markersRow = markerRaw is Map
+              ? AnswerMarkers.fromJson(
+                  Map<String, dynamic>.from(markerRaw),
+                  folderPath: folderPath,
+                )
+              : AnswerMarkers();
+          if (rid.isNotEmpty &&
+              (markersRow.rowId == null || markersRow.rowId!.isEmpty)) {
+            markersRow.rowId = rid;
+          }
+          markers[indexKey]!.add(markersRow);
+        }
+      });
+    }
+
     for (int i = 0; i < questionsCount; i++) {
       final qid = i.toString();
 
@@ -600,7 +805,7 @@ class Report {
 
     // Migration: ensure every answer has id/fingerprint/author metadata.
     // This runs when loading older reports that may not have these fields.
-    final uuid = Uuid();
+    const uuid = Uuid();
     translations.forEach((qid, langMap) {
       langMap.forEach((lang, answers) {
         for (var idx = 0; idx < answers.length; idx++) {
@@ -619,6 +824,54 @@ class Report {
           }
         }
       });
+    });
+
+    // Migration (schemaVersion 1 -> 2): выдаём стабильный rowId каждому
+    // «ряду» ответа. Языковые ячейки одного индекса (и маркер на том же
+    // индексе) образуют один ряд и разделяют один rid. Операция
+    // идемпотентна: уже проставленные rowId (v2) не перезаписываются.
+    translations.forEach((qid, langMap) {
+      final markersList = markers[qid];
+      int rowCount = 0;
+      for (final answers in langMap.values) {
+        if (answers.length > rowCount) rowCount = answers.length;
+      }
+      if (markersList != null && markersList.length > rowCount) {
+        rowCount = markersList.length;
+      }
+
+      for (var r = 0; r < rowCount; r++) {
+        String? rid;
+        // Пытаемся найти уже существующий rid ряда (ячейка или маркер).
+        for (final answers in langMap.values) {
+          if (r < answers.length &&
+              answers[r].rowId != null &&
+              answers[r].rowId!.isNotEmpty) {
+            rid = answers[r].rowId;
+            break;
+          }
+        }
+        if (rid == null &&
+            markersList != null &&
+            r < markersList.length &&
+            markersList[r].rowId != null &&
+            markersList[r].rowId!.isNotEmpty) {
+          rid = markersList[r].rowId;
+        }
+        rid ??= uuid.v4();
+
+        for (final answers in langMap.values) {
+          if (r < answers.length &&
+              (answers[r].rowId == null || answers[r].rowId!.isEmpty)) {
+            answers[r].rowId = rid;
+          }
+        }
+        if (markersList != null &&
+            r < markersList.length &&
+            (markersList[r].rowId == null || markersList[r].rowId!.isEmpty)) {
+          markersList[r].rowId = rid;
+        }
+      }
     });
 
     return Report(

@@ -525,6 +525,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unlockAnswerTooltip => '解锁答案';
 
   @override
+  String get unlockModeKeep => '润色表述——保留译文';
+
+  @override
+  String get unlockModeReplace => '修改文本并删除译文';
+
+  @override
+  String get unlockModeAdd => '添加新答案（保留译文）';
+
+  @override
   String get saved => '已保存';
 
   @override
@@ -737,6 +746,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get uploadToServer => '上传到服务器';
+
+  @override
+  String get syncWithCloud => '与云端同步';
 
   @override
   String get uploadingFiles => '正在上传文件...';
@@ -1167,6 +1179,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get downloadReportPrompt => '您想要下载这份报告吗？';
+
+  @override
+  String get createdLabel => '创建：';
+
+  @override
+  String get modifiedLabel => '修改：';
 
   @override
   String get openReportFailed => '无法打开报告';

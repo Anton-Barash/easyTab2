@@ -48,6 +48,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _reportsFuture = _syncManager.loadCombinedList();
   }
 
+  /// Форматирует дату в компактный строковый вид (yyyy-MM-dd HH:mm).
+  String _formatDateTime(DateTime dt) =>
+      dt.toLocal().toString().substring(0, 16);
+
+  /// Есть ли осмысленная дата изменения (отличается от даты создания более
+  /// чем на минуту — чтобы не показывать «Изменён» сразу после создания).
+  bool _hasRealModification(ReportSummary report) =>
+      !report.createdAt.isAtSameMomentAs(report.modified) &&
+      report.modified.difference(report.createdAt).abs().inSeconds >= 60;
+
   Future<void> _syncAllReports() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
@@ -135,6 +145,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final bool isMobile = MediaQuery.of(context).size.width <= 800;
     return Scaffold(
       appBar: AppBar(
         title: Text(loc.myReports),
@@ -228,7 +239,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       );
                     }
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      // На мобильных добавляем снизу запас, чтобы последний
+                      // отчёт можно было проскроллить выше плавающих кнопок.
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        isMobile ? 140 : 16,
+                      ),
                       itemCount: filteredReports.length,
                       itemBuilder: (ctx, index) {
                         final report = filteredReports[index];
@@ -368,13 +386,32 @@ class _ReportsScreenState extends State<ReportsScreen> {
       child: InkWell(
         onTap: () async {
           final nav = Navigator.of(context);
+          final messenger = ScaffoldMessenger.of(context);
           if (report.localExists) {
-            await reportState.loadReport(report.id);
-            if (!mounted) return;
-            final reportId = reportState.serverReportId;
-            nav.pushNamed(
-              reportId != null ? '/fill?reportId=$reportId' : '/fill',
-            );
+            // Открываем именно выбранный локальный отчёт. loadReport() на
+            // нативных платформах ждёт абсолютный путь к папке отчёта —
+            // берём его из localFolderPath (иначе откроется «последний»).
+            setState(() => _syncingReports.add(report.id));
+            try {
+              final loaded = await reportState.loadReport(
+                report.localFolderPath ?? report.id,
+              );
+              if (!mounted) return;
+              if (loaded) {
+                final reportId = reportState.serverReportId;
+                nav.pushNamed(
+                  reportId != null ? '/fill?reportId=$reportId' : '/fill',
+                );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(content: Text(loc.openReportFailed)),
+                );
+              }
+            } finally {
+              if (mounted) {
+                setState(() => _syncingReports.remove(report.id));
+              }
+            }
           } else if (report.onServer) {
             if (kIsWeb) {
               // Auto-open for web version (uses native web support in loadReport)
@@ -391,19 +428,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   // Refresh reports list to mark as synced
                   setState(() => _loadReports());
                 } else {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(loc.openReportFailed)),
-                    );
-                  }
-                }
-              } catch (e) {
-                if (kDebugMode) print('Web report open error: $e');
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(content: Text(loc.openReportFailed)),
                   );
                 }
+              } catch (e) {
+                if (kDebugMode) print('Web report open error: $e');
+                messenger.showSnackBar(
+                  SnackBar(content: Text(loc.openReportFailed)),
+                );
               } finally {
                 if (mounted) {
                   setState(() => _syncingReports.remove(report.id));
@@ -518,13 +551,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ),
               const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    report.modified.toLocal().toString().substring(0, 16),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${loc.createdLabel} ${_formatDateTime(report.createdAt)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        if (_hasRealModification(report))
+                          Text(
+                            '${loc.modifiedLabel} ${_formatDateTime(report.modified)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
