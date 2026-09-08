@@ -2560,6 +2560,17 @@ class ReportState extends ChangeNotifier {
     }
   }
 
+  /// Родительская папка для пути (строковая операция — не использует
+  /// Directory.parent, которого нет в web-заглушке platform_io_web).
+  static String _parentDirOf(String path) {
+    final sep = Platform.pathSeparator;
+    var p = path;
+    if (p.endsWith(sep)) p = p.substring(0, p.length - 1);
+    final idx = p.lastIndexOf(sep);
+    if (idx <= 0) return p.isEmpty ? sep : p;
+    return p.substring(0, idx);
+  }
+
   /// Снять привязку текущего отчёта к серверу после истечения права.
   ///
   /// Удаляет sync_meta.json, переименовывает папку `server_<id>` →
@@ -2578,9 +2589,9 @@ class ReportState extends ChangeNotifier {
           final meta =
               File('$folderPath${Platform.pathSeparator}sync_meta.json');
           if (await meta.exists()) await meta.delete();
-          final name = dir.path.split(Platform.pathSeparator).last;
-          final parentName =
-              dir.parent.path.split(Platform.pathSeparator).last;
+          final name = folderPath.split(Platform.pathSeparator).last;
+          final parentDir = _parentDirOf(folderPath);
+          final parentName = parentDir.split(Platform.pathSeparator).last;
           if (name.startsWith('server_')) {
             final newName =
                 'report_${DateTime.now().millisecondsSinceEpoch}_detached';
@@ -2588,12 +2599,12 @@ class ReportState extends ChangeNotifier {
             if (parentName == 'cloud_cache') {
               // Переносим скрытую рабочую копию в библиотеку отчётов.
               final libraryDir =
-                  '${dir.parent.parent.path}${Platform.pathSeparator}reports';
+                  '${_parentDirOf(parentDir)}${Platform.pathSeparator}reports';
               await Directory(libraryDir).create(recursive: true);
               newPath = '$libraryDir${Platform.pathSeparator}$newName';
             } else {
               newPath =
-                  '${dir.parent.path}${Platform.pathSeparator}$newName';
+                  '$parentDir${Platform.pathSeparator}$newName';
             }
             await dir.rename(newPath);
             _currentReportPath = newPath;
