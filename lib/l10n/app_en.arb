@@ -281,6 +281,7 @@
   "syncingProgress": "Syncing...",
   "syncCompleteMessage": "Sync complete",
   "syncErrorMessage": "Sync failed",
+  "reportAccessExpiredDetached": "Editing access has expired. The report is now saved only locally — you can upload it to the server again as a new report.",
   "settingsTitle": "Settings",
   "accountSection": "Account",
   "mediaQualitySection": "Media quality",
@@ -563,5 +564,6 @@
   "downloadReportPrompt": "Do you want to download this report?",
   "createdLabel": "Created:",
   "modifiedLabel": "Modified:",
-  "openReportFailed": "Failed to open report"
+  "openReportFailed": "Failed to open report",
+  "cloudSessionSyncFailed": "Failed to sync changes to the cloud"
 }

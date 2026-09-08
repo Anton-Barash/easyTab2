@@ -669,6 +669,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncErrorMessage => '同步失败';
 
   @override
+  String get reportAccessExpiredDetached =>
+      '编辑权限已过期。报告现仅保存在本地，您可以将其作为新报告重新上传到服务器。';
+
+  @override
   String get settingsTitle => '设置';
 
   @override
@@ -1188,4 +1192,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get openReportFailed => '无法打开报告';
+
+  @override
+  String get cloudSessionSyncFailed => '无法将更改同步到云端';
 }

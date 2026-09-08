@@ -268,6 +268,11 @@ class VideoUploadQueue {
         media.isUploading = false;
         media.uploadProgress = 1.0;
 
+        // После загрузки байты в памяти не нужны — превью строится из
+        // webUrl. Освобождаем их, чтобы при множественной загрузке видео
+        // сжатые копии не накапливались в куче браузера.
+        media.webBytes = null;
+
         // Генерируем и загружаем превью (кадр из видео).
         _uploadThumbnail(
           media: media,

@@ -280,11 +280,26 @@ class _FormFillScreenState extends State<FormFillScreen> {
         await reportState.saveReportToServer();
       }
 
+      // Сервер мог ответить постоянным отказом (истекло право на
+      // редактирование). В этом случае провайдер снял привязку локальной
+      // копии к серверу — сообщаем, что отчёт остался локальным и его
+      // можно заново залить на сервер как новый.
+      final detached = reportState.consumeServerLinkDetachedOnDeny();
+
       if (mounted) {
         setState(() {
           _isSaving = false;
           _hasUnsavedChanges = false;
         });
+      }
+      if (detached && mounted) {
+        final loc = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(loc.reportAccessExpiredDetached),
+            duration: const Duration(seconds: 8),
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Save error: $e');
@@ -1051,9 +1066,23 @@ class _FormFillScreenState extends State<FormFillScreen> {
       final reportId = reportState.serverReportId;
       if (!saved || reportId == null) {
         if (mounted) {
+          // Право могло истечь — тогда провайдер отвязал копию от сервера.
+          final detached =
+              reportState.consumeServerLinkDetachedOnDeny();
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(loc.uploadError)));
+          ).showSnackBar(
+            SnackBar(
+              content: Text(
+                detached
+                    ? loc.reportAccessExpiredDetached
+                    : loc.uploadError,
+              ),
+              duration: detached
+                  ? const Duration(seconds: 8)
+                  : const Duration(seconds: 4),
+            ),
+          );
         }
         return;
       }
@@ -1554,9 +1583,22 @@ class _FormFillScreenState extends State<FormFillScreen> {
       final synced = await reportState.saveReportToServer();
       if (!synced || reportState.serverPublicId == null) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(loc.htmlRequiresSync)));
+          // Если при сохранении выяснилось, что право истекло, провайдер
+          // уже отвязал локальную копию — сообщаем об этом явно.
+          final detached =
+              reportState.consumeServerLinkDetachedOnDeny();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                detached
+                    ? loc.reportAccessExpiredDetached
+                    : loc.htmlRequiresSync,
+              ),
+              duration: detached
+                  ? const Duration(seconds: 8)
+                  : const Duration(seconds: 4),
+            ),
+          );
         }
         return;
       }

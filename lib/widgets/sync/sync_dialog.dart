@@ -1,11 +1,11 @@
 import 'package:easy_tab/l10n/app_localizations.dart';
 import 'package:easy_tab/providers/report_provider.dart';
 import 'package:easy_tab/utils/app_colors.dart';
+import 'package:easy_tab/utils/clipboard_utils.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 /// Диалог синхронизации ответов для конкретного языка.
 ///
@@ -47,12 +47,15 @@ class SyncDialogState extends State<SyncDialog> {
     try {
       final syncJson = await _generateSyncJson();
       if (!mounted) return;
-      await Clipboard.setData(ClipboardData(text: syncJson));
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.jsonCopiedToClipboard)));
-      }
+      final copied = await copyToClipboard(syncJson);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            copied ? loc.jsonCopiedToClipboard : loc.copyError(''),
+          ),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

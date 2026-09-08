@@ -680,6 +680,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncErrorMessage => 'Sync failed';
 
   @override
+  String get reportAccessExpiredDetached =>
+      'Editing access has expired. The report is now saved only locally — you can upload it to the server again as a new report.';
+
+  @override
   String get settingsTitle => 'Settings';
 
   @override
@@ -1208,4 +1212,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openReportFailed => 'Failed to open report';
+
+  @override
+  String get cloudSessionSyncFailed => 'Failed to sync changes to the cloud';
 }

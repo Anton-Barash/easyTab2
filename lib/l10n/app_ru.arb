@@ -281,6 +281,7 @@
   "syncingProgress": "Синхронизация...",
   "syncCompleteMessage": "Синхронизация завершена",
   "syncErrorMessage": "Ошибка синхронизации",
+  "reportAccessExpiredDetached": "Срок доступа к редактированию истёк. Отчёт сохранён только локально — его можно заново залить на сервер как новый отчёт.",
   "settingsTitle": "Настройки",
   "accountSection": "Аккаунт",
   "mediaQualitySection": "Качество медиаданных",
@@ -563,5 +564,6 @@
   "downloadReportPrompt": "Вы хотите скачать этот отчёт?",
   "createdLabel": "Создан:",
   "modifiedLabel": "Изменён:",
-  "openReportFailed": "Не удалось открыть отчёт"
+  "openReportFailed": "Не удалось открыть отчёт",
+  "cloudSessionSyncFailed": "Не удалось синхронизировать изменения с облаком"
 }

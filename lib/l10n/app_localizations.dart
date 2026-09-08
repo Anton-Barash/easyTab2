@@ -1366,6 +1366,12 @@ abstract class AppLocalizations {
   /// **'Sync failed'**
   String get syncErrorMessage;
 
+  /// No description provided for @reportAccessExpiredDetached.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing access has expired. The report is now saved only locally — you can upload it to the server again as a new report.'**
+  String get reportAccessExpiredDetached;
+
   /// No description provided for @settingsTitle.
   ///
   /// In en, this message translates to:
@@ -2301,6 +2307,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to open report'**
   String get openReportFailed;
+
+  /// No description provided for @cloudSessionSyncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to sync changes to the cloud'**
+  String get cloudSessionSyncFailed;
 }
 
 class _AppLocalizationsDelegate

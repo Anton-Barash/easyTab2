@@ -2,14 +2,19 @@ import 'package:easy_tab/utils/app_colors.dart';
 
 import 'package:easy_tab/utils/open_html_stub.dart'
     if (dart.library.html) 'package:easy_tab/utils/open_html_web.dart';
+import 'package:easy_tab/utils/platform_io.dart'
+    if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/widgets/dotted_background.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import '../providers/report_provider.dart';
 import '../providers/auth_provider.dart';
 import '../l10n/app_localizations.dart';
+import '../services/api_service.dart';
 
 import '../models/report_summary.dart';
 import '../providers/report_sync_manager.dart';
@@ -36,6 +41,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void initState() {
     super.initState();
     _loadReports();
+    // Чистим «осиротевшие» скрытые копии облачных отчётов (если приложение
+    // закрылось прямо в редакторе и копия не была удалена).
+    _syncManager.purgeCloudCache();
   }
 
   @override
@@ -78,12 +86,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
       }
     });
 
+    var anyDetached = false;
     for (var report in reports) {
       // try sync if local exists, otherwise try download
       if (!mounted) return;
       if (report.localExists) {
         final ok = await _syncManager.syncReport(localFolderName: report.id, serverReportId: int.tryParse(report.id), baseVersion: report.serverVersion);
-        if (ok) _syncedReports.add(report.id);
+        if (ok) {
+          _syncedReports.add(report.id);
+        } else if (_syncManager.lastDeniedUnlinkedFolder != null) {
+          // Право на редактирование истекло — копия отвязана от сервера.
+          anyDetached = true;
+        }
       } else if (report.onServer) {
         final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
         if (folder != null) _syncedReports.add(folder);
@@ -100,9 +114,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     if (!mounted) return;
     final loc = AppLocalizations.of(context)!;
+    // Если хотя бы один отчёт был отвязан из-за истекшего права —
+    // показываем отдельное сообщение вместо общего «синхронизировано».
+    final detached = anyDetached;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(loc.syncCompleteMessage)));
+    ).showSnackBar(
+      SnackBar(
+        content: Text(
+          detached ? loc.reportAccessExpiredDetached : loc.syncCompleteMessage,
+        ),
+        duration: detached ? const Duration(seconds: 8) : const Duration(seconds: 4),
+      ),
+    );
   }
 
   Future<void> _syncReport(ReportSummary report) async {
@@ -137,9 +161,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     if (!mounted) return;
     final loc = AppLocalizations.of(context)!;
+    // Если сервер ответил постоянным отказом, локальная копия отвязана —
+    // показываем отдельное сообщение вместо общей ошибки синхронизации.
+    final detached = !ok && _syncManager.lastDeniedUnlinkedFolder != null;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(ok ? loc.syncCompleteMessage : loc.syncErrorMessage)));
+    ).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? loc.syncCompleteMessage
+              : (detached
+                  ? loc.reportAccessExpiredDetached
+                  : loc.syncErrorMessage),
+        ),
+        duration: detached ? const Duration(seconds: 8) : const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -377,6 +415,48 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final isSynced = _syncedReports.contains(report.id) || report.status == ReportSyncStatus.synced;
     final isSyncing = _syncingReports.contains(report.id);
 
+    // Просмотр HTML-версии облачного отчёта без скачивания.
+    // На web открываем в новой вкладке браузера; на native запрашиваем
+    // HTML у сервера и открываем системным просмотрщиком (как в редакторе).
+    Future<void> openServerHtmlView() async {
+      final messenger = ScaffoldMessenger.of(context);
+      if (kIsWeb) {
+        final origin = Uri.base.origin;
+        final viewUrl = '$origin/#/view-report?pid=${report.id}';
+        openHtmlInBrowserUrl(viewUrl);
+        return;
+      }
+      try {
+        final result = await ApiService.getReportHtmlByPublicId(report.id);
+        if (!mounted) return;
+        if (!result.success || result.data?['html'] == null) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(result.error ?? loc.openReportFailed),
+            ),
+          );
+          return;
+        }
+        final htmlContent = result.data!['html'] as String;
+        final tmpDir = await getTemporaryDirectory();
+        final file = File('${tmpDir.path}/easy_report_${report.id}.html');
+        await file.writeAsString(htmlContent);
+        final openResult = await OpenFile.open(file.path);
+        if (openResult.type == ResultType.noAppToOpen && mounted) {
+          messenger.showSnackBar(
+            SnackBar(content: Text(loc.noAppToOpenHtml)),
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) print('Open server HTML error: $e');
+        if (mounted) {
+          messenger.showSnackBar(
+            SnackBar(content: Text(loc.openReportFailed)),
+          );
+        }
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       constraints: const BoxConstraints(maxWidth: 500),
@@ -445,26 +525,91 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 }
               }
             } else {
-              // Original mobile: offer to download
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: Text(loc.downloadReport),
-                  content: Text(loc.downloadReportPrompt),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(loc.cancel)),
-                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(loc.downloadButton)),
-                  ],
-                ),
-              );
-              if (confirmed == true) {
-                setState(() => _syncingReports.add(report.id));
-                final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
-                setState(() {
-                  _syncingReports.remove(report.id);
-                  if (folder != null) _syncedReports.add(folder);
-                  _loadReports();
-                });
+              // Mobile/Desktop: открываем облачный отчёт сразу для
+              // редактирования. Медиа кладутся в скрытую рабочую копию
+              // (кэш приложения, не в «Мои отчёты»), правки автосохраняются
+              // на сервер, а при выходе копия удаляется.
+              setState(() => _syncingReports.add(report.id));
+              String? sessionFolder;
+              int? sessionServerId;
+              try {
+                sessionFolder = await _syncManager
+                    .downloadReportToCache(int.parse(report.id));
+                if (!mounted) return;
+                if (sessionFolder == null) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(loc.openReportFailed)),
+                  );
+                  return;
+                }
+                final loaded = await reportState.loadReport(sessionFolder);
+                if (!mounted) return;
+                if (!loaded) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(loc.openReportFailed)),
+                  );
+                  return;
+                }
+                final serverId = reportState.serverReportId;
+                sessionServerId = serverId;
+                await nav.pushNamed(
+                  serverId != null ? '/fill?reportId=$serverId' : '/fill',
+                );
+              } catch (e) {
+                if (kDebugMode) print('Cloud report open error: $e');
+                if (mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(loc.openReportFailed)),
+                  );
+                }
+              } finally {
+                if (sessionFolder != null && mounted) {
+                  // Сначала досинхронизируем изменения с сервером (текст +
+                  // новые медиа), иначе при удалении временной копии правки
+                  // из «быстрого открытия» будут потеряны.
+                  bool synced = true;
+                  final sessionId = sessionServerId;
+                  if (sessionId != null && authProvider.isLoggedIn) {
+                    synced = await _syncManager.syncCloudSession(
+                      sessionFolder,
+                      sessionId,
+                    );
+                  }
+                  if (synced) {
+                    await _syncManager.deleteCloudCacheFolder(sessionFolder);
+                  } else if (mounted) {
+                    // Сервер мог ответить постоянным отказом — тогда копия
+                    // уже перенесена из кэша в «Мои отчёты» как локальный
+                    // отчёт (правки не потеряны).
+                    final denied =
+                        _syncManager.lastDeniedUnlinkedFolder != null;
+                    // Папки может не быть и в том случае, когда отвязку
+                    // выполнил сам провайдер ещё в редакторе (копия уже в
+                    // «Моих отчётах», сообщение было показано там).
+                    final folderExists =
+                        await Directory(sessionFolder).exists();
+                    if (denied) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(loc.reportAccessExpiredDetached),
+                          duration: const Duration(seconds: 8),
+                        ),
+                      );
+                    } else if (folderExists) {
+                      // Оставляем копию, чтобы не потерять данные; она будет
+                      // удалена следующей очисткой кэша.
+                      messenger.showSnackBar(
+                        SnackBar(content: Text(loc.cloudSessionSyncFailed)),
+                      );
+                    }
+                  }
+                }
+                if (mounted) {
+                  setState(() {
+                    _syncingReports.remove(report.id);
+                    _loadReports();
+                  });
+                }
               }
             }
           }
@@ -579,7 +724,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (kIsWeb && report.onServer) ...[
+                  if (report.onServer) ...[
                     IconButton(
                       icon: const Icon(
                         Icons.open_in_new,
@@ -587,12 +732,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
-                      tooltip: 'Открыть HTML',
-                      onPressed: () {
-                        final origin = Uri.base.origin;
-                        final viewUrl = '$origin/#/view-report?pid=${report.id}';
-                        openHtmlInBrowserUrl(viewUrl);
-                      },
+                      tooltip: loc.openHtmlTooltip,
+                      onPressed: openServerHtmlView,
                     ),
                     const SizedBox(width: 8),
                   ],

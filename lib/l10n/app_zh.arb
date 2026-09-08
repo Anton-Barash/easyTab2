@@ -281,6 +281,7 @@
   "syncingProgress": "正在同步...",
   "syncCompleteMessage": "同步完成",
   "syncErrorMessage": "同步失败",
+  "reportAccessExpiredDetached": "编辑权限已过期。报告现仅保存在本地，您可以将其作为新报告重新上传到服务器。",
   "settingsTitle": "设置",
   "accountSection": "账户",
   "mediaQualitySection": "媒体质量",
@@ -563,5 +564,6 @@
   "downloadReportPrompt": "您想要下载这份报告吗？",
   "createdLabel": "创建：",
   "modifiedLabel": "修改：",
-  "openReportFailed": "无法打开报告"
+  "openReportFailed": "无法打开报告",
+  "cloudSessionSyncFailed": "无法将更改同步到云端"
 }

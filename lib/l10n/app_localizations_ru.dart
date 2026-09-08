@@ -681,6 +681,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncErrorMessage => 'Ошибка синхронизации';
 
   @override
+  String get reportAccessExpiredDetached =>
+      'Срок доступа к редактированию истёк. Отчёт сохранён только локально — его можно заново залить на сервер как новый отчёт.';
+
+  @override
   String get settingsTitle => 'Настройки';
 
   @override
@@ -1209,4 +1213,8 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get openReportFailed => 'Не удалось открыть отчёт';
+
+  @override
+  String get cloudSessionSyncFailed =>
+      'Не удалось синхронизировать изменения с облаком';
 }

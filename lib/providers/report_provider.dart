@@ -708,6 +708,13 @@ class ReportState extends ChangeNotifier {
   Uint8List? _headerImageBytes;
   String? _headerImageFileName;
 
+  // Ограничение одновременных загрузок медиа на web: много параллельных
+  // PUT в KS3 даёт пики памяти и трафика. Фото загружаются с максимальной
+  // степенью параллелизма _maxConcurrentWebMediaUploads.
+  static const int _maxConcurrentWebMediaUploads = 3;
+  int _runningWebMediaUploads = 0;
+  final List<Completer<void>> _webMediaUploadWaiters = [];
+
   Future<void> removeHeaderImage() async {
     if (_currentReport == null) return;
     if (_currentReportPath != null && _currentReport!.headerImagePath != null) {
@@ -1171,16 +1178,18 @@ class ReportState extends ChangeNotifier {
             (_shareToken != null && _shareToken!.isNotEmpty))) {
       // Фото (и native видео без сжатия) загружаем сразу, если отчёт сохранён.
       // В share-режиме _ks3Folder может быть null — сервер найдёт его сам.
-      _uploadMediaToServer(
-        mediaItem,
-        finalBytes,
-        generatedName,
-        relativePath,
-        mimeType,
-        onUploadProgress,
-      ).catchError((e) {
-        if (kDebugMode) debugPrint('Background upload failed: $e');
-      });
+      _boundedMediaUpload(
+        () => _uploadMediaToServer(
+          mediaItem,
+          finalBytes,
+          generatedName,
+          relativePath,
+          mimeType,
+          onUploadProgress,
+        ).catchError((e) {
+          if (kDebugMode) debugPrint('Background upload failed: $e');
+        }),
+      );
     }
 
     return generatedName;
@@ -1218,6 +1227,30 @@ class ReportState extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Header image upload error: $e');
+      }
+    }
+  }
+
+  /// Выполняет загрузку медиа, ограничивая число одновременных загрузок
+  /// на web значением [_maxConcurrentWebMediaUploads]. На native лимит
+  /// не применяется (загрузка идёт через локальные файлы).
+  Future<void> _boundedMediaUpload(Future<void> Function() upload) async {
+    if (!kIsWeb) {
+      await upload();
+      return;
+    }
+    while (_runningWebMediaUploads >= _maxConcurrentWebMediaUploads) {
+      final wait = Completer<void>();
+      _webMediaUploadWaiters.add(wait);
+      await wait.future;
+    }
+    _runningWebMediaUploads++;
+    try {
+      await upload();
+    } finally {
+      _runningWebMediaUploads--;
+      if (_webMediaUploadWaiters.isNotEmpty) {
+        _webMediaUploadWaiters.removeAt(0).complete();
       }
     }
   }
@@ -1318,6 +1351,17 @@ class ReportState extends ChangeNotifier {
         final fileId = result.data!['file']['id'];
         if (fileId is String) {
           mediaItem.serverFileId = fileId;
+          // Сохраняем URL для превью и освобождаем webBytes.
+          final uploadedUrl = result.data?['url'] as String?;
+          if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+            mediaItem.webUrl = uploadedUrl;
+            if (kIsWeb) {
+              // После успешной загрузки байты в памяти не нужны: превью
+              // строится из webUrl/сервера. Это предотвращает накопление
+              // всех фото/видео в куче браузера при множественной загрузке.
+              mediaItem.webBytes = null;
+            }
+          }
           notifyListeners();
           if (kDebugMode) {
             debugPrint('Media uploaded: $fileName → fileId=$fileId');
@@ -1579,13 +1623,15 @@ class ReportState extends ChangeNotifier {
             debugPrint('_uploadPendingMedia: uploading ${media.name}...');
           }
 
-          await _uploadMediaToServer(
-            media,
-            media.webBytes!,
-            media.name,
-            media.localPath ?? media.name,
-            media.type,
-            null,
+          await _boundedMediaUpload(
+            () => _uploadMediaToServer(
+              media,
+              media.webBytes!,
+              media.name,
+              media.localPath ?? media.name,
+              media.type,
+              null,
+            ),
           );
 
           if (media.serverFileId != null) {
@@ -1762,6 +1808,7 @@ class ReportState extends ChangeNotifier {
 
   Future<bool> saveReport() async {
     if (_currentReport == null) return false;
+    _serverLinkDetachedOnDeny = false;
     try {
       // ===== Web: сохраняем на сервер =====
       // На web нет локальной файловой системы (path_provider не работает),
@@ -1817,6 +1864,7 @@ class ReportState extends ChangeNotifier {
   /// платформах, а также вызывается из [saveReport] на web.
   Future<bool> saveReportToServer() async {
     if (_currentReport == null) return false;
+    _serverLinkDetachedOnDeny = false;
 
     final canMergeOps = mergeOpsEnabled &&
         !_mergeOpsUnsupported &&
@@ -1914,6 +1962,18 @@ class ReportState extends ChangeNotifier {
           return _OpsSaveResult.fallbackLegacy;
         }
         continue; // resolved: пользователь разрешил — пробуем ops ещё раз
+      }
+
+      // Постоянный отказ доступа (403/410 или явный текст denied/expired).
+      // 404 исключаем: под ним может быть старый сервер без ops-роута
+      // (обрабатывается ниже как fallbackLegacy). Если отчёт действительно
+      // удалён — отвязку выполнит legacy-путь _saveReportToServer.
+      final isDenial = result.statusCode == 403 ||
+          result.statusCode == 410 ||
+          (result.isPermanentAccessDenied && result.statusCode != 404);
+      if (isDenial) {
+        await _detachServerLinkIfDenied();
+        return _OpsSaveResult.failed;
       }
 
       // Код 4xx/5xx без VERSION_CONFLICT — вероятно, сервер без ops.
@@ -2070,6 +2130,17 @@ class ReportState extends ChangeNotifier {
 
   /// ID отчёта на сервере (используется на web для обновления существующего отчёта).
   int? _serverReportId;
+
+  /// Была ли при последнем сохранении отвязана локальная копия от сервера
+  /// из-за истечения права (403/404/410). Проверяется UI для сообщения.
+  bool _serverLinkDetachedOnDeny = false;
+
+  /// Прочитать и сбросить флаг отвязки (одноразово, для показа сообщения).
+  bool consumeServerLinkDetachedOnDeny() {
+    final value = _serverLinkDetachedOnDeny;
+    _serverLinkDetachedOnDeny = false;
+    return value;
+  }
 
   /// Публичный идентификатор отчёта для URL просмотра.
   String? _serverPublicId;
@@ -2228,6 +2299,16 @@ class ReportState extends ChangeNotifier {
 
         return true;
       } else {
+        if (result.isPermanentAccessDenied) {
+          // Право на редактирование истекло (403/404/410) — локальная копия
+          // больше не связана с сервером. Снимаем привязку, чтобы отчёт
+          // остался обычным локальным и его можно было залить заново.
+          if (await _detachServerLinkIfDenied()) {
+            if (kDebugMode) {
+              debugPrint('saveReport: server link detached on deny');
+            }
+          }
+        }
         if (kDebugMode) debugPrint('saveReport (web): ${result.error}');
         return false;
       }
@@ -2402,6 +2483,7 @@ class ReportState extends ChangeNotifier {
       _serverReportVersion = null;
       _serverPublicId = null;
       _ks3Folder = null;
+      _serverLinkDetachedOnDeny = false;
 
       final folder = Directory(folderName);
       if (!await folder.exists()) return false;
@@ -2476,6 +2558,82 @@ class ReportState extends ChangeNotifier {
     if (folderName.startsWith('server_')) {
       _serverReportId = int.tryParse(folderName.substring('server_'.length));
     }
+  }
+
+  /// Снять привязку текущего отчёта к серверу после истечения права.
+  ///
+  /// Удаляет sync_meta.json, переименовывает папку `server_<id>` →
+  /// `report_<ts>_detached` (чтобы привязка не восстанавливалась),
+  /// очищает серверные id и (для share) удаляет сохранённый токен.
+  /// Папки скрытых рабочих копий (cloud_cache) переносятся в библиотеку
+  /// «Мои отчёты», чтобы локальные правки не потерялись при очистке кэша.
+  /// После этого отчёт — обычный локальный; его можно заново залить
+  /// на сервер под новым ID.
+  Future<void> _detachCurrentReportServerLink() async {
+    final folderPath = _currentReportPath;
+    try {
+      if (folderPath != null) {
+        final dir = Directory(folderPath);
+        if (await dir.exists()) {
+          final meta =
+              File('$folderPath${Platform.pathSeparator}sync_meta.json');
+          if (await meta.exists()) await meta.delete();
+          final name = dir.path.split(Platform.pathSeparator).last;
+          final parentName =
+              dir.parent.path.split(Platform.pathSeparator).last;
+          if (name.startsWith('server_')) {
+            final newName =
+                'report_${DateTime.now().millisecondsSinceEpoch}_detached';
+            final String newPath;
+            if (parentName == 'cloud_cache') {
+              // Переносим скрытую рабочую копию в библиотеку отчётов.
+              final libraryDir =
+                  '${dir.parent.parent.path}${Platform.pathSeparator}reports';
+              await Directory(libraryDir).create(recursive: true);
+              newPath = '$libraryDir${Platform.pathSeparator}$newName';
+            } else {
+              newPath =
+                  '${dir.parent.path}${Platform.pathSeparator}$newName';
+            }
+            await dir.rename(newPath);
+            _currentReportPath = newPath;
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('detach server link error: $e');
+    }
+    if (_shareToken != null && _shareToken!.isNotEmpty) {
+      final t = _shareToken!;
+      _shareToken = null;
+      try {
+        await ShareTokenStorage.removeToken(t);
+      } catch (_) {}
+    }
+    _serverReportId = null;
+    _serverReportVersion = null;
+    _serverPublicId = null;
+    _ks3Folder = null;
+    _serverLinkDetachedOnDeny = true;
+    notifyListeners();
+  }
+
+  /// Снять привязку к серверу, если сервер ответил постоянным отказом
+  /// (403/404/410) и открыт локальный отчёт, ранее связанный с облаком.
+  ///
+  /// На web локальных копий нет (всё хранится на сервере), поэтому там
+  /// отвязка не выполняется. Возвращает true, если привязка была снята —
+  /// UI должен показать сообщение «отчёт теперь локальный».
+  Future<bool> _detachServerLinkIfDenied() async {
+    if (kIsWeb) return false;
+    if (_currentReportPath == null) return false;
+    final linked =
+        _serverReportId != null ||
+        (_serverPublicId?.isNotEmpty ?? false) ||
+        (_shareToken?.isNotEmpty ?? false);
+    if (!linked) return false;
+    await _detachCurrentReportServerLink();
+    return true;
   }
 
   /// Загрузить отчёт с сервера по его строковому/числовому ID.
