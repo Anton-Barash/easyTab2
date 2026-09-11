@@ -23,6 +23,11 @@ class ReportSummary {
   /// отчёта через ReportState.loadReport(), который ждёт абсолютный путь.
   final String? localFolderPath;
 
+  /// Абсолютный путь к header-изображению (обложка) локального отчёта.
+  /// На нативных платформах используется как миниатюра в списке.
+  /// Для облачных/web-отчётов вместо этого берётся /view/report/:publicId/cover.
+  final String? thumbnailPath;
+
   ReportSummary({
     required this.id,
     required this.title,
@@ -35,5 +40,6 @@ class ReportSummary {
     this.publicId,
     this.authorName,
     this.localFolderPath,
+    this.thumbnailPath,
   }) : createdAt = createdAt ?? modified;
 }

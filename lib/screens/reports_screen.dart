@@ -405,6 +405,83 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
+  /// Миниатюра отчёта (обложка из header-фото, «карточка 0»).
+  ///
+  /// Источники:
+  ///   - нативные платформы: локальный файл отчёта (headerImagePath);
+  ///   - web: /view/report/:publicId/cover (обложка с сервера, cookie-авторизация).
+  /// Для отчётов без обложки — иконка-заглушка. По клику открывается
+  /// увеличенное фото (для детального просмотра).
+  Widget _buildReportThumbnail(BuildContext context, ReportSummary report) {
+    ImageProvider? provider;
+    if (!kIsWeb && report.thumbnailPath != null) {
+      provider = FileImage(File(report.thumbnailPath!));
+    } else if (kIsWeb &&
+        report.onServer &&
+        (report.publicId?.isNotEmpty ?? false)) {
+      provider =
+          NetworkImage('${Uri.base.origin}/view/report/${report.publicId}/cover');
+    }
+
+    final fallback = Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const Icon(
+        Icons.description_outlined,
+        size: 24,
+        color: AppColors.textSecondary,
+      ),
+    );
+
+    final Widget box;
+    if (provider == null) {
+      box = fallback;
+    } else {
+      box = Container(
+        width: 44,
+        height: 44,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Image(
+          image: provider,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => fallback,
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: provider == null
+          ? null
+          : () => _showCoverDialog(context, provider!),
+      child: box,
+    );
+  }
+
+  /// Показать обложку отчёта в увеличенном виде.
+  void _showCoverDialog(BuildContext context, ImageProvider image) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(12),
+        child: InteractiveViewer(
+          maxScale: 5,
+          minScale: 0.8,
+          child: Image(image: image, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+
   Widget _buildReportCard(BuildContext context, ReportSummary report) {
     if (!mounted) return const SizedBox.shrink();
     final reportState = Provider.of<ReportState>(context, listen: false);
@@ -472,12 +549,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      constraints: const BoxConstraints(maxWidth: 500),
+      margin: const EdgeInsets.only(bottom: 5),
+      constraints: const BoxConstraints(maxWidth: 900),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(width: 2, color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
       ),
       child: InkWell(
         onTap: () async {
@@ -628,29 +705,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
             }
           }
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(width: 2, color: AppColors.border),
-                    ),
-                    child: const Icon(
-                        Icons.description_outlined,
-                        size: 32,
-                        color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
+                  _buildReportThumbnail(context, report),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Row(
                       children: [
@@ -658,11 +722,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           child: Text(
                             report.title,
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textPrimary,
                             ),
-                            maxLines: 3,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -710,7 +774,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -722,7 +786,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         Text(
                           '${loc.createdLabel} ${_formatDateTime(report.createdAt)}',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: AppColors.textSecondary,
                           ),
                         ),
@@ -730,7 +794,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           Text(
                             '${loc.modifiedLabel} ${_formatDateTime(report.modified)}',
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: AppColors.textSecondary,
                             ),
                           ),
@@ -741,7 +805,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 ? loc.anonymous
                                 : report.authorName!,
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: AppColors.textSecondary,
                             ),
                           ),

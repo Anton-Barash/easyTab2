@@ -154,6 +154,11 @@ class ReportSyncManager {
         localFolderPath: localExists
             ? '$reportsDirPath${Platform.pathSeparator}$matchedFolder'
             : null,
+        thumbnailPath: localExists
+            ? await _readLocalThumbnail(
+                '$reportsDirPath${Platform.pathSeparator}$matchedFolder',
+              )
+            : null,
       ));
 
       if (matchedFolder != null) localFolders.remove(matchedFolder);
@@ -171,6 +176,27 @@ class ReportSyncManager {
     out.sort((a, b) => b.modified.compareTo(a.modified));
 
     return out;
+  }
+
+  /// Читает header-изображение (обложку) из report.json локальной папки.
+  /// Возвращает абсолютный путь, или null если обложки нет.
+  Future<String?> _readLocalThumbnail(String folderPath) async {
+    if (kIsWeb) return null;
+    try {
+      final jf = File('$folderPath${Platform.pathSeparator}report.json');
+      if (await jf.exists()) {
+        final map = jsonDecode(await jf.readAsString());
+        if (map is Map) {
+          final header = map['headerImagePath'];
+          if (header is String && header.isNotEmpty) {
+            return '$folderPath${Platform.pathSeparator}$header';
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('readLocalThumbnail error ($folderPath): $e');
+    }
+    return null;
   }
 
   Future<ReportSummary> _readLocalReportSummary(
@@ -212,6 +238,7 @@ class ReportSyncManager {
       serverVersion: null,
       status: ReportSyncStatus.localOnly,
       localFolderPath: folderPath,
+      thumbnailPath: await _readLocalThumbnail(folderPath),
     );
   }
 

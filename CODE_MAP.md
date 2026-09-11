@@ -302,6 +302,14 @@ Stack: Node.js (JavaScript), Express-like or Fastify-style app (в коде ис
   `document.cookie`). Вызывается фронтендом из `AuthProvider.logout()` на web
   (`ApiService.logout`).
 
+## Эндпоинт /view/report/:publicId/cover
+- Обложка отчёта (header-фото, «карточка 0») — `viewController.viewReportCover`
+  (см. `src/controllers/viewController.js`, маршрут в `src/routes/view.js`).
+  Читает `headerImagePath` из `report_data` и отдаёт файл (с проверкой доступа
+  через `optionalAuth` + cookie). Используется Фронтендом как миниатюра в списке
+  отчётов на web: `Image.network('$origin/view/report/<publicId>/cover')`,
+  по клику открывается увеличенное фото.
+
 ## db/
 - Модули подключения к Postgres (pool), утилиты для миграций и обращения к PLpgSQL функциям, если они есть.
 
