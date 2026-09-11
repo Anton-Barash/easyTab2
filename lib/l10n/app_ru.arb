@@ -561,6 +561,7 @@
   "versionConflictOverwrite": "Сохранить поверх",
   "answerConflictTitle": "Конфликт ответа",
   "answerConflictMessage": "Другой пользователь изменил этот же ответ. Выберите, как поступить: принять его версию, заменить своей или сохранить оба варианта.",
+  "answerConflictChangedAgain": "Ответ был изменён снова, пока вы выбирали вариант. Проверьте и выберите, как поступить.",
   "answerConflictServerAnswer": "Ответ на сервере",
   "answerConflictYourAnswer": "Ваш ответ",
   "answerConflictUseServer": "Использовать ответ с сервера",

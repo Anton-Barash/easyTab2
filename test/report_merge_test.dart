@@ -94,6 +94,9 @@ void main() {
       expect(updates.length, 1);
       expect(updates.first['lang'], 'RU');
       expect(updates.first['baseUpdatedAt'], 1);
+      // baseText — текст базы: сервер по нему ловит правку другого автора
+      // независимо от расхождения часов между устройствами.
+      expect(updates.first['baseText'], 'общий');
       expect((updates.first['fields'] as Map)['text'], 'мой текст');
     });
 

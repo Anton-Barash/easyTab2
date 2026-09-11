@@ -1204,6 +1204,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Another user has changed this same answer. Choose what to do: accept their version, replace it with yours, or keep both answers.';
 
   @override
+  String get answerConflictChangedAgain =>
+      'The answer was changed again while you were choosing. Review it and choose what to do.';
+
+  @override
   String get answerConflictServerAnswer => 'Answer on server';
 
   @override

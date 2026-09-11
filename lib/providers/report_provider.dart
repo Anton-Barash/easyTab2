@@ -80,6 +80,10 @@ class AnswerConflict {
   final int? clientUpdatedAt;
   final int? serverUpdatedAt;
 
+  /// Кто последним правил ячейку на сервере (автор чужой правки).
+  /// Используется, чтобы показать пользователю, чей вариант он видит.
+  final String? serverAuthor;
+
   AnswerConflict({
     required this.questionIndex,
     required this.answerIndex,
@@ -91,6 +95,7 @@ class AnswerConflict {
     this.field,
     this.clientUpdatedAt,
     this.serverUpdatedAt,
+    this.serverAuthor,
   });
 }
 
@@ -99,18 +104,25 @@ class ConflictDetails {
   final int currentVersion;
   final List<AnswerConflict> answerConflicts;
 
+  /// true — конфликт по той же ячейке возник повторно: пока пользователь
+  /// выбирал вариант, ячейку успел изменить ещё кто-то. UI показывает
+  /// отдельное сообщение «ответ был изменён снова».
+  final bool isRepeat;
+
   ConflictDetails({
     required this.currentVersion,
     required this.answerConflicts,
+    this.isRepeat = false,
   });
 }
 
 class ReportState extends ChangeNotifier {
   /// Включает ops-путь сохранения (merge-by-ID, Фаза 2b).
-  /// Держать выключенным, пока сервер не реализует ops-контракт
-  /// (см. docs/SERVER_SYNC_SPEC.md §3). При 400/404/«merged отсутствует»
-  /// клиент автоматически откатывается на legacy-путь.
-  static const bool mergeOpsEnabled = false;
+  /// Сервер реализует ops-контракт (PATCH /reports/:id и /reports/shares/:token),
+  /// поэтому включено: параллельные правки сливаются по-cell, а конфликт одной
+  /// ячейки показывает диалог выбора. При 400/404/405 или отсутствии `merged`
+  /// клиент автоматически откатывается на legacy-путь (см. фолбэк ниже).
+  static const bool mergeOpsEnabled = true;
 
   Report? _currentReport;
   String? _currentReportPath;
@@ -1905,6 +1917,11 @@ class ReportState extends ChangeNotifier {
       return _OpsSaveResult.fallbackLegacy;
     }
 
+    // Ключи ячеек, по которым уже показывали диалог в этой попытке сохранения.
+    // Повторный конфликт по тому же ключу = ячейку изменили снова, пока
+    // пользователь выбирал вариант.
+    final seenConflictCells = <String>{};
+
     for (var attempt = 0; attempt < 3; attempt++) {
       final ops = buildReportOps(base, _currentReport!.toJson());
       if (ops.isEmpty) return _OpsSaveResult.saved;
@@ -1945,10 +1962,24 @@ class ReportState extends ChangeNotifier {
           _mergeOpsUnsupported = true;
           return _OpsSaveResult.fallbackLegacy;
         }
+        // Повторный конфликт по той же ячейке: пока пользователь выбирал
+        // вариант, ячейку успел изменить ещё кто-то.
+        final keys = details.answerConflicts
+            .map((c) => '${c.qid ?? ''}|${c.rid ?? ''}|${c.language}')
+            .toList();
+        final isRepeat = keys.any(seenConflictCells.contains);
+        seenConflictCells.addAll(keys);
+        final resolvedDetails = isRepeat
+            ? ConflictDetails(
+                currentVersion: details.currentVersion,
+                answerConflicts: details.answerConflicts,
+                isRepeat: true,
+              )
+            : details;
         // База ячеек = серверная версия, чтобы повторные ops не конфликтовали.
-        _rebaseBaseToServer(details);
+        _rebaseBaseToServer(resolvedDetails);
         if (onVersionConflict == null) return _OpsSaveResult.failed;
-        final action = await onVersionConflict!(details);
+        final action = await onVersionConflict!(resolvedDetails);
         if (action == ConflictAction.reload) {
           if (shareToken != null) {
             await loadSharedReport(shareToken);
@@ -2009,6 +2040,7 @@ class ReportState extends ChangeNotifier {
           c['serverUpdatedAt'] is int ? c['serverUpdatedAt'] as int : null;
       final clientUpdatedAt =
           c['clientUpdatedAt'] is int ? c['clientUpdatedAt'] as int : null;
+      final serverAuthor = c['serverAuthor']?.toString();
 
       int qIndex = -1;
       int aIndex = -1;
@@ -2038,6 +2070,9 @@ class ReportState extends ChangeNotifier {
         field: field,
         clientUpdatedAt: clientUpdatedAt,
         serverUpdatedAt: serverUpdatedAt,
+        serverAuthor: (serverAuthor != null && serverAuthor.isEmpty)
+            ? null
+            : serverAuthor,
       ));
     }
     if (out.isEmpty) return null;
@@ -2070,7 +2105,8 @@ class ReportState extends ChangeNotifier {
   }
 
   /// После 409 ставим базу ячеек равной серверной версии, чтобы повторные
-  /// ops несли корректный baseUpdatedAt и не конфликтовали повторно.
+  /// ops несли корректный baseUpdatedAt/baseText/author и не конфликтовали
+  /// повторно.
   void _rebaseBaseToServer(ConflictDetails details) {
     final base = _baseReportSnapshot;
     if (base == null) return;
@@ -2088,6 +2124,7 @@ class ReportState extends ChangeNotifier {
             cell['text'] = c.serverText;
             cell['_empty'] = c.serverText.isEmpty;
             if (c.serverUpdatedAt != null) cell['updatedAt'] = c.serverUpdatedAt;
+            if (c.serverAuthor != null) cell['authorId'] = c.serverAuthor;
           }
         }
       }
@@ -2106,6 +2143,9 @@ class ReportState extends ChangeNotifier {
                 cell['isEmpty'] = c.serverText.isEmpty;
                 if (c.serverUpdatedAt != null) {
                   cell['updatedAt'] = c.serverUpdatedAt;
+                }
+                if (c.serverAuthor != null) {
+                  cell['authorId'] = c.serverAuthor;
                 }
               }
             }

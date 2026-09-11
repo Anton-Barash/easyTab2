@@ -1205,6 +1205,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Другой пользователь изменил этот же ответ. Выберите, как поступить: принять его версию, заменить своей или сохранить оба варианта.';
 
   @override
+  String get answerConflictChangedAgain =>
+      'Ответ был изменён снова, пока вы выбирали вариант. Проверьте и выберите, как поступить.';
+
+  @override
   String get answerConflictServerAnswer => 'Ответ на сервере';
 
   @override

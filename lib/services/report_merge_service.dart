@@ -197,7 +197,12 @@ List<Map<String, dynamic>> buildReportOps(
           'qid': qid,
           'rid': rid,
           'lang': lang,
+          // baseUpdatedAt — per-cell optimistic lock (время правки в базе).
           'baseUpdatedAt': _cellUpdatedAt(bCell),
+          // baseText — текст, на основе которого сделана правка. Сервер по нему
+          // распознаёт, что ячейку успел изменить другой автор (не зависит от
+          // расхождения часов между устройствами).
+          'baseText': _cellText(bCell),
           'fields': {
             'text': _cellText(cCell),
             'isEmpty': _cellText(cCell).isEmpty,

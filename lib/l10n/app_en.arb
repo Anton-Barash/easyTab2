@@ -561,6 +561,7 @@
   "versionConflictOverwrite": "Overwrite",
   "answerConflictTitle": "Answer conflict",
   "answerConflictMessage": "Another user has changed this same answer. Choose what to do: accept their version, replace it with yours, or keep both answers.",
+  "answerConflictChangedAgain": "The answer was changed again while you were choosing. Review it and choose what to do.",
   "answerConflictServerAnswer": "Answer on server",
   "answerConflictYourAnswer": "Your answer",
   "answerConflictUseServer": "Use server answer",

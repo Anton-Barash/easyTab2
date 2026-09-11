@@ -2284,6 +2284,12 @@ abstract class AppLocalizations {
   /// **'Another user has changed this same answer. Choose what to do: accept their version, replace it with yours, or keep both answers.'**
   String get answerConflictMessage;
 
+  /// No description provided for @answerConflictChangedAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'The answer was changed again while you were choosing. Review it and choose what to do.'**
+  String get answerConflictChangedAgain;
+
   /// No description provided for @answerConflictServerAnswer.
   ///
   /// In en, this message translates to:

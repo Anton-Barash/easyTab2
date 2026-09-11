@@ -309,6 +309,41 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
+  /// Кнопка «Синхронизировать» (без несохранённых правок).
+  ///
+  /// На web отчёт сохраняется сразу на сервер, поэтому при нажатии просто
+  /// «пушим» текущее состояние на сервер (идемпотентно) и показываем
+  /// результат. Изменений нет — сетевого запроса фактически не происходит
+  /// (ops пуст), но состояние подтверждается.
+  Future<void> _syncOnly() async {
+    final reportState = context.read<ReportState>();
+    final loc = AppLocalizations.of(context)!;
+    final onServer =
+        reportState.serverReportId != null ||
+        (reportState.serverPublicId?.isNotEmpty ?? false) ||
+        (reportState.shareToken?.isNotEmpty ?? false);
+
+    // Отчёт ещё ни разу не сохранён на сервер — синхронизировать нечего.
+    if (!onServer) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.htmlRequiresSync)),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final ok = await reportState.saveReportToServer();
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? loc.syncCompleteMessage : loc.syncErrorMessage),
+      ),
+    );
+  }
+
   /// Показывает диалог конфликта версий (409).
   /// Возвращает выбранное пользователем действие.
   Future<ConflictAction> _showConflictDialog(ConflictDetails details) async {
@@ -405,16 +440,20 @@ class _FormFillScreenState extends State<FormFillScreen> {
     // Последовательно разрешаем конфликты каждого подответа.
     final reportState = context.read<ReportState>();
     for (final conflict in details.answerConflicts) {
-      await _showAnswerConflictDialog(reportState, conflict);
+      await _showAnswerConflictDialog(reportState, conflict, details.isRepeat);
     }
     return ConflictAction.resolved;
   }
 
   /// Диалог разрешения конфликта одного ответа.
+  ///
+  /// [isRepeat] = true, если по этой ячейке конфликт возник повторно: пока
+  /// пользователь выбирал вариант, ячейку успел изменить ещё кто-то.
   Future<void> _showAnswerConflictDialog(
     ReportState reportState,
-    AnswerConflict conflict,
-  ) async {
+    AnswerConflict conflict, [
+    bool isRepeat = false,
+  ]) async {
     final loc = AppLocalizations.of(context)!;
     final serverController = TextEditingController(text: conflict.serverText);
     final ownController = TextEditingController(text: conflict.clientText);
@@ -471,7 +510,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       border: Border.all(color: AppColors.attentionBorder),
                     ),
                     child: Text(
-                      loc.answerConflictMessage,
+                      isRepeat
+                          ? loc.answerConflictChangedAgain
+                          : loc.answerConflictMessage,
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.warningDark,
@@ -1937,7 +1978,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
             },
             tooltip: loc.toggleView,
           ),
-          // Manual save button
+          // Save / sync button.
+          // - Есть несохранённые правки → дискета: сохранить + синхронизировать.
+          // - Изменений нет → облако со стрелками по кругу: просто синхронизировать.
           IconButton(
             icon: _isSaving
                 ? const SizedBox(
@@ -1946,14 +1989,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Icon(
-                    Icons.save,
+                    _hasUnsavedChanges ? Icons.save : Icons.cloud_sync,
                     size: 24,
                     color: _hasUnsavedChanges
                         ? AppColors.primaryLight
-                        : AppColors.greyDisabled,
+                        : AppColors.textPrimary,
                   ),
-            onPressed: _hasUnsavedChanges && !_isSaving ? _doSaveAndSync : null,
-            tooltip: _hasUnsavedChanges ? loc.save : loc.saved,
+            onPressed:
+                _isSaving ? null : (_hasUnsavedChanges ? _doSaveAndSync : _syncOnly),
+            tooltip: _hasUnsavedChanges ? loc.save : loc.syncWithCloud,
           ),
           Consumer<LocaleProvider>(
             builder: (context, localeProvider, child) {

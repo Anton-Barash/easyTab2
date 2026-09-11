@@ -120,6 +120,15 @@
   скрытых копий в «Мои отчёты» при отвязке.
 - `lib/services/report_merge_service.dart` — diff-движок и построение ops
   (question.add/remove, answer.add/update/remove, answer.setMedia, meta).
+  Для `answer.update` шлёт `baseUpdatedAt` (optimistic-lock) и `baseText`
+  (текст базы: сервер по нему распознаёт правку другого автора независимо
+  от расхождения часов устройств).
+- `ReportState.mergeOpsEnabled = true` — включён ops-путь (merge-by-ID) и для
+  владельца (`PATCH /reports/:id`), и для анонимного редактора по share-ссылке
+  (`PATCH /reports/shares/:token`). Конфликт одной ячейки → диалог выбора
+  («использовать серверный / заменить своим / сохранить как второй ответ»);
+  повторный конфликт по той же ячейке показывает сообщение «изменён снова»
+  (`ConflictDetails.isRepeat`). Порядок включения — `docs/MERGE_BY_ID_CHECKLIST.md`.
 - `lib/services/api_result.dart` — результат вызова API; `isPermanentAccessDenied`
   классифицирует 403/404/410 и ключевые слова (denied/forbidden/expired/gone) как
   «постоянный отказ доступа».

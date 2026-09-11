@@ -1182,6 +1182,9 @@ class AppLocalizationsZh extends AppLocalizations {
       '另一位用户修改了同一个答案。请选择如何处理：接受对方的版本、替换为您的版本，或保留两个答案。';
 
   @override
+  String get answerConflictChangedAgain => '在您选择期间，该答案又被修改了。请重新查看并选择如何处理。';
+
+  @override
   String get answerConflictServerAnswer => '服务器上的答案';
 
   @override
