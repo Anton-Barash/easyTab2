@@ -3211,25 +3211,45 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  Future<bool> deleteReport(String folderName) async {
+  /// Удалить локальную копию отчёта с устройства.
+  ///
+  /// Принимает абсолютный путь к папке [localFolderPath] (а не имя отчёта).
+  /// Возвращает честный статус: `false`, если папки не существует или удаление
+  /// не удалось. Это устраняет баг «пишет удалено, но запись остаётся», когда
+  /// в метод передавался `report.id` (серверный id / относительное имя), папка
+  /// не находилась и метод безусловно возвращал `true`.
+  Future<bool> deleteReportLocal(String localFolderPath) async {
     try {
-      // ===== Web: удаляем на сервере =====
-      if (kIsWeb) {
-        final reportId = int.tryParse(folderName);
-        if (reportId == null) return false;
-        final result = await ApiService.deleteReport(reportId);
-        return result.success;
-      }
-
-      // ===== Mobile/Desktop: удаляем локально =====
-      final folder = Directory(folderName);
-      if (await folder.exists()) {
-        await folder.delete(recursive: true);
-      }
+      if (kIsWeb) return false;
+      // ===== Mobile/Desktop: удаляем локальную папку =====
+      final folder = Directory(localFolderPath);
+      if (!await folder.exists()) return false;
+      await folder.delete(recursive: true);
       return true;
     } catch (e) {
-      if (kDebugMode) debugPrint('Error deleting report: $e');
+      if (kDebugMode) debugPrint('Error deleting local report: $e');
       return false;
+    }
+  }
+
+  /// Удалить отчёт на сервере по его серверному [reportId].
+  /// Локальная копия (если есть) при этом НЕ трогается — её удаляет отдельный
+  /// вызов [deleteReportLocal].
+  ///
+  /// Возвращает: 0 — успех; 403 — не является автором (нельзя удалить чужой);
+  /// -1 — ошибка запроса/сеть. Позволяет UI показать понятное сообщение
+  /// (например, «не автор») вместо общего «ошибка удаления».
+  Future<int> deleteReportOnServer(String reportIdStr) async {
+    try {
+      final rId = int.tryParse(reportIdStr);
+      if (rId == null) return -1;
+      final result = await ApiService.deleteReport(rId);
+      if (result.success) return 0;
+      if (result.statusCode == 403) return 403;
+      return -1;
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error deleting server report: $e');
+      return -1;
     }
   }
 

@@ -418,6 +418,42 @@ abstract class AppLocalizations {
   /// **'Error deleting report'**
   String get reportDeleteError;
 
+  /// No description provided for @moreMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'More options'**
+  String get moreMenu;
+
+  /// No description provided for @reportMenuDeleteLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete on device'**
+  String get reportMenuDeleteLocal;
+
+  /// No description provided for @reportMenuDeleteServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete on server'**
+  String get reportMenuDeleteServer;
+
+  /// No description provided for @reportMenuUnlink.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlink'**
+  String get reportMenuUnlink;
+
+  /// No description provided for @reportMenuUnlinkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlink makes this report local only. Sync with the original cloud copy is lost.'**
+  String get reportMenuUnlinkHint;
+
+  /// No description provided for @reportDeleteServerDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot delete this report on the server: you are not the author.'**
+  String get reportDeleteServerDenied;
+
   /// No description provided for @createNewReport.
   ///
   /// In en, this message translates to:

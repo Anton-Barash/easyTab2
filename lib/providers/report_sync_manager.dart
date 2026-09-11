@@ -70,6 +70,37 @@ class ReportSyncManager {
       if (id != null) serverById[id] = s;
     }
 
+    // Карта «локальная папка -> serverReportId» из sync_meta.json.
+    // Локальная копия после заливки может хранить привязку к серверу
+    // не по имени папки (server_<id>), а по id внутри sync_meta.json
+    // (например, папка создана на телефоне как report_<ts>, потом залита).
+    // Без этого в списке оставались бы и локальная, и облачная записи
+    // с одинаковым названием (дубликат).
+    final localServerIdByFolder = <String, String>{};
+    if (!kIsWeb) {
+      for (final f in localFolders) {
+        final metaPath = '$reportsDirPath${Platform.pathSeparator}$f${Platform.pathSeparator}sync_meta.json';
+        try {
+          final mf = File(metaPath);
+          if (await mf.exists()) {
+            final meta = jsonDecode(await mf.readAsString());
+            if (meta is Map) {
+              final sid = meta['serverReportId'] ?? meta['serverId'] ?? meta['id'];
+              if (sid != null) localServerIdByFolder[f] = sid.toString();
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) print('readLocalSyncMeta error ($f): $e');
+        }
+      }
+    }
+    // Обратная карта: serverReportId -> локальная папка (если их несколько —
+    // берём первую, остальные обработаются как локальные внизу).
+    final localFolderByServerId = <String, String>{};
+    localServerIdByFolder.forEach((folder, sid) {
+      localFolderByServerId.putIfAbsent(sid, () => folder);
+    });
+
     final out = <ReportSummary>[];
 
     for (final s in serverList) {
@@ -92,8 +123,17 @@ class ReportSyncManager {
         if (parsed != null) modified = parsed.toLocal();
       }
 
-      final localFolderName = 'server_$id';
-      final localExists = localFolders.contains(localFolderName);
+      // Ищем локальную копию: сначала по классической папке server_<id>,
+      // затем по привязке в sync_meta.json (serverReportId == id).
+      final byName = 'server_$id';
+      final linkedFolder = localFolderByServerId[id];
+      String? matchedFolder;
+      if (localFolders.contains(byName)) {
+        matchedFolder = byName;
+      } else if (linkedFolder != null && localFolders.contains(linkedFolder)) {
+        matchedFolder = linkedFolder;
+      }
+      final localExists = matchedFolder != null;
 
       final status = localExists ? ReportSyncStatus.synced : ReportSyncStatus.cloudOnly;
       final version = s['version'] is int ? s['version'] as int : (s['ver'] is int ? s['ver'] as int : null);
@@ -108,11 +148,11 @@ class ReportSyncManager {
         serverVersion: version,
         status: status,
         localFolderPath: localExists
-            ? '$reportsDirPath${Platform.pathSeparator}$localFolderName'
+            ? '$reportsDirPath${Platform.pathSeparator}$matchedFolder'
             : null,
       ));
 
-      localFolders.remove(localFolderName);
+      if (matchedFolder != null) localFolders.remove(matchedFolder);
     }
 
     for (final f in localFolders) {
@@ -435,9 +475,21 @@ class ReportSyncManager {
 
       if (res.success) {
         try {
+          // При создании нового отчёта (serverReportId == null) сервер
+          // возвращает новый id — запоминаем его в sync_meta, чтобы локальную
+          // папку можно было связать с облачной по id (а не по имени server_<id>).
+          final newId = res.data?['id'] ??
+              res.data?['report']?['id'] ??
+              serverReportId;
           final newVersion = res.data?['newVersion'] ?? res.data?['version'] ?? res.data?['report']?['version'];
-          if (newVersion != null) {
-            final meta = {'serverVersion': newVersion};
+          if (newId != null || newVersion != null) {
+            final meta = <String, dynamic>{};
+            if (newId != null) {
+              meta['serverReportId'] = newId is int ? newId : int.tryParse(newId.toString());
+            }
+            if (newVersion != null) {
+              meta['serverVersion'] = newVersion is int ? newVersion : int.tryParse(newVersion.toString());
+            }
             final mf = File('$folderPath${Platform.pathSeparator}sync_meta.json');
             await mf.writeAsString(jsonEncode(meta));
           }
@@ -477,6 +529,20 @@ class ReportSyncManager {
   ///   переносит папку в библиотеку как `report_<ts>_detached` — иначе
   ///   локальные правки исчезли бы при очистке кэша.
   ///
+  /// Публичный метод «Отменить связь» для отчёта в списке.
+  ///
+  /// Разрывает привязку локальной копии [folderPath] к серверу: удаляет
+  /// sync_meta.json и переименовывает папку в `report_<ts>_detached`, чтобы
+  /// она стала обычным локальным отчётом в «Моих отчётах». Далее повторная
+  /// заливка на сервер создаст новый отчёт (новый id) — синхронизация с
+  /// прежним облачным отчётом теряется.
+  ///
+  /// Возвращает `true`, если отвязка выполнена.
+  Future<bool> detachReportFromServer(String folderPath) async {
+    final res = await _detachFromServer(folderPath, isLibrary: true);
+    return res != null;
+  }
+
   /// Возвращает прежнее имя папки, если отвязка выполнена, иначе null.
   Future<String?> _detachFromServer(String folderPath, {required bool isLibrary}) async {
     try {

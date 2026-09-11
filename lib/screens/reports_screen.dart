@@ -737,95 +737,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                     const SizedBox(width: 8),
                   ],
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: AppColors.errorLight),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert,
+                        color: AppColors.textSecondary),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () async {
-                      final loc = AppLocalizations.of(context)!;
-                      final scaffoldMessenger = ScaffoldMessenger.of(context);
-                      final isMobile = MediaQuery.of(context).size.width <= 800;
-                      final confirm = await showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          insetPadding: isMobile
-                              ? EdgeInsets.zero
-                              : const EdgeInsets.all(40),
-                          contentPadding: isMobile
-                              ? const EdgeInsets.all(16)
-                              : const EdgeInsets.all(24),
-                          shape: isMobile
-                              ? const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.zero,
-                                )
-                              : null,
-                          title: isMobile ? null : Text(loc.deleteReport),
-                          content: isMobile
-                              ? Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(loc.cannotUndo),
-                                    const SizedBox(height: 24),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextButton(
-                                            onPressed: () => Navigator.pop(ctx, false),
-                                            child: Text(loc.cancel),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: TextButton(
-                                            onPressed: () => Navigator.pop(ctx, true),
-                                            child: Text(loc.delete),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                )
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(loc.cannotUndo),
-                                    const SizedBox(height: 24),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(ctx, false),
-                                          child: Text(loc.cancel),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(ctx, true),
-                                          child: Text(loc.delete),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      );
-                      if (confirm == true) {
-                        final deleted = await reportState.deleteReport(
-                          report.id,
-                        );
-                        setState(() {
-                          _loadReports();
-                        });
-                        if (!mounted) return;
-                        scaffoldMessenger.showSnackBar(
-                          deleted
-                              ? SnackBar(content: Text(loc.reportDeleted))
-                              : SnackBar(
-                                  content: Text(loc.reportDeleteError),
-                                  backgroundColor: AppColors.error,
-                                ),
-                        );
+                    tooltip: loc.moreMenu,
+                    onSelected: (value) {
+                      if (value == 'delete_local') {
+                        _confirmDeleteLocal(report);
+                      } else if (value == 'delete_server') {
+                        _confirmDeleteServer(report);
+                      } else if (value == 'unlink') {
+                        _confirmUnlink(report);
                       }
                     },
+                    itemBuilder: (BuildContext ctx) => <PopupMenuEntry<String>>[
+                      if (report.localExists)
+                        PopupMenuItem<String>(
+                          value: 'delete_local',
+                          child: Text(loc.reportMenuDeleteLocal),
+                        ),
+                      if (report.onServer)
+                        PopupMenuItem<String>(
+                          value: 'delete_server',
+                          child: Text(loc.reportMenuDeleteServer),
+                        ),
+                      if (report.localExists && report.onServer)
+                        PopupMenuItem<String>(
+                          value: 'unlink',
+                          child: Text(loc.reportMenuUnlink),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -833,6 +775,181 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Показывает диалог подтверждения и удаляет локальную копию отчёта с устройства.
+  Future<void> _confirmDeleteLocal(ReportSummary report) async {
+    final loc = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+    final reportState = Provider.of<ReportState>(context, listen: false);
+
+    if (report.localFolderPath == null) {
+      _showSnack(loc.reportDeleteError);
+      return;
+    }
+    final confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+        contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+        shape: isMobile
+            ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+            : null,
+        title: isMobile ? null : Text(loc.reportMenuDeleteLocal),
+        content: isMobile
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(loc.cannotUndo),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Text(loc.cancel),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: Text(loc.delete),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(loc.cannotUndo),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(loc.cancel),
+                      ),
+                      const SizedBox(width: 12),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(loc.delete),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final deleted =
+        await reportState.deleteReportLocal(report.localFolderPath!);
+    if (!mounted) return;
+    setState(() => _loadReports());
+    _showSnack(deleted
+        ? loc.reportDeleted
+        : loc.reportDeleteError
+    );
+  }
+
+  /// Удаляет отчёт на сервере, оставляя локальную копию без изменений.
+  Future<void> _confirmDeleteServer(ReportSummary report) async {
+    final loc = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+    final reportState = Provider.of<ReportState>(context, listen: false);
+
+    final confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+        contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+        shape: isMobile
+            ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+            : null,
+        title: isMobile ? null : Text(loc.reportMenuDeleteServer),
+        content: Text(loc.cannotUndo),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(loc.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(loc.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final result = await reportState.deleteReportOnServer(report.id);
+    if (!mounted) return;
+    // 403 означает, что отчёт принадлежит другому автору — даём понятное
+    // предупреждение вместо общего «ошибка удаления».
+    if (result == 403) {
+      _showSnack(loc.reportDeleteServerDenied);
+      return;
+    }
+    // После удаления на сервере локальная копия (если была) остаётся
+    // обычным локальным отчётом — перечитываем список.
+    setState(() => _loadReports());
+    _showSnack(result == 0
+        ? loc.reportDeleted
+        : loc.reportDeleteError);
+  }
+
+  /// Разрывает связь локальной копии с сервером (отменяет синхронизацию),
+  /// не удаляя ни локальную, ни облачную копии. Отчёт становится локальным,
+  /// повторная заливка создаст новый отчёт на сервере.
+  Future<void> _confirmUnlink(ReportSummary report) async {
+    final loc = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+
+    if (report.localFolderPath == null) {
+      _showSnack(loc.reportDeleteError);
+      return;
+    }
+    final confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+        contentPadding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+        shape: isMobile
+            ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+            : null,
+        title: isMobile ? null : Text(loc.reportMenuUnlink),
+        content: Text(loc.reportMenuUnlinkHint),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(loc.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(loc.reportMenuUnlink),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final ok =
+        await _syncManager.detachReportFromServer(report.localFolderPath!);
+    if (!mounted) return;
+    setState(() => _loadReports());
+    _showSnack(ok ? loc.reportDeleted : loc.reportDeleteError);
+  }
+
+  /// Показывает SnackBar, если виджет ещё смонтирован.
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

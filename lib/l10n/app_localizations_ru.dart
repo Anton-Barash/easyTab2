@@ -169,6 +169,26 @@ class AppLocalizationsRu extends AppLocalizations {
   String get reportDeleteError => 'Ошибка удаления отчёта';
 
   @override
+  String get moreMenu => 'Дополнительно';
+
+  @override
+  String get reportMenuDeleteLocal => 'Удалить на устройстве';
+
+  @override
+  String get reportMenuDeleteServer => 'Удалить на сервере';
+
+  @override
+  String get reportMenuUnlink => 'Отменить связь';
+
+  @override
+  String get reportMenuUnlinkHint =>
+      'Отмена связи делает отчёт локальным. Синхронизация с облачной копией потеряется.';
+
+  @override
+  String get reportDeleteServerDenied =>
+      'Нельзя удалить этот отчёт на сервере: вы не его автор.';
+
+  @override
   String get createNewReport => '+ Создать новый отчёт';
 
   @override

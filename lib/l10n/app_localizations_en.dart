@@ -169,6 +169,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportDeleteError => 'Error deleting report';
 
   @override
+  String get moreMenu => 'More options';
+
+  @override
+  String get reportMenuDeleteLocal => 'Delete on device';
+
+  @override
+  String get reportMenuDeleteServer => 'Delete on server';
+
+  @override
+  String get reportMenuUnlink => 'Unlink';
+
+  @override
+  String get reportMenuUnlinkHint =>
+      'Unlink makes this report local only. Sync with the original cloud copy is lost.';
+
+  @override
+  String get reportDeleteServerDenied =>
+      'Cannot delete this report on the server: you are not its author.';
+
+  @override
   String get createNewReport => '+ Create New Report';
 
   @override

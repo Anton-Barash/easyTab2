@@ -168,6 +168,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportDeleteError => '删除报告错误';
 
   @override
+  String get moreMenu => '更多选项';
+
+  @override
+  String get reportMenuDeleteLocal => '在设备上删除';
+
+  @override
+  String get reportMenuDeleteServer => '在服务器上删除';
+
+  @override
+  String get reportMenuUnlink => '解除关联';
+
+  @override
+  String get reportMenuUnlinkHint => '解除关联将使此报告仅保存在本地。与云端副本的同步将丢失。';
+
+  @override
+  String get reportDeleteServerDenied => '无法在服务器上删除此报告：你不是它的作者。';
+
+  @override
   String get createNewReport => '+ 创建新报告';
 
   @override
