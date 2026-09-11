@@ -2792,8 +2792,7 @@ class ReportState extends ChangeNotifier {
       for (final markers in markersList) {
         for (final media in markers.media) {
           if (media.localPath == null || media.localPath!.isEmpty) continue;
-          final uri = Uri.http(
-            ApiService.baseUrl,
+          final uri = ApiService.uri(
             '/view/report/$publicId/files/${media.localPath}',
             {'share_token': _shareToken},
           );

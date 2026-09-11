@@ -70,17 +70,21 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Разобрать строку "host:port" → (host, port).
+  /// Разобрать строку "scheme://host:port" → (scheme, host, port).
   /// Если порт не указан, используется 8000 (default для easyTab backend).
-  (String, int) _parseServerUrl(String value) {
+  /// Если схема не указана — определяется по хосту (https для внешних доменов).
+  (String, String, int) _parseServerUrl(String value) {
     final trimmed = value.trim();
-    if (trimmed.isEmpty) return ('localhost', 8000);
+    if (trimmed.isEmpty) return ('https', 'localhost', 8443);
 
     // Поддержка http:// или https:// префикса.
     String cleaned = trimmed;
+    String scheme = 'https';
     if (cleaned.startsWith('http://')) {
+      scheme = 'http';
       cleaned = cleaned.substring(7);
     } else if (cleaned.startsWith('https://')) {
+      scheme = 'https';
       cleaned = cleaned.substring(8);
     }
 
@@ -89,16 +93,16 @@ class _LoginScreenState extends State<LoginScreen> {
       final portStr = cleaned.substring(lastColon + 1);
       final port = int.tryParse(portStr);
       if (port != null && port > 0 && port < 65536) {
-        return (cleaned.substring(0, lastColon), port);
+        return (scheme, cleaned.substring(0, lastColon), port);
       }
     }
-    return (cleaned, 8000);
+    return (scheme, cleaned, scheme == 'http' ? 8000 : 8443);
   }
 
   Future<void> _testConnection(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final (host, port) = _parseServerUrl(_serverController.text);
-    await authProvider.setServerUrl(host, port);
+    final (scheme, host, port) = _parseServerUrl(_serverController.text);
+    await authProvider.setServerUrl(host, port, scheme: scheme);
 
     setState(() {
       _isTestingConnection = true;
@@ -139,8 +143,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Применяем текущий адрес сервера перед запросом.
     if (_serverController.text.isNotEmpty) {
-      final (host, port) = _parseServerUrl(_serverController.text);
-      await authProvider.setServerUrl(host, port);
+      final (scheme, host, port) = _parseServerUrl(_serverController.text);
+      await authProvider.setServerUrl(host, port, scheme: scheme);
     }
 
     bool success;

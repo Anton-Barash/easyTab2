@@ -108,8 +108,7 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
 
   Future<void> _openHtml() async {
     final anonymousId = await AnonymousIdService.getId();
-    final baseUrl = ApiService.baseUrl;
-    final uri = Uri.http(baseUrl, '/reports/shares/${widget.token}/html', {
+    final uri = ApiService.uri('/reports/shares/${widget.token}/html', {
       'anonymous_id': anonymousId,
     });
     openShareLink(uri.toString());
@@ -117,8 +116,7 @@ class _ShareWelcomeScreenState extends State<ShareWelcomeScreen> {
 
   Future<void> _downloadZip() async {
     final anonymousId = await AnonymousIdService.getId();
-    final baseUrl = ApiService.baseUrl;
-    final uri = Uri.http(baseUrl, '/reports/shares/${widget.token}/zip', {
+    final uri = ApiService.uri('/reports/shares/${widget.token}/zip', {
       'anonymous_id': anonymousId,
     });
     final zipName = buildShareZipName(_reportTitle, widget.token);

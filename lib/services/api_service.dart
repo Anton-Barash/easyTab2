@@ -14,31 +14,52 @@ import 'upload_helper.dart';
 /// Адрес сервера настраивается через [setBaseUrl] — вызывается AuthProvider'ом
 /// при инициализации и при смене адреса пользователем.
 class ApiService {
+  static String _scheme = 'https';
   static String _host = 'localhost';
-  static int _port = 8000;
+  static int _port = 8443;
 
   static const Duration _timeout = Duration(seconds: 15);
 
-  /// Установить адрес/порт сервера.
-  static void setBaseUrl(String host, int port) {
+  /// Схема подключения: 'http' или 'https'.
+  /// Как и host/port, настраивается через [setBaseUrl] (AuthProvider).
+  static String get scheme => _scheme;
+
+  /// Установить адрес/порт/схему сервера.
+  static void setBaseUrl(String host, int port, {String scheme = 'https'}) {
     _host = host;
     _port = port;
+    _scheme = scheme;
   }
 
+  /// Host:port без схемы (компактная форма для отображения).
   static String get baseUrl => '$_host:$_port';
 
-  static Uri _uri(String path) {
-    return Uri.http('$_host:$_port', path);
-  }
-
-  static Uri _uriQuery(String path, Map<String, String?> queryParameters) {
+  static Uri _newUri(String path, {Map<String, String?>? queryParameters}) {
     final filtered = <String, String>{};
-    queryParameters.forEach((key, value) {
+    queryParameters?.forEach((key, value) {
       if (value != null && value.isNotEmpty) {
         filtered[key] = value;
       }
     });
-    return Uri.http('$_host:$_port', path, filtered.isEmpty ? null : filtered);
+    return Uri(
+      scheme: _scheme,
+      host: _host,
+      port: _port,
+      path: path,
+      queryParameters: filtered.isEmpty ? null : filtered,
+    );
+  }
+
+  /// Публичный хелпер для построения URL к серверу с учётом активной схемы
+  /// (используется там, где раньше был `Uri.http(ApiService.baseUrl, ...)`).
+  static Uri uri(String path, [Map<String, String?>? queryParameters]) {
+    return _newUri(path, queryParameters: queryParameters);
+  }
+
+  static Uri _uri(String path) => _newUri(path);
+
+  static Uri _uriQuery(String path, Map<String, String?> queryParameters) {
+    return _newUri(path, queryParameters: queryParameters);
   }
 
   /// Токен авторизации (устанавливается AuthProvider'ом после входа).

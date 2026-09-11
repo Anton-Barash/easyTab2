@@ -1687,8 +1687,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final shareToken = reportState.shareToken;
     if (shareToken != null && shareToken.isNotEmpty) {
       final anonymousId = await AnonymousIdService.getId();
-      final uri = Uri.http(
-        ApiService.baseUrl,
+      final uri = ApiService.uri(
         '/reports/shares/$shareToken/html',
         {'anonymous_id': anonymousId},
       );
@@ -2175,8 +2174,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       if (shareToken != null && shareToken.isNotEmpty) {
                         // Аноним / share-ссылка: скачиваем ZIP через share endpoint.
                         final anonymousId = await AnonymousIdService.getId();
-                        final uri = Uri.http(
-                          ApiService.baseUrl,
+                        final uri = ApiService.uri(
                           '/reports/shares/$shareToken/zip',
                           {'anonymous_id': anonymousId},
                         );
@@ -2192,8 +2190,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         final query = token != null && token.isNotEmpty
                             ? {'token': token}
                             : <String, String>{};
-                        final uri = Uri.http(
-                          ApiService.baseUrl,
+                        final uri = ApiService.uri(
                           '/reports/$publicId/zip',
                           query,
                         );

@@ -11,8 +11,9 @@ class AuthProvider extends ChangeNotifier {
   String? _email;
   int? _userId;
   String? _lastError;
+  String _serverScheme = 'https';
   String _serverHost = 'localhost';
-  int _serverPort = 8000;
+  int _serverPort = 8443;
 
   static const String _tokenKey = 'user_token';
   static const String _usernameKey = 'user_name';
@@ -20,12 +21,13 @@ class AuthProvider extends ChangeNotifier {
   static const String _userIdKey = 'user_id';
   static const String _serverHostKey = 'server_host';
   static const String _serverPortKey = 'server_port';
+  static const String _serverSchemeKey = 'server_scheme';
 
   /// Боевой внешний адрес сервера — используется как fallback для мобильных
   /// приложений (у них нет Uri.base = origin), если пользователь ещё ничего
   /// не сохранил в настройках.
-  static const String _fallbackProductionHost = '110.43.49.137';
-  static const int _fallbackProductionPort = 8000;
+  static const String _fallbackProductionHost = 'easytab.cloud';
+  static const int _fallbackProductionPort = 443;
 
   bool get isLoggedIn => _isLoggedIn;
   String? get userToken => _userToken;
@@ -33,15 +35,16 @@ class AuthProvider extends ChangeNotifier {
   String? get email => _email;
   int? get userId => _userId;
   String? get lastError => _lastError;
+  String get serverScheme => _serverScheme;
   String get serverHost => _serverHost;
   int get serverPort => _serverPort;
-  String get serverUrl => '$_serverHost:$_serverPort';
+  String get serverUrl => '$_serverScheme://$_serverHost:$_serverPort';
 
-  /// Вычислить дефолтный (host, port) при первом запуске.
+  /// Вычислить дефолтный (scheme, host, port) при первом запуске.
   /// - Web: автоматически берём origin (где запущено веб-приложение).
   /// - Нативно: fallback на боевой адрес, чтобы пользователю не пришлось
-  ///   руками вводить localhost:8000 / 110.43.49.137:8000.
-  static (String host, int port) _defaultServerUrl() {
+  ///   руками вводить localhost:8443 / easytab.cloud:443.
+  static (String scheme, String host, int port) _defaultServerUrl() {
     if (kIsWeb) {
       try {
         final uri = Uri.base;
@@ -49,19 +52,22 @@ class AuthProvider extends ChangeNotifier {
         if (uri.host.isNotEmpty &&
             uri.host.toLowerCase() != 'localhost' &&
             uri.port != 0) {
-          final port = uri.hasPort ? uri.port : 80;
-          return (uri.host, port);
+          final scheme = uri.scheme;
+          final port = uri.hasPort
+              ? uri.port
+              : (scheme == 'https' ? 443 : 8000);
+          return (scheme, uri.host, port);
         }
       } catch (_) {/* ignore */}
-      // Локальный dev web — приложение и backend живут на :8000, а flutter
-      // dev сервер обычно запускают на другом порту. Default localhost:8000
+      // Локальный dev web — приложение и backend живут на :8443, а flutter
+      // dev сервер обычно запускают на другом порту. Default localhost:8443
       // — в 99% случаев правильный для отладки (если backend запущен).
-      return ('localhost', 8000);
+      return ('https', 'localhost', 8443);
     }
 
     // Мобильное/desktop приложение: по умолчанию сразу пробуем боевой адрес.
     // Если пользователь хочет dev — переопределит в настройках сервера.
-    return (_fallbackProductionHost, _fallbackProductionPort);
+    return ('https', _fallbackProductionHost, _fallbackProductionPort);
   }
 
   /// Инициализация: восстановление сохранённого токена и адреса сервера.
@@ -74,24 +80,30 @@ class AuthProvider extends ChangeNotifier {
 
     // Если адрес сервера уже сохранён пользователем — используем его.
     // Иначе вычисляем автоматически из origin / fallback.
+    final savedScheme = prefs.getString(_serverSchemeKey);
     final savedHost = prefs.getString(_serverHostKey);
     final savedPort = prefs.getInt(_serverPortKey);
     if (savedHost != null && savedPort != null) {
       _serverHost = savedHost;
       _serverPort = savedPort;
+      _serverScheme = (savedScheme != null && savedScheme.isNotEmpty)
+          ? savedScheme
+          : _inferScheme(_serverHost);
     } else {
-      final (host, port) = _defaultServerUrl();
+      final (scheme, host, port) = _defaultServerUrl();
+      _serverScheme = scheme;
       _serverHost = host;
       _serverPort = port;
       // Сохраняем сразу, чтобы пользователь при открытии «Настройки сервера»
       // видел уже готовый адрес и не вводил руками.
+      await prefs.setString(_serverSchemeKey, _serverScheme);
       await prefs.setString(_serverHostKey, _serverHost);
       await prefs.setInt(_serverPortKey, _serverPort);
     }
     _isLoggedIn = _userToken != null && _userToken!.isNotEmpty;
 
     // Применяем сохранённый адрес сервера и токен к API-клиенту.
-    ApiService.setBaseUrl(_serverHost, _serverPort);
+    ApiService.setBaseUrl(_serverHost, _serverPort, scheme: _serverScheme);
     ApiService.authToken = _userToken;
 
     // Если есть сохранённый токен — проверяем его на сервере.
@@ -103,15 +115,27 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Установить адрес сервера. Сохраняется в SharedPreferences.
-  Future<void> setServerUrl(String host, int port) async {
+  Future<void> setServerUrl(String host, int port, {String scheme = 'https'}) async {
     _serverHost = host;
     _serverPort = port;
-    ApiService.setBaseUrl(host, port);
+    _serverScheme = scheme;
+    ApiService.setBaseUrl(host, port, scheme: scheme);
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_serverHostKey, host);
     await prefs.setInt(_serverPortKey, port);
+    await prefs.setString(_serverSchemeKey, scheme);
     notifyListeners();
+  }
+
+  /// Угадать схему по хосту, если пользователь сохранил адрес ДО добавления
+  /// поля scheme (миграция старых настроек). Внутренние/dev-адреса — http.
+  static String _inferScheme(String host) {
+    final lower = host.toLowerCase();
+    if (lower == 'localhost' || lower.startsWith('127.') || lower.startsWith('10.')) {
+      return 'http';
+    }
+    return 'https';
   }
 
   /// Проверить связь с сервером. Возвращает true, если сервер ответил.

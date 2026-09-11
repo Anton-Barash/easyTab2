@@ -105,6 +105,75 @@
 
 
 ---
+
+## Актуальная карта синхронизации (Frontend) — merge-by-ID + отвязка при истечении прав
+
+> ВНИМАНИЕ: раздел ниже отражает ТЕКУЩЕЕ состояние (добавлен после фичи автоматической
+> отвязки при истечении права на редактирование). Он важнее старых кратких описаний
+> провайдеров выше. Полный протокол синхронизации — в `docs/SERVER_SYNC_SPEC.md`.
+
+### Ключевые файлы (смотреть в первую очередь)
+
+- `lib/providers/report_provider.dart` — центральный `ReportState` (загрузка/сохранение/
+  синхронизация отчёта). Здесь живёт отвязка локальной копии от сервера при отказе.
+- `lib/providers/report_sync_manager.dart` — `ReportSyncManager`: список отчётов
+  (локальные + облачные), скачивание, `syncReport`, hidden `cloud_cache`, перенос
+  скрытых копий в «Мои отчёты» при отвязке.
+- `lib/services/report_merge_service.dart` — diff-движок и построение ops
+  (question.add/remove, answer.add/update/remove, answer.setMedia, meta).
+- `lib/services/api_result.dart` — результат вызова API; `isPermanentAccessDenied`
+  классифицирует 403/404/410 и ключевые слова (denied/forbidden/expired/gone) как
+  «постоянный отказ доступа».
+- `lib/screens/reports_screen.dart` — список отчётов; уведомление при отвязке после
+  синхронизации одного/всех/закрытия облачной сессии.
+- `lib/screens/form_fill_screen.dart` — редактор; `_doSaveAndSync`, уведомление об
+  отвязке при «Сохранить» / загрузке / просмотре HTML.
+
+### Поток «истекло право на редактирование» (auto-detach)
+
+1. Сервер отвечает `403`/`404`/`410` либо текстом про denied/expired/gone.
+2. `ApiResult.isPermanentAccessDenied` → true (401 в это НЕ входит).
+3. Два места обработки:
+   - `ReportSyncManager.syncReport()` / media-upload pre-check → вызывает
+     `_detachFromServer(folderPath, {isLibrary})`, результат кладёт в
+     `lastDeniedUnlinkedFolder`.
+   - `ReportState` (legacy `_saveReportToServer` и ops-путь `_saveViaMergeOps`) →
+     вызывает `_detachServerLinkIfDenied()` → `_detachCurrentReportServerLink()`.
+4. `_detachCurrentReportServerLink()` (в `report_provider.dart`):
+   - удаляет `sync_meta.json`;
+   - переименовывает папку `server_<id>` -> `report_<ts>_detached` (привязка не
+     восстановится по имени папки);
+   - для скрытой копии `cloud_cache/server_<id>` **переносит** её в библиотеку
+     «Мои отчёты» (`reports/report_<ts>_detached`), чтобы локальные правки не
+     потерялись;
+   - очищает `_serverReportId`, `_serverReportVersion`, `_serverPublicId`,
+     `_ks3Folder`, share-токен;
+   - ставит одноразовый флаг `_serverLinkDetachedOnDeny`, читаемый через
+     `consumeServerLinkDetachedOnDeny()`.
+   - ⚠️ При вычислении родительской папки использует строковую `_parentDirOf()`,
+     а НЕ `Directory.parent` (в web-заглушке `utils/platform_io_web.dart` этого
+     геттера нет — иначе dart2js роняет сборку).
+5. UI показывает локализованное сообщение `reportAccessExpiredDetached`
+   («Срок доступа истёк — отчёт сохранён только локально, можно заново залить
+   как новый») в: reports_screen (после синка одного/всех/закрытия сессии) и
+   form_fill_screen (Сохранить / загрузить / HTML).
+
+### Семантика отчётов при истечении прав
+
+- Право истекло + удалился шаринг → локальная копия становится обычным отчётом в
+  «Моих отчётах» БЕЗ дубля и без потери данных. Повторная загрузка на сервер
+  создаёт новый отчёт с новым ID.
+- На web отвязка намеренно не выполняется (`kIsWeb → false` в
+  `_detachServerLinkIfDenied`): там нет локальных копий, всё хранится на сервере.
+
+### Тестовые/проверочные критерии
+
+- `flutter analyze` и `flutter test` — без ошибок.
+- `flutter build web --release --no-wasm-dry-run` — успешно (проверяет dart2js,
+  важно для `_parentDirOf` / отсутствия `Directory.parent`).
+
+---
+
 # CODE_MAP for easy-tab-Server (Backend)
 
 Репозиторий: Anton-Barash/easy-tab-Server
@@ -122,6 +191,42 @@ Stack: Node.js (JavaScript), Express-like or Fastify-style app (в коде ис
   - services/ — вспомогательные сервисы: файлы, воркеры, email и др.
   - db/ — миграции и connection pool
   - utils/ — утилиты
+- certs/ — TLS-сертификаты (easytab.cloud): easytab.cloud.pem + easytab.cloud.key.
+  Папка в .gitignore, приватный ключ не коммитится. Заливается на сервер вручную.
+
+## TLS/HTTPS (easytab.cloud — DigiCert)
+- Терминация TLS прямо в Fastify (без nginx/reverse-proxy).
+- Включается env-флагом `TLS_ENABLED=1`; пути к сертификату/ключу — `TLS_CERT`/`TLS_KEY`.
+- Пути резолвятся в `src/config/index.js`: абсолютные — как есть, относительные — от корня проекта.
+- Config-блок: `config.tlsEnabled` (bool) и `config.tls = { cert, key }` (Buffers). Валидация при старте: если TLS_ENABLED, но файлы не читаются → process.exit(1).
+- `src/app.js → buildApp()`: при наличии `config.tls` в `fastify({...})` добавляется `https: config.tls`; иначе сервер слушает HTTP как раньше.
+- `src/index.js`: лог строки запуска с протоколом (`https`/`http`).
+- HTTP→HTTPS редирект: отдельный plain-HTTP сервер (`src/services/httpRedirectServer.js`)
+  на порту `TLS_REDIRECT_PORT` (dev 8000, prod 80). 301 → `https://<TLS_REDIRECT_HOST>/...`
+  (путь и query сохраняются). Запускается только при TLS; если порт занят — только warn,
+  основной HTTPS-сервер продолжает работать.
+- Порты: dev → https://localhost:8443 (cert выписан на easytab.cloud, поэтому в браузере будет предупреждение о хосте), production → 443.
+- Чтобы откатить на HTTP: `TLS_ENABLED=0` и вернуть `PORT=8000`/`PORT=80` (редирект отключится сам).
+- Схемные файлы: `src/config/index.js`, `src/app.js`, `src/index.js`, `src/services/httpRedirectServer.js`, `.env`, `.env.production`, `ecosystem.config.js`, `certs/`.
+
+## HTTPS на фронтенде (Flutter)
+
+- Фронт теперь поддерживает обе схемы (`http`/`https`). Схема хранится в
+  `ApiService._scheme` (геттер `scheme`), задаётся через `ApiService.setBaseUrl(host, port, scheme:)`.
+- `ApiService.uri(path, [query])` — публичный хелпер построения URL с учётом
+  активной схемы; заменил все внешние `Uri.http(ApiService.baseUrl, ...)`.
+  Источники схемы: `ApiService`, `auth_provider.dart` (`setServerUrl`), `login_screen.dart` (`_parseServerUrl`).
+- `AuthProvider`:
+  - хранит/грузит `server_scheme` (ключ prefs `server_scheme`);
+  - `_defaultServerUrl()` возвращает `(scheme, host, port)`;
+  - fallback для мобильных/desktop → `https://easytab.cloud:443`;
+  - `serverUrl` теперь вида `https://host:port`;
+  - `_inferScheme()` — миграция старых настроек (localhost/127.x/10.x → http, иначе https).
+- `login_screen.dart`: `_parseServerUrl` возвращает `(scheme, host, port)` и
+  прокидывает схему в `setServerUrl`.
+- Затронутые файлы: `lib/services/api_service.dart`, `lib/providers/auth_provider.dart`,
+  `lib/screens/login_screen.dart`, `lib/screens/form_fill_screen.dart`,
+  `lib/screens/share_welcome_screen.dart`, `lib/providers/report_provider.dart`.
 
 ## src/app.js — подробный разбор
 (описание основано на прочитанном содержимом файла)
