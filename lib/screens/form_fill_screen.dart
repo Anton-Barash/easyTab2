@@ -312,8 +312,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
         });
       }
       if (!saved && !detached && mounted) {
+        final detail = reportState.lastSyncError;
+        final message = (detail == null || detail.isEmpty)
+            ? loc.syncErrorMessage
+            : '${loc.syncErrorMessage}: $detail';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.syncErrorMessage)),
+          SnackBar(content: Text(message)),
         );
       }
       if (detached && mounted) {

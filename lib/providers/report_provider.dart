@@ -136,6 +136,11 @@ class ReportState extends ChangeNotifier {
   /// true, если текущий сервер не понимает ops-PATCH — используем legacy-путь.
   bool _mergeOpsUnsupported = false;
 
+  /// Причина последней неудачной операции сохранения/синхронизации.
+  /// Нужна, чтобы показывать пользователю конкретную ошибку (401/409/500/сеть)
+  /// вместо безликого «ошибка синхронизации».
+  String? _lastSyncError;
+
   // ===== Параметры компрессии медиа (из настроек) =====
   // Значения по умолчанию — ТЗ: 1500px / 85%, видео — low (level 3).
   int _imageMaxSize = 1500;
@@ -1946,7 +1951,9 @@ class ReportState extends ChangeNotifier {
     final seenConflictCells = <String>{};
 
     for (var attempt = 0; attempt < 3; attempt++) {
-      final ops = buildReportOps(base, _currentReport!.toJson());
+      // Используем поле (а не локальный `base`): при разрешении конфликта
+      // или при гонке версий `_baseReportSnapshot` мог быть обновлён.
+      final ops = buildReportOps(_baseReportSnapshot!, _currentReport!.toJson());
       if (ops.isEmpty) return _OpsSaveResult.saved;
 
       final ApiResult result;
@@ -1982,8 +1989,15 @@ class ReportState extends ChangeNotifier {
           result.data?['code'] == 'VERSION_CONFLICT') {
         final details = _parseCellConflicts(result.data);
         if (details == null || details.answerConflicts.isEmpty) {
-          _mergeOpsUnsupported = true;
-          return _OpsSaveResult.fallbackLegacy;
+          // 409 БЕЗ списка конфликтов = гонка версий: на сервере версия
+          // изменилась между чтением и записью (retry в patchReportOps
+          // исчерпан). Это НЕ «сервер без ops» — обновляем базу актуальной
+          // серверной версией (сохраняя локальные правки) и пробуем ops снова.
+          if (await _refreshBaseSnapshotFromServer()) {
+            continue;
+          }
+          _lastSyncError = 'Failed to refresh report version';
+          return _OpsSaveResult.failed;
         }
         // Повторный конфликт по той же ячейке: пока пользователь выбирал
         // вариант, ячейку успел изменить ещё кто-то.
@@ -2001,7 +2015,10 @@ class ReportState extends ChangeNotifier {
             : details;
         // База ячеек = серверная версия, чтобы повторные ops не конфликтовали.
         _rebaseBaseToServer(resolvedDetails);
-        if (onVersionConflict == null) return _OpsSaveResult.failed;
+        if (onVersionConflict == null) {
+          _lastSyncError = 'Conflict handler not available';
+          return _OpsSaveResult.failed;
+        }
         final action = await onVersionConflict!(resolvedDetails);
         if (action == ConflictAction.reload) {
           if (shareToken != null) {
@@ -2037,9 +2054,55 @@ class ReportState extends ChangeNotifier {
         _mergeOpsUnsupported = true;
         return _OpsSaveResult.fallbackLegacy;
       }
+      _lastSyncError = result.error != null && result.error!.isNotEmpty
+          ? result.error
+          : 'HTTP ${result.statusCode ?? 'error'}';
       return _OpsSaveResult.failed;
     }
+    _lastSyncError = 'Save retry limit exceeded';
     return _OpsSaveResult.failed;
+  }
+
+  /// Обновить `_baseReportSnapshot` актуальной серверной версией, НЕ трогая
+  /// `_currentReport` (сохраняет несохранённые локальные правки). Используется
+  /// при гонке версий (409 без conflicts): пересобираем ops от свежей базы и
+  /// пробуем снова.
+  Future<bool> _refreshBaseSnapshotFromServer() async {
+    final shareToken = (_shareToken == null || _shareToken!.isEmpty)
+        ? null
+        : _shareToken;
+    try {
+      if (shareToken != null) {
+        final result = await ApiService.getShareInfo(token: shareToken);
+        final reportData = result.data?['report']?['reportData'];
+        if (!result.success || reportData is! Map) {
+          _lastSyncError = result.error ?? 'Failed to refresh report';
+          return false;
+        }
+        _baseReportSnapshot = Map<String, dynamic>.from(reportData);
+        final version = result.data?['report']?['version'];
+        _serverReportVersion =
+            version is int ? version : int.tryParse(version.toString());
+        return true;
+      }
+
+      final serverId = _serverReportId;
+      if (serverId == null) return false;
+      final result = await ApiService.getReport(serverId);
+      final reportData = result.data?['report']?['reportData'];
+      if (!result.success || reportData is! Map) {
+        _lastSyncError = result.error ?? 'Failed to refresh report';
+        return false;
+      }
+      _baseReportSnapshot = Map<String, dynamic>.from(reportData);
+      final version = result.data?['report']?['version'];
+      _serverReportVersion =
+          version is int ? version : int.tryParse(version.toString());
+      return true;
+    } catch (e) {
+      _lastSyncError = e.toString();
+      return false;
+    }
   }
 
   /// Разобрать новый (merge-by-ID) 409 и спроецировать на существующий диалог.
@@ -2228,6 +2291,9 @@ class ReportState extends ChangeNotifier {
   String? get ks3Folder => _ks3Folder;
   String? get shareToken => _shareToken;
 
+  /// Причина последней неудачной операции сохранения/синхронизации.
+  String? get lastSyncError => _lastSyncError;
+
   /// Сохранить отчёт на сервер (web-режим).
   ///
   /// Если активна share-ссылка — сохраняем через неё.
@@ -2372,10 +2438,14 @@ class ReportState extends ChangeNotifier {
             }
           }
         }
-        if (kDebugMode) debugPrint('saveReport (web): ${result.error}');
+        _lastSyncError = result.error != null && result.error!.isNotEmpty
+            ? result.error
+            : 'HTTP ${result.statusCode ?? 'error'}';
+        if (kDebugMode) debugPrint('saveReport (web): $_lastSyncError');
         return false;
       }
     } catch (e) {
+      _lastSyncError = e.toString();
       if (kDebugMode) debugPrint('saveReport (web) error: $e');
       return false;
     }
