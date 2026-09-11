@@ -138,8 +138,12 @@
   (методы `_confirmDeleteLocal`, `_confirmDeleteServer`, `_confirmUnlink`).
   `_confirmDeleteServer` различает 403 («не автор», ключ `reportDeleteServerDenied`)
   и успех/ошибку. Удаление сервера локальную копию не трогает.
-- `lib/screens/form_fill_screen.dart` — редактор; `_doSaveAndSync`, уведомление об
-  отвязке при «Сохранить» / загрузке / просмотре HTML.
+- `lib/screens/form_fill_screen.dart` — редактор; `_doSaveAndSync` (дискета:
+  сохранить + подтянуть; на web идёт через ops-путь), уведомление об отвязке
+  при «Сохранить» / загрузке / просмотре HTML. Кнопка без несохранённых правок
+  (иконка облака, `_syncOnly`) — ТОЛЬКО подтягивает чужие изменения:
+  `ReportState.pullFromServer()` (web — `_loadReportFromServer`; по share-ссылке —
+  `loadSharedReport`).
 
 ### Поток «истекло право на редактирование» (auto-detach)
 

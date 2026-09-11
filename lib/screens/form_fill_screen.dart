@@ -273,11 +273,31 @@ class _FormFillScreenState extends State<FormFillScreen> {
           reportState.serverReportId != null ||
           (reportState.serverPublicId?.isNotEmpty ?? false) ||
           (reportState.shareToken?.isNotEmpty ?? false);
+      // Писать на сервер может залогиненный владелец или редактор по share-ссылке.
+      final canSyncServer =
+          onServer &&
+          (authProvider.isLoggedIn ||
+              (reportState.shareToken?.isNotEmpty ?? false));
 
-      await reportState.saveReport();
+      if (kIsWeb) {
+        // На web локальной ФС нет: сохранение идёт сразу на сервер.
+        // Ops-путь сам применяет серверный `merged` — это «сохранить + подтянуть».
+        if (canSyncServer) {
+          await reportState.saveReportToServer();
+        } else {
+          await reportState.saveReport();
+        }
+      } else {
+        await reportState.saveReport();
+        if (canSyncServer) {
+          await reportState.saveReportToServer();
+        }
+      }
 
-      if (!kIsWeb && onServer && authProvider.isLoggedIn) {
-        await reportState.saveReportToServer();
+      // Дотягиваем чужие изменения, пришедшие за время сохранения
+      // (важно для legacy-фолбэка, где сервер не возвращает `merged`).
+      if (canSyncServer) {
+        await reportState.pullFromServer();
       }
 
       // Сервер мог ответить постоянным отказом (истекло право на
@@ -309,12 +329,12 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  /// Кнопка «Синхронизировать» (без несохранённых правок).
+  /// Кнопка «Синхронизировать» (без несохранённых правок) — ТОЛЬКО подтягивает
+  /// чужие изменения с сервера.
   ///
-  /// На web отчёт сохраняется сразу на сервер, поэтому при нажатии просто
-  /// «пушим» текущее состояние на сервер (идемпотентно) и показываем
-  /// результат. Изменений нет — сетевого запроса фактически не происходит
-  /// (ops пуст), но состояние подтверждается.
+  /// Если локальных правок нет, отправлять нечего: тянем актуальную версию
+  /// отчёта и показываем её. Так изменения, сделанные другим пользователем
+  /// (в другом окне или на другом устройстве), появляются в открытом отчёте.
   Future<void> _syncOnly() async {
     final reportState = context.read<ReportState>();
     final loc = AppLocalizations.of(context)!;
@@ -323,7 +343,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         (reportState.serverPublicId?.isNotEmpty ?? false) ||
         (reportState.shareToken?.isNotEmpty ?? false);
 
-    // Отчёт ещё ни разу не сохранён на сервер — синхронизировать нечего.
+    // Отчёт ещё ни разу не сохранён на сервер — подтягивать нечего.
     if (!onServer) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -334,7 +354,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
 
     setState(() => _isSaving = true);
-    final ok = await reportState.saveReportToServer();
+    final ok = await reportState.pullFromServer();
     if (!mounted) return;
     setState(() => _isSaving = false);
     ScaffoldMessenger.of(context).showSnackBar(

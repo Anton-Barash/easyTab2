@@ -1893,6 +1893,29 @@ class ReportState extends ChangeNotifier {
     return await _saveReportToServer();
   }
 
+  /// Подтянуть актуальную версию отчёта с сервера, не отправляя локальные
+  /// правки.
+  ///
+  /// Используется кнопкой «Синхронизировать», а также после сохранения:
+  /// изменения, сделанные другими (в другом окне браузера или на другом
+  /// устройстве), появляются в открытом отчёте. Вызывать только когда
+  /// несохранённых локальных правок нет, иначе они будут перезаписаны.
+  ///
+  /// Возвращает true при успехе. Для нативного владельца (источник правды —
+  /// локальная папка) и для отчёта без связи с сервером — false.
+  Future<bool> pullFromServer() async {
+    final shareToken = _shareToken;
+    if (shareToken != null && shareToken.isNotEmpty) {
+      return loadSharedReport(shareToken);
+    }
+    // Нативный владелец синхронизируется через ReportSyncManager по локальной
+    // папке — pull здесь не применяем, чтобы не рассинхронизировать копии.
+    if (!kIsWeb) return false;
+    final reportId = _serverReportId;
+    if (reportId == null) return false;
+    return _loadReportFromServer(reportId);
+  }
+
   /// Сохранить отчёт через ops-PATCH (merge-by-ID, Фаза 2b).
   ///
   /// Строит ops из [_baseReportSnapshot] -> текущий документ, отправляет на
