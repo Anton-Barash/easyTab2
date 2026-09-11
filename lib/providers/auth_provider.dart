@@ -246,6 +246,10 @@ class AuthProvider extends ChangeNotifier {
 
   /// Выход: очистка сохранённых данных и токена.
   Future<void> logout() async {
+    // Снимаем серверный HttpOnly cookie auth_token (важно для web/прямого HTML).
+    if (kIsWeb) {
+      await ApiService.logout();
+    }
     await _clearStored();
     notifyListeners();
   }

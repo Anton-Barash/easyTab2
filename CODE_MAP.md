@@ -289,7 +289,19 @@ Stack: Node.js (JavaScript), Express-like or Fastify-style app (в коде ис
 ## middleware/
 - errorHandler.js — централизованная обработка ошибок; преобразует внутренние ошибки в корректные HTTP ответы
 - requestLogger.js — логирование входящих запросов, возможно интеграция с Sentry/Graylog
-- auth middleware — проверка JWT/токенов и проверки прав доступа
+- auth middleware — проверка JWT/токенов и проверки прав доступа (Bearer → cookie `auth_token` → query `?token=`)
+
+## Аутентификация через cookie (прямой просмотр HTML /view/report/:publicId)
+- Кнопка «Просмотр HTML» в web открывает серверный HTML **напрямую** (без Flutter/Dart).
+  Для приватных отчётов в новой вкладке нельзя отправить `Authorization: Bearer`, поэтому
+  сервер ставит **HttpOnly cookie `auth_token`** при `POST /auth/login` и `/auth/register`
+  (see `src/controllers/authController.js` → `setAuthCookie`, `clearAuthCookie`).
+- Cookie: `path=/`, `HttpOnly`, `SameSite=Lax`, `Secure` (только по HTTPS), TTL = 7 дней.
+  `authMiddleware.extractToken` читает этот cookie — прямой `/view/report/:publicId` работает
+  без токена в URL.
+- **`POST /auth/logout`** — снимает HttpOnly cookie (JS не может очистить HttpOnly через
+  `document.cookie`). Вызывается фронтендом из `AuthProvider.logout()` на web
+  (`ApiService.logout`).
 
 ## db/
 - Модули подключения к Postgres (pool), утилиты для миграций и обращения к PLpgSQL функциям, если они есть.

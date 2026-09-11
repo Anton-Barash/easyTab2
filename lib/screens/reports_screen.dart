@@ -421,9 +421,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     Future<void> openServerHtmlView() async {
       final messenger = ScaffoldMessenger.of(context);
       if (kIsWeb) {
-        // Открываем напрямую серверный HTML (без загрузки Flutter/Dart).
+        // Открываем серверный HTML напрямую (без загрузки Flutter/Dart).
         // GET /view/report/:publicId отдаёт чистый HTML: светлая тема, один
         // вариант с фото, в заголовке — название отчёта (не номер).
+        // Авторизация идёт через HttpOnly cookie auth_token (ставится сервером
+        // при login), поэтому токен в URL не передаётся и не «светится».
         final publicId = report.publicId;
         if (publicId == null || publicId.isEmpty) {
           messenger.showSnackBar(
@@ -432,10 +434,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           return;
         }
         final origin = Uri.base.origin;
-        final token = ApiService.authToken;
-        final viewUrl = (token != null && token.isNotEmpty)
-            ? '$origin/view/report/$publicId?token=${Uri.encodeComponent(token)}'
-            : '$origin/view/report/$publicId';
+        final viewUrl = '$origin/view/report/$publicId';
         openHtmlInBrowserUrl(viewUrl);
         return;
       }

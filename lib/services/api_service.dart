@@ -157,6 +157,19 @@ class ApiService {
     );
   }
 
+  /// Выход: снимает HttpOnly cookie auth_token на сервере.
+  /// Нужно для web, т.к. JS не может очистить HttpOnly cookie через document.cookie.
+  /// Ошибка сети не критична (cookie сам истечёт), поэтому best-effort.
+  static Future<void> logout() async {
+    try {
+      await http
+          .post(_uri('/auth/logout'), headers: _headers)
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Игнорируем: cookie истечёт по Max-Age, повредить нечему.
+    }
+  }
+
   /// Проверка доступности сервера (health check).
   /// Возвращает true, если сервер ответил 200.
   static Future<bool> ping() async {
