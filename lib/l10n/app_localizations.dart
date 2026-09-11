@@ -451,7 +451,7 @@ abstract class AppLocalizations {
   /// No description provided for @reportDeleteServerDenied.
   ///
   /// In en, this message translates to:
-  /// **'Cannot delete this report on the server: you are not the author.'**
+  /// **'Cannot delete this report on the server: you are not its author.'**
   String get reportDeleteServerDenied;
 
   /// No description provided for @createNewReport.
