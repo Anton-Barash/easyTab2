@@ -571,5 +571,6 @@
   "createdLabel": "Создан:",
   "modifiedLabel": "Изменён:",
   "openReportFailed": "Не удалось открыть отчёт",
-  "cloudSessionSyncFailed": "Не удалось синхронизировать изменения с облаком"
+  "cloudSessionSyncFailed": "Не удалось синхронизировать изменения с облаком",
+  "anonymous": "Аноним"
 }

@@ -137,6 +137,8 @@ class ReportSyncManager {
 
       final status = localExists ? ReportSyncStatus.synced : ReportSyncStatus.cloudOnly;
       final version = s['version'] is int ? s['version'] as int : (s['ver'] is int ? s['ver'] as int : null);
+      final author = (s['author'] ?? s['authorName'])?.toString();
+      final publicId = (s['publicId'] ?? s['public_id'])?.toString();
 
       out.add(ReportSummary(
         id: id,
@@ -147,6 +149,8 @@ class ReportSyncManager {
         onServer: true,
         serverVersion: version,
         status: status,
+        publicId: publicId,
+        authorName: author,
         localFolderPath: localExists
             ? '$reportsDirPath${Platform.pathSeparator}$matchedFolder'
             : null,

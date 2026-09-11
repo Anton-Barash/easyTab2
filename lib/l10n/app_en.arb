@@ -571,5 +571,6 @@
   "createdLabel": "Created:",
   "modifiedLabel": "Modified:",
   "openReportFailed": "Failed to open report",
-  "cloudSessionSyncFailed": "Failed to sync changes to the cloud"
+  "cloudSessionSyncFailed": "Failed to sync changes to the cloud",
+  "anonymous": "Anonymous"
 }

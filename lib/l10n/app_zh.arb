@@ -571,5 +571,6 @@
   "createdLabel": "创建：",
   "modifiedLabel": "修改：",
   "openReportFailed": "无法打开报告",
-  "cloudSessionSyncFailed": "无法将更改同步到云端"
+  "cloudSessionSyncFailed": "无法将更改同步到云端",
+  "anonymous": "匿名"
 }

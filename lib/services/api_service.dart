@@ -584,6 +584,26 @@ class ApiService {
     return _handleApiCall(http.get(_uri('/reports'), headers: _headers));
   }
 
+  /// Верификация подлинности отчёта по паре (reportId + verificationCode).
+  ///
+  /// Не требует JWT — достаточно корректного кода подлинности. При успехе
+  /// data['report'] содержит { id, publicId, title, authorName }.
+  static Future<ApiResult> verifyReport({
+    required int reportId,
+    required String verificationCode,
+  }) {
+    return _handleApiCall(
+      http.post(
+        _uri('/reports/verify'),
+        headers: _headers,
+        body: jsonEncode({
+          'reportId': reportId,
+          'verificationCode': verificationCode,
+        }),
+      ),
+    );
+  }
+
   /// Получить полный JSON отчёта по ID.
   ///
   /// [reportId] — ID отчёта на сервере.

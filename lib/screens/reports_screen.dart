@@ -421,13 +421,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
     Future<void> openServerHtmlView() async {
       final messenger = ScaffoldMessenger.of(context);
       if (kIsWeb) {
+        // Открываем напрямую серверный HTML (без загрузки Flutter/Dart).
+        // GET /view/report/:publicId отдаёт чистый HTML: светлая тема, один
+        // вариант с фото, в заголовке — название отчёта (не номер).
+        final publicId = report.publicId;
+        if (publicId == null || publicId.isEmpty) {
+          messenger.showSnackBar(
+            SnackBar(content: Text(loc.openReportFailed)),
+          );
+          return;
+        }
         final origin = Uri.base.origin;
-        final viewUrl = '$origin/#/view-report?pid=${report.id}';
+        final token = ApiService.authToken;
+        final viewUrl = (token != null && token.isNotEmpty)
+            ? '$origin/view/report/$publicId?token=${Uri.encodeComponent(token)}'
+            : '$origin/view/report/$publicId';
         openHtmlInBrowserUrl(viewUrl);
         return;
       }
       try {
-        final result = await ApiService.getReportHtmlByPublicId(report.id);
+        final result = await ApiService.getReportHtmlByPublicId(
+          report.publicId ?? report.id,
+        );
         if (!mounted) return;
         if (!result.success || result.data?['html'] == null) {
           messenger.showSnackBar(
@@ -715,6 +730,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         if (_hasRealModification(report))
                           Text(
                             '${loc.modifiedLabel} ${_formatDateTime(report.modified)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        if (report.onServer)
+                          Text(
+                            report.authorName == null ||
+                                    report.authorName!.isEmpty
+                                ? loc.anonymous
+                                : report.authorName!,
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,

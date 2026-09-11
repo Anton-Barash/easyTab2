@@ -1237,4 +1237,7 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get cloudSessionSyncFailed =>
       'Не удалось синхронизировать изменения с облаком';
+
+  @override
+  String get anonymous => 'Аноним';
 }

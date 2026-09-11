@@ -10,6 +10,14 @@ class ReportSummary {
   final int? serverVersion;
   final ReportSyncStatus status;
 
+  /// Публичный идентификатор отчёта с сервера (public_id).
+  /// Используется для открытия HTML-версии напрямую: /view/report/:publicId.
+  /// Может быть null для локальных отчётов без серверной копии.
+  final String? publicId;
+
+  /// Имя автора отчёта с сервера (JOIN users.username). null/пустой — «Аноним».
+  final String? authorName;
+
   /// Абсолютный путь к локальной папке отчёта (на нативных платформах).
   /// Заполнен, только если [localExists] == true. Нужен для открытия
   /// отчёта через ReportState.loadReport(), который ждёт абсолютный путь.
@@ -24,6 +32,8 @@ class ReportSummary {
     required this.onServer,
     this.serverVersion,
     required this.status,
+    this.publicId,
+    this.authorName,
     this.localFolderPath,
   }) : createdAt = createdAt ?? modified;
 }

@@ -1235,4 +1235,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cloudSessionSyncFailed => 'Failed to sync changes to the cloud';
+
+  @override
+  String get anonymous => 'Anonymous';
 }

@@ -1213,4 +1213,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cloudSessionSyncFailed => '无法将更改同步到云端';
+
+  @override
+  String get anonymous => '匿名';
 }

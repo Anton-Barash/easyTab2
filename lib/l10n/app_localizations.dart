@@ -2349,6 +2349,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to sync changes to the cloud'**
   String get cloudSessionSyncFailed;
+
+  /// No description provided for @anonymous.
+  ///
+  /// In en, this message translates to:
+  /// **'Anonymous'**
+  String get anonymous;
 }
 
 class _AppLocalizationsDelegate

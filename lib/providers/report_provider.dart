@@ -2991,6 +2991,7 @@ class ReportState extends ChangeNotifier {
           'modified':
               DateTime.tryParse(r['createdAt'] as String? ?? '') ??
               DateTime.now(),
+          'author': (r['author'] ?? r['authorName'])?.toString(),
         };
       }).toList();
     } catch (e) {

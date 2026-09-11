@@ -176,6 +176,26 @@
 - `flutter build web --release --no-wasm-dry-run` — успешно (проверяет dart2js,
   важно для `_parentDirOf` / отсутствия `Directory.parent`).
 
+### Подлинность отчёта (ID + verification code) и автор в списке
+
+- **Backend:** миграция `009_add_verification_code.sql` добавляет колонку
+  `reports.verification_code` (внутренний секрет). `saveReport()` генерирует
+  64-hex код при **создании** и единожды возвращает его создателю; при
+  обновлении не трогается. `listReports()` делает `LEFT JOIN users` и возвращает
+  поле `author` (username). Новый эндпоинт `POST /reports/verify` (БЕЗ JWT)
+  принимает `{ reportId, verificationCode }`, сверяет код через
+  `crypto.timingSafeEqual` и возвращает `{ id, publicId, title, authorName }`
+  (404 — нет отчёта, 403 — неверный код). Файлы: `src/services/reportsService.js`
+  (`generateVerificationCode`, `verifyReport`, JOIN в `listReports`),
+  `src/controllers/reportsController.js`, `src/routes/reports.js`.
+- **Frontend:** `ReportSummary` получает поле `authorName`; маппинг из серверного
+  списка — в `report_sync_manager.dart` и web-пути `report_provider.dart`;
+  карточка в `reports_screen.dart` показывает автора (только для серверных
+  отчётов) с локализованным фоллбэком `loc.anonymous`. В `api_service.dart`
+  добавлен метод `ApiService.verifyReport(...)` (plumbing, без UI).
+- **Scope:** код подлинности — backend-возможность, видимого UI нет; в UI
+  добавляется только имя автора в списке.
+
 ---
 
 # CODE_MAP for easy-tab-Server (Backend)
