@@ -1636,18 +1636,14 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  /// Просмотр HTML на web: открывает новую вкладку Flutter.
+  /// Просмотр HTML на web: открывает напрямую серверный HTML.
   ///
   /// Архитектура:
-  ///   1. Flutter открывает новую вкладку: /#/view-report?pid=abc123
-  ///   2. Новая вкладка — это Flutter-экран ViewReportHtmlScreen
-  ///   3. Экран делает API-запрос: GET /reports/abc123/html
-  ///   4. Сервер читает JSON из БД, генерирует HTML, возвращает {success, html}
-  ///   5. Экран отображает HTML в iframe srcdoc
-  ///   6. Медиа загружаются через серверный прокси /view/report/:id/files/...
-  ///
-  /// URL новой вкладки строится относительно текущего origin, поэтому работает
-  /// на любом порту/домене, где развёрнут фронтенд.
+  ///   1. Flutter открывает новую вкладку: `/view/report/{publicId}`
+  ///   2. Сервер отдаёт чистый HTML (без загрузки Flutter/Dart)
+  ///   3. Авторизация — через HttpOnly cookie auth_token (ставится при логине),
+  ///      поэтому токен в URL не передаётся и не «светится».
+  ///   4. Медиа загружаются через /view/report/:publicId/files/...
   ///
   /// Если отчёт ещё не на сервере — сначала сохраняем. Без логина и
   /// share-токена серверный просмотр недоступен.
@@ -1657,8 +1653,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final loc = AppLocalizations.of(context)!;
     final origin = Uri.base.origin;
 
-    // Залогиненный пользователь: открываем Flutter-маршрут /view-report.
-    // Cookie auth_token уже установлен при логине, поэтому токен не нужен в URL.
+    // Залогиненный пользователь: открываем прямой серверный HTML.
     if (authProvider.isLoggedIn) {
       if (reportState.serverPublicId == null) {
         final saved = await reportState.saveReport();
@@ -1671,7 +1666,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           return;
         }
       }
-      final viewUrl = '$origin/#/view-report?pid=${reportState.serverPublicId}';
+      final viewUrl = '$origin/view/report/${reportState.serverPublicId}';
       openHtmlInBrowserUrl(viewUrl);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -116,31 +116,16 @@
 </head>
 <body>
   <script>
-    // Облегчённый просмотр отчёта: /#/view-report2?pid=...&token=...
-    // Вместо загрузки Flutter (main.dart.js + canvaskit.wasm) сразу уходим на
-    // серверную страницу отчёта /view/report/:pid — сервер отдаёт готовый
-    // HTML, страница открывается в разы быстрее. Обычное приложение
-    // (#/view-report и др.) работает как раньше.
-    // /#/welcome?token=... (share-ссылка, в т.ч. с edit=1) открывается сразу
-    // как HTML на /reports/shares/:token/welcome — все кнопки на HTML.
-    // Во Flutter уходит только кнопка «Открыть веб-версию» на той странице:
-    // маршрут /#/share-edit (здесь не перехватывается).
+    // Облегчённый просмотр share-ссылок: /#/welcome?token=...
+    // Сразу открывается как HTML на /reports/shares/:token/welcome — все
+    // кнопки на HTML. Во Flutter уходит только кнопка «Открыть веб-версию»
+    // (маршрут /#/share-edit, который здесь не перехватывается).
+    // (Старый Flutter-просмотр /#/view-report и JS /#/view-report2 удалены:
+    //  кнопки открывают серверный HTML /view/report/:pid напрямую.)
     window.__viewReport2 = false;
     (function () {
       var hash = window.location.hash || '';
-      if (hash.indexOf('#/view-report2') === 0) {
-        var q = hash.indexOf('?') >= 0 ? hash.substring(hash.indexOf('?') + 1) : '';
-        var params = new URLSearchParams(q);
-        var pid = params.get('pid');
-        if (pid) {
-          // Редирект случился — Flutter грузить не нужно.
-          window.__viewReport2 = true;
-          var url = '/view/report/' + encodeURIComponent(pid);
-          var token = params.get('token');
-          if (token) url += '?token=' + encodeURIComponent(token);
-          window.location.replace(url);
-        }
-      } else if (hash.indexOf('#/welcome') === 0) {
+      if (hash.indexOf('#/welcome') === 0) {
         var wq = hash.indexOf('?') >= 0 ? hash.substring(hash.indexOf('?') + 1) : '';
         var wparams = new URLSearchParams(wq);
         var wtoken = wparams.get('token');
@@ -227,8 +212,8 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <!-- Flutter-приложение грузим только в обычном режиме. Для /#/view-report2
-       ушли на серверную страницу отчёта (скрипт выше) — бандл не скачиваем. -->
+  <!-- Flutter-приложение грузим только в обычном режиме. Для /#/welcome ушли
+       на серверную страницу (скрипт выше) — бандл не скачиваем. -->
   <script>
     if (!window.__viewReport2) {
       var fbs = document.createElement('script');

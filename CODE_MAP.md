@@ -17,7 +17,7 @@
   - l10n/ — сгенерированные/ручные локализации (app_localizations*.dart)
   - models/ — модели данных (репорты, шаблоны, файлы и т.п.)
   - providers/ — state providers (AuthProvider, SettingsProvider, RepoProviders и пр.)
-  - screens/ — экраны UI (template_select, form_fill, reports, login, share_welcome, full_media_viewer, view_report_html и др.)
+  - screens/ — экраны UI (template_select, form_fill, reports, login, share_welcome, full_media_viewer и др.)
   - services/ — сетевые и локальные сервисы (share token store, file services и т.д.)
   - utils/ — утилиты (app_colors, misc helpers)
   - widgets/ — переиспользуемые виджеты (dialogs, buttons, layouts)
@@ -62,8 +62,8 @@
   - Импорты: провайдеры/репозитории, widgets для карточек шаблонов.
   - Функции: загрузка списка шаблонов, фильтрация/поиск, выбор и переход в form_fill.
 
-- login_screen.dart, reports_screen.dart, share_welcome_screen.dart, full_media_viewer_screen.dart, view_report_html_screen.dart
-  - Каждый экран содержит UI + вызовы провайдеров для загрузки/обновления данных. reports_screen отвечает за список отчетов, фильтры и просмотр репорта (переход в view_report_html или full_media_viewer).
+- login_screen.dart, reports_screen.dart, share_welcome_screen.dart, full_media_viewer_screen.dart
+  - Каждый экран содержит UI + вызовы провайдеров для загрузки/обновления данных. reports_screen отвечает за список отчетов, фильтры и просмотр репорта (переход в full_media_viewer). Просмотр HTML на web открывает серверный HTML напрямую (без Flutter).
 
 
 ### lib/providers/
@@ -98,7 +98,6 @@
 - lib/screens/reports_screen.dart
 - lib/screens/share_welcome_screen.dart
 - lib/screens/full_media_viewer_screen.dart
-- lib/screens/view_report_html_screen.dart
 - lib/services/*
 - lib/utils/*
 - lib/widgets/*

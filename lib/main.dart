@@ -26,8 +26,6 @@ import './screens/template_select_screen.dart'
     deferred as template_select_screen;
 import './screens/form_fill_screen.dart' deferred as form_fill_screen;
 import './screens/reports_screen.dart' deferred as reports_screen;
-import './screens/view_report_html_screen.dart'
-    deferred as view_report_html_screen;
 import './screens/share_welcome_screen.dart'
     deferred as share_welcome_screen;
 
@@ -140,40 +138,13 @@ class EasyTabApp extends StatelessWidget {
                     },
                   ),
             },
-            // /view-report — открывается в новой вкладке браузера с
-            // query-параметрами: /view-report?pid=abc123&token=xxx
             // /welcome — приветственный экран share-ссылки: /welcome?token=abc123
             // Используем onGenerateRoute, т.к. routes не парсит query.
+            // (Просмотр HTML больше не идёт через Flutter-маршрут /view-report —
+            //  кнопки открывают серверный HTML напрямую.)
             onGenerateRoute: (settings) {
               if (settings.name == null) return null;
               final uri = Uri.parse(settings.name!);
-              if (uri.path == '/view-report') {
-                final publicId = uri.queryParameters['pid'];
-                final token = uri.queryParameters['token'];
-                if (publicId == null || publicId.isEmpty) {
-                  return MaterialPageRoute(
-                    builder: (ctx) => Scaffold(
-                      body: Center(
-                        child: Text(AppLocalizations.of(ctx)!.reportIdMissing),
-                      ),
-                    ),
-                  );
-                }
-                return MaterialPageRoute(
-                  builder: (_) => FutureBuilder<void>(
-                    future: view_report_html_screen.loadLibrary(),
-                    builder: (context, snap) {
-                      if (snap.connectionState != ConnectionState.done) {
-                        return _deferredLoading(context);
-                      }
-                      return view_report_html_screen.ViewReportHtmlScreen(
-                        publicId: publicId,
-                        token: token,
-                      );
-                    },
-                  ),
-                );
-              }
               // /fill — редактор отчёта. Поддерживает query-параметр reportId,
               // чтобы при перезагрузке страницы открывался тот же отчёт:
               // /#/fill?reportId=123
