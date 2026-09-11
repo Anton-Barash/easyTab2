@@ -269,6 +269,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     try {
       final reportState = context.read<ReportState>();
       final authProvider = context.read<AuthProvider>();
+      final loc = AppLocalizations.of(context)!;
       final onServer =
           reportState.serverReportId != null ||
           (reportState.serverPublicId?.isNotEmpty ?? false) ||
@@ -279,25 +280,21 @@ class _FormFillScreenState extends State<FormFillScreen> {
           (authProvider.isLoggedIn ||
               (reportState.shareToken?.isNotEmpty ?? false));
 
+      // Сохранение имеет ПРИОРИТЕТ: сначала отправляем свои правки, и лишь
+      // затем применяется серверный `merged` (он приходит в ответе ops-пути и
+      // уже содержит изменения других). Отдельный pull здесь НЕ вызываем —
+      // при неудачном сохранении он затирал бы несохранённые правки.
+      bool saved;
       if (kIsWeb) {
         // На web локальной ФС нет: сохранение идёт сразу на сервер.
-        // Ops-путь сам применяет серверный `merged` — это «сохранить + подтянуть».
-        if (canSyncServer) {
-          await reportState.saveReportToServer();
-        } else {
-          await reportState.saveReport();
-        }
+        saved = canSyncServer
+            ? await reportState.saveReportToServer()
+            : await reportState.saveReport();
       } else {
-        await reportState.saveReport();
-        if (canSyncServer) {
-          await reportState.saveReportToServer();
-        }
-      }
-
-      // Дотягиваем чужие изменения, пришедшие за время сохранения
-      // (важно для legacy-фолбэка, где сервер не возвращает `merged`).
-      if (canSyncServer) {
-        await reportState.pullFromServer();
+        final localOk = await reportState.saveReport();
+        saved = canSyncServer
+            ? await reportState.saveReportToServer()
+            : localOk;
       }
 
       // Сервер мог ответить постоянным отказом (истекло право на
@@ -309,11 +306,17 @@ class _FormFillScreenState extends State<FormFillScreen> {
       if (mounted) {
         setState(() {
           _isSaving = false;
-          _hasUnsavedChanges = false;
+          // Флаг снимаем только при успехе, иначе правки остаются
+          // несохранёнными и пользователь может повторить.
+          if (saved) _hasUnsavedChanges = false;
         });
       }
+      if (!saved && !detached && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.syncErrorMessage)),
+        );
+      }
       if (detached && mounted) {
-        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(loc.reportAccessExpiredDetached),
@@ -329,6 +332,29 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
+  /// Есть ли отложенные дебаунсом правки, ещё не попавшие в модель отчёта.
+  bool _hasPendingEdits() => _debounceTimers.values.any(
+        (perIndex) => perIndex.values.any((t) => t?.isActive ?? false),
+      );
+
+  /// Применить отложенные (дебаунс) правки в модель немедленно.
+  /// Нужно перед сохранением/подтягиванием, чтобы текст из полей не потерялся.
+  void _flushPendingEdits(ReportState reportState) {
+    _debounceTimers.forEach((qid, perIndex) {
+      final qIndex = int.tryParse(qid);
+      if (qIndex == null) return;
+      perIndex.forEach((j, timer) {
+        if (!(timer?.isActive ?? false)) return;
+        timer!.cancel();
+        reportState.updateAnswerText(
+          qIndex,
+          j,
+          _getSafeController(qid, j)?.text ?? '',
+        );
+      });
+    });
+  }
+
   /// Кнопка «Синхронизировать» (без несохранённых правок) — ТОЛЬКО подтягивает
   /// чужие изменения с сервера.
   ///
@@ -338,6 +364,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
   Future<void> _syncOnly() async {
     final reportState = context.read<ReportState>();
     final loc = AppLocalizations.of(context)!;
+
+    // Правки ещё «в дебаунсе» (не в модели) — pull их затрёт.
+    // Сохранение имеет приоритет: применяем их и сохраняем.
+    if (_hasPendingEdits()) {
+      _flushPendingEdits(reportState);
+      if (!_hasUnsavedChanges) {
+        setState(() => _hasUnsavedChanges = true);
+      }
+      await _doSaveAndSync();
+      return;
+    }
+
     final onServer =
         reportState.serverReportId != null ||
         (reportState.serverPublicId?.isNotEmpty ?? false) ||
