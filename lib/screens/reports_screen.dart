@@ -4,6 +4,8 @@ import 'package:easy_tab/utils/open_html_stub.dart'
     if (dart.library.html) 'package:easy_tab/utils/open_html_web.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
+import 'package:easy_tab/utils/cover_image_provider.dart'
+    if (dart.library.html) 'package:easy_tab/utils/cover_image_provider_web.dart';
 import 'package:easy_tab/widgets/dotted_background.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -414,8 +416,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   /// увеличенное фото (для детального просмотра).
   Widget _buildReportThumbnail(BuildContext context, ReportSummary report) {
     ImageProvider? provider;
-    if (!kIsWeb && report.thumbnailPath != null) {
-      provider = FileImage(File(report.thumbnailPath!));
+    if (report.thumbnailPath != null) {
+      provider = localCoverImageProvider(report.thumbnailPath);
     } else if (kIsWeb &&
         report.onServer &&
         (report.publicId?.isNotEmpty ?? false)) {
