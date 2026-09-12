@@ -1,16 +1,28 @@
 // ============================================================
-// Заглушка для non-web платформ.
-// На mobile/desktop HTML открывается через viewHtmlWithChooser().
+// Реализация для non-web платформ (mobile/desktop).
+// Открывает URL серверного HTML-отчёта в системном браузере.
 // ============================================================
 
-/// Открыть HTML в браузере (заглушка для non-web).
-/// На web эта функция переопределяется в open_html_web.dart.
+import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+/// Открыть HTML-контент в браузере (заглушка для non-web).
+/// На mobile/desktop HTML открывается через серверный URL, поэтому
+/// передача raw-контента сюда не используется — оставляем no-op.
 void openHtmlInBrowser(String htmlContent) {
-  // No-op: на mobile/desktop используется другой механизм
+  // No-op: на mobile/desktop используется openHtmlInBrowserUrl(url).
 }
 
-/// Открыть URL в новой вкладке браузера (заглушка для non-web).
-/// На web эта функция переопределяется в open_html_web.dart.
-void openHtmlInBrowserUrl(String url) {
-  // No-op: на mobile/desktop не используется
+/// Открыть URL в системном браузере (mobile/desktop).
+///
+/// Используется для просмотра серверного HTML-отчёта
+/// (/view/report/:publicId?token=...) во внешнем браузере на телефоне,
+/// где данные и медиа грузятся с сервера, а не из локальной копии.
+Future<void> openHtmlInBrowserUrl(String url) async {
+  final uri = Uri.parse(url);
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (e) {
+    if (kDebugMode) debugPrint('openHtmlInBrowserUrl error: $e');
+  }
 }

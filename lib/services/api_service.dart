@@ -646,6 +646,14 @@ class ApiService {
     );
   }
 
+  /// Получить короткоживущий view-токен (5 мин, read-only) для просмотра
+  /// HTML-отчёта во внешнем браузере, где нет HttpOnly cookie (телефон).
+  static Future<ApiResult> getHtmlViewToken(String publicId) async {
+    return _handleApiCall(
+      http.get(_uri('/reports/$publicId/view-token'), headers: _headers),
+    );
+  }
+
   // ============================================================
   // Share-ссылки
   // ============================================================

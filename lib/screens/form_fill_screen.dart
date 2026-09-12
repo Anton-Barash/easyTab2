@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:open_file/open_file.dart';
+
 import 'package:path/path.dart' as path;
 import '../providers/report_provider.dart';
 import '../providers/settings_provider.dart';
@@ -1673,10 +1673,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   /// Просмотр HTML на mobile/desktop.
   ///
-  /// HTML генерируется на сервере (GET /reports/:publicId/html),
-  /// поэтому отчёт должен быть синхронизирован. Скачанный HTML
-  /// записывается в папку отчёта и открывается системным просмотрщиком.
-  /// Медиа подгружаются через прокси-URL сервера (нужен интернет).
+  /// Открывает серверный HTML-отчёт (/view/report/:publicId) в системном
+  /// браузере. Данные и медиа грузятся с сервера (нужен интернет), а не из
+  /// локальной копии. Авторизация — через короткоживущий read-only view-токен
+  /// (?token=), т.к. внешний браузер на телефоне не имеет HttpOnly cookie.
   Future<void> viewHtmlWithChooser() async {
     final reportState = context.read<ReportState>();
     final loc = AppLocalizations.of(context)!;
@@ -1707,35 +1707,32 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
     }
 
-    final result = await ApiService.getReportHtmlByPublicId(
-      reportState.serverPublicId!,
-    );
-    final htmlContent = result.data?['html'] as String?;
-    if (!result.success || htmlContent == null) {
+    // Получаем короткоживущий view-токен и открываем серверный HTML в браузере.
+    final publicId = reportState.serverPublicId!;
+    final tokenResult = await ApiService.getHtmlViewToken(publicId);
+    final token = tokenResult.data?['token'] as String?;
+    if (!tokenResult.success || token == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.error ?? loc.htmlRequiresSync)),
+          SnackBar(content: Text(tokenResult.error ?? loc.htmlRequiresSync)),
         );
       }
       return;
     }
 
-    if (reportState.currentReportPath == null) {
-      await reportState.saveReport();
-    }
+    final viewUrl = ApiService.uri(
+      '/auth/redeem-view',
+      {
+        'token': token,
+        'target': '/view/report/$publicId',
+      },
+    ).toString();
+    await openHtmlInBrowserUrl(viewUrl);
 
-    final folderPath = reportState.currentReportPath!;
-    final file = File('$folderPath/easy_report.html');
-    await file.writeAsString(htmlContent);
-
-    final openResult = await OpenFile.open(file.path);
-
-    if (openResult.type == ResultType.noAppToOpen) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(loc.noAppToOpenHtml)));
-      }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.htmlOpenedInNewTab)),
+      );
     }
   }
 

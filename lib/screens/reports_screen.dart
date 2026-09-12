@@ -11,8 +11,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
 import '../providers/report_provider.dart';
 import '../providers/auth_provider.dart';
 import '../l10n/app_localizations.dart';
@@ -517,27 +515,33 @@ class _ReportsScreenState extends State<ReportsScreen> {
         openHtmlInBrowserUrl(viewUrl);
         return;
       }
-      try {
-        final result = await ApiService.getReportHtmlByPublicId(
-          report.publicId ?? report.id,
+      // На web/tnative открываем серверный HTML во внешнем браузере через
+      // обмен короткого view-токена на HttpOnly cookie (см. /auth/redeem-view).
+      final publicId = report.publicId;
+      if (publicId == null || publicId.isEmpty) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(loc.openReportFailed)),
         );
+        return;
+      }
+      try {
+        final tokenResult = await ApiService.getHtmlViewToken(publicId);
+        final token = tokenResult.data?['token'] as String?;
         if (!mounted) return;
-        if (!result.success || result.data?['html'] == null) {
+        if (!tokenResult.success || token == null) {
           messenger.showSnackBar(
-            SnackBar(
-              content: Text(result.error ?? loc.openReportFailed),
-            ),
+            SnackBar(content: Text(tokenResult.error ?? loc.openReportFailed)),
           );
           return;
         }
-        final htmlContent = result.data!['html'] as String;
-        final tmpDir = await getTemporaryDirectory();
-        final file = File('${tmpDir.path}/easy_report_${report.id}.html');
-        await file.writeAsString(htmlContent);
-        final openResult = await OpenFile.open(file.path);
-        if (openResult.type == ResultType.noAppToOpen && mounted) {
+        final viewUrl = ApiService.uri(
+          '/auth/redeem-view',
+          {'token': token, 'target': '/view/report/$publicId'},
+        ).toString();
+        await openHtmlInBrowserUrl(viewUrl);
+        if (mounted) {
           messenger.showSnackBar(
-            SnackBar(content: Text(loc.noAppToOpenHtml)),
+            SnackBar(content: Text(loc.htmlOpenedInNewTab)),
           );
         }
       } catch (e) {
