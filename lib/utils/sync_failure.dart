@@ -34,6 +34,37 @@ String syncFailureMessage(ApiResult? res, AppLocalizations loc, {bool detached =
   }
 }
 
+/// Как [syncFailureMessage], но по сырому тексту ошибки сервера (без структуры
+/// ответа). Используется в тех местах, где у нас только строка `error` (например
+/// из ReportState.lastSyncError). Распознаёт английские сообщения reportsService.
+String syncFailureMessageFromText(String? detail, AppLocalizations loc) {
+  if (detail == null || detail.isEmpty) return loc.syncErrorMessage;
+  final t = detail.toLowerCase();
+  if (t.contains('not found') || t.contains('report_not_found')) {
+    return loc.syncErrorNotFound;
+  }
+  if (t.contains('not the author') ||
+      t.contains('access denied') ||
+      t.contains('permission') ||
+      t.contains('forbidden')) {
+    return loc.syncErrorNoAccess;
+  }
+  if (t.contains('version_conflict') ||
+      (t.contains('conflict') && !t.contains('failed'))) {
+    return loc.syncErrorConflict;
+  }
+  if (t.contains('expired') || t.contains('gone')) {
+    return loc.syncErrorPermissionExpired;
+  }
+  if (t.startsWith('failed to save') ||
+      t.startsWith('failed to patch') ||
+      t.startsWith('http 5') ||
+      t.contains('internal server')) {
+    return loc.syncErrorServer;
+  }
+  return '${loc.syncErrorMessage}: $detail';
+}
+
 /// Классифицирует ответ сервера в константу причины.
 SyncFailureKind syncFailureKind(ApiResult? res) {
   final sc = res?.statusCode;

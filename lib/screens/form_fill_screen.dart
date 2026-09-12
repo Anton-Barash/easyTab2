@@ -3,6 +3,7 @@ import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/services/mime_utils.dart';
 import 'package:easy_tab/widgets/dotted_background.dart';
+import 'package:easy_tab/utils/sync_failure.dart';
 import 'package:easy_tab/widgets/easy_tab_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -313,9 +314,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
       if (!saved && !detached && mounted) {
         final detail = reportState.lastSyncError;
-        final message = (detail == null || detail.isEmpty)
-            ? loc.syncErrorMessage
-            : '${loc.syncErrorMessage}: $detail';
+        final message = syncFailureMessageFromText(detail, loc);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message)),
         );
@@ -395,13 +394,28 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
+    // Для share-ссылки (анонимный редактор) тянем актуальную версию с сервера.
+    final isShared = reportState.shareToken?.isNotEmpty ?? false;
+
     setState(() => _isSaving = true);
-    final ok = await reportState.pullFromServer();
+    // На телефоне владелец синхронизируется через локальную папку/облако —
+    // pull там не поддержан и всегда возвращал бы ошибку. Повторяем поведение
+    // пункта меню «синхронизировать с облаком»: push на сервер.
+    final bool ok;
+    if (!kIsWeb && !isShared) {
+      ok = await reportState.saveReportToServer();
+    } else {
+      ok = await reportState.pullFromServer();
+    }
     if (!mounted) return;
     setState(() => _isSaving = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? loc.syncCompleteMessage : loc.syncErrorMessage),
+        content: Text(
+          ok
+              ? loc.syncCompleteMessage
+              : syncFailureMessageFromText(reportState.lastSyncError, loc),
+        ),
       ),
     );
   }
