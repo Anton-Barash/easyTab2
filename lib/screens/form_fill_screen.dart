@@ -395,19 +395,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
-    // Для share-ссылки (анонимный редактор) тянем актуальную версию с сервера.
-    final isShared = reportState.shareToken?.isNotEmpty ?? false;
-
+    // Подтягиваем актуальную версию с сервера (на native тоже — тянем в
+    // локальную папку). Так правки, сделанные в вебе по share-ссылке другим
+    // устройством, появляются в открытом отчёте на телефоне.
     setState(() => _isSaving = true);
-    // На телефоне владелец синхронизируется через локальную папку/облако —
-    // pull там не поддержан и всегда возвращал бы ошибку. Повторяем поведение
-    // пункта меню «синхронизировать с облаком»: push на сервер.
-    final bool ok;
-    if (!kIsWeb && !isShared) {
-      ok = await reportState.saveReportToServer();
-    } else {
-      ok = await reportState.pullFromServer();
-    }
+    final ok = await reportState.pullFromServer();
     if (!mounted) return;
     setState(() => _isSaving = false);
     ScaffoldMessenger.of(context).showSnackBar(

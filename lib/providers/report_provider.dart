@@ -1906,19 +1906,78 @@ class ReportState extends ChangeNotifier {
   /// устройстве), появляются в открытом отчёте. Вызывать только когда
   /// несохранённых локальных правок нет, иначе они будут перезаписаны.
   ///
-  /// Возвращает true при успехе. Для нативного владельца (источник правды —
-  /// локальная папка) и для отчёта без связи с сервером — false.
+  /// Возвращает true при успехе. Для отчёта без связи с сервером — false.
   Future<bool> pullFromServer() async {
     final shareToken = _shareToken;
     if (shareToken != null && shareToken.isNotEmpty) {
       return loadSharedReport(shareToken);
     }
-    // Нативный владелец синхронизируется через ReportSyncManager по локальной
-    // папке — pull здесь не применяем, чтобы не рассинхронизировать копии.
-    if (!kIsWeb) return false;
     final reportId = _serverReportId;
     if (reportId == null) return false;
-    return _loadReportFromServer(reportId);
+    if (kIsWeb) return _loadReportFromServer(reportId);
+    // Нативный владелец: тянем актуальную версию с сервера и сохраняем её в
+    // локальную папку (локальная папка остаётся источником истины). Ранее pull
+    // здесь был отключён, из-за чего изменения, сделанные другим устройством
+    // (например через share-ссылку в вебе), не подтягивались, и копия на
+    // телефоне расходилась с сервером.
+    return _pullIntoLocalFolder(reportId);
+  }
+
+  /// Нативный pull для владельца: обновляет открытый отчёт из сервера и
+  /// перезаписывает report.json в локальной папке актуальной версией.
+  Future<bool> _pullIntoLocalFolder(int reportId) async {
+    try {
+      final result = await ApiService.getReport(reportId);
+      if (!result.success || result.data?['report'] == null) {
+        _lastSyncError = result.error;
+        if (kDebugMode) debugPrint('pullIntoLocalFolder: ${result.error}');
+        return false;
+      }
+      final server = result.data!['report'] as Map<String, dynamic>;
+      final reportData =
+          (server['reportData'] as Map?)?.cast<String, dynamic>() ?? {};
+      if (reportData.isEmpty) return false;
+
+      // Обновляем модель в памяти — пользователь видит актуальную версию.
+      _currentReport = Report.fromJson(
+        reportData,
+        folderPath: _currentReportPath,
+      );
+      _baseReportSnapshot = reportData;
+
+      final publicId = server['publicId'];
+      _serverPublicId = (publicId is String && publicId.isNotEmpty) ? publicId : null;
+
+      final folder = server['ks3Folder'];
+      _ks3Folder = (folder is String && folder.isNotEmpty) ? folder : null;
+
+      final version = server['version'];
+      _serverReportVersion =
+          version is int ? version : int.tryParse(version.toString());
+
+      // Персистим pull-нутую версию в локальную папку (источник истины на native).
+      final folderPath = _currentReportPath;
+      if (folderPath != null && folderPath.isNotEmpty) {
+        final jsonFile = File('$folderPath/$reportFilename');
+        await jsonFile.writeAsString(jsonEncode(reportData));
+        final metaFile = File('$folderPath/sync_meta.json');
+        if (await metaFile.exists()) {
+          try {
+            final meta = jsonDecode(await metaFile.readAsString()) as Map<String, dynamic>;
+            meta['serverVersion'] = _serverReportVersion;
+            await metaFile.writeAsString(jsonEncode(meta));
+          } catch (_) {}
+        }
+      }
+
+      _sanitizeMediaState();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _lastSyncError = e.toString();
+      if (kDebugMode) debugPrint('pullIntoLocalFolder error: $e');
+      return false;
+    }
   }
 
   /// Сохранить отчёт через ops-PATCH (merge-by-ID, Фаза 2b).
