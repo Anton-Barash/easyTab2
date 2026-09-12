@@ -700,8 +700,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncErrorMessage => 'Sync failed';
 
   @override
+  String get syncErrorNotFound =>
+      'Report not found on the server.\nIt may have been deleted on another device. Remove the local copy from the list or upload it again as a new report.';
+
+  @override
+  String get syncErrorNoAccess =>
+      'No access to the report.\nDouble-check this is your report and you have edit rights.';
+
+  @override
+  String get syncErrorConflict =>
+      'The report was changed by another editor.\nPlease retry to get the latest version.';
+
+  @override
+  String get syncErrorPermissionExpired =>
+      'Edit access has expired.\nThe local copy was unlinked from the server. Upload the report again if needed.';
+
+  @override
+  String get syncErrorServer =>
+      'Temporary server error.\nPlease try again in a moment.';
+
+  @override
+  String get syncErrorNetwork =>
+      'No connection to the server.\nCheck your internet connection and try again.';
+
+  @override
   String get reportAccessExpiredDetached =>
-      'Editing access has expired. The report is now saved only locally — you can upload it to the server again as a new report.';
+      'Edit access has expired. The report is saved locally only — you can upload it to the server again as a new report.';
 
   @override
   String get settingsTitle => 'Settings';

@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/report_summary.dart';
+import '../services/api_result.dart';
 import '../services/api_service.dart';
 
 /// ReportSyncManager: minimal, iterative implementation.
@@ -16,6 +17,11 @@ class ReportSyncManager {
   /// срок права), содержит имя локальной папки, которую мы отвязали от
   /// сервера. Иначе null.
   String? lastDeniedUnlinkedFolder;
+
+  /// Причина последней неудачной синхронизации/скачивания (ответ сервера).
+  /// Используется, чтобы показать пользователю конкретную причину ошибки и
+  /// подсказку, что делать. null — ошибки не было либо она не сетевого рода.
+  ApiResult? lastSyncError;
 
   Future<List<String>> _listLocalReportFolders(String reportsDir) async {
     // На web нет локальной файловой системы (path_provider отсутствует) —
@@ -338,8 +344,12 @@ class ReportSyncManager {
   /// медиа в папку `$baseDir/server_<id>`. Возвращает абсолютный путь
   /// папки, либо пустую строку при ошибке.
   Future<String> _downloadReportToDir(int serverReportId, String baseDir) async {
+    lastSyncError = null;
     final res = await ApiService.getReport(serverReportId);
-    if (!res.success || res.data == null) return '';
+    if (!res.success || res.data == null) {
+      lastSyncError = res;
+      return '';
+    }
 
     final responseData = res.data!;
     Map<String, dynamic> reportData = {};
@@ -409,6 +419,7 @@ class ReportSyncManager {
     // На web нет локальных файлов — синхронизация локальной папки недоступна.
     if (kIsWeb) return false;
     lastDeniedUnlinkedFolder = null;
+    lastSyncError = null;
     try {
       final reportsDir = await _getReportsDir();
       final folderPath = absoluteFolderPath ??
@@ -442,6 +453,7 @@ class ReportSyncManager {
       if (filesToUpload.isNotEmpty) {
         final uploadRes = await ApiService.uploadFiles(files: filesToUpload, reportId: serverReportId);
         if (!uploadRes.success) {
+          lastSyncError = uploadRes;
           if (uploadRes.isPermanentAccessDenied) {
             // Право на редактирование истекло — отвязываем копию от сервера.
             lastDeniedUnlinkedFolder = await _detachFromServer(
@@ -531,6 +543,7 @@ class ReportSyncManager {
       if (res.isPermanentAccessDenied) {
         // Право на редактирование истекло / доступ закрыт: отвязываем
         // локальную копию, чтобы она стала обычным локальным отчётом.
+        lastSyncError = res;
         lastDeniedUnlinkedFolder = await _detachFromServer(
           folderPath,
           isLibrary: absoluteFolderPath == null,
@@ -540,9 +553,11 @@ class ReportSyncManager {
 
       if (res.data != null && res.data is Map && res.data!['code'] == 'VERSION_CONFLICT') {
         if (kDebugMode) print('sync conflict: ${res.data}');
+        lastSyncError = res;
         return false;
       }
 
+      lastSyncError = res;
       if (kDebugMode) print('saveReport failed: $res.error');
       return false;
     } catch (e) {

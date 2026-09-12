@@ -687,6 +687,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncErrorMessage => '同步失败';
 
   @override
+  String get syncErrorNotFound =>
+      '服务器上找不到该报告。\n它可能已在其他设备上被删除。请从列表中删除本地副本，或将其重新上传为新报告。';
+
+  @override
+  String get syncErrorNoAccess => '无权访问该报告。\n请确认这是您的报告，并且您拥有编辑权限。';
+
+  @override
+  String get syncErrorConflict => '该报告已被其他编辑者修改。\n请重试以获取最新版本。';
+
+  @override
+  String get syncErrorPermissionExpired =>
+      '编辑权限已过期。\n本地副本已与服务器取消关联，如有需要请重新上传报告。';
+
+  @override
+  String get syncErrorServer => '服务器暂时出错。\n请稍后重试。';
+
+  @override
+  String get syncErrorNetwork => '无法连接服务器。\n请检查网络后重试。';
+
+  @override
   String get reportAccessExpiredDetached =>
       '编辑权限已过期。报告现仅保存在本地，您可以将其作为新报告重新上传到服务器。';
 

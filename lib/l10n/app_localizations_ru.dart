@@ -701,6 +701,30 @@ class AppLocalizationsRu extends AppLocalizations {
   String get syncErrorMessage => 'Ошибка синхронизации';
 
   @override
+  String get syncErrorNotFound =>
+      'Отчёт не найден на сервере.\nОн мог быть удалён на другом устройстве. Удалите локальную копию из списка или залейте её заново как новый отчёт.';
+
+  @override
+  String get syncErrorNoAccess =>
+      'Нет доступа к отчёту.\nПроверьте, что это ваш отчёт и у вас есть права на редактирование.';
+
+  @override
+  String get syncErrorConflict =>
+      'Отчёт изменён другим редактором.\nПовторите попытку, чтобы получить актуальную версию.';
+
+  @override
+  String get syncErrorPermissionExpired =>
+      'Срок доступа к редактированию истёк.\nЛокальная копия отвязана от сервера. Залийте отчёт заново, если нужно.';
+
+  @override
+  String get syncErrorServer =>
+      'Временная ошибка сервера.\nПопробуйте повторить чуть позже.';
+
+  @override
+  String get syncErrorNetwork =>
+      'Нет соединения с сервером.\nПроверьте интернет и повторите попытку.';
+
+  @override
   String get reportAccessExpiredDetached =>
       'Срок доступа к редактированию истёк. Отчёт сохранён только локально — его можно заново залить на сервер как новый отчёт.';
 

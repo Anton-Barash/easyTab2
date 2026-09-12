@@ -1402,10 +1402,46 @@ abstract class AppLocalizations {
   /// **'Sync failed'**
   String get syncErrorMessage;
 
+  /// No description provided for @syncErrorNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Report not found on the server.\nIt may have been deleted on another device. Remove the local copy from the list or upload it again as a new report.'**
+  String get syncErrorNotFound;
+
+  /// No description provided for @syncErrorNoAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'No access to the report.\nDouble-check this is your report and you have edit rights.'**
+  String get syncErrorNoAccess;
+
+  /// No description provided for @syncErrorConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'The report was changed by another editor.\nPlease retry to get the latest version.'**
+  String get syncErrorConflict;
+
+  /// No description provided for @syncErrorPermissionExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit access has expired.\nThe local copy was unlinked from the server. Upload the report again if needed.'**
+  String get syncErrorPermissionExpired;
+
+  /// No description provided for @syncErrorServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary server error.\nPlease try again in a moment.'**
+  String get syncErrorServer;
+
+  /// No description provided for @syncErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection to the server.\nCheck your internet connection and try again.'**
+  String get syncErrorNetwork;
+
   /// No description provided for @reportAccessExpiredDetached.
   ///
   /// In en, this message translates to:
-  /// **'Editing access has expired. The report is now saved only locally — you can upload it to the server again as a new report.'**
+  /// **'Edit access has expired. The report is saved locally only — you can upload it to the server again as a new report.'**
   String get reportAccessExpiredDetached;
 
   /// No description provided for @settingsTitle.

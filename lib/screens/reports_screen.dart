@@ -7,6 +7,7 @@ import 'package:easy_tab/utils/platform_io.dart'
 import 'package:easy_tab/utils/cover_image_provider.dart'
     if (dart.library.html) 'package:easy_tab/utils/cover_image_provider_web.dart';
 import 'package:easy_tab/widgets/dotted_background.dart';
+import 'package:easy_tab/utils/sync_failure.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -87,6 +88,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     });
 
     var anyDetached = false;
+    var anyFailed = false;
     for (var report in reports) {
       // try sync if local exists, otherwise try download
       if (!mounted) return;
@@ -97,10 +99,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
         } else if (_syncManager.lastDeniedUnlinkedFolder != null) {
           // Право на редактирование истекло — копия отвязана от сервера.
           anyDetached = true;
+        } else {
+          anyFailed = true;
         }
       } else if (report.onServer) {
         final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
-        if (folder != null) _syncedReports.add(folder);
+        if (folder != null) {
+          _syncedReports.add(folder);
+        } else {
+          anyFailed = true;
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -117,13 +125,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
     // Если хотя бы один отчёт был отвязан из-за истекшего права —
     // показываем отдельное сообщение вместо общего «синхронизировано».
     final detached = anyDetached;
+    final message = anyFailed || anyDetached
+        ? syncFailureMessage(
+            _syncManager.lastSyncError,
+            loc,
+            detached: anyDetached,
+          )
+        : loc.syncCompleteMessage;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(
       SnackBar(
-        content: Text(
-          detached ? loc.reportAccessExpiredDetached : loc.syncCompleteMessage,
-        ),
+        content: Text(message),
         duration: detached ? const Duration(seconds: 8) : const Duration(seconds: 4),
       ),
     );
@@ -171,9 +184,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         content: Text(
           ok
               ? loc.syncCompleteMessage
-              : (detached
-                  ? loc.reportAccessExpiredDetached
-                  : loc.syncErrorMessage),
+              : syncFailureMessage(
+                  _syncManager.lastSyncError,
+                  loc,
+                  detached: detached,
+                ),
         ),
         duration: detached ? const Duration(seconds: 8) : const Duration(seconds: 4),
       ),
@@ -789,13 +804,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          '${loc.createdLabel} ${_formatDateTime(report.createdAt)}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
                         if (_hasRealModification(report))
                           Text(
                             '${loc.modifiedLabel} ${_formatDateTime(report.modified)}',
@@ -804,6 +812,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               color: AppColors.textSecondary,
                             ),
                           ),
+                        Text(
+                          '${loc.createdLabel} ${_formatDateTime(report.createdAt)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                         if (report.onServer)
                           Text(
                             report.authorName == null ||
