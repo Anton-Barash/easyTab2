@@ -7,7 +7,7 @@
 ## Стек
 - Язык: Dart (Flutter)
 - Целевые платформы: Android, iOS, Web, Windows
-- Основные зависимости (из pubspec.yaml): flutter_localizations, intl, provider, http, path_provider, flutter_secure_storage и др.
+- Основные зависимости (из pubspec.yaml): flutter_localizations, intl, provider, http, path_provider, flutter_secure_storage и др. Для QR/deep-link: qr_flutter (генерация QR в диалоге шаринга), mobile_scanner (скан QR камерой), app_links (deep-link).
 
 ## Топ-уровень (root)
 - README.md — базовая инструкция Flutter
@@ -62,8 +62,8 @@
   - Импорты: провайдеры/репозитории, widgets для карточек шаблонов.
   - Функции: загрузка списка шаблонов, фильтрация/поиск, выбор и переход в form_fill.
 
-- login_screen.dart, reports_screen.dart, share_welcome_screen.dart, full_media_viewer_screen.dart
-  - Каждый экран содержит UI + вызовы провайдеров для загрузки/обновления данных. reports_screen отвечает за список отчетов, фильтры и просмотр репорта (переход в full_media_viewer). Просмотр HTML на web открывает серверный HTML напрямую (без Flutter).
+- login_screen.dart, reports_screen.dart, share_welcome_screen.dart, full_media_viewer_screen.dart, share_qr_scanner_screen.dart
+  - Каждый экран содержит UI + вызовы провайдеров для загрузки/обновления данных. reports_screen отвечает за список отчетов, фильтры и просмотр репорта (переход в full_media_viewer). Просмотр HTML на web открывает серверный HTML напрямую (без Flutter). share_qr_scanner_screen — скан QR камерой (mobile_scanner) и добавление расшаренного (edit) отчёта в список.
 
 
 ### lib/providers/
@@ -77,6 +77,8 @@
 
 ### lib/services/
 - share_token_storage.dart — хранение/чтение токенов для шаринга
+- app_deeplinks.dart — deep-link (Android App Links / iOS Universal Links): захват ссылки `https://easytab.cloud/#/welcome?token=...` и переход на `/welcome`; инициализируется в main()
+- anonymous_id_service.dart — стабильный анонимный id для анонимных редакторов share
 - file services — загрузка/скачивание файлов, thumbnail generation
 - http wrapper — центральный http-клиент с обработкой заголовков, retry, caching
 

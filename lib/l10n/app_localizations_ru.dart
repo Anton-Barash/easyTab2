@@ -872,6 +872,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get shareLinkCopied => 'Скопировано';
 
   @override
+  String get scanQr => 'Сканировать QR';
+
+  @override
+  String get qrNotEditable =>
+      'Отчёт доступен только для просмотра — не добавлен в список';
+
+  @override
+  String get qrCantAdd => 'Не удалось загрузить отчёт по QR-коду';
+
+  @override
+  String get qrAdded => 'Расшаренный отчёт добавлен в список';
+
+  @override
   String get templateSourceFile => 'Excel (.xlsx), JSON, ZIP';
 
   @override

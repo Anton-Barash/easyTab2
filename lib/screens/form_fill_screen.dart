@@ -5,6 +5,7 @@ import 'package:easy_tab/services/mime_utils.dart';
 import 'package:easy_tab/widgets/dotted_background.dart';
 import 'package:easy_tab/utils/sync_failure.dart';
 import 'package:easy_tab/widgets/easy_tab_button.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -890,6 +891,21 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                       color: AppColors.textDark,
                                       fontWeight: FontWeight.w500,
                                       fontSize: labelFont,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: isNarrow ? 16 : 24),
+                                Center(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.all(8),
+                                    child: QrImageView(
+                                      data: createdLink!,
+                                      size: 200,
+                                      backgroundColor: Colors.white,
                                     ),
                                   ),
                                 ),

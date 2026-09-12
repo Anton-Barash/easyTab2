@@ -20,6 +20,7 @@ import '../services/api_service.dart';
 import '../models/report_summary.dart';
 import '../providers/report_sync_manager.dart';
 import '../widgets/sync_buttons.dart';
+import 'share_qr_scanner_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -55,6 +56,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   void _loadReports() {
     _reportsFuture = _syncManager.loadCombinedList();
+  }
+
+  /// Открывает сканер QR. Если отсканированный расшаренный отчёт был добавлен
+  /// в список (токен сохранён) — перечитывает список и показывает сообщение.
+  Future<void> _openQrScanner() async {
+    final loc = AppLocalizations.of(context)!;
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const ShareQrScannerScreen()),
+    );
+    if (!mounted) return;
+    if (added == true) {
+      setState(_loadReports);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.qrAdded)));
+    }
   }
 
   /// Форматирует дату в компактный строковый вид (yyyy-MM-dd HH:mm).
@@ -205,6 +222,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
+        actions: [
+          if (!kIsWeb &&
+              defaultTargetPlatform != TargetPlatform.windows &&
+              defaultTargetPlatform != TargetPlatform.linux)
+            IconButton(
+              tooltip: loc.scanQr,
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: _openQrScanner,
+            ),
+        ],
       ),
       body: Stack(
         children: [

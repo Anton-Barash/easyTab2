@@ -38,6 +38,11 @@ dependencies:
   uuid: ^3.0.6
   url_launcher: ^6.3.0
 
+  # QR для share-ссылки, QR-сканер, deep-link
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.1.0
+  app_links: ^6.4.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

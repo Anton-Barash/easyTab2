@@ -870,6 +870,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareLinkCopied => 'Copied';
 
   @override
+  String get scanQr => 'Scan QR';
+
+  @override
+  String get qrNotEditable =>
+      'Report is view-only and was not added to the list';
+
+  @override
+  String get qrCantAdd => 'Could not load the report from the QR code';
+
+  @override
+  String get qrAdded => 'Shared report added to the list';
+
+  @override
   String get templateSourceFile => 'Excel (.xlsx), JSON, ZIP';
 
   @override

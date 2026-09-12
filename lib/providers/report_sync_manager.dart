@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import '../models/report_summary.dart';
 import '../services/api_result.dart';
 import '../services/api_service.dart';
+import '../services/share_token_storage.dart';
+import '../services/anonymous_id_service.dart';
 
 /// ReportSyncManager: minimal, iterative implementation.
 class ReportSyncManager {
@@ -176,6 +178,59 @@ class ReportSyncManager {
         '$reportsDirPath${Platform.pathSeparator}$f',
       );
       out.add(summary);
+    }
+
+    // Расшаренные отчёты (по сохранённым share-токенам). В список попадают
+    // только те, где share.permissions == 'edit' — как и при сканировании QR
+    // (view-only отчёты читают через welcome-экран, отдельной строкой не идут).
+    final shareTokens = await ShareTokenStorage.getTokens();
+    for (final token in shareTokens) {
+      try {
+        final anonymousId = await AnonymousIdService.getId();
+        final shareResult = await ApiService.getShareInfo(
+          token: token,
+          anonymousId: anonymousId,
+        );
+        if (shareResult.success && shareResult.data != null) {
+          final data = shareResult.data!;
+          final share = data['share'] ?? {};
+          final permissions = share['permissions']?.toString() ?? 'edit';
+          if (permissions != 'edit') continue;
+          final report = data['report'] ?? {};
+          final reportData = report['reportData'] ?? {};
+          final idRaw = report['id'] ?? report['publicId'];
+          final idStr = idRaw?.toString() ?? '';
+          if (idStr.isEmpty) continue;
+          // Не дублируем отчёт, который уже есть в списке (локальный/облачный).
+          if (out.any((r) => r.id == idStr)) continue;
+          final title =
+              (reportData['reportName'] ?? report['title'] ?? 'Shared')
+                  .toString();
+          DateTime createdAt = DateTime.now();
+          final createdRaw = report['createdAt'];
+          if (createdRaw != null) {
+            final parsed = DateTime.tryParse(createdRaw.toString());
+            if (parsed != null) createdAt = parsed.toLocal();
+          }
+          final publicId = (report['publicId'])?.toString();
+          out.add(ReportSummary(
+            id: idStr,
+            title: title,
+            createdAt: createdAt,
+            modified: createdAt,
+            localExists: false,
+            onServer: true,
+            status: ReportSyncStatus.cloudOnly,
+            publicId: publicId,
+          ));
+        } else if (shareResult.statusCode == 404 ||
+            shareResult.statusCode == 410) {
+          // Токен протух/отозван — убираем, чтобы не копить мусор.
+          await ShareTokenStorage.removeToken(token);
+        }
+      } catch (e) {
+        if (kDebugMode) print('loadCombinedList share $token error: $e');
+      }
     }
 
     // Сортируем по дате последнего изменения (сначала новые).

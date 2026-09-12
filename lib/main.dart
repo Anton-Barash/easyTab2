@@ -16,6 +16,7 @@ import './l10n/app_localizations_en.dart';
 import './l10n/app_localizations_ru.dart';
 import './l10n/app_localizations_zh.dart';
 import './services/share_token_storage.dart';
+import './services/app_deeplinks.dart';
 import './screens/login_screen.dart' show showLoginDialog, showSettingsDialog;
 import './widgets/dotted_background.dart';
 import './widgets/easy_tab_button.dart';
@@ -34,12 +35,21 @@ Widget _deferredLoading(BuildContext context) {
   return const Scaffold(body: Center(child: CircularProgressIndicator()));
 }
 
+/// Единый ключ навигатора: нужен для deep-link'ов (AppDeeplinks) и сервисов,
+/// которым приходится управлять навигацией вне виджетов.
+final navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   // P3: runZonedGuarded перехватывает необработанные async-ошибки,
   // предотвращая тихое падение приложения.
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Deep-link: захватываем ссылку, по которой приложение было открыто
+      // (Android App Links / iOS Universal Links) ещё до runApp.
+      // не блокирует старт — getInitialLink в худшем случае null.
+      await AppDeeplinks.instance.initialize(navigatorKey);
 
       // Явно создаём экземпляры всех локализаций, чтобы dart2js при сборке
       // web не tree-shake'нул классы AppLocalizationsEn/Ru/Zh. Без этого
@@ -101,6 +111,7 @@ class EasyTabApp extends StatelessWidget {
       child: Consumer<LocaleProvider>(
         builder: (context, localeProvider, child) {
           return MaterialApp(
+            navigatorKey: navigatorKey,
             title: 'EasyTab',
             debugShowCheckedModeBanner: false,
             locale: localeProvider.locale,

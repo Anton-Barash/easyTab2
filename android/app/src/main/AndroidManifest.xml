@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- Camera permission: QR-сканер расшаренных отчётов (mobile_scanner). -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:label="easy_tab"
@@ -33,6 +35,16 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Deep-link: Android App Links — открытие share-ссылок
+                 https://easytab.cloud/#/welcome?token=... в установленном
+                 приложении (см. /.well-known/assetlinks.json на сервере). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="easytab.cloud"
+                    android:pathPrefix="/"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

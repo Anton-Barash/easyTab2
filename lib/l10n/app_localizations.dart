@@ -1720,6 +1720,30 @@ abstract class AppLocalizations {
   /// **'Copied'**
   String get shareLinkCopied;
 
+  /// No description provided for @scanQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR'**
+  String get scanQr;
+
+  /// No description provided for @qrNotEditable.
+  ///
+  /// In en, this message translates to:
+  /// **'Report is view-only and was not added to the list'**
+  String get qrNotEditable;
+
+  /// No description provided for @qrCantAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the report from the QR code'**
+  String get qrCantAdd;
+
+  /// No description provided for @qrAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared report added to the list'**
+  String get qrAdded;
+
   /// No description provided for @templateSourceFile.
   ///
   /// In en, this message translates to:

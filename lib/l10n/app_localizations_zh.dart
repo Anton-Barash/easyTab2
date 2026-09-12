@@ -852,6 +852,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shareLinkCopied => '已复制';
 
   @override
+  String get scanQr => '扫码';
+
+  @override
+  String get qrNotEditable => '报告仅为查看，未添加到列表';
+
+  @override
+  String get qrCantAdd => '无法从二维码加载报告';
+
+  @override
+  String get qrAdded => '共享报告已添加到列表';
+
+  @override
   String get templateSourceFile => 'Excel (.xlsx), JSON, ZIP';
 
   @override
