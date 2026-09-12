@@ -43,7 +43,7 @@ void openHtmlInBrowser(String htmlContent) {
 /// Используется, когда есть реальная ссылка на сервер (KS3).
 /// URL открывается как обычная страница — рендерится HTML
 /// (т.к. файл загружен с MIME text/html и is_inline=true).
-void openHtmlInBrowserUrl(String url) {
+Future<void> openHtmlInBrowserUrl(String url) async {
   final anchor = AnchorElement(href: url)
     ..setAttribute('target', '_blank')
     ..setAttribute('rel', 'noopener');
