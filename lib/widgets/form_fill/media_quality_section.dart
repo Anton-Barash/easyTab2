@@ -7,10 +7,12 @@ import '../../providers/settings_provider.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/media_quality.dart';
 
-/// Секция «Качество медиаданных» — радио-кнопки для фото и видео.
+/// Секция «Качество медиаданных» — два компактных дропдауна:
+///   1. Качество фото (MediaQualityLevel);
+///   2. Качество видео (1/2/3).
 ///
 /// Используется:
-///  - в SettingsDialog (LoginScreen);
+///  - в LoginScreen (главное меню → Настройки → Настройки медиаданных);
 ///  - в модальном окне «Выбор качества медиаданных» (FormFillScreen, меню).
 ///
 /// При изменении применяет настройки в SettingsState и синхронизирует
@@ -24,10 +26,38 @@ class MediaQualitySection extends StatelessWidget {
     return Consumer<SettingsState>(
       builder: (ctx, settings, _) {
         final imgCfg = settings.imageQualityConfig;
+
+        // Локализованное название уровня качества фото.
+        String photoLabel(MediaQualityLevel lvl) => switch (lvl) {
+              MediaQualityLevel.high => loc.mediaImageQualityHigh,
+              MediaQualityLevel.medium => loc.mediaImageQualityMedium,
+              MediaQualityLevel.low => loc.mediaImageQualityLow,
+            };
+
+        // Подробные характеристики уровня фото (для подсказки/выбранного).
+        String photoDetail(MediaQualityLevel lvl) {
+          final c = MediaQuality.photo(lvl);
+          return '${c.imageMaxSize}px · Q${c.imageJpegQuality}';
+        }
+
+        // Локализованное название уровня качества видео.
+        String videoLabel(int vl) => switch (vl) {
+              1 => loc.mediaVideoQualityHigh,
+              2 => loc.mediaVideoQualityMedium,
+              _ => loc.mediaVideoQualityLow,
+            };
+
+        // Подробные характеристики уровня видео.
+        String videoDetail(int vl) {
+          final c = VideoCompressionConfig.byLevel(vl);
+          return '${c.width}×${c.height} · CRF ${c.crf} · ${c.fps}fps';
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // —— Фото ——
             Text(
               loc.mediaImageQuality,
               style: const TextStyle(
@@ -36,8 +66,59 @@ class MediaQualitySection extends StatelessWidget {
                 color: AppColors.textPrimary,
               ),
             ),
-            RadioGroup<MediaQualityLevel>(
-              groupValue: settings.imageQualityLevel,
+            const SizedBox(height: 6),
+            DropdownButtonFormField<MediaQualityLevel>(
+              initialValue: settings.imageQualityLevel,
+              isExpanded: true,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              items: MediaQualityLevel.values
+                  .map(
+                    (lvl) => DropdownMenuItem(
+                      value: lvl,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            photoLabel(lvl),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            photoDetail(lvl),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              // В закрытом состоянии показываем выбранный режим.
+              selectedItemBuilder: (ctx) => MediaQualityLevel.values
+                  .map(
+                    (lvl) => Text(
+                      photoLabel(lvl),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: (v) async {
                 if (v == null) return;
                 await settings.setImageQualityLevel(v);
@@ -49,41 +130,11 @@ class MediaQualitySection extends StatelessWidget {
                       videoQualityLevel: settings.videoQualityLevel,
                     );
               },
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final lvl in MediaQualityLevel.values)
-                    RadioListTile<MediaQualityLevel>(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      value: lvl,
-                      title: Text(
-                        switch (lvl) {
-                          MediaQualityLevel.high =>
-                            loc.mediaImageQualityHigh,
-                          MediaQualityLevel.medium =>
-                            loc.mediaImageQualityMedium,
-                          MediaQualityLevel.low => loc.mediaImageQualityLow,
-                        },
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${MediaQuality.photo(lvl).imageMaxSize}px · Q${MediaQuality.photo(lvl).imageJpegQuality}',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          color: AppColors.textTertiary,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
             ),
-            const SizedBox(height: 6),
+
+            const SizedBox(height: 12),
+
+            // —— Видео ——
             Text(
               loc.mediaVideoQuality,
               style: const TextStyle(
@@ -92,8 +143,58 @@ class MediaQualitySection extends StatelessWidget {
                 color: AppColors.textPrimary,
               ),
             ),
-            RadioGroup<int>(
-              groupValue: settings.videoQualityLevel,
+            const SizedBox(height: 6),
+            DropdownButtonFormField<int>(
+              initialValue: settings.videoQualityLevel,
+              isExpanded: true,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              items: const [1, 2, 3]
+                  .map(
+                    (vl) => DropdownMenuItem(
+                      value: vl,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            videoLabel(vl),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            videoDetail(vl),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              selectedItemBuilder: (ctx) => const [1, 2, 3]
+                  .map(
+                    (vl) => Text(
+                      videoLabel(vl),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: (v) async {
                 if (v == null) return;
                 await settings.setVideoQualityLevel(v);
@@ -104,40 +205,6 @@ class MediaQualitySection extends StatelessWidget {
                       videoQualityLevel: v,
                     );
               },
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final vl in const [1, 2, 3])
-                    RadioListTile<int>(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      value: vl,
-                      title: Text(
-                        switch (vl) {
-                          1 => loc.mediaVideoQualityHigh,
-                          2 => loc.mediaVideoQualityMedium,
-                          _ => loc.mediaVideoQualityLow,
-                        },
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      subtitle: Text(
-                        () {
-                          final cfg = VideoCompressionConfig.byLevel(vl);
-                          return '${cfg.width}×${cfg.height} · CRF ${cfg.crf} · ${cfg.fps}fps';
-                        }(),
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          color: AppColors.textTertiary,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
             ),
           ],
         );

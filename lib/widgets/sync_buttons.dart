@@ -33,12 +33,16 @@ class SyncButtons extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.download_rounded),
             tooltip: 'Download',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             onPressed: onDownload,
           ),
         if (showSync)
           IconButton(
             icon: const Icon(Icons.sync),
             tooltip: 'Sync',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             onPressed: onSync,
           ),
       ],

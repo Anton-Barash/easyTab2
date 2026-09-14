@@ -19,7 +19,6 @@ class MediaItemWidget extends StatelessWidget {
   final Map<String, dynamic> media;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  final VoidCallback onDelete;
   final String? reportPath;
 
   const MediaItemWidget({
@@ -27,7 +26,6 @@ class MediaItemWidget extends StatelessWidget {
     required this.media,
     required this.onTap,
     required this.onLongPress,
-    required this.onDelete,
     this.reportPath,
   });
 
@@ -181,24 +179,6 @@ class MediaItemWidget extends StatelessWidget {
                   );
                 },
               ),
-            ),
-          ),
-        ),
-        // Кнопка удаления (крестик в правом верхнем углу)
-        Positioned(
-          top: -6,
-          right: -6,
-          child: GestureDetector(
-            onTap: () => onDelete(),
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Icon(Icons.close, size: 14, color: Colors.white),
             ),
           ),
         ),

@@ -470,6 +470,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get selected => '已选择';
 
   @override
+  String selectedCount(int count) {
+    return '已选照片：$count';
+  }
+
+  @override
   String get enterTranslatedTemplate => '输入翻译后的模板';
 
   @override

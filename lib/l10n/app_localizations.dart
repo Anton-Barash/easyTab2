@@ -976,6 +976,12 @@ abstract class AppLocalizations {
   /// **'Selected'**
   String get selected;
 
+  /// No description provided for @selectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected photos: {count}'**
+  String selectedCount(int count);
+
   /// No description provided for @enterTranslatedTemplate.
   ///
   /// In en, this message translates to:

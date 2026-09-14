@@ -6,6 +6,7 @@ import 'package:easy_tab/widgets/dotted_background.dart';
 import 'package:easy_tab/utils/sync_failure.dart';
 import 'package:easy_tab/widgets/easy_tab_button.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -887,7 +888,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   ),
                                 ),
                                 SizedBox(height: isNarrow ? 16 : 24),
-                                Center(
+                                // Тап по QR-коду открывает системное окно «Поделиться».
+                                InkWell(
+                                  onTap: () {
+                                    final url = createdLink!;
+                                    Share.share(url);
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: Colors.white,
@@ -2388,8 +2395,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     // Сжать все видео отчёта (native)
                     _showCompressVideoDialog();
                   } else if (value == 7) {
-                    // Залить отчёт на сервер (только для залогиненных)
-                    await _uploadReportToServer();
+                    // Синхронизировать с облаком / Залить на сервер.
+                    // Если отчёт уже на сервере — быстрая синхронизация
+                    // (pull чужих изменений), как кнопка «облако»; полную
+                    // заливку всех файлов делаем только при первичной загрузке.
+                    if (reportOnServer) {
+                      await _syncOnly();
+                    } else {
+                      await _uploadReportToServer();
+                    }
                   } else if (value == 8) {
                     // Создать share-ссылку
                     await _handleCreateShareLink();
@@ -4164,14 +4178,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
         }
 
         // Сохраняем отчёт в фоне, не блокируя UI, только если что-то добавлено.
+        // НЕ сбрасываем _hasUnsavedChanges: добавленные медиа пока не залиты
+        // на сервер, поэтому дискета должна оставаться активной — иначе
+        // кнопка превратится в «облако» и подтянет серверную версию БЕЗ
+        // новых фото/видео (затрёт их локально).
         if (anyAdded) {
-          reportState.saveReport().then((_) {
-            if (mounted) {
-              setState(() {
-                _hasUnsavedChanges = false;
-              });
-            }
-          });
+          reportState.saveReport();
+          if (mounted) {
+            setState(() => _hasUnsavedChanges = true);
+          }
         }
       } catch (e) {
         scaffoldMessenger.showSnackBar(
@@ -4234,13 +4249,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
         );
       }
 
-      reportState.saveReport().then((_) {
-        if (mounted) {
-          setState(() {
-            _hasUnsavedChanges = false;
-          });
-        }
-      });
+      reportState.saveReport();
+      // Оставляем _hasUnsavedChanges = true (медиа ещё не залиты на сервер):
+      // дискета активна, а облако-синк не затрёт новые фото/видео серверной
+      // версией.
+      if (mounted) {
+        setState(() => _hasUnsavedChanges = true);
+      }
     } catch (e) {
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('${loc.saveError}$e')),

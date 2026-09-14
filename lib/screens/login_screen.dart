@@ -5,7 +5,7 @@ import '../providers/report_provider.dart';
 import '../providers/settings_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/app_colors.dart';
-import '../utils/media_quality.dart';
+import '../widgets/form_fill/media_quality_section.dart';
 import 'package:easy_tab/widgets/easy_tab_button.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -469,7 +469,7 @@ Future<void> showSettingsDialog(BuildContext context) {
             style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 16),
-          // Блок «Качество медиаданных»
+          // Блок «Качество медиаданных» — два компактных дропдауна (фото, видео).
           Consumer<SettingsState>(
             builder: (ctx, settings, _) {
               // Сразу применяем текущие настройки к ReportState, чтобы
@@ -484,7 +484,6 @@ Future<void> showSettingsDialog(BuildContext context) {
                     );
               });
 
-              final imgCfg = settings.imageQualityConfig;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -498,121 +497,7 @@ Future<void> showSettingsDialog(BuildContext context) {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    loc.mediaImageQuality,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  RadioGroup<MediaQualityLevel>(
-                    groupValue: settings.imageQualityLevel,
-                    onChanged: (v) async {
-                      if (v == null) return;
-                      await settings.setImageQualityLevel(v);
-                      if (!ctx.mounted) return;
-                      final newCfg = settings.imageQualityConfig;
-                      ctx.read<ReportState>().applyMediaQualitySettings(
-                            imageMaxSize: newCfg.imageMaxSize,
-                            imageJpegQuality: newCfg.imageJpegQuality,
-                            videoQualityLevel: settings.videoQualityLevel,
-                          );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (final lvl in MediaQualityLevel.values)
-                          RadioListTile<MediaQualityLevel>(
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            visualDensity: VisualDensity.compact,
-                            controlAffinity:
-                                ListTileControlAffinity.leading,
-                            value: lvl,
-                            title: Text(
-                              switch (lvl) {
-                                MediaQualityLevel.high =>
-                                  loc.mediaImageQualityHigh,
-                                MediaQualityLevel.medium =>
-                                  loc.mediaImageQualityMedium,
-                                MediaQualityLevel.low =>
-                                  loc.mediaImageQualityLow,
-                              },
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${MediaQuality.photo(lvl).imageMaxSize}px · Q${MediaQuality.photo(lvl).imageJpegQuality}',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    loc.mediaVideoQuality,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  RadioGroup<int>(
-                    groupValue: settings.videoQualityLevel,
-                    onChanged: (v) async {
-                      if (v == null) return;
-                      await settings.setVideoQualityLevel(v);
-                      if (!ctx.mounted) return;
-                      ctx.read<ReportState>().applyMediaQualitySettings(
-                            imageMaxSize: imgCfg.imageMaxSize,
-                            imageJpegQuality: imgCfg.imageJpegQuality,
-                            videoQualityLevel: v,
-                          );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (final vl in const [1, 2, 3])
-                          RadioListTile<int>(
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            visualDensity: VisualDensity.compact,
-                            controlAffinity:
-                                ListTileControlAffinity.leading,
-                            value: vl,
-                            title: Text(
-                              switch (vl) {
-                                1 => loc.mediaVideoQualityHigh,
-                                2 => loc.mediaVideoQualityMedium,
-                                _ => loc.mediaVideoQualityLow,
-                              },
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            subtitle: Text(
-                              () {
-                                final cfg =
-                                    VideoCompressionConfig.byLevel(vl);
-                                return '${cfg.width}×${cfg.height} · CRF ${cfg.crf} · ${cfg.fps}fps';
-                              }(),
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                  const MediaQualitySection(),
                   const SizedBox(height: 10),
                 ],
               );

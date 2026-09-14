@@ -28,6 +28,11 @@ class ReportSummary {
   /// Для облачных/web-отчётов вместо этого берётся /view/report/:publicId/cover.
   final String? thumbnailPath;
 
+  /// Если задан — отчёт получен по share-ссылке (QR-скан/ссылка) и открывать
+  /// его нужно через FormFillScreen(shareToken: ...), чтобы получить право
+  /// редактирования как анонимный/другой редактор, а не как владелец.
+  final String? shareToken;
+
   ReportSummary({
     required this.id,
     required this.title,
@@ -41,5 +46,6 @@ class ReportSummary {
     this.authorName,
     this.localFolderPath,
     this.thumbnailPath,
+    this.shareToken,
   }) : createdAt = createdAt ?? modified;
 }

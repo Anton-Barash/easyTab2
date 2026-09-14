@@ -19,6 +19,7 @@ import '../services/api_service.dart';
 
 import '../models/report_summary.dart';
 import '../providers/report_sync_manager.dart';
+import '../services/share_token_storage.dart';
 import '../widgets/sync_buttons.dart';
 import 'share_qr_scanner_screen.dart';
 
@@ -33,7 +34,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<List<ReportSummary>>? _reportsFuture;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  bool _isSyncingAll = false;
   final Set<String> _syncedReports = {};
   final Set<String> _syncingReports = {};
 
@@ -83,81 +83,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   bool _hasRealModification(ReportSummary report) =>
       !report.createdAt.isAtSameMomentAs(report.modified) &&
       report.modified.difference(report.createdAt).abs().inSeconds >= 60;
-
-  Future<void> _syncAllReports() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isLoggedIn) {
-      final loc = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
-      return;
-    }
-
-    final reports = await _reportsFuture;
-    if (reports == null || reports.isEmpty) return;
-
-    setState(() {
-      _isSyncingAll = true;
-      for (var report in reports) {
-        _syncingReports.add(report.id);
-      }
-    });
-
-    var anyDetached = false;
-    var anyFailed = false;
-    for (var report in reports) {
-      // try sync if local exists, otherwise try download
-      if (!mounted) return;
-      if (report.localExists) {
-        final ok = await _syncManager.syncReport(localFolderName: report.id, serverReportId: int.tryParse(report.id), baseVersion: report.serverVersion);
-        if (ok) {
-          _syncedReports.add(report.id);
-        } else if (_syncManager.lastDeniedUnlinkedFolder != null) {
-          // Право на редактирование истекло — копия отвязана от сервера.
-          anyDetached = true;
-        } else {
-          anyFailed = true;
-        }
-      } else if (report.onServer) {
-        final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
-        if (folder != null) {
-          _syncedReports.add(folder);
-        } else {
-          anyFailed = true;
-        }
-      }
-      if (!mounted) return;
-      setState(() {
-        _syncingReports.remove(report.id);
-      });
-    }
-
-    setState(() {
-      _isSyncingAll = false;
-    });
-
-    if (!mounted) return;
-    final loc = AppLocalizations.of(context)!;
-    // Если хотя бы один отчёт был отвязан из-за истекшего права —
-    // показываем отдельное сообщение вместо общего «синхронизировано».
-    final detached = anyDetached;
-    final message = anyFailed || anyDetached
-        ? syncFailureMessage(
-            _syncManager.lastSyncError,
-            loc,
-            detached: anyDetached,
-          )
-        : loc.syncCompleteMessage;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: detached ? const Duration(seconds: 8) : const Duration(seconds: 4),
-      ),
-    );
-  }
 
   Future<void> _syncReport(ReportSummary report) async {
     if (!mounted) return;
@@ -347,35 +272,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildActionButtons() {
-    final loc = AppLocalizations.of(context)!;
-    final authProvider = Provider.of<AuthProvider>(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        if (authProvider.isLoggedIn)
-          FloatingActionButton(
-            heroTag: 'sync_all_btn',
-            onPressed: _isSyncingAll ? null : _syncAllReports,
-            tooltip: loc.syncToCloud,
-            backgroundColor: _isSyncingAll
-                ? AppColors.grey300
-                : AppColors.primary,
-            child: _isSyncingAll
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.cloud_upload),
-          ),
-        if (authProvider.isLoggedIn) const SizedBox(width: 10),
         FloatingActionButton(
           heroTag: 'import_btn',
           onPressed: _importProject,
-          tooltip: loc.importProject,
+          tooltip: AppLocalizations.of(context)!.importProject,
           child: const Icon(Icons.upload_file),
         ),
         const SizedBox(width: 10),
@@ -383,7 +286,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           heroTag: 'new_report_btn',
           onPressed: () =>
               Navigator.of(context).pushReplacementNamed('/template'),
-          tooltip: loc.newReportTooltip,
+          tooltip: AppLocalizations.of(context)!.newReportTooltip,
           child: const Icon(Icons.add),
         ),
       ],
@@ -608,6 +511,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
         onTap: () async {
           final nav = Navigator.of(context);
           final messenger = ScaffoldMessenger.of(context);
+          // Отчёт получен по share-ссылке (QR-скан): открываем через токен,
+          // чтобы получить право редактирования как редактор, а не как
+          // владелец (downloadReportToCache по server-id тут не подходит —
+          // отчёт принадлежит другому пользователю).
+          final shareTok = report.shareToken;
+          if (shareTok != null && shareTok.isNotEmpty) {
+            ShareTokenStorage.addToken(shareTok);
+            nav.pushNamed('/share-edit?token=$shareTok');
+            setState(() => _loadReports());
+            return;
+          }
           if (report.localExists) {
             // Открываем именно выбранный локальный отчёт. loadReport() на
             // нативных платформах ждёт абсолютный путь к папке отчёта —
@@ -790,12 +704,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ),
                             )
                           else ...[
-                            Icon(
-                              isSynced ? Icons.cloud_done : Icons.cloud_upload,
-                              color: isSynced ? AppColors.primary : AppColors.greyMuted,
-                              size: 20,
+                            // Фиксированная ширина — чтобы облачко стояло ровно
+                            // над кнопкой «открыть html» и на вебе, и на телефоне.
+                            SizedBox(
+                              width: 40,
+                              child: Icon(
+                                isSynced ? Icons.cloud_done : Icons.cloud_upload,
+                                color: isSynced ? AppColors.primary : AppColors.greyMuted,
+                                size: 20,
+                              ),
                             ),
-                            const SizedBox(width: 8),
                             SyncButtons(
                               showDownload: report.onServer && !report.localExists,
                               showSync: report.localExists && report.onServer,
@@ -861,19 +779,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (report.onServer) ...[
-                    IconButton(
-                      icon: const Icon(
-                        Icons.open_in_new,
-                        color: AppColors.primary,
+                  if (report.onServer)
+                    SizedBox(
+                      width: 40,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.open_in_new,
+                          color: AppColors.primary,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: loc.openHtmlTooltip,
+                        onPressed: openServerHtmlView,
                       ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      tooltip: loc.openHtmlTooltip,
-                      onPressed: openServerHtmlView,
                     ),
-                    const SizedBox(width: 8),
-                  ],
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert,
                         color: AppColors.textSecondary),

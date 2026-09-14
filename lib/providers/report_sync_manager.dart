@@ -222,6 +222,7 @@ class ReportSyncManager {
             onServer: true,
             status: ReportSyncStatus.cloudOnly,
             publicId: publicId,
+            shareToken: token,
           ));
         } else if (shareResult.statusCode == 404 ||
             shareResult.statusCode == 410) {

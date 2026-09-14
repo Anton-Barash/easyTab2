@@ -479,6 +479,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selected => 'Выбран';
 
   @override
+  String selectedCount(int count) {
+    return 'Выбрано фото: $count';
+  }
+
+  @override
   String get enterTranslatedTemplate => 'Введите переведённый шаблон';
 
   @override

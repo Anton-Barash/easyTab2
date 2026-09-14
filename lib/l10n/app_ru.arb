@@ -216,6 +216,7 @@
   "useTemplate": "Использовать шаблон",
   "uploadYourTemplate": "Загрузить свой шаблон (.xlsx)",
   "selected": "Выбран",
+  "selectedCount": "Выбрано фото: {count}",
   "enterTranslatedTemplate": "Введите переведённый шаблон",
   "noAppToOpenHtml": "Установите браузер или приложение для просмотра HTML",
   "htmlRequiresSync": "Чтобы просмотреть HTML, сначала сохраните отчёт на сервер",

@@ -21,6 +21,7 @@ import 'package:easy_tab/widgets/zoomable_photo_viewer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 
 class FullMediaViewerScreen extends StatefulWidget {
@@ -150,18 +151,55 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     });
   }
 
-  void _deleteSelected() {
-    if (widget.onDelete != null && _selectedIndices.isNotEmpty) {
-      widget.onDelete!(List.from(_selectedIndices));
+  // Что удаляем/делимся: выбранные в сетке, либо текущее фото/видео.
+  Set<int> _targetIndices() =>
+      _selectedIndices.isNotEmpty ? Set.of(_selectedIndices) : {_currentIndex};
+
+  Future<void> _confirmDelete() async {
+    final loc = AppLocalizations.of(context)!;
+    final target = _targetIndices();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(loc.deleteMediaTitle),
+        content: Text(
+          _selectedIndices.length > 1
+              ? '${loc.deleteMediaConfirm} (${_selectedIndices.length})'
+              : loc.deleteMediaConfirm,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(loc.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(loc.delete),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      if (widget.onDelete != null && target.isNotEmpty) {
+        widget.onDelete!(target.toList());
+      }
+      if (mounted) Navigator.pop(context);
     }
-    Navigator.pop(context);
   }
 
-  void _deleteCurrent() {
-    if (widget.onDelete != null) {
-      widget.onDelete!([_currentIndex]);
+  Future<void> _shareMedia(AppLocalizations loc) async {
+    if (kIsWeb) return;
+    final paths = <String>[];
+    for (final i in _targetIndices()) {
+      if (i < 0 || i >= widget.mediaList.length) continue;
+      final media = widget.mediaList[i] as Map<String, dynamic>;
+      final abs = _getAbsolutePath(media['localPath'] as String?);
+      if (abs != null) paths.add(abs);
     }
-    Navigator.pop(context);
+    if (paths.isEmpty) return;
+    await Share.shareXFiles(paths.map((p) => XFile(p)).toList());
   }
 
   @override
@@ -173,11 +211,11 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text('${_currentIndex + 1}/${widget.mediaList.length}'),
+        title: Text(loc.selectedCount(_selectedIndices.length)),
         actions: [
           if (_showGrid && _selectedIndices.isNotEmpty)
             TextButton(
-              onPressed: _deleteSelected,
+              onPressed: _confirmDelete,
               child: Text(
                 '${loc.delete} (${_selectedIndices.length})',
                 style: const TextStyle(color: Colors.red),
@@ -192,14 +230,81 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                 });
               },
             ),
-          if (!_showGrid)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: _deleteCurrent,
-            ),
+          // Меню ⋮ вместо отдельной кнопки удаления.
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            color: Colors.white,
+            onSelected: (value) {
+              switch (value) {
+                case 'delete':
+                  _confirmDelete();
+                case 'share':
+                  _shareMedia(loc);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    const Icon(Icons.delete, color: Colors.red),
+                    const SizedBox(width: 12),
+                    Text(
+                      loc.delete,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    const Icon(Icons.share, color: Colors.black87),
+                    const SizedBox(width: 12),
+                    Text(loc.share),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-      body: _showGrid ? _buildGrid() : _buildViewer(),
+      body: _showGrid ? _buildGrid() : _buildSingleViewWithCheckbox(),
+    );
+  }
+
+  // Одиночный просмотр с чекбоксом выбора текущего фото в правом верхнем углу.
+  Widget _buildSingleViewWithCheckbox() {
+    return Stack(
+      children: [
+        Positioned.fill(child: _buildViewer()),
+        Positioned(
+          top: 12,
+          right: 12,
+          child: GestureDetector(
+            onTap: () => _toggleSelect(_currentIndex),
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: _selectedIndices.contains(_currentIndex)
+                    ? Colors.blue
+                    : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black54, blurRadius: 4),
+                ],
+              ),
+              child: _selectedIndices.contains(_currentIndex)
+                  ? const Icon(Icons.check, size: 18, color: Colors.white)
+                  : const Icon(Icons.circle_outlined,
+                      size: 18, color: Colors.black38),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -276,12 +381,31 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                                 )
                               : const Icon(Icons.image, color: Colors.grey))),
             ),
-            if (isSelected)
-              const Positioned(
-                top: 4,
-                right: 4,
-                child: Icon(Icons.check_circle, color: Colors.blue, size: 20),
+            // Тапабельный чекбокс выбора в левом верхнем углу каждой миниатюры.
+            // Позволяет быстро отметить фото/видео, не удерживая палец.
+            Positioned(
+              top: 2,
+              left: 2,
+              child: GestureDetector(
+                onTap: () => _toggleSelect(index),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.blue : Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.blue, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 3),
+                    ],
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                      : null,
+                ),
               ),
+            ),
             if (isVideo)
               const Positioned(
                 bottom: 4,

@@ -216,6 +216,14 @@
   "useTemplate": "Use template",
   "uploadYourTemplate": "Upload your template (.xlsx)",
   "selected": "Selected",
+  "selectedCount": "Selected photos: {count}",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "enterTranslatedTemplate": "Enter translated template",
   "noAppToOpenHtml": "Install a browser or app to view HTML",
   "htmlRequiresSync": "To view HTML, save the report to the server first",

@@ -479,6 +479,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selected => 'Selected';
 
   @override
+  String selectedCount(int count) {
+    return 'Selected photos: $count';
+  }
+
+  @override
   String get enterTranslatedTemplate => 'Enter translated template';
 
   @override
