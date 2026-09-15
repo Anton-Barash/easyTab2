@@ -551,18 +551,15 @@ class ReportState extends ChangeNotifier {
       headerImagePath: headerImagePath,
     );
     for (int i = 0; i < questions.length; i++) {
+      // Новые отчёты не пре-создают пустых ответов: строка ввода в UI
+      // остаётся «фантомной», а ответ (id + rowId) создаётся только при
+      // первом введённом символе (см. updateAnswerText). Это исключает
+      // затирание одновременных правок одного и того же ответа с разных
+      // устройств — каждый ряд получает свежий rowId при первой записи.
       _currentReport!.translations[i.toString()] = {};
-      _currentReport!.markers[i.toString()] = [AnswerMarkers()];
+      _currentReport!.markers[i.toString()] = [];
       for (final lang in languages) {
-        _currentReport!.translations[i.toString()]![lang] = [
-          TranslationAnswer(),
-        ];
-      }
-      // Выдаём первому (единственному) ряду вопроса стабильный rid.
-      final rid = const Uuid().v4();
-      _currentReport!.markers[i.toString()]!.first.rowId = rid;
-      for (final lang in languages) {
-        _currentReport!.translations[i.toString()]![lang]!.first.rowId = rid;
+        _currentReport!.translations[i.toString()]![lang] = [];
       }
     }
     _currentReportPath = null;
@@ -978,7 +975,55 @@ class ReportState extends ChangeNotifier {
           }
         }
       }
+    } else if (answerIndex == _currentReport!.translations[qid]![lang]!.length &&
+        text.isNotEmpty) {
+      // «Фантомный» ряд: ответа ещё нет в данных (новые отчёты не создают
+      // пустые rows). При первом введённом символе создаём ряд со свежим
+      // rowId — он будет воспринят merge-движком как новый (answer.add),
+      // а не как перезапись чужого ответа.
+      _ensureAnswerRow(questionIndex, language: lang);
+      final cell = _currentReport!.translations[qid]![lang]![answerIndex];
+      cell.text = text;
+      cell.isEmpty = false;
+      cell.updatedAt = DateTime.now().millisecondsSinceEpoch;
     }
+  }
+
+  /// Создать реальный ряд ответа (свежий id + общий rowId во всех языках),
+  /// если его ещё нет. Используется для ленивого создания при первом вводе.
+  void _ensureAnswerRow(int questionIndex, {String? language}) {
+    if (_currentReport == null) return;
+    final qid = questionIndex.toString();
+    for (final l in _currentReport!.availableLanguages) {
+      if (!_currentReport!.translations.containsKey(qid)) {
+        _currentReport!.translations[qid] = {};
+      }
+      if (!_currentReport!.translations[qid]!.containsKey(l)) {
+        _currentReport!.translations[qid]![l] = [];
+      }
+    }
+
+    if (!_currentReport!.markers.containsKey(qid)) {
+      _currentReport!.markers[qid] = [];
+    }
+
+    // Новый ряд (пока в пустом состоянии — текст задаётся вызывающим).
+    _currentReport!.markers[qid]!.add(AnswerMarkers());
+    for (final l in _currentReport!.availableLanguages) {
+      _currentReport!.translations[qid]![l]!.add(TranslationAnswer());
+    }
+
+    final rid = const Uuid().v4();
+    _currentReport!.markers[qid]!.last.rowId = rid;
+    for (final l in _currentReport!.availableLanguages) {
+      _currentReport!.translations[qid]![l]!.last.rowId = rid;
+    }
+  }
+
+  /// Есть ли уже реальный ряд ответа по индексу (иначе это «фантом»)?
+  bool _needsAnswerRow(String qid, int answerIndex) {
+    final markers = _currentReport?.markers[qid];
+    return markers == null || markers.length <= answerIndex;
   }
 
   void updateAnswerAttention(
@@ -1020,6 +1065,12 @@ class ReportState extends ChangeNotifier {
     }
 
     final qid = questionIndex.toString();
+
+    // Медиа — тоже ответ: если реального ряда ещё нет (фантом), создаём его
+    // лениво, чтобы медиа привязалось к существующему ряду с rowId.
+    if (_needsAnswerRow(qid, answerIndex)) {
+      _ensureAnswerRow(questionIndex);
+    }
 
     if (!_currentReport!.markers.containsKey(qid)) {
       _currentReport!.markers[qid] = [];
@@ -1110,6 +1161,12 @@ class ReportState extends ChangeNotifier {
     if (_currentReport == null) return null;
 
     final qid = questionIndex.toString();
+
+    // Медиа — тоже ответ: если реального ряда ещё нет (фантом), создаём его
+    // лениво, чтобы медиа привязалось к существующему ряду с rowId.
+    if (_needsAnswerRow(qid, answerIndex)) {
+      _ensureAnswerRow(questionIndex);
+    }
 
     // Создаём markers для вопроса, если нет
     if (!_currentReport!.markers.containsKey(qid)) {
@@ -1817,8 +1874,21 @@ class ReportState extends ChangeNotifier {
   }
 
   Future<String> _generateFolderName() async {
-    final now = DateTime.now();
-    final baseName = 'report_${now.millisecondsSinceEpoch}';
+    final now = DateTime.now().millisecondsSinceEpoch;
+    // Читаемое имя папки из названия отчёта (карточка 0). Санитизируем,
+    // чтобы убрать недопустимые символы и лишние пробелы; добавляем короткий
+    // суффикс — гарантируем уникальность и совместимость с ФС.
+    final rawTitle = _currentReport?.reportName.trim().isNotEmpty == true
+        ? _currentReport!.reportName.trim()
+        : 'report';
+    final safeTitle = rawTitle
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final shortTitle =
+        safeTitle.length > 40 ? safeTitle.substring(0, 40) : safeTitle;
+    final baseName = '${shortTitle.isEmpty ? 'report' : shortTitle}_$now';
     final reportsDir = await _getReportsDir();
     return '$reportsDir/$baseName';
   }
@@ -1867,10 +1937,54 @@ class ReportState extends ChangeNotifier {
         }
       }
 
+      // Переименовываем локальную папку, чтобы имя отражало название отчёта
+      // (легче найти отчёт по имени папки). Делаем после успешной записи JSON,
+      // только если папка не `server_<id>` (такие привязаны к облаку) и имя
+      // действительно изменилось.
+      await _renameReportFolderIfNeeded(folderPath);
+
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('Error saving report: $e');
       return false;
+    }
+  }
+
+  /// Переименовать локальную папку отчёта под имя текущего названия
+  /// (карточка 0). Пропускает облачные папки `server_<id>`.
+  Future<void> _renameReportFolderIfNeeded(String currentPath) async {
+    if (_currentReport == null) return;
+    final reportName = _currentReport!.reportName.trim();
+    if (reportName.isEmpty) return;
+
+    final dirName = currentPath.split(Platform.pathSeparator).last;
+    // Не трогаем папки, привязанные к облаку по имени.
+    if (dirName.startsWith('server_')) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final safeTitle = reportName
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final shortTitle =
+        safeTitle.length > 40 ? safeTitle.substring(0, 40) : safeTitle;
+    if (shortTitle.isEmpty) return;
+
+    final reportsDir = Directory(currentPath).parent;
+    final newPath = '${reportsDir.path}${Platform.pathSeparator}${shortTitle}_$now';
+    if (newPath == currentPath) return;
+
+    try {
+      final oldDir = Directory(currentPath);
+      if (!await oldDir.exists()) return;
+      final newDir = Directory(newPath);
+      if (await newDir.exists()) return; // коллизия имени — не трогаем
+      await oldDir.rename(newPath);
+      _currentReportPath = newPath;
+      if (kDebugMode) debugPrint('renameReportFolder: $currentPath -> $newPath');
+    } catch (e) {
+      if (kDebugMode) debugPrint('renameReportFolder error: $e');
     }
   }
 

@@ -173,6 +173,14 @@ class ReportSyncManager {
     }
 
     for (final f in localFolders) {
+      // Локальная копия, у которой есть привязка к уже показанному в списке
+      // облачному отчёту — это дубликат той же записи (ситуация, когда папка
+      // report_<ts> залита, но не сопоставлена по имени `server_<id>`).
+      // Такую папку не показываем отдельной строкой во избежание дублей.
+      final sid = localServerIdByFolder[f];
+      if (sid != null && serverById.containsKey(sid)) {
+        continue;
+      }
       final summary = await _readLocalReportSummary(
         f,
         '$reportsDirPath${Platform.pathSeparator}$f',

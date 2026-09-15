@@ -500,6 +500,21 @@ class Report {
       });
     }
 
+    // Если реальных ответов нет — возвращаем один «фантомный» ряд, чтобы в
+    // UI показывалась одна строка ввода. Флаг [fake] означает, что этот ряд
+    // ещё не существует в данных (нет id/rowId) и будет создан при первом
+    // введённом символе в updateAnswerText.
+    if (result.isEmpty) {
+      result.add({
+        'text': '',
+        'isEmpty': true,
+        'attention': false,
+        'media': <Map<String, dynamic>>[],
+        'needsWork': false,
+        'fake': true,
+      });
+    }
+
     return result;
   }
 

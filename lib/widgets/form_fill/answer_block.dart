@@ -44,6 +44,10 @@ class AnswerBlock extends StatelessWidget {
     final loc = AppLocalizations.of(context)!;
     final attention = answer['attention'] == true;
     final isMobile = MediaQuery.of(context).size.width <= 800;
+    // «Фантомный» ряд: реального ответа ещё нет в данных (новый отчёт).
+    // Показываем только строку ввода — медиа и панель действий появляются
+    // после первого введённого символа, когда ряд создаётся в updateAnswerText.
+    final isFake = answer['fake'] == true;
 
     final report = reportState.currentReport;
     String? exampleText;
@@ -105,7 +109,7 @@ class AnswerBlock extends StatelessWidget {
               ),
             ),
           ),
-          if ((answer['media'] as List?)?.isNotEmpty ?? false)
+          if (!isFake && ((answer['media'] as List?)?.isNotEmpty ?? false))
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: MediaGrid(
@@ -174,71 +178,75 @@ class AnswerBlock extends StatelessWidget {
                     },
                   ),
                 ),
-                Tooltip(
-                  message: loc.needsWorkTooltip,
-                  child: IconButton(
-                    icon: const Icon(Icons.edit_note),
-                    color: needsWork
-                        ? AppColors.warning
-                        : AppColors.greyDisabled,
-                    onPressed: () {
-                      final newValue = !needsWork;
-                      onNeedsWorkChanged(newValue);
-                      reportState.updateAnswerNeedsWork(
-                        questionIndex,
-                        answerIndex,
-                        newValue,
-                      );
-                      onMarkAsUnsaved();
-                    },
-                  ),
-                ),
-                Tooltip(
-                  message: attention
-                      ? loc.removeAttentionMark
-                      : loc.addAttentionMark,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.warning_amber,
-                      color: attention
+                if (!isFake)
+                  Tooltip(
+                    message: loc.needsWorkTooltip,
+                    child: IconButton(
+                      icon: const Icon(Icons.edit_note),
+                      color: needsWork
                           ? AppColors.warning
-                          : AppColors.greyBorder,
+                          : AppColors.greyDisabled,
+                      onPressed: () {
+                        final newValue = !needsWork;
+                        onNeedsWorkChanged(newValue);
+                        reportState.updateAnswerNeedsWork(
+                          questionIndex,
+                          answerIndex,
+                          newValue,
+                        );
+                        onMarkAsUnsaved();
+                      },
                     ),
-                    onPressed: () {
-                      reportState.updateAnswerAttention(
-                        questionIndex,
-                        answerIndex,
-                        !attention,
-                      );
-                      onMarkAsUnsaved();
-                    },
                   ),
-                ),
-                if (reportState.hasAnswersInOtherLanguages(
-                  questionIndex,
-                  answerIndex,
-                ))
+                if (!isFake)
+                  Tooltip(
+                    message: attention
+                        ? loc.removeAttentionMark
+                        : loc.addAttentionMark,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.warning_amber,
+                        color: attention
+                            ? AppColors.warning
+                            : AppColors.greyBorder,
+                      ),
+                      onPressed: () {
+                        reportState.updateAnswerAttention(
+                          questionIndex,
+                          answerIndex,
+                          !attention,
+                        );
+                        onMarkAsUnsaved();
+                      },
+                    ),
+                  ),
+                if (!isFake &&
+                    reportState.hasAnswersInOtherLanguages(
+                      questionIndex,
+                      answerIndex,
+                    ))
                   IconButton(
                     icon: const Icon(Icons.lock, color: AppColors.textLight),
                     onPressed: onShowLockDialog,
                     tooltip: loc.lockAnswerTooltip,
                   ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: AppColors.errorLight),
-                  onPressed:
-                      (reportState
-                                  .currentReport
-                                  ?.translations[qid]
-                                  ?.values
-                                  .firstOrNull
-                                  ?.length ??
-                              1) >
-                          1
-                      ? onShowDeleteAnswerDialog
-                      : null,
-                  tooltip: loc.deleteAnswerTooltip,
-                ),
+                if (!isFake) const Spacer(),
+                if (!isFake)
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: AppColors.errorLight),
+                    onPressed:
+                        (reportState
+                                    .currentReport
+                                    ?.translations[qid]
+                                    ?.values
+                                    .firstOrNull
+                                    ?.length ??
+                                1) >
+                            1
+                        ? onShowDeleteAnswerDialog
+                        : null,
+                    tooltip: loc.deleteAnswerTooltip,
+                  ),
               ],
             ),
           ),
