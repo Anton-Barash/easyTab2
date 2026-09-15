@@ -1971,8 +1971,9 @@ class ReportState extends ChangeNotifier {
         safeTitle.length > 40 ? safeTitle.substring(0, 40) : safeTitle;
     if (shortTitle.isEmpty) return;
 
-    final reportsDir = Directory(currentPath).parent;
-    final newPath = '${reportsDir.path}${Platform.pathSeparator}${shortTitle}_$now';
+    final separatorIdx = currentPath.lastIndexOf(Platform.pathSeparator);
+    final reportsDir = currentPath.substring(0, separatorIdx);
+    final newPath = '$reportsDir${Platform.pathSeparator}${shortTitle}_$now';
     if (newPath == currentPath) return;
 
     try {
