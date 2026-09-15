@@ -2054,10 +2054,18 @@ class ReportState extends ChangeNotifier {
       if (reportData.isEmpty) return false;
 
       // Обновляем модель в памяти — пользователь видит актуальную версию.
+      // Сохраняем выбранный пользователем язык заполнения, чтобы pull/синк
+      // не сбрасывал его на язык по умолчанию (первый в списке).
+      final prevLanguage = _currentReport?.currentLanguage;
       _currentReport = Report.fromJson(
         reportData,
         folderPath: _currentReportPath,
       );
+      if (prevLanguage != null &&
+          prevLanguage.isNotEmpty &&
+          _currentReport?.availableLanguages.contains(prevLanguage) == true) {
+        _currentReport!.currentLanguage = prevLanguage;
+      }
       _baseReportSnapshot = reportData;
 
       final publicId = server['publicId'];
@@ -2975,10 +2983,16 @@ class ReportState extends ChangeNotifier {
 
       final reportData =
           result.data!['report']['reportData'] as Map<String, dynamic>;
+      final prevLanguage = _currentReport?.currentLanguage;
       _currentReport = Report.fromJson(
         reportData,
         folderPath: reportId.toString(),
       );
+      if (prevLanguage != null &&
+          prevLanguage.isNotEmpty &&
+          _currentReport?.availableLanguages.contains(prevLanguage) == true) {
+        _currentReport!.currentLanguage = prevLanguage;
+      }
       _currentReportPath = reportId.toString();
       _serverReportId = reportId; // запоминаем для будущих сохранений
       // Сохраняем снимок отчёта при открытии — база для PATCH/merge.
