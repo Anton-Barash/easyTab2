@@ -857,6 +857,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shareLinkCopied => '已复制';
 
   @override
+  String get shareLinksTitle => '有效链接';
+
+  @override
+  String get shareLinksEmpty => '没有有效链接';
+
+  @override
+  String get shareLinksCreateNew => '创建新链接';
+
+  @override
   String get scanQr => '扫码';
 
   @override

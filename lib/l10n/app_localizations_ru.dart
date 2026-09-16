@@ -877,6 +877,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get shareLinkCopied => 'Скопировано';
 
   @override
+  String get shareLinksTitle => 'Активные ссылки';
+
+  @override
+  String get shareLinksEmpty => 'Нет активных ссылок';
+
+  @override
+  String get shareLinksCreateNew => 'Создать новую ссылку';
+
+  @override
   String get scanQr => 'Сканировать QR';
 
   @override

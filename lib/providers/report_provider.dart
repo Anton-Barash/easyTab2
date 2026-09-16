@@ -116,6 +116,25 @@ class ConflictDetails {
   });
 }
 
+/// Метаданные активной share-ссылки отчёта (из listShareLinks).
+class ShareLinkInfo {
+  final String token;
+  final String url;
+  final DateTime? expiresAt;
+  final bool isActive;
+  final String permissions;
+  final DateTime? createdAt;
+
+  ShareLinkInfo({
+    required this.token,
+    required this.url,
+    this.expiresAt,
+    this.isActive = true,
+    this.permissions = 'edit',
+    this.createdAt,
+  });
+}
+
 class ReportState extends ChangeNotifier {
   /// Включает ops-путь сохранения (merge-by-ID, Фаза 2b).
   /// Сервер реализует ops-контракт (PATCH /reports/:id и /reports/shares/:token),
@@ -2211,7 +2230,9 @@ class ReportState extends ChangeNotifier {
           return _OpsSaveResult.saved;
         }
         if (action == ConflictAction.overwrite) {
-          _mergeOpsUnsupported = true;
+          // Перезапись не переключает режим навсегда: следующий save снова
+          // пробует ops-merge. Флаг _mergeOpsUnsupported ставится только когда
+          // сервер честно сообщает, что не понимает ops-контракт.
           return _OpsSaveResult.fallbackLegacy;
         }
         continue; // resolved: пользователь разрешил — пробуем ops ещё раз
@@ -2230,10 +2251,11 @@ class ReportState extends ChangeNotifier {
       }
 
       // Код 4xx/5xx без VERSION_CONFLICT — вероятно, сервер без ops.
+      // НЕ ставим _mergeOpsUnsupported навсегда: fallback разовый для этого
+      // сохранения, следующий save снова пробует ops-merge.
       if (result.statusCode == 400 ||
           result.statusCode == 404 ||
           result.statusCode == 405) {
-        _mergeOpsUnsupported = true;
         return _OpsSaveResult.fallbackLegacy;
       }
       _lastSyncError = result.error != null && result.error!.isNotEmpty
@@ -3140,6 +3162,53 @@ class ReportState extends ChangeNotifier {
       expiresAt: expiresAt,
       permissions: permissions,
     );
+  }
+
+  /// Публичный share-URL для токена: `scheme://host/#/welcome?token=...`.
+  String _buildSharePublicUrl(String token) =>
+      '${ApiService.scheme}://${ApiService.host}/#/welcome?token=$token';
+
+  /// Получить список активных share-ссылок отчёта (для владельца).
+  ///
+  /// Возвращает пустой список, если отчёт не сохранён на сервере или
+  /// активных ссылок нет. URL для каждой ссылки строится клиентски из
+  /// активного scheme/host (в проде — easytab.cloud, https).
+  Future<List<ShareLinkInfo>> listShareLinks() async {
+    final reportId = _serverReportId;
+    if (reportId == null) return const [];
+
+    final result = await ApiService.listShares(reportId: reportId);
+    if (!result.success || result.data == null) return const [];
+
+    final raw = result.data!['shares'] ?? result.data;
+    if (raw is! List) return const [];
+
+    final now = DateTime.now();
+    final out = <ShareLinkInfo>[];
+    for (final e in raw) {
+      if (e is! Map) continue;
+      if (e['isActive'] != true) continue; // в списке только активные
+      final token = e['token']?.toString();
+      if (token == null || token.isEmpty) continue;
+
+      final expiresRaw = e['expiresAt'];
+      DateTime? expiresAt;
+      if (expiresRaw is String) {
+        expiresAt = DateTime.tryParse(expiresRaw);
+      } else if (expiresRaw is num) {
+        expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresRaw.toInt());
+      }
+
+      out.add(ShareLinkInfo(
+        token: token,
+        url: _buildSharePublicUrl(token),
+        expiresAt: expiresAt,
+        isActive: true,
+        permissions: e['permissions']?.toString() ?? 'edit',
+        createdAt: now,
+      ));
+    }
+    return out;
   }
 
   /// Заполнить MediaItem.webUrl presigned-ссылками с KS3.

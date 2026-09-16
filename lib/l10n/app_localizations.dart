@@ -1726,6 +1726,24 @@ abstract class AppLocalizations {
   /// **'Copied'**
   String get shareLinkCopied;
 
+  /// No description provided for @shareLinksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Active links'**
+  String get shareLinksTitle;
+
+  /// No description provided for @shareLinksEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No active links'**
+  String get shareLinksEmpty;
+
+  /// No description provided for @shareLinksCreateNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Create new link'**
+  String get shareLinksCreateNew;
+
   /// No description provided for @scanQr.
   ///
   /// In en, this message translates to:

@@ -875,6 +875,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareLinkCopied => 'Copied';
 
   @override
+  String get shareLinksTitle => 'Active links';
+
+  @override
+  String get shareLinksEmpty => 'No active links';
+
+  @override
+  String get shareLinksCreateNew => 'Create new link';
+
+  @override
   String get scanQr => 'Scan QR';
 
   @override

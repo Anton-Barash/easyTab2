@@ -24,6 +24,9 @@ class ApiService {
   /// Как и host/port, настраивается через [setBaseUrl] (AuthProvider).
   static String get scheme => _scheme;
 
+  /// Хост сервера (без схемы и порта). Настраивается через [setBaseUrl].
+  static String get host => _host;
+
   /// Установить адрес/порт/схему сервера.
   static void setBaseUrl(String host, int port, {String scheme = 'https'}) {
     _host = host;
@@ -675,6 +678,16 @@ class ApiService {
         _uri('/reports/$reportId/shares'),
         headers: _headers,
         body: jsonEncode(body),
+      ),
+    );
+  }
+
+  /// Получить список активных share-ссылок отчёта (для владельца).
+  static Future<ApiResult> listShares({required int reportId}) async {
+    return _handleApiCall(
+      http.get(
+        _uri('/reports/$reportId/shares'),
+        headers: _headers,
       ),
     );
   }

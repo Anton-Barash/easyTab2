@@ -417,94 +417,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
   /// Показывает диалог конфликта версий (409).
   /// Возвращает выбранное пользователем действие.
   Future<ConflictAction> _showConflictDialog(ConflictDetails details) async {
-    final loc = AppLocalizations.of(context)!;
-
-    // Если конфликт не на уровне отдельных ответов — показываем общий диалог.
+    // Гонка версий (409 без per-cell conflicts[]) обрабатывается тихо на
+    // уровне провайдера (_saveViaMergeOps обновляет базу и повторяет ops).
+    // Страховка: если пустые конфликты всё же дойдут, не показываем общий
+    // диалог — просто игнорируем. Пользователю показываем per-answer диалоги
+    // ниже, только когда реально конфликтует конкретная ячейка ответа.
     if (details.answerConflicts.isEmpty) {
-      final isMobile = MediaQuery.of(context).size.width <= 800;
-      final result = await showDialog<ConflictAction>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
-          contentPadding: isMobile
-              ? const EdgeInsets.all(16)
-              : const EdgeInsets.fromLTRB(24, 20, 24, 12),
-          shape: isMobile
-              ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
-              : null,
-          title: Row(
-            children: [
-              const Icon(
-                Icons.warning_amber_rounded,
-                color: AppColors.warningAccent,
-                size: 26,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  loc.versionConflictTitle,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            loc.versionConflictMessage(details.currentVersion.toString()),
-            style: const TextStyle(
-              fontSize: 15,
-              color: AppColors.textSecondary,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            if (isMobile)
-              Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: _SecondaryDialogButton(
-                      label: loc.versionConflictReload,
-                      onPressed: () =>
-                          Navigator.of(context).pop(ConflictAction.reload),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _PrimaryDialogButton(
-                      label: loc.versionConflictOverwrite,
-                      onPressed: () =>
-                          Navigator.of(context).pop(ConflictAction.overwrite),
-                    ),
-                  ),
-                ],
-              )
-            else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _SecondaryDialogButton(
-                    label: loc.versionConflictReload,
-                    onPressed: () =>
-                        Navigator.of(context).pop(ConflictAction.reload),
-                  ),
-                  const SizedBox(width: 12),
-                  _PrimaryDialogButton(
-                    label: loc.versionConflictOverwrite,
-                    onPressed: () =>
-                        Navigator.of(context).pop(ConflictAction.overwrite),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      );
-      return result ?? ConflictAction.reload;
+      return ConflictAction.resolved;
     }
 
     // Последовательно разрешаем конфликты каждого подответа.
@@ -762,8 +681,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
     ownController.dispose();
   }
 
-  /// Обработчик создания share-ссылки из меню отчёта.
+  /// Обработчик открытия меню расшаривания из меню отчёта.
   /// Если отчёт ещё не сохранён на сервере — сначала сохраняет.
+  /// Затем показывает список уже существующих активных ссылок (если они есть)
+  /// с возможностью просмотра деталей и создания новой.
   Future<void> _handleCreateShareLink() async {
     final loc = AppLocalizations.of(context)!;
     final reportState = context.read<ReportState>();
@@ -781,7 +702,306 @@ class _FormFillScreenState extends State<FormFillScreen> {
       }
     }
 
-    await _showCreateShareLinkDialog();
+    final links = await reportState.listShareLinks();
+    if (!mounted) return;
+    if (links.isEmpty) {
+      // Нет активных ссылок — сразу открываем создание новой.
+      await _showCreateShareLinkDialog();
+    } else {
+      await _showShareLinksDialog(links);
+    }
+  }
+
+  /// Показывает список активных share-ссылок отчёта.
+  /// Тап по элементу — детали ссылки (QR + URL). Внизу — кнопка создания
+  /// новой ссылки с другим сроком действия и правами.
+  Future<void> _showShareLinksDialog(List<ShareLinkInfo> links) async {
+    final loc = AppLocalizations.of(context)!;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+        child: LayoutBuilder(
+          builder: (dialogCtx, _) {
+            final dialogWidth = MediaQuery.sizeOf(dialogCtx).width;
+            final isNarrow = dialogWidth < 420;
+            final titleFont = isNarrow ? 14.0 : 16.0;
+            final itemFont = isNarrow ? 13.0 : 14.0;
+            final btnFont = isNarrow ? 13.0 : 14.0;
+            final btnVertical = isNarrow ? 10.0 : 12.0;
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isNarrow ? double.infinity : 420,
+              ),
+              child: Container(
+                padding: EdgeInsets.all(isNarrow ? 18 : 28),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(width: 2, color: AppColors.border),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Заголовок
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.link,
+                          color: AppColors.grey700,
+                          size: isNarrow ? 22 : 24,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            loc.shareLinksTitle,
+                            style: TextStyle(
+                              fontSize: titleFont,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Список ссылок
+                    ...links.map(
+                      (link) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.of(dialogCtx).pop();
+                            _showShareDetailDialog(link);
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.qr_code,
+                                  color: AppColors.grey700,
+                                  size: isNarrow ? 20 : 22,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _formatExpiry(link.expiresAt,
+                                            shareLinkDays: loc.shareLinkDays),
+                                        style: TextStyle(
+                                          fontSize: itemFont,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        link.permissions == 'view'
+                                            ? loc.sharePermissionView
+                                            : loc.sharePermissionEdit,
+                                        style: TextStyle(
+                                          fontSize: isNarrow ? 11 : 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: AppColors.grey700,
+                                  size: isNarrow ? 20 : 22,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Создать новую ссылку
+                    EasyTabButton(
+                      label: loc.shareLinksCreateNew,
+                      onTap: () {
+                        Navigator.of(dialogCtx).pop();
+                        _showCreateShareLinkDialog();
+                      },
+                      fontSize: btnFont,
+                      verticalPadding: btnVertical,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Форматирует оставшийся срок действия ссылки в дни.
+  String _formatExpiry(DateTime? expiresAt,
+      {required String shareLinkDays}) {
+    if (expiresAt == null) return '';
+    final days = expiresAt.difference(DateTime.now()).inDays;
+    if (days < 0) return '';
+    return '$days $shareLinkDays';
+  }
+
+  /// Показывает детали существующей share-ссылки: QR-код и URL.
+  Future<void> _showShareDetailDialog(ShareLinkInfo link) async {
+    final loc = AppLocalizations.of(context)!;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        final dialogWidth = MediaQuery.sizeOf(ctx).width;
+        final isNarrow = dialogWidth < 420;
+        final titleFont = isNarrow ? 14.0 : 16.0;
+        final labelFont = isNarrow ? 12.0 : 13.0;
+        final btnFont = isNarrow ? 13.0 : 14.0;
+        final btnVertical = isNarrow ? 10.0 : 12.0;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 20,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isNarrow ? double.infinity : 420,
+            ),
+            child: Container(
+              padding: EdgeInsets.all(isNarrow ? 18 : 28),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(width: 2, color: AppColors.border),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.link,
+                        color: AppColors.grey700,
+                        size: isNarrow ? 24 : 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          loc.shareLinkCreated,
+                          style: TextStyle(
+                            fontSize: titleFont,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: SelectableText(
+                      link.url,
+                      style: TextStyle(
+                        color: AppColors.textDark,
+                        fontWeight: FontWeight.w500,
+                        fontSize: labelFont,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: isNarrow ? 16 : 24),
+                  // Тап по QR-коду открывает системное окно «Поделиться».
+                  InkWell(
+                    onTap: () => Share.share(link.url),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: QrImageView(
+                        data: link.url,
+                        size: 200,
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: isNarrow ? 16 : 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: EasyTabButton(
+                          label: loc.shareLinkClose,
+                          onTap: () => Navigator.of(ctx).pop(),
+                          fontSize: btnFont,
+                          verticalPadding: btnVertical,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: EasyTabButton(
+                          label: loc.shareLinkCopy,
+                          onTap: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final ok = await copyToClipboard(link.url);
+                            if (kDebugMode) {
+                              debugPrint('share copy: ok=$ok; ${link.url}');
+                            }
+                            if (!context.mounted) return;
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(ok
+                                    ? loc.shareLinkCopied
+                                    : loc.shareLinkCopy),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                          },
+                          fontSize: btnFont,
+                          verticalPadding: btnVertical,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   /// Показывает диалог создания share-ссылки в стиле easyTab.
@@ -2067,26 +2287,42 @@ class _FormFillScreenState extends State<FormFillScreen> {
             tooltip: loc.toggleView,
           ),
           // Save / sync button.
+          // - Отчёт ещё не на сервере → только дискета «Сохранить».
           // - Есть несохранённые правки → дискета: сохранить + синхронизировать.
-          // - Изменений нет → облако со стрелками по кругу: просто синхронизировать.
-          IconButton(
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    _hasUnsavedChanges ? Icons.save : Icons.cloud_sync,
-                    size: 24,
-                    color: _hasUnsavedChanges
-                        ? AppColors.primaryLight
-                        : AppColors.textPrimary,
-                  ),
-            onPressed:
-                _isSaving ? null : (_hasUnsavedChanges ? _doSaveAndSync : _syncOnly),
-            tooltip: _hasUnsavedChanges ? loc.save : loc.syncWithCloud,
-          ),
+          // - Изменений нет и отчёт на сервере → облако со стрелками по кругу:
+          //   просто синхронизировать.
+          ((() {
+            final onServer = reportState.serverReportId != null ||
+                (reportState.serverPublicId?.isNotEmpty ?? false) ||
+                (reportState.shareToken?.isNotEmpty ?? false);
+            return IconButton(
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      _hasUnsavedChanges
+                          ? Icons.save
+                          : (onServer ? Icons.cloud_sync : Icons.save),
+                      size: 24,
+                      color: _hasUnsavedChanges
+                          ? AppColors.primaryLight
+                          : (onServer
+                              ? AppColors.textPrimary
+                              : AppColors.primaryLight),
+                    ),
+              onPressed: _isSaving
+                  ? null
+                  : (_hasUnsavedChanges
+                      ? _doSaveAndSync
+                      : (onServer ? _syncOnly : null)),
+              tooltip: _hasUnsavedChanges
+                  ? loc.save
+                  : (onServer ? loc.syncWithCloud : loc.save),
+            );
+          })()),
           Consumer<LocaleProvider>(
             builder: (context, localeProvider, child) {
               final authProvider = context.watch<AuthProvider>();
