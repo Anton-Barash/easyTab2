@@ -2447,9 +2447,15 @@ class ReportState extends ChangeNotifier {
 
   /// Применить серверный `merged`-документ как новое состояние и новую базу.
   void _applyMergedSnapshot(Map<String, dynamic> merged, dynamic newVersion) {
+    final prevLanguage = _currentReport?.currentLanguage;
     final folderPath =
         _currentReportPath ?? (_serverReportId?.toString());
     _currentReport = Report.fromJson(merged, folderPath: folderPath);
+    if (prevLanguage != null &&
+        prevLanguage.isNotEmpty &&
+        _currentReport?.availableLanguages.contains(prevLanguage) == true) {
+      _currentReport!.currentLanguage = prevLanguage;
+    }
     if (newVersion != null) {
       _serverReportVersion =
           newVersion is int ? newVersion : int.tryParse(newVersion.toString());
@@ -2483,6 +2489,55 @@ class ReportState extends ChangeNotifier {
   /// Токен share-ссылки. Если задан — отчёт работает в режиме
   /// публичной ссылки, без авторизации.
   String? _shareToken;
+
+  /// ID текущего пользователя (авторизованного) для сравнения с authorId
+  /// ячеек. Если null — значит анонимный режим (share-ссылка).
+  int? _currentUserId;
+
+  /// Тот же authorId, что сервер присваивает ячейкам текущего пользователя:
+  /// `user:<id>` для авторизованного, `share:<token>:<anonymousId>` для
+  /// share-режима (см. reportsService.patchReportOps / shareController).
+  String? get _myAuthorId {
+    if (_shareToken != null && _shareToken!.isNotEmpty) {
+      final anon = _anonymousAuthorId;
+      if (anon == null || anon.isEmpty) return null;
+      return 'share:${_shareToken!}:$anon';
+    }
+    final id = _currentUserId;
+    if (id == null) return null;
+    return 'user:$id';
+  }
+
+  String? _anonymousAuthorId;
+
+  /// Множество уже виденных на экране ключей ответов `qid:rid`.
+  /// Используется, чтобы подсветить только впервые появившиеся ответы
+  /// других пользователей.
+  final Set<String> _seenAnswerKeys = {};
+
+  /// Установить ID текущего пользователя (из AuthProvider).
+  void setCurrentUserId(int? id) => _currentUserId = id;
+
+  /// Установить anonymousId (share-режим) — из него собирается authorId
+  /// `share:<token>:<anonymousId>`, под которым сервер штампует ячейки.
+  void setAnonymousAuthorId(String? id) => _anonymousAuthorId = id;
+
+  /// Вернуть true, если ответ с данным ключом впервые появился на экране
+  /// и был создан другим пользователем (authorId != мой).
+  ///
+  /// При первом вызове помечает ключ как «виденный», поэтому повторный
+  /// вызов вернёт false — подсветка срабатывает ровно один раз.
+  bool isForeignNewAnswer(String qid, String? rid, String? authorId) {
+    final myId = _myAuthorId;
+    if (myId == null) return false;
+    if (authorId == null || authorId.isEmpty) return false;
+    if (authorId == myId) return false;
+    if (rid == null || rid.isEmpty) return false;
+    final key = '$qid:$rid';
+    if (_seenAnswerKeys.contains(key)) return false;
+    _seenAnswerKeys.add(key);
+    return true;
+  }
 
   /// Callback для отображения диалога конфликта версий (409).
   /// Устанавливается из UI (например, FormFillScreen).

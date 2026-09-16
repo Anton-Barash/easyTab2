@@ -46,6 +46,9 @@ class AppColors {
   static const Color attentionBackground = Color(0xFFfff7ed);
   static const Color attentionBorder = Color(0xFFfed7aa);
 
+  // Цвет «новый ответ от другого пользователя» (подсветка при появлении).
+  static const Color foreignAnswerHighlight = Color(0xFF99f6e4);
+
   // Специальные цвета
   static const Color shadow = Color(0x21000000);
   static const Color dottedPattern = Color(0xFFcbc7bc);

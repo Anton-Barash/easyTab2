@@ -887,6 +887,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scanQr => 'Scan QR';
 
   @override
+  String get addByLink => 'Add by link';
+
+  @override
+  String get pasteShareLinkHint => 'Paste a share link or token...';
+
+  @override
+  String get shareLinkInvalid => 'Invalid share link';
+
+  @override
   String get qrNotEditable =>
       'Report is view-only and was not added to the list';
 

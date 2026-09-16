@@ -1750,6 +1750,24 @@ abstract class AppLocalizations {
   /// **'Scan QR'**
   String get scanQr;
 
+  /// No description provided for @addByLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Add by link'**
+  String get addByLink;
+
+  /// No description provided for @pasteShareLinkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a share link or token...'**
+  String get pasteShareLinkHint;
+
+  /// No description provided for @shareLinkInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid share link'**
+  String get shareLinkInvalid;
+
   /// No description provided for @qrNotEditable.
   ///
   /// In en, this message translates to:

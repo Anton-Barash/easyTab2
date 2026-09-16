@@ -869,6 +869,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scanQr => '扫码';
 
   @override
+  String get addByLink => '通过链接添加';
+
+  @override
+  String get pasteShareLinkHint => '粘贴分享链接或令牌...';
+
+  @override
+  String get shareLinkInvalid => '无效链接';
+
+  @override
   String get qrNotEditable => '报告仅为查看，未添加到列表';
 
   @override

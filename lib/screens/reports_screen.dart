@@ -20,6 +20,8 @@ import '../services/api_service.dart';
 import '../models/report_summary.dart';
 import '../providers/report_sync_manager.dart';
 import '../services/share_token_storage.dart';
+import '../services/anonymous_id_service.dart';
+import '../utils/share_link_parser.dart';
 import '../widgets/sync_buttons.dart';
 import 'share_qr_scanner_screen.dart';
 
@@ -72,6 +74,85 @@ class _ReportsScreenState extends State<ReportsScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(loc.qrAdded)));
     }
+  }
+
+  /// Открывает диалог «Вставить ссылку». Принимает полную share-ссылку
+  /// или голый токен. Если расшаренный отчёт редактируемый — добавляет его
+  /// в список (токен сохраняется), как и QR-сканер.
+  Future<void> _openPasteShareLinkDialog() async {
+    final loc = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+    bool busy = false;
+
+    Future<void> submit() async {
+      final messenger = ScaffoldMessenger.of(context);
+      final input = controller.text;
+      final token = extractShareToken(input);
+      if (token == null || token.isEmpty) {
+        messenger.showSnackBar(SnackBar(content: Text(loc.shareLinkInvalid)));
+        return;
+      }
+      busy = true;
+      try {
+        final anonymousId = await AnonymousIdService.getId();
+        final result = await ApiService.getShareInfo(
+          token: token,
+          anonymousId: anonymousId,
+        );
+        if (!mounted) return;
+        final share = result.data?['share'] ?? {};
+        final permissions = share['permissions']?.toString() ?? 'edit';
+        if (permissions != 'edit') {
+          messenger.showSnackBar(SnackBar(content: Text(loc.qrNotEditable)));
+          return;
+        }
+        await ShareTokenStorage.addToken(token);
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        setState(_loadReports);
+        messenger.showSnackBar(SnackBar(content: Text(loc.qrAdded)));
+      } catch (_) {
+        if (!mounted) return;
+        messenger.showSnackBar(SnackBar(content: Text(loc.shareLinkInvalid)));
+      } finally {
+        controller.clear();
+      }
+    }
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(loc.addByLink),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 2,
+            decoration: InputDecoration(
+              hintText: loc.pasteShareLinkHint,
+              border: const OutlineInputBorder(),
+            ),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) {
+              if (busy) return;
+              submit();
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: Text(loc.cancel),
+            ),
+            TextButton(
+              onPressed: busy ? null : submit,
+              child: Text(loc.ok),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   /// Форматирует дату в компактный строковый вид (yyyy-MM-dd HH:mm).
@@ -148,6 +229,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: loc.addByLink,
+            icon: const Icon(Icons.link),
+            onPressed: _openPasteShareLinkDialog,
+          ),
           if (!kIsWeb &&
               defaultTargetPlatform != TargetPlatform.windows &&
               defaultTargetPlatform != TargetPlatform.linux)

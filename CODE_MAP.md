@@ -85,6 +85,7 @@
 
 ### lib/utils & lib/widgets
 - utils/app_colors.dart — тема цветов
+- utils/share_link_parser.dart — извлечение share-токена из ссылки или голого токена (переиспользуется QR-сканером и диалогом «Вставить ссылку»)
 - widgets/* — набор общих кнопок, EasyTabButton, dialogs (login dialog, settings dialog), templates list item
 
 

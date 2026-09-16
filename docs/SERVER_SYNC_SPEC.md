@@ -99,6 +99,8 @@
     { "t": "answer.update",   "qid": "q-1", "rid": "r-1", "lang": "RU",
       "baseUpdatedAt": 1690000000000, "fields": { "text": "...", "updatedAt": 1690000000001 } },
     { "t": "answer.setMedia", "qid": "q-1", "rid": "r-1", "media": [ { "serverFileId": "f-1", ... } ] },
+    { "t": "answer.setMarkers", "qid": "q-1", "rid": "r-1",
+      "markers": { "attention": true, "needsWork": false } },
     { "t": "answer.remove",   "qid": "q-1", "rid": "r-1" },
     { "t": "meta",            "fields": { "reportName": "...", "productType": "...", "headerImage": { "serverFileId": "..." } } }
   ]
@@ -199,6 +201,13 @@
 - Медиа загружаются как раньше (upload → `serverFileId`).
 - `answer.setMedia` заменяет список media строки целиком — ссылки уже содержат `serverFileId`.
 - Физические файлы не дублируются при `duplicate`-разрешении (копируются только ссылки).
+
+### 4.5 Метки строки (attention / needsWork)
+
+- `answer.setMarkers` устанавливает булевы метки строки (`attention`, `needsWork`) —
+  независимо от текста и media, семантика last-write-wins (конфликтов не требует).
+- Метки хранятся в `answers[qid][rid].markers` (canonical) и дублируются в legacy-зеркале
+  `markers[qid][]`, поэтому их видят все клиенты после синхронизации.
 
 ---
 
@@ -317,9 +326,10 @@
 ### Фаза 2 — ops + merge на клиенте
 - 2a. **Сделано (diff-движок)**: чистый модуль `lib/services/report_merge_service.dart`
   (`buildReportOps(base, current)`) строит ops по qid/rid с `baseUpdatedAt` для
-  text-updates и `answer.setMedia` при изменении media-списка строки (сигнатура
-  по serverFileId/localPath/name); покрыт unit-тестами (8 кейсов: параллельные
-  add, один rid+lang, разные языки, no-op, remove, meta, setMedia).
+  text-updates, `answer.setMedia` при изменении media-списка строки (сигнатура
+  по serverFileId/localPath/name) и `answer.setMarkers` при изменении меток
+  (`attention`/`needsWork`); покрыт unit-тестами (параллельные
+  add, один rid+lang, разные языки, no-op, remove, meta, setMedia, setMarkers).
   Правки ячеек фиксируют `updatedAt`; при открытии/создании отчёта клиент хранит
   `_baseReportSnapshot` для последующего diff.
 - 2b. **Сделано (клиент, за флагом `ReportState.mergeOpsEnabled = false`)**:
@@ -344,7 +354,7 @@
 
 ### Фаза 4 — сервер
 - **Сделано (core)**: `src/services/reportOpsService.js` — canonicalize legacy->v2,
-  apply ops (question.add/remove, answer.add/update/remove/**setMedia**, meta),
+  apply ops (question.add/remove, answer.add/update/remove/**setMedia**/**setMarkers**, meta),
   per-cell конфликт по `baseUpdatedAt` -> conflicts[], автоприкрепление legacy-
   зеркал. **Dedup параллельной миграции**: вопросы и строки с одинаковым
   `legacyId/legacyIndex` + fingerprint не дублируются — qid/rid клиента

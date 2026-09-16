@@ -889,6 +889,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get scanQr => 'Сканировать QR';
 
   @override
+  String get addByLink => 'Добавить по ссылке';
+
+  @override
+  String get pasteShareLinkHint => 'Вставьте ссылку или токен...';
+
+  @override
+  String get shareLinkInvalid => 'Неверная ссылка';
+
+  @override
   String get qrNotEditable =>
       'Отчёт доступен только для просмотра — не добавлен в список';
 

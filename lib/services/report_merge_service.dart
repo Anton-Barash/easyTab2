@@ -33,6 +33,10 @@ List<dynamic> _rowMedia(Map<String, dynamic> row) {
   return _asList(markers['media']);
 }
 
+/// Значение булевой метки строки (attention / needsWork) из canonical markers.
+bool _markerFlag(Map<String, dynamic> row, String name) =>
+    _asMap(row['markers'])[name] == true;
+
 /// Стабильная сигнатура media строки: serverFileId ?? localPath ?? name.
 /// Сравнение по сигнатуре игнорирует runtime-флаги (isUploading и т.п.).
 String _mediaSignature(Map<String, dynamic> row) {
@@ -220,6 +224,25 @@ List<Map<String, dynamic>> buildReportOps(
           'qid': qid,
           'rid': rid,
           'media': _rowMedia(currentRow),
+        });
+      }
+
+      // Метки строки изменились («Внимание» / «Требует доработки»).
+      // Без этой op метки не доходили до сервера и терялись при синхронизации.
+      final baseAttention = _markerFlag(baseRow, 'attention');
+      final currentAttention = _markerFlag(currentRow, 'attention');
+      final baseNeedsWork = _markerFlag(baseRow, 'needsWork');
+      final currentNeedsWork = _markerFlag(currentRow, 'needsWork');
+      if (baseAttention != currentAttention ||
+          baseNeedsWork != currentNeedsWork) {
+        ops.add({
+          't': 'answer.setMarkers',
+          'qid': qid,
+          'rid': rid,
+          'markers': {
+            'attention': currentAttention,
+            'needsWork': currentNeedsWork,
+          },
         });
       }
     }

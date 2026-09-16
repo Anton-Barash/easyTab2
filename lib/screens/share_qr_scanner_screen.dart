@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../services/share_token_storage.dart';
 import '../services/anonymous_id_service.dart';
+import '../utils/share_link_parser.dart';
 
 /// Экран сканирования QR-кода расшаренного отчёта.
 ///
@@ -26,6 +27,12 @@ class _ShareQrScannerScreenState extends State<ShareQrScannerScreen> {
 
   bool _processing = false;
 
+  /// Флаг неуправляемого закрытия: выставляется один раз и не сбрасывается.
+  /// Предотвращает повторный `pop(context, true)` во время pop-анимации,
+  /// когда камера ещё активна и `onDetect` может сработать снова
+  /// (иначе закрывается и экран отчётов — приложение уходит в главное меню).
+  bool _handled = false;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -33,12 +40,12 @@ class _ShareQrScannerScreenState extends State<ShareQrScannerScreen> {
   }
 
   void _onDetect(BarcodeCapture capture) {
-    if (_processing) return;
+    if (_processing || _handled) return;
     final barcode = capture.barcodes.isNotEmpty ? capture.barcodes.first : null;
     final raw = barcode?.rawValue;
     if (raw == null || raw.isEmpty) return;
 
-    final token = _extractToken(raw);
+    final token = extractShareToken(raw);
     if (token == null || token.isEmpty) {
       _showMessage(
         AppLocalizations.of(context)!.qrCantAdd,
@@ -66,7 +73,9 @@ class _ShareQrScannerScreenState extends State<ShareQrScannerScreen> {
         final permissions = share['permissions']?.toString() ?? 'edit';
         if (permissions == 'edit') {
           await ShareTokenStorage.addToken(token);
-          if (mounted) Navigator.of(context).pop(true);
+          if (!mounted) return;
+          _handled = true;
+          Navigator.of(context).pop(true);
           return;
         }
         // Отчёт только для просмотра — не добавляем в список.
@@ -82,20 +91,8 @@ class _ShareQrScannerScreenState extends State<ShareQrScannerScreen> {
     }
   }
 
-  /// Извлекает share-токен из отсканированной строки. QR кодирует полную
-  /// ссылку вида `https://easytab.cloud/#/welcome?token=XXX`.
-  String? _extractToken(String raw) {
-    final uri = Uri.tryParse(raw);
-    if (uri == null) return null;
-    final fragment = uri.fragment;
-    if (fragment.isNotEmpty) {
-      final fragmentUri = Uri.tryParse(fragment);
-      final token = fragmentUri?.queryParameters['token'];
-      if (token != null && token.isNotEmpty) return token;
-    }
-    final token = uri.queryParameters['token'];
-    return (token != null && token.isNotEmpty) ? token : null;
-  }
+  // Извлечение токена вынесено в utils/share_link_parser.dart (extractShareToken),
+  // чтобы сканер и «вставка ссылки» использовали одну логику.
 
   void _showMessage(String message) {
     if (!mounted) return;

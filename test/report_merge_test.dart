@@ -1,5 +1,6 @@
 import 'package:easy_tab/services/report_merge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:easy_tab/models/report_models.dart';
 
 /// Собирает минимальный canonical-документ для тестов.
 Map<String, dynamic> _doc({
@@ -181,6 +182,133 @@ void main() {
         (setMedia.first['media'] as List).first['serverFileId'],
         'f-1',
       );
+    });
+
+    test('пометка «Внимание» — answer.setMarkers (иначе теряется при sync)', () {
+      final base = _doc(qids: ['q1'], answersByQid: {'q1': ['r1']});
+      final current = _doc(qids: ['q1'], answersByQid: {'q1': ['r1']});
+      final row = ((current['answers'] as Map)['q1'] as List).first as Map;
+      row['markers'] = {
+        'attention': true,
+        'needsWork': false,
+        'rowId': 'r1',
+        'media': [],
+      };
+
+      final ops = buildReportOps(base, current);
+      final setMarkers =
+          ops.where((o) => o['t'] == 'answer.setMarkers' && o['rid'] == 'r1');
+      expect(setMarkers.length, 1);
+      expect((setMarkers.first['markers'] as Map)['attention'], isTrue);
+    });
+
+    test('снятие метки «Внимание» — тоже answer.setMarkers', () {
+      final base = _doc(qids: ['q1'], answersByQid: {'q1': ['r1']});
+      final baseRow = ((base['answers'] as Map)['q1'] as List).first as Map;
+      baseRow['markers'] = {
+        'attention': true,
+        'needsWork': false,
+        'rowId': 'r1',
+        'media': [],
+      };
+      final current = _doc(qids: ['q1'], answersByQid: {'q1': ['r1']});
+      final row = ((current['answers'] as Map)['q1'] as List).first as Map;
+      row['markers'] = {
+        'attention': false,
+        'needsWork': false,
+        'rowId': 'r1',
+        'media': [],
+      };
+
+      final ops = buildReportOps(base, current);
+      final setMarkers =
+          ops.where((o) => o['t'] == 'answer.setMarkers' && o['rid'] == 'r1');
+      expect(setMarkers.length, 1);
+      expect((setMarkers.first['markers'] as Map)['attention'], isFalse);
+    });
+
+    test('метки не менялись — answer.setMarkers отсутствует', () {
+      final base = _doc(qids: ['q1'], answersByQid: {'q1': ['r1']});
+      final current = _doc(qids: ['q1'], answersByQid: {'q1': ['r1']});
+      for (final doc in [base, current]) {
+        final row = ((doc['answers'] as Map)['q1'] as List).first as Map;
+        row['markers'] = {
+          'attention': true,
+          'needsWork': false,
+          'rowId': 'r1',
+          'media': [],
+        };
+      }
+      final ops = buildReportOps(base, current);
+      expect(ops.where((o) => o['t'] == 'answer.setMarkers'), isEmpty);
+    });
+  });
+
+  group('метка «Внимание» после синхронизации (read path)', () {
+    test('merged от сервера: метка видна клиенту в UI-данных', () {
+      // Форма ответа сервера: canonical answers + legacy-зеркала (именно
+      // legacy-зеркало markers читает Report.fromJson).
+      final merged = <String, dynamic>{
+        'schemaVersion': 2,
+        'reportName': 'Report',
+        'availableLanguages': ['RU'],
+        'currentLanguage': 'RU',
+        'questions': [
+          {'id': 0, 'qid': '0', 'localizations': <String, dynamic>{}},
+        ],
+        'answers': {
+          '0': [
+            {
+              'rid': 'r1',
+              'legacyIndex': 0,
+              'localizations': {
+                'RU': {
+                  'id': 'c1',
+                  'text': 'ответ',
+                  'isEmpty': false,
+                  'createdAt': 1,
+                  'updatedAt': 2,
+                },
+              },
+              'markers': {
+                'attention': true,
+                'needsWork': false,
+                'rowId': 'r1',
+                'media': <dynamic>[],
+              },
+            },
+          ],
+        },
+        'translations': {
+          '0': {
+            'RU': [
+              {
+                'id': 'c1',
+                'text': 'ответ',
+                '_empty': false,
+                'createdAt': 1,
+                'updatedAt': 2,
+                'rowId': 'r1',
+              },
+            ],
+          },
+        },
+        'markers': {
+          '0': [
+            {
+              'attention': true,
+              'needsWork': false,
+              'rowId': 'r1',
+              'media': <dynamic>[],
+            },
+          ],
+        },
+      };
+
+      final report = Report.fromJson(merged);
+      // Метка, которую видит UI.
+      expect(report.getAnswerMarkers(0, 0)?.attention, isTrue);
+      expect(report.getAnswersForQuestion(0, 'RU').first['attention'], isTrue);
     });
   });
 }

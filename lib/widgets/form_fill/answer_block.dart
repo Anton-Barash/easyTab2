@@ -5,7 +5,7 @@ import 'package:easy_tab/widgets/form_fill/media_grid.dart';
 import 'package:flutter/material.dart';
 
 /// Блок одного ответа: текстовое поле, медиа и панель действий.
-class AnswerBlock extends StatelessWidget {
+class AnswerBlock extends StatefulWidget {
   final int questionIndex;
   final int answerIndex;
   final ReportState reportState;
@@ -40,30 +40,78 @@ class AnswerBlock extends StatelessWidget {
   });
 
   @override
+  State<AnswerBlock> createState() => _AnswerBlockState();
+}
+
+class _AnswerBlockState extends State<AnswerBlock> {
+  /// Флаг подсветки «новый чужой ответ». Устанавливается один раз при первом
+  /// построении (если ответ действительно новый и чужой), затем через 2 сек
+  /// сбрасывается — анимация плавно возвращает нормальный цвет.
+  bool _highlighted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkForeignNew();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnswerBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Ответ мог смениться (другой rid) — перепроверяем подсветку.
+    if (oldWidget.answer['rid'] != widget.answer['rid']) {
+      _checkForeignNew();
+    }
+  }
+
+  void _checkForeignNew() {
+    final rid = widget.answer['rid']?.toString();
+    final authorId = widget.answer['authorId']?.toString();
+    final isForeign = widget.reportState.isForeignNewAnswer(
+      widget.qid,
+      rid,
+      authorId,
+    );
+    if (!isForeign) return;
+    setState(() => _highlighted = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _highlighted = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final answer = widget.answer;
     final loc = AppLocalizations.of(context)!;
     final attention = answer['attention'] == true;
     final isMobile = MediaQuery.of(context).size.width <= 800;
     // «Фантомный» ряд: реального ответа ещё нет в данных (новый отчёт).
-    // Показываем только строку ввода — медиа и панель действий появляются
-    // после первого введённого символа, когда ряд создаётся в updateAnswerText.
     final isFake = answer['fake'] == true;
 
-    final report = reportState.currentReport;
+    final report = widget.reportState.currentReport;
     String? exampleText;
-    if (report != null && questionIndex < report.questions.length) {
-      final question = report.questions[questionIndex];
+    if (report != null && widget.questionIndex < report.questions.length) {
+      final question = report.questions[widget.questionIndex];
       final questionLoc = question.getLocalization(report.currentLanguage);
       exampleText = questionLoc?.example;
     }
 
-    return Container(
+    // Нормальный фон (attention или grey). Подсветка «новый чужой ответ»
+    // приоритетна — она перекрывает и attention, и grey на 2 секунды.
+    final Color normalColor = attention
+        ? AppColors.attentionBackground
+        : AppColors.greyBackground;
+    final Color animatedColor = _highlighted
+        ? AppColors.foreignAnswerHighlight
+        : normalColor;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOut,
       margin: EdgeInsets.only(bottom: isMobile ? 6 : 12),
       padding: EdgeInsets.all(isMobile ? 8 : 12),
       decoration: BoxDecoration(
-        color: attention
-            ? AppColors.attentionBackground
-            : AppColors.greyBackground,
+        color: animatedColor,
         border: Border.all(
           width: 1.5,
           color: attention ? AppColors.attentionBorder : AppColors.grey200,
@@ -87,14 +135,14 @@ class AnswerBlock extends StatelessWidget {
               ),
             ),
           TextField(
-            controller: controller,
+            controller: widget.controller,
             maxLines: null,
-            enabled: enabled,
+            enabled: widget.enabled,
             // Автоматически предлагать заглавную букву в начале
             // предложения (после точки).
             textCapitalization: TextCapitalization.sentences,
             style: TextStyle(
-              color: enabled ? AppColors.textDark : AppColors.textLight,
+              color: widget.enabled ? AppColors.textDark : AppColors.textLight,
             ),
             decoration: InputDecoration(
               hintText: loc.enterAnswer,
@@ -114,9 +162,9 @@ class AnswerBlock extends StatelessWidget {
               padding: const EdgeInsets.only(top: 12),
               child: MediaGrid(
                 mediaList: answer['media'] as List,
-                questionIndex: questionIndex,
-                answerIndex: answerIndex,
-                reportState: reportState,
+                questionIndex: widget.questionIndex,
+                answerIndex: widget.answerIndex,
+                reportState: widget.reportState,
               ),
             ),
           Padding(
@@ -126,19 +174,15 @@ class AnswerBlock extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.camera_alt),
                   color: AppColors.textPrimary,
-                  onPressed: onShowMediaPicker,
+                  onPressed: widget.onShowMediaPicker,
                 ),
-                // Скрепка — прикреплённые файлы отчёта.
-                // Штатная иконка attach_file_outlined в едином стиле с соседними
-                // иконками (камера, «требует доработки», удаление).
-                // Бейдж показывает количество вложений только у данного ответа.
                 Tooltip(
                   message: loc.attachmentsTitle,
                   child: Builder(
                     builder: (context) {
-                      final count = reportState.attachmentsCountForAnswer(
-                        questionIndex,
-                        answerIndex,
+                      final count = widget.reportState.attachmentsCountForAnswer(
+                        widget.questionIndex,
+                        widget.answerIndex,
                       );
                       return Stack(
                         clipBehavior: Clip.none,
@@ -146,7 +190,7 @@ class AnswerBlock extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.attach_file_outlined),
                             color: AppColors.textPrimary,
-                            onPressed: onShowAttachments,
+                            onPressed: widget.onShowAttachments,
                           ),
                           if (count > 0)
                             Positioned(
@@ -183,18 +227,18 @@ class AnswerBlock extends StatelessWidget {
                     message: loc.needsWorkTooltip,
                     child: IconButton(
                       icon: const Icon(Icons.edit_note),
-                      color: needsWork
+                      color: widget.needsWork
                           ? AppColors.warning
                           : AppColors.greyDisabled,
                       onPressed: () {
-                        final newValue = !needsWork;
-                        onNeedsWorkChanged(newValue);
-                        reportState.updateAnswerNeedsWork(
-                          questionIndex,
-                          answerIndex,
+                        final newValue = !widget.needsWork;
+                        widget.onNeedsWorkChanged(newValue);
+                        widget.reportState.updateAnswerNeedsWork(
+                          widget.questionIndex,
+                          widget.answerIndex,
                           newValue,
                         );
-                        onMarkAsUnsaved();
+                        widget.onMarkAsUnsaved();
                       },
                     ),
                   ),
@@ -211,23 +255,23 @@ class AnswerBlock extends StatelessWidget {
                             : AppColors.greyBorder,
                       ),
                       onPressed: () {
-                        reportState.updateAnswerAttention(
-                          questionIndex,
-                          answerIndex,
+                        widget.reportState.updateAnswerAttention(
+                          widget.questionIndex,
+                          widget.answerIndex,
                           !attention,
                         );
-                        onMarkAsUnsaved();
+                        widget.onMarkAsUnsaved();
                       },
                     ),
                   ),
                 if (!isFake &&
-                    reportState.hasAnswersInOtherLanguages(
-                      questionIndex,
-                      answerIndex,
+                    widget.reportState.hasAnswersInOtherLanguages(
+                      widget.questionIndex,
+                      widget.answerIndex,
                     ))
                   IconButton(
                     icon: const Icon(Icons.lock, color: AppColors.textLight),
-                    onPressed: onShowLockDialog,
+                    onPressed: widget.onShowLockDialog,
                     tooltip: loc.lockAnswerTooltip,
                   ),
                 if (!isFake) const Spacer(),
@@ -235,15 +279,15 @@ class AnswerBlock extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.delete, color: AppColors.errorLight),
                     onPressed:
-                        (reportState
+                        (widget.reportState
                                     .currentReport
-                                    ?.translations[qid]
+                                    ?.translations[widget.qid]
                                     ?.values
                                     .firstOrNull
                                     ?.length ??
                                 1) >
                             1
-                        ? onShowDeleteAnswerDialog
+                        ? widget.onShowDeleteAnswerDialog
                         : null,
                     tooltip: loc.deleteAnswerTooltip,
                   ),

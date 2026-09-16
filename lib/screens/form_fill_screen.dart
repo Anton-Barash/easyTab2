@@ -120,6 +120,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
       _syncControllers(reportState);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Запоминаем ID текущего пользователя, чтобы отличать ответы,
+      // созданные другим пользователем (для подсветки «новый чужой ответ»).
+      final auth = context.read<AuthProvider>();
+      reportState.setCurrentUserId(auth.userId);
+      // В share-режиме сервер штампует ячейки как share:<token>:<anonymousId>,
+      // поэтому для сравнения нужен тот же anonymousId.
+      AnonymousIdService.getId().then(reportState.setAnonymousAuthorId);
       // Синхронизируем «Качество медиаданных» из SettingsState в
       // ReportState перед первым добавлением файлов.
       final settings = context.read<SettingsState>();
