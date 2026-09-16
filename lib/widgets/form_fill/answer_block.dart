@@ -71,6 +71,7 @@ class _AnswerBlockState extends State<AnswerBlock> {
       widget.qid,
       rid,
       authorId,
+      authorIsAnonymous: widget.answer['authorIsAnonymous'] == true,
     );
     if (!isForeign) return;
     setState(() => _highlighted = true);

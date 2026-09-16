@@ -407,6 +407,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
     // локальную папку). Так правки, сделанные в вебе по share-ссылке другим
     // устройством, появляются в открытом отчёте на телефоне.
     setState(() => _isSaving = true);
+    // Догружаем медиа, которые уже есть локально, но ещё не на сервере
+    // (например, добавлены до привязки отчёта к серверу). Без этого фото
+    // оставались только на устройстве и не показывались другим участникам.
+    await reportState.syncPendingMedia();
     final ok = await reportState.pullFromServer();
     if (!mounted) return;
     setState(() => _isSaving = false);

@@ -266,6 +266,8 @@ void main() {
                   'id': 'c1',
                   'text': 'ответ',
                   'isEmpty': false,
+                  'authorId': 'user:7',
+                  'authorIsAnonymous': false,
                   'createdAt': 1,
                   'updatedAt': 2,
                 },
@@ -286,6 +288,8 @@ void main() {
                 'id': 'c1',
                 'text': 'ответ',
                 '_empty': false,
+                'authorId': 'user:7',
+                'authorIsAnonymous': false,
                 'createdAt': 1,
                 'updatedAt': 2,
                 'rowId': 'r1',
@@ -308,7 +312,12 @@ void main() {
       final report = Report.fromJson(merged);
       // Метка, которую видит UI.
       expect(report.getAnswerMarkers(0, 0)?.attention, isTrue);
-      expect(report.getAnswersForQuestion(0, 'RU').first['attention'], isTrue);
+      final row = report.getAnswersForQuestion(0, 'RU').first;
+      expect(row['attention'], isTrue);
+      // Без rid и authorId подсветка «новый чужой ответ» не могла сработать.
+      expect(row['rid'], 'r1');
+      expect(row['authorId'], 'user:7');
+      expect(row['authorIsAnonymous'], isFalse);
     });
   });
 }

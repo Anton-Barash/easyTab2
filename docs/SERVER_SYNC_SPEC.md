@@ -201,6 +201,16 @@
 - Медиа загружаются как раньше (upload → `serverFileId`).
 - `answer.setMedia` заменяет список media строки целиком — ссылки уже содержат `serverFileId`.
 - Физические файлы не дублируются при `duplicate`-разрешении (копируются только ссылки).
+- Порядок на клиенте (`saveReportToServer`): сначала заливаются все медиа без
+  `serverFileId` (байты — из `webBytes` или с диска по `localPath`), затем
+  отправляется документ (ops/snapshot уже несут ID). После первого сохранения,
+  создавшего запись и KS3-папку, отправка повторяется — `_uploadPendingMediaAndRelink`.
+  Без этого новые фото оставались только на устройстве и не появлялись у других.
+- Чтение: `GET /files/by-report/:reportId/urls` отдаёт presigned URL оригинала и
+  (для изображений) миниатюры — ключ `<relPath без расширения>_thumb.jpg`
+  (`thumbnailService.getThumbnailStorageKey`). Сетка грузит миниатюру, полный файл —
+  только при открытии на просмотр. В share-режиме миниатюры отдаёт прокси
+  `GET /view/report/:publicId/thumbnails/*` (при отсутствии — генерирует через sharp).
 
 ### 4.5 Метки строки (attention / needsWork)
 

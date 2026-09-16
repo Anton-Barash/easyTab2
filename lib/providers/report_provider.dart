@@ -1679,15 +1679,21 @@ class ReportState extends ChangeNotifier {
 
   /// Загрузить все медиа, у которых ещё нет serverFileId.
   ///
-  /// Вызывается после saveReport(), когда _serverReportId и _ks3Folder
-  /// уже установлены. Проходит по всем медиа отчёта и загружает те,
-  /// у которых serverFileId == null и есть webBytes.
-  Future<void> _uploadPendingMedia() async {
-    if (_currentReport == null ||
-        _ks3Folder == null ||
-        _serverReportId == null) {
-      return;
-    }
+  /// Вызывается после сохранения отчёта на сервер, когда _serverReportId и
+  /// _ks3Folder уже установлены. Проходит по всем медиа отчёта и загружает те,
+  /// у которых serverFileId == null.
+  ///
+  /// Байты берутся из webBytes (web / только что добавленное медиа) либо,
+  /// если их нет, читаются с диска по localPath — после перезапуска приложения
+  /// webBytes не сохраняется в JSON, поэтому на native это единственный
+  /// источник. Возвращает число успешно загруженных файлов.
+  Future<int> _uploadPendingMedia() async {
+    // В share-режиме адрес отчёта известен по токену, а _ks3Folder может
+    // быть null — сервер найдёт папку сам (как в addMediaBytes).
+    final shareMode = _shareToken != null && _shareToken!.isNotEmpty;
+    if (_currentReport == null) return 0;
+    if (_serverReportId == null && !shareMode) return 0;
+    if (_ks3Folder == null && !shareMode) return 0;
 
     if (kDebugMode) {
       debugPrint('_uploadPendingMedia: scanning for pending media...');
@@ -1708,8 +1714,10 @@ class ReportState extends ChangeNotifier {
           // Пропускаем уже загруженные
           if (media.serverFileId != null) continue;
 
-          // Пропускаем медиа без байтов (не web).
-          if (media.webBytes == null) continue;
+          // Источник байтов: память (web/только что добавлено) или диск.
+          final bytes =
+              media.webBytes ?? await _readLocalMediaBytes(media.localPath);
+          if (bytes == null) continue;
 
           // Загружаем на сервер
           if (kDebugMode) {
@@ -1719,7 +1727,7 @@ class ReportState extends ChangeNotifier {
           await _boundedMediaUpload(
             () => _uploadMediaToServer(
               media,
-              media.webBytes!,
+              bytes,
               media.name,
               media.localPath ?? media.name,
               media.type,
@@ -1736,6 +1744,61 @@ class ReportState extends ChangeNotifier {
 
     if (kDebugMode) {
       debugPrint('_uploadPendingMedia: uploaded $uploadedCount files');
+    }
+    return uploadedCount;
+  }
+
+  /// Прочитать байты медиафайла из локальной папки отчёта (native).
+  ///
+  /// [path] — путь относительно папки отчёта (например "photos/f1_1_001.jpg");
+  /// абсолютный путь тоже поддерживается. На web всегда null.
+  Future<Uint8List?> _readLocalMediaBytes(String? path) async {
+    if (kIsWeb || path == null || path.isEmpty) return null;
+    try {
+      var file = File(path);
+      if (!await file.exists()) {
+        final folder = _currentReportPath;
+        if (folder == null) return null;
+        file = File('$folder/$path');
+        if (!await file.exists()) return null;
+      }
+      return await file.readAsBytes();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('_readLocalMediaBytes failed ($path): $e');
+      }
+      return null;
+    }
+  }
+
+  /// Флаг защиты от рекурсии при дозаливке медиа.
+  bool _mediaRelinkInProgress = false;
+
+  /// Загрузить медиа без serverFileId и, если что-то реально загрузилось,
+  /// повторно отправить отчёт: сервер должен узнать serverFileId файлов
+  /// (media-ссылки живут в самом документе отчёта, а не только в файлах).
+  Future<void> _uploadPendingMediaAndRelink() async {
+    if (_mediaRelinkInProgress) return;
+    _mediaRelinkInProgress = true;
+    try {
+      final uploaded = await _uploadPendingMedia();
+      if (uploaded == 0) return;
+      final shareMode = _shareToken != null && _shareToken!.isNotEmpty;
+      if (_serverReportId == null && !shareMode) return;
+      if (kDebugMode) {
+        debugPrint(
+          '_uploadPendingMediaAndRelink: $uploaded uploaded, pushing file ids',
+        );
+      }
+      await saveReportToServer();
+
+      // На web сразу подтягиваем presigned URL миниатюр: иначе сетка
+      // грузит полные фото до следующей перезагрузки отчёта с сервера.
+      if (kIsWeb && !shareMode && _serverReportId != null) {
+        await _populateMediaWebUrls(_serverReportId!);
+      }
+    } finally {
+      _mediaRelinkInProgress = false;
     }
   }
 
@@ -1920,7 +1983,7 @@ class ReportState extends ChangeNotifier {
       // На web нет локальной файловой системы (path_provider не работает),
       // поэтому отчёт сохраняется напрямую на сервер через API.
       if (kIsWeb) {
-        return await _saveReportToServer();
+        return await saveReportToServer();
       }
 
       // ===== Mobile/Desktop: сохраняем локально =====
@@ -2017,20 +2080,41 @@ class ReportState extends ChangeNotifier {
     if (_currentReport == null) return false;
     _serverLinkDetachedOnDeny = false;
 
+    // Медиа без serverFileId заливаем ДО отправки документа: тогда их ID
+    // попадут в ops/snapshot этого же сохранения. На web это ещё и
+    // обязательно: ops-путь пересобирает отчёт из серверного `merged`,
+    // а webBytes (runtime-only) при этом теряются.
+    await _uploadPendingMedia();
+
     final canMergeOps = mergeOpsEnabled &&
         !_mergeOpsUnsupported &&
         _serverReportId != null &&
         _baseReportSnapshot != null;
+    final bool saved;
     if (canMergeOps) {
       final result = await _saveViaMergeOps();
-      if (result == _OpsSaveResult.saved) return true;
-      if (result == _OpsSaveResult.fallbackLegacy) {
-        return await _saveReportToServer();
+      if (result == _OpsSaveResult.saved) {
+        saved = true;
+      } else if (result == _OpsSaveResult.fallbackLegacy) {
+        saved = await _saveReportToServer();
+      } else {
+        saved = false;
       }
-      return false;
+    } else {
+      saved = await _saveReportToServer();
     }
-    return await _saveReportToServer();
+    if (!saved) return false;
+
+    // Первое сохранение создало запись и KS3-папку — догружаем оставшиеся
+    // медиа и повторно отправляем документ, чтобы сервер узнал их ID.
+    await _uploadPendingMediaAndRelink();
+    return true;
   }
+
+  /// Догрузить медиа, у которых ещё нет serverFileId, и отправить документ
+  /// с их ID. Используется кнопкой «Синхронизировать», когда локальных
+  /// правок нет, но есть незалитые файлы.
+  Future<void> syncPendingMedia() => _uploadPendingMediaAndRelink();
 
   /// Подтянуть актуальную версию отчёта с сервера, не отправляя локальные
   /// правки.
@@ -2525,11 +2609,21 @@ class ReportState extends ChangeNotifier {
   /// Вернуть true, если ответ с данным ключом впервые появился на экране
   /// и был создан другим пользователем (authorId != мой).
   ///
+  /// [authorIsAnonymous] — признак ячейки-заглушки (пустая ячейка без автора:
+  /// и клиент, и сервер помечают их `anon:<uuid>` + `authorIsAnonymous`).
+  /// Такие ячейки «чужими ответами» не считаются.
+  ///
   /// При первом вызове помечает ключ как «виденный», поэтому повторный
   /// вызов вернёт false — подсветка срабатывает ровно один раз.
-  bool isForeignNewAnswer(String qid, String? rid, String? authorId) {
+  bool isForeignNewAnswer(
+    String qid,
+    String? rid,
+    String? authorId, {
+    bool authorIsAnonymous = false,
+  }) {
     final myId = _myAuthorId;
     if (myId == null) return false;
+    if (authorIsAnonymous) return false;
     if (authorId == null || authorId.isEmpty) return false;
     if (authorId == myId) return false;
     if (rid == null || rid.isEmpty) return false;
@@ -2653,18 +2747,15 @@ class ReportState extends ChangeNotifier {
           );
         }
 
-        // После сохранения отчёта — запускаем загрузку всех медиа,
-        // у которых ещё нет serverFileId, в фоне (не блокируем UI).
+        // После сохранения отчёта — запускаем загрузку фото шапки, если оно
+        // было добавлено через addHeaderImageFromBytes. Медиа ответов здесь
+        // не трогаем: дозаливкой управляет saveReportToServer (см. его конец).
         if (_ks3Folder != null && _serverReportId != null) {
-          // Загружаем фото шапки, если оно было добавлено через addHeaderImageFromBytes
           if (_headerImageBytes != null && _headerImageFileName != null) {
             _uploadHeaderImageToServer().catchError((e) {
               if (kDebugMode) debugPrint('Header image upload error: $e');
             });
           }
-          _uploadPendingMedia().catchError((e) {
-            if (kDebugMode) debugPrint('Pending media upload error: $e');
-          });
         }
 
         // На native сохраняем привязку к серверу в папке отчёта, чтобы
@@ -3195,6 +3286,14 @@ class ReportState extends ChangeNotifier {
             {'share_token': _shareToken},
           );
           media.webUrl = uri.toString();
+          // Для фото — миниатюра через тот же прокси: сервер отдаёт
+          // превью из KS3 (при отсутствии — генерирует через sharp).
+          if (media.type.startsWith('image/')) {
+            media.thumbnailUrl = ApiService.uri(
+              '/view/report/$publicId/thumbnails/${media.localPath}',
+              {'share_token': _shareToken},
+            ).toString();
+          }
         }
       }
     });
@@ -3266,6 +3365,16 @@ class ReportState extends ChangeNotifier {
     return out;
   }
 
+  /// Относительный путь миниатюры изображения. Правило совпадает с
+  /// `thumbnailService.getThumbnailStorageKey` на сервере: расширение
+  /// заменяется на суффикс `_thumb.jpg` (`photos/a.jpg` → `photos/a_thumb.jpg`).
+  String _imageThumbRelPath(String relPath) {
+    final slash = relPath.lastIndexOf('/');
+    final dot = relPath.lastIndexOf('.');
+    if (dot <= slash) return '${relPath}_thumb.jpg';
+    return '${relPath.substring(0, dot)}_thumb.jpg';
+  }
+
   /// Заполнить MediaItem.webUrl presigned-ссылками с KS3.
   /// Вызывается после загрузки отчёта с сервера на web.
   /// Молча игнорирует ошибки сети — отчёт всё равно откроется,
@@ -3290,6 +3399,16 @@ class ReportState extends ChangeNotifier {
             final url = urlsData[media.localPath] ?? urlsData[media.name];
             if (url is String && url.isNotEmpty) {
               media.webUrl = url;
+            }
+            // Для фото — URL миниатюры (ключ с суффиксом _thumb.jpg).
+            // Сетка грузит миниатюру, полный файл — только в просмотрщике.
+            if (media.type.startsWith('image/')) {
+              final baseName = media.localPath!.split('/').last;
+              final thumbUrl = urlsData[_imageThumbRelPath(media.localPath!)] ??
+                  urlsData[_imageThumbRelPath(baseName)];
+              if (thumbUrl is String && thumbUrl.isNotEmpty) {
+                media.thumbnailUrl = thumbUrl;
+              }
             }
             // Для видео — ищем URL превью по thumbnailServerFileId.
             if (media.type.startsWith('video/') &&

@@ -308,6 +308,44 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     );
   }
 
+  /// Фото в плитке сетки: грузим миниатюру (лёгкая), а при её отсутствии
+  /// или ошибке — полное фото. Полный файл нужен в основном на странице
+  /// просмотра (см. [_imageProviderFor]).
+  Widget _buildGridPhoto(Map<String, dynamic> media) {
+    final webUrl = media['webUrl'] as String?;
+    final thumbUrl = media['thumbnailUrl'] as String?;
+    final hasFull = webUrl != null && webUrl.isNotEmpty;
+    final hasThumb = thumbUrl != null && thumbUrl.isNotEmpty;
+    if (!hasFull && !hasThumb) {
+      return const Icon(Icons.image, color: Colors.grey);
+    }
+    return Image.network(
+      hasThumb ? thumbUrl : webUrl!,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
+      errorBuilder: (_, _, _) {
+        if (!hasThumb || !hasFull) {
+          return const Icon(Icons.broken_image, color: Colors.grey);
+        }
+        return Image.network(
+          webUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) =>
+              const Icon(Icons.broken_image, color: Colors.grey),
+        );
+      },
+    );
+  }
+
   Widget _buildGrid() {
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -358,27 +396,8 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                                 media['localPath'],
                             fit: BoxFit.cover,
                           )
-                        : (kIsWeb && (media['webUrl'] as String?) != null
-                              ? Image.network(
-                                  media['webUrl'] as String,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return const Center(
-                                      child: SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (_, _, _) => const Icon(
-                                    Icons.broken_image,
-                                    color: Colors.grey,
-                                  ),
-                                )
+                        : (kIsWeb
+                              ? _buildGridPhoto(media)
                               : const Icon(Icons.image, color: Colors.grey))),
             ),
             // Тапабельный чекбокс выбора в левом верхнем углу каждой миниатюры.

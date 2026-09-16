@@ -38,6 +38,30 @@ class MediaItemWidget extends StatelessWidget {
     return '$reportPath/$relativePath';
   }
 
+  /// Изображение из сети: сначала [url], при ошибке — [fallbackUrl]
+  /// (миниатюры может не быть в KS3, например для старых файлов).
+  Widget _networkImage(String url, {String? fallbackUrl}) {
+    return Image.network(
+      url,
+      width: 70,
+      height: 70,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
+      errorBuilder: (_, _, _) => (fallbackUrl == null || fallbackUrl == url)
+          ? const Icon(Icons.broken_image, color: Colors.red)
+          : _networkImage(fallbackUrl),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -105,35 +129,16 @@ class MediaItemWidget extends StatelessWidget {
                         ],
                       );
                     }
-                    // Web: отображаем через presigned URL (фото с сервера)
+                    // Web: в сетке грузим миниатюру (лёгкая), а при её
+                    // отсутствии или ошибке — полное фото. Сам полный файл
+                    // нужен в основном только в полноэкранном просмотрщике.
                     final webUrl = media['webUrl'] as String?;
+                    final thumbUrl = media['thumbnailUrl'] as String?;
                     if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.network(
-                            webUrl,
-                            width: 70,
-                            height: 70,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return const Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.broken_image,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
+                      final hasThumb = thumbUrl != null && thumbUrl.isNotEmpty;
+                      return _networkImage(
+                        hasThumb ? thumbUrl : webUrl,
+                        fallbackUrl: hasThumb ? webUrl : null,
                       );
                     }
                     // Mobile/Desktop: отображаем из файла

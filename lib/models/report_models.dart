@@ -491,12 +491,22 @@ class Report {
       final mediaList = i < langMarkers.length ? langMarkers[i].media : [];
       final mediaMaps = mediaList.map((m) => m.toAnswerMap()).toList();
 
+      // rid (стабильный id строки) и автор ячейки нужны UI, чтобы отличать
+      // ответы, созданные другим пользователем (подсветка «новый чужой ответ»).
+      final cell = i < langAnswers.length ? langAnswers[i] : null;
+      final marker = i < langMarkers.length ? langMarkers[i] : null;
+      String? rid = cell?.rowId;
+      if (rid == null || rid.isEmpty) rid = marker?.rowId;
+
       result.add({
         'text': text,
         'isEmpty': isEmpty,
         'attention': attention,
         'media': mediaMaps,
         'needsWork': needsWork,
+        'rid': rid,
+        'authorId': cell?.authorId,
+        'authorIsAnonymous': cell?.authorIsAnonymous ?? false,
       });
     }
 
