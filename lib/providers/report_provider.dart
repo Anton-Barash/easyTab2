@@ -1102,14 +1102,24 @@ class ReportState extends ChangeNotifier {
     if (!_currentReport!.mediaCounter.containsKey(counterKey)) {
       _currentReport!.mediaCounter[counterKey] = 1;
     }
-    final counter = _currentReport!.mediaCounter[counterKey]!;
+    var counter = _currentReport!.mediaCounter[counterKey]!;
     final ext = file.path.split('.').last;
     final mimeType = mimeTypeFromFilename(file.path);
     final typePrefix = mimeType.startsWith('video/') ? 'v' : 'f';
-    final fileName =
-        '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
-
+    String fileName;
+    // Гарантия уникальности: счётчик мог сброситься после синхронизации
+    // (перезапись существующего файла = «пропавшее» фото), поэтому имя
+    // проверяется по всем медиа отчёта и по файлам на диске.
+    final usedNames = _collectMediaNames();
     final folderName = isAttention ? 'X' : 'photos';
+    do {
+      fileName =
+          '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
+      counter++;
+    } while (usedNames.contains(fileName) ||
+        File('$_currentReportPath/$folderName/$fileName').existsSync());
+    _currentReport!.mediaCounter[counterKey] = counter;
+
     final destFolder = Directory('$_currentReportPath/$folderName');
     if (!await destFolder.exists()) {
       await destFolder.create(recursive: true);
@@ -1143,9 +1153,20 @@ class ReportState extends ChangeNotifier {
 
     _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
 
-    _currentReport!.mediaCounter[counterKey] = counter + 1;
-
     notifyListeners();
+  }
+
+  /// Собрать все имена медиафайлов отчёта (для проверки уникальности).
+  Set<String> _collectMediaNames() {
+    final names = <String>{};
+    _currentReport?.markers.forEach((_, markersList) {
+      for (final markers in markersList) {
+        for (final media in markers.media) {
+          names.add(media.name);
+        }
+      }
+    });
+    return names;
   }
 
   /// Добавить медиафайл из байтов (для web-версии).
@@ -1200,14 +1221,22 @@ class ReportState extends ChangeNotifier {
     if (!_currentReport!.mediaCounter.containsKey(counterKey)) {
       _currentReport!.mediaCounter[counterKey] = 1;
     }
-    final counter = _currentReport!.mediaCounter[counterKey]!;
+    var counter = _currentReport!.mediaCounter[counterKey]!;
 
     // Генерируем имя файла: f/v + вопрос + ответ + номер
     // f = photo, v = video
     final typePrefix = mimeType.startsWith('video/') ? 'v' : 'f';
     final ext = fileName.split('.').last;
-    final generatedName =
-        '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
+    // Гарантия уникальности: счётчик мог сброситься после синхронизации —
+    // имя не должно совпадать с уже существующим медиа отчёта.
+    final usedNames = _collectMediaNames();
+    String generatedName;
+    do {
+      generatedName =
+          '$typePrefix${questionIndex + 1}_${answerIndex + 1}_${counter.toString().padLeft(3, '0')}.$ext';
+      counter++;
+    } while (usedNames.contains(generatedName));
+    _currentReport!.mediaCounter[counterKey] = counter;
 
     // Относительный путь (для совместимости с mobile/desktop)
     final folderName = isAttention ? 'X' : 'photos';
@@ -1238,7 +1267,6 @@ class ReportState extends ChangeNotifier {
     );
 
     _currentReport!.markers[qid]![answerIndex].media.add(mediaItem);
-    _currentReport!.mediaCounter[counterKey] = counter + 1;
 
     notifyListeners();
 
@@ -2165,10 +2193,15 @@ class ReportState extends ChangeNotifier {
       // Сохраняем выбранный пользователем язык заполнения, чтобы pull/синк
       // не сбрасывал его на язык по умолчанию (первый в списке).
       final prevLanguage = _currentReport?.currentLanguage;
+      final prevCounter = _currentReport?.mediaCounter;
       _currentReport = Report.fromJson(
         reportData,
         folderPath: _currentReportPath,
       );
+      // Счётчик имён медиа монотонен: серверный документ мог потерять
+      // mediaCounter — наследуем локальный, чтобы новое фото не получило
+      // имя существующего файла (перезапись = «пропавшее» фото).
+      _mergeMediaCounters(prevCounter, _currentReport!.mediaCounter);
       if (prevLanguage != null &&
           prevLanguage.isNotEmpty &&
           _currentReport?.availableLanguages.contains(prevLanguage) == true) {
@@ -2274,7 +2307,7 @@ class ReportState extends ChangeNotifier {
       if (result.success) {
         final merged = result.data?['merged'];
         if (merged is Map) {
-          _applyMergedSnapshot(
+          await _applyMergedSnapshot(
             Map<String, dynamic>.from(merged),
             result.data?['newVersion'],
           );
@@ -2555,14 +2588,30 @@ class ReportState extends ChangeNotifier {
   }
 
   /// Применить серверный `merged`-документ как новое состояние и новую базу.
-  void _applyMergedSnapshot(Map<String, dynamic> merged, dynamic newVersion) {
+  Future<void> _applyMergedSnapshot(
+    Map<String, dynamic> merged,
+    dynamic newVersion,
+  ) async {
     final prevLanguage = _currentReport?.currentLanguage;
+    final prevCounter = _currentReport?.mediaCounter;
     final folderPath = _currentReportPath ?? (_serverReportId?.toString());
     _currentReport = Report.fromJson(merged, folderPath: folderPath);
+    // Счётчик имён медиа должен быть монотонным: если серверный документ
+    // потерял mediaCounter (старый сервер / share-путь) — наследуем прежний,
+    // иначе новое фото получит имя уже существующего файла и перезапишет его.
+    _mergeMediaCounters(prevCounter, _currentReport!.mediaCounter);
     if (prevLanguage != null &&
         prevLanguage.isNotEmpty &&
         _currentReport?.availableLanguages.contains(prevLanguage) == true) {
       _currentReport!.currentLanguage = prevLanguage;
+    }
+    // Runtime-URL (webUrl/thumbnailUrl) в JSON не живут: после merged фото,
+    // добавленные другими устройствами, остались бы «битыми» до перезагрузки.
+    final shareToken = _shareToken;
+    if (shareToken != null && shareToken.isNotEmpty) {
+      _populateMediaWebUrlsForShare();
+    } else if (_serverReportId != null) {
+      await _populateMediaWebUrls(_serverReportId!);
     }
     if (newVersion != null) {
       _serverReportVersion = newVersion is int
@@ -2571,6 +2620,21 @@ class ReportState extends ChangeNotifier {
     }
     _baseReportSnapshot = merged;
     notifyListeners();
+  }
+
+  /// По каждому ключу берём максимум из прежнего и нового счётчика
+  /// (или прежнее значение, если в новом документе ключа нет).
+  void _mergeMediaCounters(
+    Map<String, int>? prev,
+    Map<String, int> next,
+  ) {
+    if (prev == null) return;
+    for (final entry in prev.entries) {
+      final existing = next[entry.key];
+      next[entry.key] = existing == null
+          ? entry.value
+          : (entry.value > existing ? entry.value : existing);
+    }
   }
 
   /// ID отчёта на сервере (используется на web для обновления существующего отчёта).
