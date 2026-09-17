@@ -15,14 +15,10 @@ import '../services/report_merge_service.dart';
 // генерация превью) загружаются лениво (deferred) — они нужны только
 // на экране заполнения отчёта (form_fill), а не на старте.
 // Каждый станет отдельным чанком, подгружаемым при первом использовании.
-import '../services/report_excel_service.dart'
-    deferred as excel_service;
-import '../services/report_html_service.dart'
-    deferred as html_service;
-import '../services/report_sync_service.dart'
-    deferred as sync_service;
-import '../services/project_zip_service.dart'
-    deferred as zip_service;
+import '../services/report_excel_service.dart' deferred as excel_service;
+import '../services/report_html_service.dart' deferred as html_service;
+import '../services/report_sync_service.dart' deferred as sync_service;
+import '../services/project_zip_service.dart' deferred as zip_service;
 import '../services/native_video_compress_service.dart'
     deferred as native_compress;
 import '../services/share_token_storage.dart';
@@ -32,10 +28,8 @@ import '../services/mime_utils.dart';
 import '../services/upload_helper.dart';
 // Пакет image (~0.5 MB) нужен только при добавлении фото — deferred.
 import '../utils/image_compressor.dart' deferred as image_compressor;
-import '../services/video_upload_queue.dart'
-    deferred as video_upload_queue;
-import '../utils/video_thumbnail_generator.dart'
-    deferred as thumbnail_gen;
+import '../services/video_upload_queue.dart' deferred as video_upload_queue;
+import '../utils/video_thumbnail_generator.dart' deferred as thumbnail_gen;
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
@@ -212,7 +206,9 @@ class ReportState extends ChangeNotifier {
   int attachmentsCountForAnswer(int questionIndex, int answerIndex) =>
       attachments
           .where(
-            (a) => a.questionIndex == questionIndex && a.answerIndex == answerIndex,
+            (a) =>
+                a.questionIndex == questionIndex &&
+                a.answerIndex == answerIndex,
           )
           .length;
 
@@ -237,7 +233,8 @@ class ReportState extends ChangeNotifier {
       return false;
     }
 
-    final id = 'att_${DateTime.now().millisecondsSinceEpoch}_'
+    final id =
+        'att_${DateTime.now().millisecondsSinceEpoch}_'
         '${attachments.length}';
     final attachment = Attachment(
       id: id,
@@ -291,7 +288,8 @@ class ReportState extends ChangeNotifier {
       return false;
     }
 
-    final id = 'att_${DateTime.now().millisecondsSinceEpoch}_'
+    final id =
+        'att_${DateTime.now().millisecondsSinceEpoch}_'
         '${attachments.length}';
     final attachment = Attachment(
       id: id,
@@ -994,7 +992,8 @@ class ReportState extends ChangeNotifier {
           }
         }
       }
-    } else if (answerIndex == _currentReport!.translations[qid]![lang]!.length &&
+    } else if (answerIndex ==
+            _currentReport!.translations[qid]![lang]!.length &&
         text.isNotEmpty) {
       // «Фантомный» ряд: ответа ещё нет в данных (новые отчёты не создают
       // пустые rows). При первом введённом символе создаём ряд со свежим
@@ -1272,16 +1271,17 @@ class ReportState extends ChangeNotifier {
       // Фото (и native видео без сжатия) загружаем сразу, если отчёт сохранён.
       // В share-режиме _ks3Folder может быть null — сервер найдёт его сам.
       _boundedMediaUpload(
-        () => _uploadMediaToServer(
-          mediaItem,
-          finalBytes,
-          generatedName,
-          relativePath,
-          mimeType,
-          onUploadProgress,
-        ).catchError((e) {
-          if (kDebugMode) debugPrint('Background upload failed: $e');
-        }),
+        () =>
+            _uploadMediaToServer(
+              mediaItem,
+              finalBytes,
+              generatedName,
+              relativePath,
+              mimeType,
+              onUploadProgress,
+            ).catchError((e) {
+              if (kDebugMode) debugPrint('Background upload failed: $e');
+            }),
       );
     }
 
@@ -1968,8 +1968,9 @@ class ReportState extends ChangeNotifier {
         .replaceAll(RegExp(r'\s+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_+|_+$'), '');
-    final shortTitle =
-        safeTitle.length > 40 ? safeTitle.substring(0, 40) : safeTitle;
+    final shortTitle = safeTitle.length > 40
+        ? safeTitle.substring(0, 40)
+        : safeTitle;
     final baseName = '${shortTitle.isEmpty ? 'report' : shortTitle}_$now';
     final reportsDir = await _getReportsDir();
     return '$reportsDir/$baseName';
@@ -2049,8 +2050,9 @@ class ReportState extends ChangeNotifier {
         .replaceAll(RegExp(r'\s+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_+|_+$'), '');
-    final shortTitle =
-        safeTitle.length > 40 ? safeTitle.substring(0, 40) : safeTitle;
+    final shortTitle = safeTitle.length > 40
+        ? safeTitle.substring(0, 40)
+        : safeTitle;
     if (shortTitle.isEmpty) return;
 
     final separatorIdx = currentPath.lastIndexOf(Platform.pathSeparator);
@@ -2065,7 +2067,9 @@ class ReportState extends ChangeNotifier {
       if (await newDir.exists()) return; // коллизия имени — не трогаем
       await oldDir.rename(newPath);
       _currentReportPath = newPath;
-      if (kDebugMode) debugPrint('renameReportFolder: $currentPath -> $newPath');
+      if (kDebugMode) {
+        debugPrint('renameReportFolder: $currentPath -> $newPath');
+      }
     } catch (e) {
       if (kDebugMode) debugPrint('renameReportFolder error: $e');
     }
@@ -2086,7 +2090,8 @@ class ReportState extends ChangeNotifier {
     // а webBytes (runtime-only) при этом теряются.
     await _uploadPendingMedia();
 
-    final canMergeOps = mergeOpsEnabled &&
+    final canMergeOps =
+        mergeOpsEnabled &&
         !_mergeOpsUnsupported &&
         _serverReportId != null &&
         _baseReportSnapshot != null;
@@ -2172,14 +2177,22 @@ class ReportState extends ChangeNotifier {
       _baseReportSnapshot = reportData;
 
       final publicId = server['publicId'];
-      _serverPublicId = (publicId is String && publicId.isNotEmpty) ? publicId : null;
+      _serverPublicId = (publicId is String && publicId.isNotEmpty)
+          ? publicId
+          : null;
 
       final folder = server['ks3Folder'];
       _ks3Folder = (folder is String && folder.isNotEmpty) ? folder : null;
 
       final version = server['version'];
-      _serverReportVersion =
-          version is int ? version : int.tryParse(version.toString());
+      _serverReportVersion = version is int
+          ? version
+          : int.tryParse(version.toString());
+
+      // Медиа, добавленные другими (например на web по share-ссылке), на этом
+      // устройстве локальных файлов не имеют. Заполняем webUrl/thumbnailUrl,
+      // чтобы виджеты могли показать их по сети.
+      await _populateMediaWebUrls(reportId);
 
       // Персистим pull-нутую версию в локальную папку (источник истины на native).
       final folderPath = _currentReportPath;
@@ -2189,7 +2202,9 @@ class ReportState extends ChangeNotifier {
         final metaFile = File('$folderPath/sync_meta.json');
         if (await metaFile.exists()) {
           try {
-            final meta = jsonDecode(await metaFile.readAsString()) as Map<String, dynamic>;
+            final meta =
+                jsonDecode(await metaFile.readAsString())
+                    as Map<String, dynamic>;
             meta['serverVersion'] = _serverReportVersion;
             await metaFile.writeAsString(jsonEncode(meta));
           } catch (_) {}
@@ -2238,7 +2253,10 @@ class ReportState extends ChangeNotifier {
     for (var attempt = 0; attempt < 3; attempt++) {
       // Используем поле (а не локальный `base`): при разрешении конфликта
       // или при гонке версий `_baseReportSnapshot` мог быть обновлён.
-      final ops = buildReportOps(_baseReportSnapshot!, _currentReport!.toJson());
+      final ops = buildReportOps(
+        _baseReportSnapshot!,
+        _currentReport!.toJson(),
+      );
       if (ops.isEmpty) return _OpsSaveResult.saved;
 
       final ApiResult result;
@@ -2250,10 +2268,7 @@ class ReportState extends ChangeNotifier {
           ops: ops,
         );
       } else {
-        result = await ApiService.patchReportOps(
-          reportId: serverId,
-          ops: ops,
-        );
+        result = await ApiService.patchReportOps(reportId: serverId, ops: ops);
       }
 
       if (result.success) {
@@ -2326,7 +2341,8 @@ class ReportState extends ChangeNotifier {
       // 404 исключаем: под ним может быть старый сервер без ops-роута
       // (обрабатывается ниже как fallbackLegacy). Если отчёт действительно
       // удалён — отвязку выполнит legacy-путь _saveReportToServer.
-      final isDenial = result.statusCode == 403 ||
+      final isDenial =
+          result.statusCode == 403 ||
           result.statusCode == 410 ||
           (result.isPermanentAccessDenied && result.statusCode != 404);
       if (isDenial) {
@@ -2369,8 +2385,9 @@ class ReportState extends ChangeNotifier {
         }
         _baseReportSnapshot = Map<String, dynamic>.from(reportData);
         final version = result.data?['report']?['version'];
-        _serverReportVersion =
-            version is int ? version : int.tryParse(version.toString());
+        _serverReportVersion = version is int
+            ? version
+            : int.tryParse(version.toString());
         return true;
       }
 
@@ -2384,8 +2401,9 @@ class ReportState extends ChangeNotifier {
       }
       _baseReportSnapshot = Map<String, dynamic>.from(reportData);
       final version = result.data?['report']?['version'];
-      _serverReportVersion =
-          version is int ? version : int.tryParse(version.toString());
+      _serverReportVersion = version is int
+          ? version
+          : int.tryParse(version.toString());
       return true;
     } catch (e) {
       _lastSyncError = e.toString();
@@ -2396,8 +2414,9 @@ class ReportState extends ChangeNotifier {
   /// Разобрать новый (merge-by-ID) 409 и спроецировать на существующий диалог.
   ConflictDetails? _parseCellConflicts(dynamic raw) {
     if (raw is! Map) return null;
-    final currentVersion =
-        raw['currentVersion'] is int ? raw['currentVersion'] as int : 0;
+    final currentVersion = raw['currentVersion'] is int
+        ? raw['currentVersion'] as int
+        : 0;
     final conflictsRaw = raw['conflicts'];
     if (conflictsRaw is! List || conflictsRaw.isEmpty) return null;
 
@@ -2410,10 +2429,12 @@ class ReportState extends ChangeNotifier {
       final field = c['field']?.toString();
       final serverText = c['serverText']?.toString() ?? '';
       final clientText = c['clientText']?.toString() ?? '';
-      final serverUpdatedAt =
-          c['serverUpdatedAt'] is int ? c['serverUpdatedAt'] as int : null;
-      final clientUpdatedAt =
-          c['clientUpdatedAt'] is int ? c['clientUpdatedAt'] as int : null;
+      final serverUpdatedAt = c['serverUpdatedAt'] is int
+          ? c['serverUpdatedAt'] as int
+          : null;
+      final clientUpdatedAt = c['clientUpdatedAt'] is int
+          ? c['clientUpdatedAt'] as int
+          : null;
       final serverAuthor = c['serverAuthor']?.toString();
 
       int qIndex = -1;
@@ -2433,21 +2454,23 @@ class ReportState extends ChangeNotifier {
       }
       if (qIndex < 0 || aIndex < 0) continue;
 
-      out.add(AnswerConflict(
-        questionIndex: qIndex,
-        answerIndex: aIndex,
-        language: lang,
-        serverText: serverText,
-        clientText: clientText,
-        qid: qid,
-        rid: rid,
-        field: field,
-        clientUpdatedAt: clientUpdatedAt,
-        serverUpdatedAt: serverUpdatedAt,
-        serverAuthor: (serverAuthor != null && serverAuthor.isEmpty)
-            ? null
-            : serverAuthor,
-      ));
+      out.add(
+        AnswerConflict(
+          questionIndex: qIndex,
+          answerIndex: aIndex,
+          language: lang,
+          serverText: serverText,
+          clientText: clientText,
+          qid: qid,
+          rid: rid,
+          field: field,
+          clientUpdatedAt: clientUpdatedAt,
+          serverUpdatedAt: serverUpdatedAt,
+          serverAuthor: (serverAuthor != null && serverAuthor.isEmpty)
+              ? null
+              : serverAuthor,
+        ),
+      );
     }
     if (out.isEmpty) return null;
     return ConflictDetails(
@@ -2497,7 +2520,9 @@ class ReportState extends ChangeNotifier {
             final cell = (list[c.answerIndex] as Map);
             cell['text'] = c.serverText;
             cell['_empty'] = c.serverText.isEmpty;
-            if (c.serverUpdatedAt != null) cell['updatedAt'] = c.serverUpdatedAt;
+            if (c.serverUpdatedAt != null) {
+              cell['updatedAt'] = c.serverUpdatedAt;
+            }
             if (c.serverAuthor != null) cell['authorId'] = c.serverAuthor;
           }
         }
@@ -2532,8 +2557,7 @@ class ReportState extends ChangeNotifier {
   /// Применить серверный `merged`-документ как новое состояние и новую базу.
   void _applyMergedSnapshot(Map<String, dynamic> merged, dynamic newVersion) {
     final prevLanguage = _currentReport?.currentLanguage;
-    final folderPath =
-        _currentReportPath ?? (_serverReportId?.toString());
+    final folderPath = _currentReportPath ?? (_serverReportId?.toString());
     _currentReport = Report.fromJson(merged, folderPath: folderPath);
     if (prevLanguage != null &&
         prevLanguage.isNotEmpty &&
@@ -2541,8 +2565,9 @@ class ReportState extends ChangeNotifier {
       _currentReport!.currentLanguage = prevLanguage;
     }
     if (newVersion != null) {
-      _serverReportVersion =
-          newVersion is int ? newVersion : int.tryParse(newVersion.toString());
+      _serverReportVersion = newVersion is int
+          ? newVersion
+          : int.tryParse(newVersion.toString());
     }
     _baseReportSnapshot = merged;
     notifyListeners();
@@ -2696,7 +2721,11 @@ class ReportState extends ChangeNotifier {
         if (action == ConflictAction.overwrite) {
           // Пользователь решил сохранить поверх: повторяем без baseSnapshot/baseVersion.
           if (_shareToken != null && _shareToken!.isNotEmpty) {
-            result = await _saveSharedReportToServer(title, jsonData, withLock: false);
+            result = await _saveSharedReportToServer(
+              title,
+              jsonData,
+              withLock: false,
+            );
           } else {
             result = await ApiService.saveReport(
               title: title,
@@ -2709,7 +2738,10 @@ class ReportState extends ChangeNotifier {
           // UI уже разрешил конфликты ответов внутри провайдера.
           // Повторяем сохранение с актуальным baseSnapshot.
           if (_shareToken != null && _shareToken!.isNotEmpty) {
-            result = await _saveSharedReportToServer(title, _currentReport!.toJson());
+            result = await _saveSharedReportToServer(
+              title,
+              _currentReport!.toJson(),
+            );
           } else {
             result = await ApiService.saveReport(
               title: title,
@@ -2738,7 +2770,9 @@ class ReportState extends ChangeNotifier {
         }
         // Запоминаем версию отчёта (optimistic locking)
         final version = result.data!['report']['version'];
-        _serverReportVersion = version is int ? version : int.tryParse(version.toString());
+        _serverReportVersion = version is int
+            ? version
+            : int.tryParse(version.toString());
         // Обновляем baseSnapshot — теперь серверная версия является новой базой.
         _baseReportSnapshot = _currentReport?.toJson();
         if (kDebugMode) {
@@ -2848,8 +2882,8 @@ class ReportState extends ChangeNotifier {
   ) {
     if (_baseReportSnapshot == null) return;
     final qid = questionIndex.toString();
-    final translations = _baseReportSnapshot!['translations']
-        as Map<String, dynamic>?;
+    final translations =
+        _baseReportSnapshot!['translations'] as Map<String, dynamic>?;
     final langMap = translations?[qid] as Map<String, dynamic>?;
     final answers = langMap?[language] as List<dynamic>?;
     if (answers != null && answerIndex < answers.length) {
@@ -2886,12 +2920,7 @@ class ReportState extends ChangeNotifier {
     String ownText,
   ) {
     _updateBaseAnswerText(questionIndex, answerIndex, language, serverText);
-    updateAnswerText(
-      questionIndex,
-      answerIndex,
-      ownText,
-      language: language,
-    );
+    updateAnswerText(questionIndex, answerIndex, ownText, language: language);
     notifyListeners();
   }
 
@@ -2913,12 +2942,14 @@ class ReportState extends ChangeNotifier {
     _updateBaseAnswerText(questionIndex, answerIndex, language, serverText);
     addAnswer(questionIndex);
     final newIndex =
-        (_currentReport?.getAnswersForQuestion(
+        (_currentReport
+                ?.getAnswersForQuestion(
                   questionIndex,
                   _currentReport!.currentLanguage,
-                ).length ??
-                1) -
-            1;
+                )
+                .length ??
+            1) -
+        1;
     updateAnswerText(questionIndex, newIndex, ownText, language: language);
     notifyListeners();
   }
@@ -3025,8 +3056,9 @@ class ReportState extends ChangeNotifier {
         }
         final version = meta['serverVersion'] ?? meta['version'];
         if (version != null) {
-          _serverReportVersion =
-              version is int ? version : int.tryParse(version.toString());
+          _serverReportVersion = version is int
+              ? version
+              : int.tryParse(version.toString());
         }
         final ks3 = meta['ks3Folder'];
         if (ks3 is String && ks3.isNotEmpty) {
@@ -3069,8 +3101,9 @@ class ReportState extends ChangeNotifier {
       if (folderPath != null) {
         final dir = Directory(folderPath);
         if (await dir.exists()) {
-          final meta =
-              File('$folderPath${Platform.pathSeparator}sync_meta.json');
+          final meta = File(
+            '$folderPath${Platform.pathSeparator}sync_meta.json',
+          );
           if (await meta.exists()) await meta.delete();
           final name = folderPath.split(Platform.pathSeparator).last;
           final parentDir = _parentDirOf(folderPath);
@@ -3086,8 +3119,7 @@ class ReportState extends ChangeNotifier {
               await Directory(libraryDir).create(recursive: true);
               newPath = '$libraryDir${Platform.pathSeparator}$newName';
             } else {
-              newPath =
-                  '$parentDir${Platform.pathSeparator}$newName';
+              newPath = '$parentDir${Platform.pathSeparator}$newName';
             }
             await dir.rename(newPath);
             _currentReportPath = newPath;
@@ -3184,7 +3216,9 @@ class ReportState extends ChangeNotifier {
 
       // Запоминаем версию отчёта (optimistic locking)
       final version = result.data!['report']['version'];
-      _serverReportVersion = version is int ? version : int.tryParse(version.toString());
+      _serverReportVersion = version is int
+          ? version
+          : int.tryParse(version.toString());
 
       // Заполняем webUrl для медиа — presigned URL с KS3.
       // Без этого на web фото/видео не отображаются (webBytes пустой,
@@ -3245,7 +3279,9 @@ class ReportState extends ChangeNotifier {
       _serverPublicId = result.data!['report']['publicId']?.toString();
       _ks3Folder = result.data!['report']['ks3Folder']?.toString();
       final version = result.data!['report']['version'];
-      _serverReportVersion = version is int ? version : int.tryParse(version.toString());
+      _serverReportVersion = version is int
+          ? version
+          : int.tryParse(version.toString());
       _baseReportSnapshot = reportData;
 
       await _populateMediaWebUrlsForShare();
@@ -3353,14 +3389,16 @@ class ReportState extends ChangeNotifier {
         expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresRaw.toInt());
       }
 
-      out.add(ShareLinkInfo(
-        token: token,
-        url: _buildSharePublicUrl(token),
-        expiresAt: expiresAt,
-        isActive: true,
-        permissions: e['permissions']?.toString() ?? 'edit',
-        createdAt: now,
-      ));
+      out.add(
+        ShareLinkInfo(
+          token: token,
+          url: _buildSharePublicUrl(token),
+          expiresAt: expiresAt,
+          isActive: true,
+          permissions: e['permissions']?.toString() ?? 'edit',
+          createdAt: now,
+        ),
+      );
     }
     return out;
   }
@@ -3404,7 +3442,8 @@ class ReportState extends ChangeNotifier {
             // Сетка грузит миниатюру, полный файл — только в просмотрщике.
             if (media.type.startsWith('image/')) {
               final baseName = media.localPath!.split('/').last;
-              final thumbUrl = urlsData[_imageThumbRelPath(media.localPath!)] ??
+              final thumbUrl =
+                  urlsData[_imageThumbRelPath(media.localPath!)] ??
                   urlsData[_imageThumbRelPath(baseName)];
               if (thumbUrl is String && thumbUrl.isNotEmpty) {
                 media.thumbnailUrl = thumbUrl;
@@ -3927,10 +3966,9 @@ class ReportState extends ChangeNotifier {
     if (kIsWeb) return;
     try {
       await share_plus.loadLibrary();
-      await share_plus.Share.shareXFiles(
-        [share_plus.XFile(zipPath)],
-        text: 'EasyTab Report',
-      );
+      await share_plus.Share.shareXFiles([
+        share_plus.XFile(zipPath),
+      ], text: 'EasyTab Report');
     } catch (e) {
       if (kDebugMode) debugPrint('Error sharing zip: $e');
     }

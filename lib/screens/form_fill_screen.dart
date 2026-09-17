@@ -236,6 +236,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         .expand((map) => map.values)
         .forEach((timer) => timer?.cancel());
     _pageController.dispose();
+    _autoSaveTimer?.cancel();
     super.dispose();
   }
 
@@ -243,6 +244,29 @@ class _FormFillScreenState extends State<FormFillScreen> {
     if (!_hasUnsavedChanges) {
       setState(() => _hasUnsavedChanges = true);
     }
+    _scheduleAutoSave();
+  }
+
+  /// Таймер автосохранения (только web).
+  Timer? _autoSaveTimer;
+
+  /// На web (включая анонима по share-ссылке) сохранение на сервер
+  /// автоматическое: через 3 секунды после последней правки отчёт
+  /// отправляется на сервер сам. Отдельная кнопка «Сохранить» на web
+  /// не нужна — есть только «Синхронизировать».
+  void _scheduleAutoSave() {
+    if (!kIsWeb) return;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted || _isSaving) return;
+      if (!_hasUnsavedChanges) return;
+      // Правки ещё «в дебаунсе» — сначала применяем их в модель.
+      final reportState = context.read<ReportState>();
+      if (_hasPendingEdits()) {
+        _flushPendingEdits(reportState);
+      }
+      _doSaveAndSync();
+    });
   }
 
   Future<void> _doSave() async {
@@ -324,9 +348,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       if (!saved && !detached && mounted) {
         final detail = reportState.lastSyncError;
         final message = syncFailureMessageFromText(detail, loc);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
       if (detached && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -346,8 +370,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   /// Есть ли отложенные дебаунсом правки, ещё не попавшие в модель отчёта.
   bool _hasPendingEdits() => _debounceTimers.values.any(
-        (perIndex) => perIndex.values.any((t) => t?.isActive ?? false),
-      );
+    (perIndex) => perIndex.values.any((t) => t?.isActive ?? false),
+  );
 
   /// Применить отложенные (дебаунс) правки в модель немедленно.
   /// Нужно перед сохранением/подтягиванием, чтобы текст из полей не потерялся.
@@ -396,9 +420,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
     // Отчёт ещё ни разу не сохранён на сервер — подтягивать нечего.
     if (!onServer) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.htmlRequiresSync)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.htmlRequiresSync)));
       }
       return;
     }
@@ -470,9 +494,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
               : const EdgeInsets.all(24),
           shape: isMobile
               ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
-              : RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+              : RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
               const Icon(
@@ -815,8 +837,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        _formatExpiry(link.expiresAt,
-                                            shareLinkDays: loc.shareLinkDays),
+                                        _formatExpiry(
+                                          link.expiresAt,
+                                          shareLinkDays: loc.shareLinkDays,
+                                        ),
                                         style: TextStyle(
                                           fontSize: itemFont,
                                           fontWeight: FontWeight.w500,
@@ -869,8 +893,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   /// Форматирует оставшийся срок действия ссылки в дни.
-  String _formatExpiry(DateTime? expiresAt,
-      {required String shareLinkDays}) {
+  String _formatExpiry(DateTime? expiresAt, {required String shareLinkDays}) {
     if (expiresAt == null) return '';
     final days = expiresAt.difference(DateTime.now()).inDays;
     if (days < 0) return '';
@@ -992,9 +1015,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             if (!context.mounted) return;
                             messenger.showSnackBar(
                               SnackBar(
-                                content: Text(ok
-                                    ? loc.shareLinkCopied
-                                    : loc.shareLinkCopy),
+                                content: Text(
+                                  ok ? loc.shareLinkCopied : loc.shareLinkCopy,
+                                ),
                                 duration: const Duration(seconds: 2),
                               ),
                             );
@@ -1159,8 +1182,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                           final url = createdLink!;
                                           final messenger =
                                               ScaffoldMessenger.of(context);
-                                          final ok =
-                                              await copyToClipboard(url);
+                                          final ok = await copyToClipboard(url);
                                           if (kDebugMode) {
                                             debugPrint(
                                               'share copy: ok=$ok; $url',
@@ -1169,9 +1191,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                           if (!context.mounted) return;
                                           messenger.showSnackBar(
                                             SnackBar(
-                                              content: Text(ok
-                                                  ? loc.shareLinkCopied
-                                                  : loc.shareLinkCopy),
+                                              content: Text(
+                                                ok
+                                                    ? loc.shareLinkCopied
+                                                    : loc.shareLinkCopy,
+                                              ),
                                               duration: const Duration(
                                                 seconds: 2,
                                               ),
@@ -1220,131 +1244,139 @@ class _FormFillScreenState extends State<FormFillScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                          Row(
-                            children: [1, 7, 30].map((days) {
-                              final isSelected = selectedDays == days;
-                              return Expanded(
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    right: days == 30 ? 0 : 8,
-                                  ),
-                                  child: InkWell(
-                                    onTap: isCreating
-                                        ? null
-                                        : () => setDialogState(
-                                            () => selectedDays = days,
+                                Row(
+                                  children: [1, 7, 30].map((days) {
+                                    final isSelected = selectedDays == days;
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          right: days == 30 ? 0 : 8,
+                                        ),
+                                        child: InkWell(
+                                          onTap: isCreating
+                                              ? null
+                                              : () => setDialogState(
+                                                  () => selectedDays = days,
+                                                ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? AppColors.grey700
-                                            : Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? AppColors.grey700
-                                              : AppColors.border,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        '$days ${loc.shareLinkDays}',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
-                                          color: isSelected
-                                              ? Colors.white
-                                              : AppColors.textPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Права доступа
-                          Text(
-                            loc.shareAccess,
-                            style: TextStyle(
-                              fontSize: labelFont,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              PermissionOption(
-                                label: loc.sharePermissionEdit,
-                                icon: Icons.edit,
-                                value: 'edit',
-                                groupValue: selectedPermission,
-                                onTap: isCreating
-                                    ? null
-                                    : () => setDialogState(
-                                          () => selectedPermission = 'edit',
-                                        ),
-                              ),
-                              const SizedBox(width: 8),
-                              PermissionOption(
-                                label: loc.sharePermissionView,
-                                icon: Icons.visibility,
-                                value: 'view',
-                                groupValue: selectedPermission,
-                                onTap: isCreating
-                                    ? null
-                                    : () => setDialogState(
-                                          () => selectedPermission = 'view',
-                                        ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: isNarrow ? 18 : 28),
-
-                          // Кнопки
-                          Row(
-                            children: [
-                              Expanded(
-                                child: EasyTabButton(
-                                  label: loc.cancel,
-                                  onTap: isCreating
-                                      ? null
-                                      : () => Navigator.of(dialogCtx).pop(),
-                                  fontSize: btnFont,
-                                  verticalPadding: btnVertical,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: EasyTabButton(
-                                  label: isCreating ? '' : loc.createShareLink,
-                                  onTap: isCreating ? null : doCreate,
-                                  fontSize: btnFont,
-                                  verticalPadding: btnVertical,
-                                  child: isCreating
-                                      ? const Center(
-                                          child: SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: AppColors.textPrimary,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 10,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? AppColors.grey700
+                                                  : Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: isSelected
+                                                    ? AppColors.grey700
+                                                    : AppColors.border,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              '$days ${loc.shareLinkDays}',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.w600
+                                                    : FontWeight.normal,
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : AppColors.textPrimary,
+                                              ),
                                             ),
                                           ),
-                                        )
-                                      : null,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
-                              ),
-                            ],
-                          ),
+                                const SizedBox(height: 20),
+
+                                // Права доступа
+                                Text(
+                                  loc.shareAccess,
+                                  style: TextStyle(
+                                    fontSize: labelFont,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    PermissionOption(
+                                      label: loc.sharePermissionEdit,
+                                      icon: Icons.edit,
+                                      value: 'edit',
+                                      groupValue: selectedPermission,
+                                      onTap: isCreating
+                                          ? null
+                                          : () => setDialogState(
+                                              () => selectedPermission = 'edit',
+                                            ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    PermissionOption(
+                                      label: loc.sharePermissionView,
+                                      icon: Icons.visibility,
+                                      value: 'view',
+                                      groupValue: selectedPermission,
+                                      onTap: isCreating
+                                          ? null
+                                          : () => setDialogState(
+                                              () => selectedPermission = 'view',
+                                            ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: isNarrow ? 18 : 28),
+
+                                // Кнопки
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: EasyTabButton(
+                                        label: loc.cancel,
+                                        onTap: isCreating
+                                            ? null
+                                            : () =>
+                                                  Navigator.of(dialogCtx).pop(),
+                                        fontSize: btnFont,
+                                        verticalPadding: btnVertical,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: EasyTabButton(
+                                        label: isCreating
+                                            ? ''
+                                            : loc.createShareLink,
+                                        onTap: isCreating ? null : doCreate,
+                                        fontSize: btnFont,
+                                        verticalPadding: btnVertical,
+                                        child: isCreating
+                                            ? const Center(
+                                                child: SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: AppColors
+                                                            .textPrimary,
+                                                      ),
+                                                ),
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                       ),
                     ),
@@ -1430,16 +1462,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
       if (!saved || reportId == null) {
         if (mounted) {
           // Право могло истечь — тогда провайдер отвязал копию от сервера.
-          final detached =
-              reportState.consumeServerLinkDetachedOnDeny();
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(
+          final detached = reportState.consumeServerLinkDetachedOnDeny();
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                detached
-                    ? loc.reportAccessExpiredDetached
-                    : loc.uploadError,
+                detached ? loc.reportAccessExpiredDetached : loc.uploadError,
               ),
               duration: detached
                   ? const Duration(seconds: 8)
@@ -1751,13 +1778,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
         child: Row(
           children: [
             Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off,
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
               size: 20,
-              color: selected
-                  ? AppColors.primary
-                  : AppColors.textSecondary,
+              color: selected ? AppColors.primary : AppColors.textSecondary,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1809,12 +1832,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+              insetPadding: isMobile
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.all(40),
               contentPadding: isMobile
                   ? const EdgeInsets.all(16)
                   : const EdgeInsets.all(24),
               shape: isMobile
-                  ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+                  ? const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.zero,
+                    )
                   : null,
               title: Text(loc.changeAnswerTitle),
               content: SingleChildScrollView(
@@ -1855,7 +1882,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             : loc.enterNewAnswerText,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: const BorderSide(color: AppColors.grey200),
+                          borderSide: const BorderSide(
+                            color: AppColors.grey200,
+                          ),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -1886,7 +1915,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             (reportState.currentReport
                                     ?.getAnswersForQuestion(
                                       i,
-                                      reportState.currentReport!.currentLanguage,
+                                      reportState
+                                          .currentReport!
+                                          .currentLanguage,
                                     )
                                     .length ??
                                 1) -
@@ -1948,8 +1979,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         if (mounted) {
           // Если при сохранении выяснилось, что право истекло, провайдер
           // уже отвязал локальную копию — сообщаем об этом явно.
-          final detached =
-              reportState.consumeServerLinkDetachedOnDeny();
+          final detached = reportState.consumeServerLinkDetachedOnDeny();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -1980,19 +2010,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
-    final viewUrl = ApiService.uri(
-      '/auth/redeem-view',
-      {
-        'token': token,
-        'target': '/view/report/$publicId',
-      },
-    ).toString();
+    final viewUrl = ApiService.uri('/auth/redeem-view', {
+      'token': token,
+      'target': '/view/report/$publicId',
+    }).toString();
     await openHtmlInBrowserUrl(viewUrl);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.htmlOpenedInNewTab)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.htmlOpenedInNewTab)));
     }
   }
 
@@ -2042,10 +2069,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
     final shareToken = reportState.shareToken;
     if (shareToken != null && shareToken.isNotEmpty) {
       final anonymousId = await AnonymousIdService.getId();
-      final uri = ApiService.uri(
-        '/reports/shares/$shareToken/html',
-        {'anonymous_id': anonymousId},
-      );
+      final uri = ApiService.uri('/reports/shares/$shareToken/html', {
+        'anonymous_id': anonymousId,
+      });
       openHtmlInBrowserUrl(uri.toString());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2299,13 +2325,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
           ),
           // Save / sync button.
           // - Отчёт ещё не на сервере → только дискета «Сохранить».
-          // - Есть несохранённые правки → дискета: сохранить + синхронизировать.
-          // - Изменений нет и отчёт на сервере → облако со стрелками по кругу:
-          //   просто синхронизировать.
+          // - На web сохранение автоматическое (автосейв в _markAsUnsaved),
+          //   кнопка всегда «Синхронизировать».
+          // - Нативные: есть несохранённые правки → дискета (сохранить +
+          //   синхронизировать); изменений нет и отчёт на сервере → облако.
           ((() {
-            final onServer = reportState.serverReportId != null ||
+            final onServer =
+                reportState.serverReportId != null ||
                 (reportState.serverPublicId?.isNotEmpty ?? false) ||
                 (reportState.shareToken?.isNotEmpty ?? false);
+            final webSync = kIsWeb && onServer;
             return IconButton(
               icon: _isSaving
                   ? const SizedBox(
@@ -2314,24 +2343,28 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Icon(
-                      _hasUnsavedChanges
-                          ? Icons.save
-                          : (onServer ? Icons.cloud_sync : Icons.save),
+                      webSync
+                          ? Icons.cloud_sync
+                          : (_hasUnsavedChanges
+                                ? Icons.save
+                                : (onServer ? Icons.cloud_sync : Icons.save)),
                       size: 24,
-                      color: _hasUnsavedChanges
-                          ? AppColors.primaryLight
-                          : (onServer
-                              ? AppColors.textPrimary
-                              : AppColors.primaryLight),
+                      color: !_hasUnsavedChanges && onServer
+                          ? AppColors.textPrimary
+                          : AppColors.primaryLight,
                     ),
               onPressed: _isSaving
                   ? null
+                  : (webSync
+                        ? _syncOnly
+                        : (_hasUnsavedChanges
+                              ? _doSaveAndSync
+                              : (onServer ? _syncOnly : null))),
+              tooltip: webSync
+                  ? loc.syncWithCloud
                   : (_hasUnsavedChanges
-                      ? _doSaveAndSync
-                      : (onServer ? _syncOnly : null)),
-              tooltip: _hasUnsavedChanges
-                  ? loc.save
-                  : (onServer ? loc.syncWithCloud : loc.save),
+                        ? loc.save
+                        : (onServer ? loc.syncWithCloud : loc.save)),
             );
           })()),
           Consumer<LocaleProvider>(
@@ -2525,8 +2558,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                       await viewHtmlWithChooser();
                     }
                   } else if (value == 4) {
-                    final excelHtml =
-                        await reportState.generateExcelHtmlContent();
+                    final excelHtml = await reportState
+                        .generateExcelHtmlContent();
                     try {
                       await Clipboard.setData(ClipboardData(text: excelHtml));
                       if (context.mounted) {
@@ -3814,21 +3847,21 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         : const EdgeInsets.all(20),
                     child: Center(
                       child: HeaderListTile(
-                      report: report,
-                      reportState: reportState,
-                      onNavigateToHeader: () {
-                        setState(() => _isSidePanelCollapsed = false);
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _scrollSidePanelToQuestion(-1, report);
-                        });
-                      },
-                      onEditHeader: () =>
-                          _showEditHeaderDialog(context, reportState),
-                      onPhotoAreaTap: () =>
-                          _showHeaderPhotoPicker(context, reportState),
-                      onViewPhoto: () =>
-                          _openHeaderPhotoViewer(context, reportState),
-                    ),
+                        report: report,
+                        reportState: reportState,
+                        onNavigateToHeader: () {
+                          setState(() => _isSidePanelCollapsed = false);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _scrollSidePanelToQuestion(-1, report);
+                          });
+                        },
+                        onEditHeader: () =>
+                            _showEditHeaderDialog(context, reportState),
+                        onPhotoAreaTap: () =>
+                            _showHeaderPhotoPicker(context, reportState),
+                        onViewPhoto: () =>
+                            _openHeaderPhotoViewer(context, reportState),
+                      ),
                     ),
                   );
                 }
@@ -3994,8 +4027,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
         content: StatefulBuilder(
           builder: (dialogCtx, setDialogState) => RadioGroup<int>(
             groupValue: selectedQuality,
-            onChanged: (value) =>
-                setDialogState(() => selectedQuality = value ?? reportState.videoQualityLevel),
+            onChanged: (value) => setDialogState(
+              () => selectedQuality = value ?? reportState.videoQualityLevel,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -4614,10 +4648,7 @@ class _PrimaryDialogButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
 
-  const _PrimaryDialogButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _PrimaryDialogButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -4629,9 +4660,7 @@ class _PrimaryDialogButton extends StatelessWidget {
         disabledBackgroundColor: AppColors.grey300,
         disabledForegroundColor: AppColors.grey500,
         padding: const EdgeInsets.symmetric(vertical: 13),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         elevation: 0,
       ),
       child: Text(
@@ -4647,10 +4676,7 @@ class _SecondaryDialogButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
 
-  const _SecondaryDialogButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _SecondaryDialogButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -4661,9 +4687,7 @@ class _SecondaryDialogButton extends StatelessWidget {
         side: const BorderSide(color: AppColors.greyBorder, width: 1.5),
         backgroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 13),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Text(
         label,

@@ -12,6 +12,8 @@
 // ============================================================
 
 import 'package:easy_tab/l10n/app_localizations.dart';
+import 'package:easy_tab/utils/platform_io.dart'
+    if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/utils/file_image.dart'
     if (dart.library.html) 'package:easy_tab/utils/file_image_web.dart';
 import 'package:easy_tab/utils/native_file_ops.dart'
@@ -249,10 +251,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                   children: [
                     const Icon(Icons.delete, color: Colors.red),
                     const SizedBox(width: 12),
-                    Text(
-                      loc.delete,
-                      style: const TextStyle(color: Colors.red),
-                    ),
+                    Text(loc.delete, style: const TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -299,12 +298,43 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
               ),
               child: _selectedIndices.contains(_currentIndex)
                   ? const Icon(Icons.check, size: 18, color: Colors.white)
-                  : const Icon(Icons.circle_outlined,
-                      size: 18, color: Colors.black38),
+                  : const Icon(
+                      Icons.circle_outlined,
+                      size: 18,
+                      color: Colors.black38,
+                    ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  /// Фото в сетке на native: локальный файл может отсутствовать (медиа
+  /// добавлено с другого устройства) — тогда грузим миниатюру/оригинал
+  /// по сети.
+  Widget _buildNativeGridPhoto(Map<String, dynamic> media) {
+    final thumbUrl = media['thumbnailUrl'] as String?;
+    final webUrl = media['webUrl'] as String?;
+    final url = thumbUrl ?? webUrl;
+    if (url == null || url.isEmpty) {
+      return const Icon(Icons.broken_image, color: Colors.grey);
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (context, _, _) {
+        final fallback = webUrl;
+        if (fallback == null || fallback.isEmpty || fallback == url) {
+          return const Icon(Icons.broken_image, color: Colors.grey);
+        }
+        return Image.network(
+          fallback,
+          fit: BoxFit.cover,
+          errorBuilder: (context, _, _) =>
+              const Icon(Icons.broken_image, color: Colors.grey),
+        );
+      },
     );
   }
 
@@ -390,7 +420,11 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                           ? (media['thumbnailUrl'] as String?)
                           : null,
                     )
-                  : (!kIsWeb && media['localPath'] != null
+                  : (!kIsWeb &&
+                            media['localPath'] != null &&
+                            File(
+                              _getAbsolutePath(media['localPath']) ?? '',
+                            ).existsSync()
                         ? fileImageWidget(
                             _getAbsolutePath(media['localPath']) ??
                                 media['localPath'],
@@ -398,7 +432,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
                           )
                         : (kIsWeb
                               ? _buildGridPhoto(media)
-                              : const Icon(Icons.image, color: Colors.grey))),
+                              : _buildNativeGridPhoto(media))),
             ),
             // Тапабельный чекбокс выбора в левом верхнем углу каждой миниатюры.
             // Позволяет быстро отметить фото/видео, не удерживая палец.
@@ -476,11 +510,17 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     final localPath = _getAbsolutePath(media['localPath'] as String?);
     final webUrl = media['webUrl'] as String?;
 
-    if (!kIsWeb && localPath != null) {
+    // Локальный файл есть только у медиа, добавленных на этом устройстве.
+    // Фото с других устройств (например с web) локально отсутствует —
+    // грузим по сети (миниатюра/оригинал уже в webUrl).
+    if (!kIsWeb && localPath != null && File(localPath).existsSync()) {
       return fileImageProvider(localPath);
     }
-    if (kIsWeb && webUrl != null && webUrl.isNotEmpty) {
+    if (webUrl != null && webUrl.isNotEmpty) {
       return NetworkImage(webUrl);
+    }
+    if (!kIsWeb && localPath != null) {
+      return fileImageProvider(localPath);
     }
     // Источник недоступен — отрисуем заглушку через pageBuilder.
     return null;

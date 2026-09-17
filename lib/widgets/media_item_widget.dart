@@ -141,9 +141,20 @@ class MediaItemWidget extends StatelessWidget {
                         fallbackUrl: hasThumb ? webUrl : null,
                       );
                     }
-                    // Mobile/Desktop: отображаем из файла
+                    // Mobile/Desktop: локальный файл; если его нет (фото
+                    // добавлено другим устройством, например с web) —
+                    // грузим миниатюру/оригинал по сети.
                     if (!kIsWeb && localPath != null) {
                       if (!File(localPath).existsSync()) {
+                        final netUrl =
+                            (media['thumbnailUrl'] as String?) ??
+                            (media['webUrl'] as String?);
+                        if (netUrl != null && netUrl.isNotEmpty) {
+                          return _networkImage(
+                            netUrl,
+                            fallbackUrl: media['webUrl'] as String?,
+                          );
+                        }
                         return const Icon(
                           Icons.broken_image,
                           color: Colors.red,
