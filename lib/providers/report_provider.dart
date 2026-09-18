@@ -1426,10 +1426,14 @@ class ReportState extends ChangeNotifier {
         debugPrint('Upload start: $fileName (${bytes.length} bytes)');
       }
 
-      // Web: прямая загрузка в KS3 через presigned URL (быстрее в 2 раза).
-      // Native: серверная загрузка через multipart (fallback).
+      // Web — всегда presigned. Native — multipart, НО только для владельца:
+      // эндпоинт /files/upload требует, чтобы JWT-пользователь был создателем
+      // отчёта. Share-пользователь (аноним по ссылке/QR) получал 403, файл не
+      // попадал в БД — владелец видел «битое» фото, а HTML-просмотр его не
+      // показывал вовсе. Для share-режима используем presigned share-загрузку.
+      final isShare = _shareToken != null && _shareToken!.isNotEmpty;
       ApiResult result;
-      if (kIsWeb) {
+      if (kIsWeb || isShare) {
         result = await _uploadViaPresignedUrl(
           mediaItem: mediaItem,
           bytes: bytes,
@@ -1981,6 +1985,36 @@ class ReportState extends ChangeNotifier {
       await reportsDir.create(recursive: true);
     }
     return reportsDir.path;
+  }
+
+  /// Папка отчёта для серверных/share-отчётов.
+  ///
+  /// На web локальной ФС нет — возвращается [folderKey] как логическое имя.
+  /// На native нужен АБСОЛЮТНЫЙ путь внутри документов приложения: относительное
+  /// имя разрешалось бы от рабочей директории процесса (на Android это «/»,
+  /// read-only) и запись медиа падала бы с EROFS (errno 30).
+  Future<String> _resolveLocalFolderPath(
+    String folderKey, {
+    bool reuseExisting = false,
+  }) async {
+    if (kIsWeb) return folderKey;
+    final reportsDir = await _getReportsDir();
+    // Тот же отчёт перезагружается — оставляем его текущую локальную папку
+    // (в ней уже лежат добавленные фото).
+    final existing = _currentReportPath;
+    if (reuseExisting &&
+        existing != null &&
+        existing.isNotEmpty &&
+        existing.startsWith('$reportsDir${Platform.pathSeparator}')) {
+      return existing;
+    }
+    final folderPath = '$reportsDir/$folderKey';
+    if (existing == folderPath) return folderPath;
+    final dir = Directory(folderPath);
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return folderPath;
   }
 
   Future<String> _generateFolderName() async {
@@ -2624,10 +2658,7 @@ class ReportState extends ChangeNotifier {
 
   /// По каждому ключу берём максимум из прежнего и нового счётчика
   /// (или прежнее значение, если в новом документе ключа нет).
-  void _mergeMediaCounters(
-    Map<String, int>? prev,
-    Map<String, int> next,
-  ) {
+  void _mergeMediaCounters(Map<String, int>? prev, Map<String, int> next) {
     if (prev == null) return;
     for (final entry in prev.entries) {
       final existing = next[entry.key];
@@ -3248,16 +3279,17 @@ class ReportState extends ChangeNotifier {
       final reportData =
           result.data!['report']['reportData'] as Map<String, dynamic>;
       final prevLanguage = _currentReport?.currentLanguage;
-      _currentReport = Report.fromJson(
-        reportData,
-        folderPath: reportId.toString(),
+      final folderPath = await _resolveLocalFolderPath(
+        'server_$reportId',
+        reuseExisting: _serverReportId == reportId,
       );
+      _currentReport = Report.fromJson(reportData, folderPath: folderPath);
       if (prevLanguage != null &&
           prevLanguage.isNotEmpty &&
           _currentReport?.availableLanguages.contains(prevLanguage) == true) {
         _currentReport!.currentLanguage = prevLanguage;
       }
-      _currentReportPath = reportId.toString();
+      _currentReportPath = folderPath;
       _serverReportId = reportId; // запоминаем для будущих сохранений
       // Сохраняем снимок отчёта при открытии — база для PATCH/merge.
       _baseReportSnapshot = reportData;
@@ -3310,6 +3342,9 @@ class ReportState extends ChangeNotifier {
   /// Загрузить отчёт, открытый по share-ссылке.
   Future<bool> loadSharedReport(String token) async {
     try {
+      // Тот же токен, что уже открыт (перезагрузка при конфликте/синке) —
+      // локальную папку нужно сохранить, иначе локальные фото «потеряются».
+      final sameShare = _shareToken == token;
       _shareToken = token;
       final result = await ApiService.getShareInfo(token: token);
       if (!result.success || result.data?['report'] == null) {
@@ -3335,8 +3370,16 @@ class ReportState extends ChangeNotifier {
 
       final reportData =
           result.data!['report']['reportData'] as Map<String, dynamic>;
-      _currentReport = Report.fromJson(reportData, folderPath: token);
-      _currentReportPath = token;
+      // На native отчёту нужна РЕАЛЬНАЯ локальная папка. Раньше здесь
+      // оставалось относительное имя (сам токен), поэтому запись фото падала
+      // с EROFS (errno 30): Directory('<token>/photos') разрешался от
+      // рабочей директории процесса, на Android это «/» (read-only).
+      final folderPath = await _resolveLocalFolderPath(
+        'share_$token',
+        reuseExisting: sameShare,
+      );
+      _currentReport = Report.fromJson(reportData, folderPath: folderPath);
+      _currentReportPath = folderPath;
       _serverReportId = result.data!['report']['id'] is int
           ? result.data!['report']['id']
           : int.tryParse(result.data!['report']['id'].toString());
