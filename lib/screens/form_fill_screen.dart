@@ -1654,7 +1654,9 @@ class _FormFillScreenState extends State<FormFillScreen> {
       builder: (ctx) => SyncMenuDialog(
         reportState: reportState,
         unsyncIndices: unsyncIndices,
-        onApplied: () {},
+        // Применённые переводы — изменение отчёта: подсвечиваем кнопку
+        // «Сохранить / Синхронизировать», чтобы правки ушли на сервер.
+        onApplied: _markAsUnsaved,
       ),
     );
   }

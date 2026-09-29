@@ -1325,14 +1325,26 @@ class ReportState extends ChangeNotifier {
     }
 
     try {
-      final result = await ApiService.uploadFileFromBytes(
-        bytes: _headerImageBytes!,
-        filename: _headerImageFileName!,
-        relativePath: _headerImageFileName!,
-        reportId: _serverReportId,
-        onUploadProgress: (_) {},
-      );
-
+      final isShare = _shareToken != null && _shareToken!.isNotEmpty;
+      // В share-режиме владельческий multipart-эндпоинт недоступен (403) —
+      // шапка уходит той же presigned-загрузкой, что и медиа.
+      final ApiResult result;
+      if (kIsWeb || isShare) {
+        result = await _uploadViaPresignedUrl(
+          bytes: _headerImageBytes!,
+          fileName: _headerImageFileName!,
+          relativePath: _headerImageFileName!,
+          mimeType: 'image/jpeg',
+        );
+      } else {
+        result = await ApiService.uploadFileFromBytes(
+          bytes: _headerImageBytes!,
+          filename: _headerImageFileName!,
+          relativePath: _headerImageFileName!,
+          reportId: _serverReportId,
+          onUploadProgress: (_) {},
+        );
+      }
       if (result.success) {
         if (kDebugMode) {
           debugPrint('Header image uploaded: $_headerImageFileName');
@@ -1435,12 +1447,15 @@ class ReportState extends ChangeNotifier {
       ApiResult result;
       if (kIsWeb || isShare) {
         result = await _uploadViaPresignedUrl(
-          mediaItem: mediaItem,
           bytes: bytes,
           fileName: fileName,
           relativePath: relativePath,
           mimeType: mimeType,
-          onUploadProgress: onUploadProgress,
+          onUploadProgress: (progress) {
+            mediaItem.uploadProgress = progress;
+            notifyListeners();
+            onUploadProgress?.call(progress);
+          },
         );
       } else {
         result = await ApiService.uploadFileFromBytes(
@@ -1577,9 +1592,10 @@ class ReportState extends ChangeNotifier {
       }
 
       ApiResult thumbResult;
-      if (kIsWeb && (_shareToken != null || _serverReportId != null)) {
+      // Как и медиа: web — всегда presigned, native — только в share-режиме
+      // (владельческий multipart вернул бы анониму 403).
+      if (kIsWeb || (_shareToken != null && _shareToken!.isNotEmpty)) {
         thumbResult = await _uploadViaPresignedUrl(
-          mediaItem: mediaItem,
           bytes: thumbnailBytes,
           fileName: thumbFileName,
           relativePath: thumbRelativePath,
@@ -1619,7 +1635,7 @@ class ReportState extends ChangeNotifier {
     }
   }
 
-  /// Прямая загрузка в KS3 через presigned PUT URL (web only).
+  /// Прямая загрузка в KS3 через presigned PUT URL.
   ///
   /// Flow:
   ///   1. POST /files/presign-upload (или /files/presign-upload-share для share-ссылки)
@@ -1627,8 +1643,10 @@ class ReportState extends ChangeNotifier {
   ///   2. PUT directly to KS3 → загружаем байты
   ///   3. POST /files/confirm-upload (или /files/confirm-upload-share)
   ///      → создаём запись в БД
+  ///
+  /// На web используется всегда; на native — только в share-режиме, потому что
+  /// владельческий /files/upload отдаёт анониму 403.
   Future<ApiResult> _uploadViaPresignedUrl({
-    required MediaItem mediaItem,
     required Uint8List bytes,
     required String fileName,
     required String relativePath,
@@ -1675,8 +1693,6 @@ class ReportState extends ChangeNotifier {
             'KS3 direct upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%',
           );
         }
-        mediaItem.uploadProgress = progress;
-        notifyListeners();
         onUploadProgress?.call(progress);
       },
     );
@@ -4105,14 +4121,17 @@ class ReportState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Применить переведённый JSON из диалога «Синхронизировать перевод».
+  ///
+  /// Это такое же изменение отчёта, как ручной ввод текста: автосохранения
+  /// здесь нет — экран помечает отчёт как несохранённый, и пользователь
+  /// сам нажимает «Сохранить / Синхронизировать с сервером» (на web
+  /// сработает автосохранение через 3 секунды, как для любых правок).
   Future<void> applySyncAnswers(String jsonStr) async {
     if (_currentReport == null) return;
     await sync_service.loadLibrary();
     if (sync_service.applySyncAnswers(_currentReport!, jsonStr)) {
       notifyListeners();
-      // Автосохранение после успешной синхронизации переводов:
-      // гарантирует, что пользователь не потеряет загруженные переводы.
-      await saveReport();
     }
   }
 

@@ -61,14 +61,43 @@ Future<ApiResult> uploadFileFromBytesWithProgress({
   }
 }
 
-/// Stub для native — прямая загрузка в KS3 не поддерживается.
-/// На native всегда используется серверная загрузка через multipart.
+/// Прямая загрузка файла в KS3 по presigned PUT URL (native).
+///
+/// Используется в share-режиме: владельческий /files/upload требует, чтобы
+/// JWT-пользователь был создателем отчёта, и возвращает анониму 403.
+/// PUT уходит сразу в KS3, Content-Type намеренно НЕ задаётся — presign
+/// подписан без него, и установка заголовка ломает подпись.
 Future<dynamic> uploadToPresignedUrl({
   required String uploadUrl,
   required Uint8List bytes,
   void Function(double progress)? onUploadProgress,
+  AppLocalizations? loc,
 }) async {
-  throw UnsupportedError('uploadToPresignedUrl is only available on web');
+  HttpClient? client;
+  try {
+    client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
+    final request = await client.putUrl(Uri.parse(uploadUrl));
+    request.contentLength = bytes.length;
+    request.add(bytes);
+    onUploadProgress?.call(0.1);
+
+    final response = await request.close().timeout(
+      const Duration(seconds: 300),
+    );
+    // Тело ответа не нужно, но поток обязателен к завершению.
+    await response.drain<void>();
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      onUploadProgress?.call(1.0);
+      return true;
+    }
+    return 'KS3 upload failed: ${response.statusCode} '
+        '${response.reasonPhrase}';
+  } catch (e) {
+    return 'KS3 upload error: $e';
+  } finally {
+    client?.close(force: true);
+  }
 }
 
 /// Stub для native — прямая загрузка с прогрессом не поддерживается.
