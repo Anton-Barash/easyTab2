@@ -22,7 +22,6 @@ import '../providers/report_sync_manager.dart';
 import '../services/share_token_storage.dart';
 import '../services/anonymous_id_service.dart';
 import '../utils/share_link_parser.dart';
-import '../widgets/sync_buttons.dart';
 import 'share_qr_scanner_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -165,57 +164,248 @@ class _ReportsScreenState extends State<ReportsScreen> {
       !report.createdAt.isAtSameMomentAs(report.modified) &&
       report.modified.difference(report.createdAt).abs().inSeconds >= 60;
 
-  Future<void> _syncReport(ReportSummary report) async {
+  /// Залить локальный отчёт на сервер (связывает локальную и облачную копии).
+  /// Требует входа в аккаунт. После успеха список перезагружается — карточка
+  /// станет «синхронизированной» (sync_meta.json пишет сам провайдер).
+  Future<void> _uploadToServer(ReportSummary report) async {
     if (!mounted) return;
+    final loc = AppLocalizations.of(context)!;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
-      final loc = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
       return;
     }
 
-    setState(() {
-      _syncingReports.add(report.id);
-    });
-
-    bool ok = false;
-    if (report.localExists) {
-      ok = await _syncManager.syncReport(localFolderName: report.id, serverReportId: int.tryParse(report.id), baseVersion: report.serverVersion);
-    } else if (report.onServer) {
-      final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
-      ok = folder != null;
+    final reportState = Provider.of<ReportState>(context, listen: false);
+    setState(() => _syncingReports.add(report.id));
+    var ok = false;
+    try {
+      final loaded = await reportState.loadReport(
+        report.localFolderPath ?? report.id,
+      );
+      if (loaded) {
+        ok = await reportState.saveReportToServer();
+      }
+    } catch (e) {
+      if (kDebugMode) print('_uploadToServer error: $e');
     }
 
     if (!mounted) return;
     setState(() {
       _syncingReports.remove(report.id);
-      if (ok) _syncedReports.add(report.id);
       _loadReports();
     });
 
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        SnackBar(
+          content: Text(loc.saveError(reportState.lastSyncError ?? '')),
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.reportMenuUploadSuccess)));
+    }
+  }
+
+  /// Скачать облачный отчёт (без локальной копии) на устройство.
+  Future<void> _downloadFromServer(ReportSummary report) async {
     if (!mounted) return;
     final loc = AppLocalizations.of(context)!;
-    // Если сервер ответил постоянным отказом, локальная копия отвязана —
-    // показываем отдельное сообщение вместо общей ошибки синхронизации.
-    final detached = !ok && _syncManager.lastDeniedUnlinkedFolder != null;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
+      return;
+    }
+
+    setState(() => _syncingReports.add(report.id));
+    String? folder;
+    try {
+      folder = await _syncManager.downloadReportFromServer(
+        int.parse(report.id),
+      );
+    } catch (e) {
+      if (kDebugMode) print('_downloadFromServer error: $e');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _syncingReports.remove(report.id);
+      if (folder != null) _syncedReports.add(report.id);
+      _loadReports();
+    });
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(
       SnackBar(
         content: Text(
-          ok
+          folder != null
               ? loc.syncCompleteMessage
-              : syncFailureMessage(
-                  _syncManager.lastSyncError,
-                  loc,
-                  detached: detached,
-                ),
+              : syncFailureMessage(_syncManager.lastSyncError, loc),
         ),
-        duration: detached ? const Duration(seconds: 8) : const Duration(seconds: 4),
       ),
     );
+  }
+
+  /// Скачать всё содержимое связанного отчёта на устройство.
+  /// Тянет с сервера актуальный report.json и догружает все отсутствующие
+  /// файлы (медиа, вложения, шапку) в существующую локальную папку отчёта.
+  Future<void> _downloadAllToDevice(ReportSummary report) async {
+    if (!mounted) return;
+    final loc = AppLocalizations.of(context)!;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.loginRequired)));
+      return;
+    }
+    final folderPath = report.localFolderPath;
+    if (folderPath == null) {
+      _showSnack(loc.reportDeleteError);
+      return;
+    }
+
+    // Несохранённые локальные правки будут заменены серверной версией —
+    // спрашиваем подтверждение, чтобы не потерять их молча.
+    if (report.status == ReportSyncStatus.dirtyLocal ||
+        report.status == ReportSyncStatus.conflict) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(loc.reportMenuDownloadAll),
+          content: Text(loc.reportMenuDownloadAllHint),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(loc.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(loc.confirm),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
+    setState(() => _syncingReports.add(report.id));
+    var downloaded = -1;
+    try {
+      downloaded = await _syncManager.downloadAllToLocal(
+        localFolderPath: folderPath,
+        serverReportId: int.parse(report.id),
+      );
+    } catch (e) {
+      if (kDebugMode) print('_downloadAllToDevice error: $e');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _syncingReports.remove(report.id);
+      if (downloaded >= 0) _syncedReports.add(report.id);
+      _loadReports();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          downloaded >= 0
+              ? loc.syncCompleteMessage
+              : syncFailureMessage(_syncManager.lastSyncError, loc),
+        ),
+      ),
+    );
+  }
+
+  /// Убрать share-отчёт (добавленный по ссылке/QR) из списка «Мои отчёты».
+  /// Удаляет сохранённый токен — сам отчёт на сервере остаётся у автора.
+  Future<void> _confirmRemoveShare(ReportSummary report) async {
+    final loc = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.width <= 800;
+    final token = report.shareToken;
+    if (token == null || token.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(40),
+        contentPadding: isMobile
+            ? const EdgeInsets.all(16)
+            : const EdgeInsets.all(24),
+        shape: isMobile
+            ? const RoundedRectangleBorder(borderRadius: BorderRadius.zero)
+            : null,
+        title: isMobile ? null : Text(loc.reportMenuRemoveShare),
+        content: isMobile
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(loc.reportMenuRemoveShareHint),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Text(loc.cancel),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: Text(loc.confirm),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(loc.reportMenuRemoveShareHint),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(loc.cancel),
+                      ),
+                      const SizedBox(width: 12),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(loc.confirm),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      // Локальный кэш share_<token> тоже удаляем, если есть.
+      final dir = report.localFolderPath;
+      if (dir != null && dir.isNotEmpty) {
+        await Directory(dir).delete(recursive: true);
+      }
+    } catch (e) {
+      if (kDebugMode) print('removeShare dir delete error: $e');
+    }
+    await ShareTokenStorage.removeToken(token);
+    if (!mounted) return;
+    setState(_loadReports);
   }
 
   @override
@@ -800,25 +990,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 size: 20,
                               ),
                             ),
-                            SyncButtons(
-                              showDownload: report.onServer && !report.localExists,
-                              showSync: report.localExists && report.onServer,
-                              inProgress: isSyncing,
-                              onDownload: report.onServer && !report.localExists
-                                  ? () async {
-                                      setState(() => _syncingReports.add(report.id));
-                                      final folder = await _syncManager.downloadReportFromServer(int.parse(report.id));
-                                      setState(() {
-                                        _syncingReports.remove(report.id);
-                                        if (folder != null) _syncedReports.add(folder);
-                                        _loadReports();
-                                      });
-                                    }
-                                  : null,
-                              onSync: report.localExists && report.onServer
-                                  ? () => _syncReport(report)
-                                  : null,
-                            ),
                           ],
                         ],
                       ],
@@ -891,18 +1062,51 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         _confirmDeleteServer(report);
                       } else if (value == 'unlink') {
                         _confirmUnlink(report);
+                      } else if (value == 'upload') {
+                        _uploadToServer(report);
+                      } else if (value == 'download') {
+                        _downloadFromServer(report);
+                      } else if (value == 'download_all') {
+                        _downloadAllToDevice(report);
+                      } else if (value == 'remove_share') {
+                        _confirmRemoveShare(report);
                       }
                     },
                     itemBuilder: (BuildContext ctx) => <PopupMenuEntry<String>>[
+                      if (report.localExists && !report.onServer)
+                        PopupMenuItem<String>(
+                          value: 'upload',
+                          child: Text(loc.reportMenuUpload),
+                        ),
+                      // Скачивание работает только для своих отчётов: сервер
+                      // требует авторства. Share-записям (по ссылке/QR) оно
+                      // недоступно — вместо него даём убрать из списка.
+                      if (report.onServer && !report.localExists && report.shareToken == null)
+                        PopupMenuItem<String>(
+                          value: 'download',
+                          child: Text(loc.reportMenuDownload),
+                        ),
                       if (report.localExists)
                         PopupMenuItem<String>(
                           value: 'delete_local',
                           child: Text(loc.reportMenuDeleteLocal),
                         ),
-                      if (report.onServer)
+                      if (report.onServer && report.shareToken == null)
                         PopupMenuItem<String>(
                           value: 'delete_server',
                           child: Text(loc.reportMenuDeleteServer),
+                        ),
+                      // Share-отчёт (добавлен по ссылке/QR, не наш): убираем
+                      // запись из списка — удаляем сохранённый токен.
+                      if (report.shareToken != null && !report.localExists)
+                        PopupMenuItem<String>(
+                          value: 'remove_share',
+                          child: Text(loc.reportMenuRemoveShare),
+                        ),
+                      if (report.localExists && report.onServer)
+                        PopupMenuItem<String>(
+                          value: 'download_all',
+                          child: Text(loc.reportMenuDownloadAll),
                         ),
                       if (report.localExists && report.onServer)
                         PopupMenuItem<String>(

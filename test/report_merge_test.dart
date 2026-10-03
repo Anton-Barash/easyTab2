@@ -244,6 +244,80 @@ void main() {
     });
   });
 
+  group('canonical toJson идемпотентен (стабильные rid/метки)', () {
+    test('повторный toJson даёт одинаковые answers даже при синтетических ячейках', () {
+      // RU заполнен в двух рядах, EN — только в первом: для второго ряда
+      // EN-ячейка синтетическая (её нет в модели). Раньше она каждый раз
+      // получала новый createdAt, что давало ложный optimistic-lock конфликт
+      // и затирало переводы при синхронизации с сервером.
+      final report = Report.fromJson({
+        'schemaVersion': 2,
+        'reportName': 'R',
+        'availableLanguages': ['RU', 'EN'],
+        'currentLanguage': 'RU',
+        'questions': [
+          {'id': 0, 'qid': '0', 'localizations': <String, dynamic>{}},
+        ],
+        'answers': {
+          '0': [
+            {
+              'rid': 'r1',
+              'localizations': {
+                'RU': {'id': 'ru1', 'text': 'Один', '_empty': false, 'createdAt': 100, 'rowId': 'r1'},
+                'EN': {'id': 'en1', 'text': 'One', '_empty': false, 'createdAt': 100, 'rowId': 'r1'},
+              },
+              'markers': {'attention': false, 'needsWork': false, 'rowId': 'r1', 'media': <dynamic>[]},
+            },
+            {
+              'rid': 'r2',
+              'localizations': {
+                'RU': {'id': 'ru2', 'text': 'Два', '_empty': false, 'createdAt': 101, 'rowId': 'r2'},
+                'EN': {'id': 'en2', 'text': '', '_empty': true, 'createdAt': 101, 'rowId': 'r2'},
+              },
+              'markers': {'attention': false, 'needsWork': false, 'rowId': 'r2', 'media': <dynamic>[]},
+            },
+          ],
+        },
+        'translations': {
+          '0': {
+            'RU': [
+              {'id': 'ru1', 'text': 'Один', '_empty': false, 'createdAt': 100, 'rowId': 'r1'},
+              {'id': 'ru2', 'text': 'Два', '_empty': false, 'createdAt': 101, 'rowId': 'r2'},
+            ],
+            'EN': [
+              {'id': 'en1', 'text': 'One', '_empty': false, 'createdAt': 100, 'rowId': 'r1'},
+            ],
+          },
+        },
+        'markers': {
+          '0': [
+            {'attention': false, 'needsWork': false, 'rowId': 'r1', 'media': <dynamic>[]},
+            {'attention': false, 'needsWork': false, 'rowId': 'r2', 'media': <dynamic>[]},
+          ],
+        },
+      });
+
+      final first = report.toJson();
+      final second = report.toJson();
+      final rowsFirst = (first['answers'] as Map)['0'] as List;
+      final rowsSecond = (second['answers'] as Map)['0'] as List;
+
+      // rid рядов стабилен (иначе diff даёт remove+add).
+      expect(
+        rowsSecond.map((r) => (r as Map)['rid']).toList(),
+        rowsFirst.map((r) => (r as Map)['rid']).toList(),
+      );
+      // Синтетическая EN-ячейка второго ряда имеет стабильную метку времени
+      // (иначе сервер ловил бы ложный конфликт и затирал переводы).
+      final enFirst =
+          ((rowsFirst[1] as Map)['localizations'] as Map)['EN'] as Map;
+      final enSecond =
+          ((rowsSecond[1] as Map)['localizations'] as Map)['EN'] as Map;
+      expect(enSecond['createdAt'], enFirst['createdAt']);
+      expect(enSecond['rowId'], 'r2');
+    });
+  });
+
   group('метка «Внимание» после синхронизации (read path)', () {
     test('merged от сервера: метка видна клиенту в UI-данных', () {
       // Форма ответа сервера: canonical answers + legacy-зеркала (именно

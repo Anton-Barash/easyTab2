@@ -69,3 +69,6 @@ build-log.txt
 error-log.txt
 full-log.txt
 flutter-log.txt
+
+# Flutter/Dart DevTools local settings (IDE-specific)
+devtools_options.yaml

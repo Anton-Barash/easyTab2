@@ -442,11 +442,53 @@ abstract class AppLocalizations {
   /// **'Unlink'**
   String get reportMenuUnlink;
 
+  /// No description provided for @reportMenuUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload to server'**
+  String get reportMenuUpload;
+
+  /// No description provided for @reportMenuUploadSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Report uploaded to server'**
+  String get reportMenuUploadSuccess;
+
+  /// No description provided for @reportMenuDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download from server'**
+  String get reportMenuDownload;
+
+  /// No description provided for @reportMenuDownloadAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Download all to device'**
+  String get reportMenuDownloadAll;
+
+  /// No description provided for @reportMenuDownloadAllHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The latest report version and all files (photos, videos, attachments) will be downloaded from the server. Unsaved local changes will be lost.'**
+  String get reportMenuDownloadAllHint;
+
   /// No description provided for @reportMenuUnlinkHint.
   ///
   /// In en, this message translates to:
   /// **'Unlink makes this report local only. Sync with the original cloud copy is lost.'**
   String get reportMenuUnlinkHint;
+
+  /// No description provided for @reportMenuRemoveShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from list'**
+  String get reportMenuRemoveShare;
+
+  /// No description provided for @reportMenuRemoveShareHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This report will be removed from \"My Reports\" on this device. The report stays on the server with its author.'**
+  String get reportMenuRemoveShareHint;
 
   /// No description provided for @reportDeleteServerDenied.
   ///
@@ -1150,6 +1192,12 @@ abstract class AppLocalizations {
   /// **'Processing ZIP...'**
   String get processingZip;
 
+  /// No description provided for @downloadingFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading files: {done}/{total}'**
+  String downloadingFiles(int done, int total);
+
   /// No description provided for @processingMedia.
   ///
   /// In en, this message translates to:
@@ -1813,7 +1861,7 @@ abstract class AppLocalizations {
   /// No description provided for @templateDownloadSample.
   ///
   /// In en, this message translates to:
-  /// **'Download sample'**
+  /// **'Copy sample'**
   String get templateDownloadSample;
 
   /// No description provided for @templateDownloadSampleDesc.
@@ -1821,6 +1869,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sample JSON template'**
   String get templateDownloadSampleDesc;
+
+  /// No description provided for @templateSourceReport.
+  ///
+  /// In en, this message translates to:
+  /// **'From reports'**
+  String get templateSourceReport;
+
+  /// No description provided for @templateSourceReportDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an existing report as a template'**
+  String get templateSourceReportDesc;
+
+  /// No description provided for @templateSelectReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a report'**
+  String get templateSelectReport;
+
+  /// No description provided for @templateReportLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the report as a template'**
+  String get templateReportLoadError;
+
+  /// No description provided for @templateReportWebUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Selecting a template from reports is not supported on the web yet'**
+  String get templateReportWebUnsupported;
 
   /// No description provided for @jsonTemplateTitle.
   ///
@@ -1953,6 +2031,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Compression error: {error}'**
   String compressionError(String error);
+
+  /// No description provided for @autoCompressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compress videos before syncing?'**
+  String get autoCompressTitle;
+
+  /// No description provided for @autoCompressMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Videos will be compressed to quality level: {quality}. You can change the quality in settings before syncing.'**
+  String autoCompressMessage(String quality);
+
+  /// No description provided for @autoCompressCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync cancelled. You can change video quality in settings and sync again.'**
+  String get autoCompressCancelled;
 
   /// No description provided for @reportIdMissing.
   ///

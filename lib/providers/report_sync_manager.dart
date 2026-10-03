@@ -34,7 +34,13 @@ class ReportSyncManager {
       if (!await d.exists()) return [];
       final folders = <String>[];
       await for (final e in d.list()) {
-        if (e is Directory) folders.add(e.path.split(Platform.pathSeparator).last);
+        if (e is Directory) {
+          // Папки share_<token> — кэш расшаренных отчётов, а не локальные
+          // отчёты пользователя. Их не показываем в списке «Мои отчёты».
+          final name = e.path.split(Platform.pathSeparator).last;
+          if (name.startsWith('share_')) continue;
+          folders.add(name);
+        }
       }
       return folders;
     } catch (e) {
@@ -328,6 +334,136 @@ class ReportSyncManager {
     }
   }
 
+  /// Полностью скачать связанный отчёт на устройство.
+  ///
+  /// Тянет с сервера актуальный report.json, обновляет привязку в
+  /// sync_meta.json и догружает все отсутствующие файлы (медиа, превью,
+  /// вложения, шапку) в уже существующую локальную папку отчёта. Файлы,
+  /// которые уже есть на диске по тому же относительному пути, не
+  /// перекачиваются.
+  ///
+  /// Возвращает число фактически скачанных файлов либо -1 при ошибке.
+  Future<int> downloadAllToLocal({
+    required String localFolderPath,
+    required int serverReportId,
+  }) async {
+    if (kIsWeb) return -1;
+    lastSyncError = null;
+    try {
+      final res = await ApiService.getReport(serverReportId);
+      if (!res.success || res.data == null) {
+        lastSyncError = res;
+        return -1;
+      }
+
+      final folder = Directory(localFolderPath);
+      if (!await folder.exists()) await folder.create(recursive: true);
+
+      final reportData = _extractReportData(res.data!);
+      final jf = File('$localFolderPath${Platform.pathSeparator}report.json');
+      await jf.writeAsString(jsonEncode(reportData));
+
+      // Папка остаётся связанной с тем же отчётом; версию берём с сервера,
+      // чтобы статус в списке был «синхронизирован».
+      await _writeSyncMeta(localFolderPath, serverReportId, res.data);
+
+      return await _downloadMissingFiles(localFolderPath, serverReportId);
+    } catch (e) {
+      if (kDebugMode) print('downloadAllToLocal error: $e');
+      return -1;
+    }
+  }
+
+  /// Извлечь reportData из ответа getReport (учитывает разные обёртки).
+  Map<String, dynamic> _extractReportData(Map<String, dynamic> responseData) {
+    if (responseData.containsKey('report')) {
+      final r = responseData['report'];
+      if (r is Map) {
+        if (r.containsKey('reportData')) {
+          final rd = r['reportData'];
+          if (rd is Map) return Map<String, dynamic>.from(rd);
+        } else if (r.containsKey('data')) {
+          final rd = r['data'];
+          if (rd is Map) return Map<String, dynamic>.from(rd);
+        }
+      }
+    } else if (responseData.containsKey('reportData')) {
+      final rd = responseData['reportData'];
+      if (rd is Map) return Map<String, dynamic>.from(rd);
+    } else {
+      return Map<String, dynamic>.from(responseData);
+    }
+    return {};
+  }
+
+  /// Записать sync_meta.json: привязка локальной папки к серверному отчёту
+  /// и версия, полученная с сервера.
+  Future<void> _writeSyncMeta(
+    String folderPath,
+    int serverReportId,
+    Map<String, dynamic>? serverData,
+  ) async {
+    final newId =
+        serverData?['id'] ?? serverData?['report']?['id'] ?? serverReportId;
+    final newVersion = serverData?['newVersion'] ??
+        serverData?['version'] ??
+        serverData?['report']?['version'];
+    final meta = <String, dynamic>{
+      'serverReportId': newId is int ? newId : int.tryParse(newId.toString()),
+    };
+    if (newVersion != null) {
+      meta['serverVersion'] =
+          newVersion is int ? newVersion : int.tryParse(newVersion.toString());
+    }
+    final mf = File('$folderPath${Platform.pathSeparator}sync_meta.json');
+    await mf.writeAsString(jsonEncode(meta));
+  }
+
+  /// Догрузить в папку отчёта файлы с сервера (медиа, превью, вложения,
+  /// шапку). Уже существующие файлы не перекачиваются. Имена проверяются
+  /// по whitelist, чтобы исключить запись за пределами папки отчёта.
+  /// Возвращает число скачанных файлов.
+  Future<int> _downloadMissingFiles(
+    String folderPath,
+    int serverReportId, {
+    bool onlyMissing = true,
+  }) async {
+    var downloaded = 0;
+    try {
+      final urlsRes = await ApiService.getReportFileUrls(serverReportId);
+      if (urlsRes.success && urlsRes.data != null && urlsRes.data is Map) {
+        final urlsMap = urlsRes.data! as Map;
+        final urls = Map<String, dynamic>.from(urlsMap['urls'] ?? urlsMap);
+        for (final entry in urls.entries) {
+          final rel = entry.key.toString();
+          final url = entry.value?.toString();
+          if (url == null || url.isEmpty) continue;
+          // Whitelist относительного пути: только безопасные имена и
+          // подпапки внутри папки отчёта.
+          if (!RegExp(r'^[\w\-.]+(/[\w\-.]+)*$').hasMatch(rel)) continue;
+          final target = File('$folderPath${Platform.pathSeparator}$rel');
+          if (onlyMissing && await target.exists()) continue;
+          try {
+            final resp = await http.get(Uri.parse(url));
+            if (resp.statusCode == 200) {
+              final parent = target.parent;
+              if (!await parent.exists()) await parent.create(recursive: true);
+              await target.writeAsBytes(resp.bodyBytes);
+              downloaded++;
+            } else if (kDebugMode) {
+              print('download file $url failed status ${resp.statusCode}');
+            }
+          } catch (e) {
+            if (kDebugMode) print('download file $url failed: $e');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('getReportFileUrls error: $e');
+    }
+    return downloaded;
+  }
+
   /// Скрытая рабочая копия облачного отчёта для «быстрого открытия».
   ///
   /// Скачивает report.json + медиа в кэш приложения (не в «Мои отчёты»),
@@ -415,25 +551,7 @@ class ReportSyncManager {
       return '';
     }
 
-    final responseData = res.data!;
-    Map<String, dynamic> reportData = {};
-    if (responseData.containsKey('report')) {
-      final r = responseData['report'];
-      if (r is Map) {
-        if (r.containsKey('reportData')) {
-          final rd = r['reportData'];
-          if (rd is Map) reportData = Map<String, dynamic>.from(rd);
-        } else if (r.containsKey('data')) {
-          final rd = r['data'];
-          if (rd is Map) reportData = Map<String, dynamic>.from(rd);
-        }
-      }
-    } else if (responseData.containsKey('reportData')) {
-      final rd = responseData['reportData'];
-      if (rd is Map) reportData = Map<String, dynamic>.from(rd);
-    } else {
-      reportData = Map<String, dynamic>.from(responseData as Map);
-    }
+    final reportData = _extractReportData(res.data!);
 
     final folderName = 'server_$serverReportId';
     final folderPath = '$baseDir${Platform.pathSeparator}$folderName';
@@ -445,36 +563,7 @@ class ReportSyncManager {
     final jf = File('$folderPath${Platform.pathSeparator}report.json');
     await jf.writeAsString(jsonEncode(reportData));
 
-    try {
-      final urlsRes = await ApiService.getReportFileUrls(serverReportId);
-      if (urlsRes.success && urlsRes.data != null && urlsRes.data is Map) {
-        final urlsMap = urlsRes.data! as Map;
-        final urls = Map<String, dynamic>.from(urlsMap['urls'] ?? urlsMap);
-        for (final entry in urls.entries) {
-          final rel = entry.key.toString();
-          final url = entry.value?.toString();
-          if (url == null || url.isEmpty) continue;
-          try {
-            final uri = Uri.parse(url);
-            final resp = await http.get(uri);
-            if (resp.statusCode == 200) {
-              final target = File('$folderPath${Platform.pathSeparator}$rel');
-              final parent = target.parent;
-              if (!await parent.exists()) await parent.create(recursive: true);
-              await target.writeAsBytes(resp.bodyBytes);
-            } else {
-              if (kDebugMode) {
-                print('download file $url failed status ${resp.statusCode}');
-              }
-            }
-          } catch (e) {
-            if (kDebugMode) print('download file $url failed: $e');
-          }
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) print('getReportFileUrls error: $e');
-    }
+    await _downloadMissingFiles(folderPath, serverReportId, onlyMissing: false);
 
     return folderPath;
   }
@@ -588,17 +677,9 @@ class ReportSyncManager {
           final newId = res.data?['id'] ??
               res.data?['report']?['id'] ??
               serverReportId;
-          final newVersion = res.data?['newVersion'] ?? res.data?['version'] ?? res.data?['report']?['version'];
-          if (newId != null || newVersion != null) {
-            final meta = <String, dynamic>{};
-            if (newId != null) {
-              meta['serverReportId'] = newId is int ? newId : int.tryParse(newId.toString());
-            }
-            if (newVersion != null) {
-              meta['serverVersion'] = newVersion is int ? newVersion : int.tryParse(newVersion.toString());
-            }
-            final mf = File('$folderPath${Platform.pathSeparator}sync_meta.json');
-            await mf.writeAsString(jsonEncode(meta));
+          final parsedId = newId is int ? newId : int.tryParse('$newId');
+          if (parsedId != null) {
+            await _writeSyncMeta(folderPath, parsedId, res.data);
           }
         } catch (_) {}
         return true;

@@ -5,6 +5,7 @@ import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 // share_plus (~50-80 KB) нужен только при экспорте ZIP — deferred.
 import 'package:share_plus/share_plus.dart' deferred as share_plus;
@@ -24,6 +25,7 @@ import '../services/native_video_compress_service.dart'
 import '../services/share_token_storage.dart';
 import '../services/api_result.dart';
 import '../services/anonymous_id_service.dart';
+import '../services/media_cache_service.dart';
 import '../services/mime_utils.dart';
 import '../services/upload_helper.dart';
 // Пакет image (~0.5 MB) нужен только при добавлении фото — deferred.
@@ -348,7 +350,7 @@ class ReportState extends ChangeNotifier {
           reportId: _serverReportId,
           onUploadProgress: (progress) {
             attachment.uploadProgress = progress;
-            notifyListeners();
+            if (_shouldNotifyProgress(attachment, progress)) notifyListeners();
           },
         );
       }
@@ -413,7 +415,7 @@ class ReportState extends ChangeNotifier {
       bytes: bytes,
       onUploadProgress: (progress) {
         attachment.uploadProgress = progress;
-        notifyListeners();
+        if (_shouldNotifyProgress(attachment, progress)) notifyListeners();
       },
     );
     if (uploadResult != true) {
@@ -511,7 +513,11 @@ class ReportState extends ChangeNotifier {
       final queue = video_upload_queue.VideoUploadQueue();
       _videoProgressSub = queue.progressStream.listen((_) {
         // Прогресс хранится внутри MediaItem; UI сам его отрисовывает.
-        notifyListeners();
+        // Тики идут очень часто — троттлим, иначе экран заполнения
+        // пересобирается на каждом тике и ввод текста подтормаживает.
+        if (_shouldNotifyProgress('videoQueue', 0.5)) {
+          notifyListeners();
+        }
         _flushPendingDeletions();
       });
       _videoQueue = queue;
@@ -533,6 +539,30 @@ class ReportState extends ChangeNotifier {
 
   Report? get currentReport => _currentReport;
   String? get currentReportPath => _currentReportPath;
+
+  /// Минимальный интервал между notifyListeners() по тикам прогресса
+  /// загрузки (мс). Каждый notifyListeners() пересобирает экран заполнения
+  /// целиком (все вопросы, поля ввода и медиа), поэтому при параллельной
+  /// заливке нескольких файлов поток тиков подвешивал ввод текста.
+  static const int _progressNotifyIntervalMs = 120;
+
+  /// Время последнего уведомления по прогрессу для каждого объекта
+  /// (identityHashCode → миллисекунды).
+  final Map<int, int> _lastProgressNotifyAt = <int, int>{};
+
+  /// Нужно ли уведомлять подписчиков о текущем тике прогресса.
+  /// Смены состояния (старт, завершение, ошибка) всегда уведомляются —
+  /// для них вызывается notifyListeners() напрямую.
+  bool _shouldNotifyProgress(Object key, double progress) {
+    // Крайние значения и финальный тик — всегда.
+    if (progress <= 0.0 || progress >= 1.0) return true;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final id = identityHashCode(key);
+    final last = _lastProgressNotifyAt[id];
+    if (last != null && now - last < _progressNotifyIntervalMs) return false;
+    _lastProgressNotifyAt[id] = now;
+    return true;
+  }
 
   /// Флаг загрузки фото шапки (для индикатора в UI).
   bool _isUploadingHeader = false;
@@ -587,6 +617,10 @@ class ReportState extends ChangeNotifier {
     _baseReportSnapshot = _currentReport?.toJson();
     _serverPublicId = null;
     _ks3Folder = null;
+    // Это новый локальный отчёт — сбрасываем share-режим, чтобы кнопка
+    // «Синхронизировать»/автозаливка не появились для ещё незагруженного
+    // отчёта (иначе сохраняется stale share-токен от ранее открытого отчёта).
+    _shareToken = null;
     notifyListeners();
   }
 
@@ -594,7 +628,55 @@ class ReportState extends ChangeNotifier {
     if (_currentReport == null) return;
     if (_currentReport!.availableLanguages.contains(langCode)) {
       _currentReport!.currentLanguage = langCode;
+      // Запоминаем выбор ЭТОГО устройства: документный currentLanguage общий
+      // для всех пользователей (сервер хранит язык последнего писавшего),
+      // поэтому без локальной памяти sync/потеря фокуса сбрасывает язык.
+      _saveUserLanguagePreference(langCode);
       notifyListeners();
+    }
+  }
+
+  /// Ключ для локального запоминания выбранного языка (per-отчёт,
+  /// per-устройство): приоритет — serverReportId, иначе локальная папка.
+  String? get _languagePrefKey {
+    if (_serverReportId != null) return 'userLang_report_$_serverReportId';
+    final path = _currentReportPath;
+    if (path == null || path.isEmpty) return null;
+    return 'userLang_folder_${path.hashCode}';
+  }
+
+  /// Сохранить выбранный пользователем язык в shared_preferences.
+  Future<void> _saveUserLanguagePreference(String langCode) async {
+    final key = _languagePrefKey;
+    if (key == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, langCode);
+    } catch (e) {
+      if (kDebugMode) debugPrint('saveUserLanguagePreference error: $e');
+    }
+  }
+
+  /// Применить запомненный язык этого устройства к текущему отчёту.
+  /// Вызывается после каждого fromJson (открытие отчёта, pull, share),
+  /// чтобы чужой currentLanguage из серверного документа не переключал язык.
+  /// Если выбора ещё нет — остаётся язык документа.
+  Future<void> _applyUserLanguagePreference() async {
+    final report = _currentReport;
+    if (report == null) return;
+    final key = _languagePrefKey;
+    if (key == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(key);
+      if (saved != null &&
+          saved.isNotEmpty &&
+          report.availableLanguages.contains(saved) &&
+          saved != report.currentLanguage) {
+        report.currentLanguage = saved;
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('applyUserLanguagePreference error: $e');
     }
   }
 
@@ -1438,43 +1520,25 @@ class ReportState extends ChangeNotifier {
         debugPrint('Upload start: $fileName (${bytes.length} bytes)');
       }
 
-      // Web — всегда presigned. Native — multipart, НО только для владельца:
-      // эндпоинт /files/upload требует, чтобы JWT-пользователь был создателем
-      // отчёта. Share-пользователь (аноним по ссылке/QR) получал 403, файл не
-      // попадал в БД — владелец видел «битое» фото, а HTML-просмотр его не
-      // показывал вовсе. Для share-режима используем presigned share-загрузку.
-      final isShare = _shareToken != null && _shareToken!.isNotEmpty;
+      // Всегда presigned (web, share и native-владелец): multipart /files/upload
+      // ограничен 50 МБ и буферизует файл целиком в памяти сервера — большие
+      // видео с телефона на него не пролезали. Presigned PUT уходит напрямую
+      // в KS3 без серверных лимитов. Presign выбирается по режиму:
+      // share-токен → presign-upload-share, иначе владельческий presign-upload.
       ApiResult result;
-      if (kIsWeb || isShare) {
-        result = await _uploadViaPresignedUrl(
+      result = await _uploadViaPresignedUrl(
           bytes: bytes,
           fileName: fileName,
           relativePath: relativePath,
           mimeType: mimeType,
           onUploadProgress: (progress) {
             mediaItem.uploadProgress = progress;
-            notifyListeners();
-            onUploadProgress?.call(progress);
-          },
-        );
-      } else {
-        result = await ApiService.uploadFileFromBytes(
-          bytes: bytes,
-          filename: fileName,
-          relativePath: relativePath,
-          reportId: _serverReportId,
-          onUploadProgress: (progress) {
-            if (kDebugMode) {
-              debugPrint(
-                'Upload progress: $fileName = ${(progress * 100).toStringAsFixed(0)}%',
-              );
+            if (_shouldNotifyProgress(mediaItem, progress)) {
+              notifyListeners();
             }
-            mediaItem.uploadProgress = progress;
-            notifyListeners();
             onUploadProgress?.call(progress);
           },
         );
-      }
 
       final uploadEnd = DateTime.now();
       final uploadDuration = uploadEnd.difference(uploadStart).inSeconds;
@@ -2248,6 +2312,7 @@ class ReportState extends ChangeNotifier {
         reportData,
         folderPath: _currentReportPath,
       );
+      unawaited(_applyUserLanguagePreference());
       // Счётчик имён медиа монотонен: серверный документ мог потерять
       // mediaCounter — наследуем локальный, чтобы новое фото не получило
       // имя существующего файла (перезапись = «пропавшее» фото).
@@ -2276,6 +2341,7 @@ class ReportState extends ChangeNotifier {
       // устройстве локальных файлов не имеют. Заполняем webUrl/thumbnailUrl,
       // чтобы виджеты могли показать их по сети.
       await _populateMediaWebUrls(reportId);
+      unawaited(_refreshMediaCache());
 
       // Персистим pull-нутую версию в локальную папку (источник истины на native).
       final folderPath = _currentReportPath;
@@ -2646,6 +2712,7 @@ class ReportState extends ChangeNotifier {
     final prevCounter = _currentReport?.mediaCounter;
     final folderPath = _currentReportPath ?? (_serverReportId?.toString());
     _currentReport = Report.fromJson(merged, folderPath: folderPath);
+    unawaited(_applyUserLanguagePreference());
     // Счётчик имён медиа должен быть монотонным: если серверный документ
     // потерял mediaCounter (старый сервер / share-путь) — наследуем прежний,
     // иначе новое фото получит имя уже существующего файла и перезапишет его.
@@ -2663,6 +2730,7 @@ class ReportState extends ChangeNotifier {
     } else if (_serverReportId != null) {
       await _populateMediaWebUrls(_serverReportId!);
     }
+    unawaited(_refreshMediaCache());
     if (newVersion != null) {
       _serverReportVersion = newVersion is int
           ? newVersion
@@ -3118,8 +3186,20 @@ class ReportState extends ChangeNotifier {
       final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
       final wasLegacy = jsonData['schemaVersion'] != 2;
       _currentReport = Report.fromJson(jsonData, folderPath: folderName);
+      unawaited(_applyUserLanguagePreference());
       _currentReportPath = folderName;
       await _restoreServerLinkFromLocalFolder(folder.path);
+
+      // Медиа других устройств (web/share) локальных файлов не имеют.
+      // Сразу заполняем webUrl/thumbnailUrl, чтобы фото были видны при
+      // первом открытии (а не только после нажатия «Синхронизировать»),
+      // и обновляем дисковый кэш миниатюр.
+      if (_shareToken != null && _shareToken!.isNotEmpty) {
+        _populateMediaWebUrlsForShare();
+      } else if (_serverReportId != null) {
+        await _populateMediaWebUrls(_serverReportId!);
+      }
+      unawaited(_refreshMediaCache());
 
       // Старый (schemaVersion 1) отчёт мигрирован в v2 (добавлены qid/rid,
       // авторская метадата). Сразу автосохраняем локально, чтобы id не
@@ -3300,6 +3380,7 @@ class ReportState extends ChangeNotifier {
         reuseExisting: _serverReportId == reportId,
       );
       _currentReport = Report.fromJson(reportData, folderPath: folderPath);
+      unawaited(_applyUserLanguagePreference());
       if (prevLanguage != null &&
           prevLanguage.isNotEmpty &&
           _currentReport?.availableLanguages.contains(prevLanguage) == true) {
@@ -3395,6 +3476,7 @@ class ReportState extends ChangeNotifier {
         reuseExisting: sameShare,
       );
       _currentReport = Report.fromJson(reportData, folderPath: folderPath);
+      _applyUserLanguagePreference();
       _currentReportPath = folderPath;
       _serverReportId = result.data!['report']['id'] is int
           ? result.data!['report']['id']
@@ -3408,6 +3490,7 @@ class ReportState extends ChangeNotifier {
       _baseReportSnapshot = reportData;
 
       await _populateMediaWebUrlsForShare();
+      unawaited(_refreshMediaCache());
 
       // Сбрасываем "застрявшие" флаги обработки, т.к. отчёт загружен с сервера.
       _sanitizeMediaState();
@@ -3536,6 +3619,194 @@ class ReportState extends ChangeNotifier {
     return '${relPath.substring(0, dot)}_thumb.jpg';
   }
 
+  /// Ключ кэша медиа для текущего отчёта (имя папки в `media_cache`).
+  /// Публичный: передаётся в виджеты (MediaItemWidget, просмотрщик),
+  /// чтобы они находили файлы кэша по тем же ключам, что и провайдер.
+  String get mediaCacheKey => _mediaCacheKey;
+
+  String get _mediaCacheKey {
+    if (_shareToken != null && _shareToken!.isNotEmpty) return _shareToken!;
+    if (_serverReportId != null) return _serverReportId.toString();
+    final path = _currentReportPath;
+    if (path == null || path.isEmpty) return '';
+    return path.split(Platform.pathSeparator).last;
+  }
+
+  /// Абсолютный путь локального файла медиа (или null, если его нет).
+  String? _mediaAbsoluteLocalPath(MediaItem media) {
+    final rel = media.localPath;
+    if (rel == null || rel.isEmpty) return null;
+    if (rel.startsWith('/') || rel.contains(':\\')) return rel;
+    final folder = _currentReportPath;
+    if (folder == null || folder.isEmpty) return null;
+    return '$folder${Platform.pathSeparator}$rel';
+  }
+
+  /// Обновить дисковый кэш миниатюр (native).
+  ///
+  /// Для каждого фото без локального файла скачивает миниатюру
+  /// (thumbnailUrl → webUrl) в `media_cache/<reportKey>/` — после чего она
+  /// доступна всегда, в том числе офлайн. Затем удаляет файлы кэша,
+  /// не относящиеся к текущему составу медиа (удалённые/заменённые).
+  /// Вызывается после загрузки/pull/share — фоновой задачей (unawaited).
+  Future<void> _refreshMediaCache() async {
+    if (kIsWeb || _currentReport == null) return;
+    final cacheKey = _mediaCacheKey;
+    if (cacheKey.isEmpty) return;
+    await MediaCacheService.ensureInitialized();
+
+    final keep = <String>{};
+    var changed = false;
+    for (final markersList in _currentReport!.markers.values) {
+      for (final markers in markersList) {
+        for (final media in markers.media) {
+          if (!media.type.startsWith('image/')) continue;
+          final rel = media.localPath;
+          if (rel == null || rel.isEmpty) continue;
+
+          final thumbPath = MediaCacheService.cachedThumbPath(cacheKey, rel);
+          final fullPath = MediaCacheService.cachedFullPath(cacheKey, rel);
+          if (thumbPath != null) keep.add(thumbPath);
+          if (fullPath != null) keep.add(fullPath);
+
+          // Локальный файл есть — кэш не нужен.
+          final localAbs = _mediaAbsoluteLocalPath(media);
+          if (localAbs != null && File(localAbs).existsSync()) continue;
+
+          // Кэш уже скачан — виджет покажет из него.
+          if (thumbPath != null && File(thumbPath).existsSync()) continue;
+
+          final url = (media.thumbnailUrl?.isNotEmpty ?? false)
+              ? media.thumbnailUrl
+              : media.webUrl;
+          if (url == null || url.isEmpty) continue;
+          final saved = await MediaCacheService.downloadToFile(url, thumbPath!);
+          if (saved != null) {
+            changed = true;
+            notifyListeners();
+          }
+        }
+      }
+    }
+
+    // Стареющие файлы: медиа удалено из отчёта или заменено новым.
+    await MediaCacheService.pruneKeep(cacheKey, keep);
+    if (changed && kDebugMode) {
+      debugPrint('_refreshMediaCache: cache updated for $cacheKey');
+    }
+  }
+
+  /// Скачать полное фото в кэш (native) — вызывается просмотрщиком при
+  /// открытии фото, которого нет локально. Повторные просмотры трафик
+  /// не тратят. Возвращает путь к файлу или null.
+  /// [relPath]/[url] — MediaItem.localPath и MediaItem.webUrl.
+  Future<String?> cacheFullImage(String? relPath, String? url) async {
+    if (kIsWeb) return null;
+    if (relPath == null || relPath.isEmpty || url == null || url.isEmpty) {
+      return null;
+    }
+    final cacheKey = _mediaCacheKey;
+    if (cacheKey.isEmpty) return null;
+    await MediaCacheService.ensureInitialized();
+    final path = MediaCacheService.cachedFullPath(cacheKey, relPath);
+    if (path == null) return null;
+    return MediaCacheService.downloadToFile(url, path);
+  }
+
+  /// URL файла отчёта по относительному пути (для скачивания в папку
+  /// отчёта перед экспортом). Для share — прокси по share_token,
+  /// для владельца — presigned KS3 через getReportFileUrls.
+  Future<String?> _fileUrlByRelPath(String relPath) async {
+    if (relPath.isEmpty) return null;
+    if (_shareToken != null && _shareToken!.isNotEmpty) {
+      final publicId = _serverPublicId;
+      if (publicId == null || publicId.isEmpty) return null;
+      return ApiService.uri(
+        '/view/report/$publicId/files/$relPath',
+        {'share_token': _shareToken},
+      ).toString();
+    }
+    if (_serverReportId != null) {
+      final res = await ApiService.getReportFileUrls(_serverReportId!);
+      if (res.success && res.data?['urls'] is Map) {
+        final u = (res.data!['urls'] as Map)[relPath];
+        if (u is String && u.isNotEmpty) return u;
+      }
+    }
+    return null;
+  }
+
+  /// Абсолютный путь файла внутри папки отчёта.
+  String _absoluteMediaPath(String folder, String relPath) {
+    if (relPath.startsWith('/') || relPath.contains(':\\')) return relPath;
+    return '$folder${Platform.pathSeparator}'
+        '${relPath.replaceAll('/', Platform.pathSeparator)}';
+  }
+
+  /// Скачать в локальную папку отчёта отсутствующие файлы (медиа других
+  /// устройств и шапку), чтобы они попали в ZIP-архив при экспорте.
+  /// Возвращает число скачанных файлов. [onProgress] — уведомление UI
+  /// (done, total) для индикатора.
+  Future<int> _downloadMissingFilesForExport({
+    void Function(int done, int total)? onProgress,
+  }) async {
+    if (kIsWeb || _currentReport == null || _currentReportPath == null) {
+      return 0;
+    }
+    final folder = _currentReportPath!;
+
+    // Собираем «относительный путь -> URL».
+    final targets = <String, String>{};
+
+    // Обновляем webUrl/thumbnailUrl (share — прокси, владелец — presigned).
+    if (_shareToken != null && _shareToken!.isNotEmpty) {
+      _populateMediaWebUrlsForShare();
+    } else if (_serverReportId != null) {
+      await _populateMediaWebUrls(_serverReportId!);
+    }
+
+    for (final markersList in _currentReport!.markers.values) {
+      for (final markers in markersList) {
+        for (final media in markers.media) {
+          final rel = media.localPath;
+          final url = media.webUrl;
+          if (rel != null && rel.isNotEmpty && url != null && url.isNotEmpty) {
+            targets[rel] = url;
+          }
+        }
+      }
+    }
+
+    // Шапка отчёта — обычный файл, не MediaItem.
+    final header = _currentReport!.headerImagePath;
+    if (header != null && header.isNotEmpty && !targets.containsKey(header)) {
+      final url = await _fileUrlByRelPath(header);
+      if (url != null && url.isNotEmpty) targets[header] = url;
+    }
+
+    // Оставляем только отсутствующие локально файлы.
+    final missing = <({String path, String url})>[];
+    for (final e in targets.entries) {
+      final path = _absoluteMediaPath(folder, e.key);
+      if (!File(path).existsSync()) {
+        missing.add((path: path, url: e.value));
+      }
+    }
+
+    final total = missing.length;
+    onProgress?.call(0, total);
+    var done = 0;
+    for (final m in missing) {
+      await MediaCacheService.downloadToFile(m.url, m.path);
+      done++;
+      onProgress?.call(done, total);
+    }
+    if (done > 0 && kDebugMode) {
+      debugPrint('export: downloaded $done/$total missing files');
+    }
+    return done;
+  }
+
   /// Заполнить MediaItem.webUrl presigned-ссылками с KS3.
   /// Вызывается после загрузки отчёта с сервера на web.
   /// Молча игнорирует ошибки сети — отчёт всё равно откроется,
@@ -3615,6 +3886,25 @@ class ReportState extends ChangeNotifier {
         }
       }
     }
+  }
+
+  /// Есть ли видео, ещё не сжатые в этой сессии (native).
+  /// Используется UI перед синхронизацией, чтобы запустить авто-сжатие.
+  bool get hasUncompressedVideos {
+    if (kIsWeb || _currentReport == null) return false;
+    for (final markersList in _currentReport!.markers.values) {
+      for (final markers in markersList) {
+        for (final media in markers.media) {
+          final lp = media.localPath;
+          if (media.type.startsWith('video/') &&
+              lp != null &&
+              !_compressedVideoPaths.contains(lp)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   /// Сжать все видео отчёта на нативной платформе (v_video_compressor).
@@ -4000,10 +4290,15 @@ class ReportState extends ChangeNotifier {
   Future<String?> exportZip({
     String? customSavePath,
     String? customFileName,
+    void Function(int done, int total)? onDownloadProgress,
   }) async {
     if (_currentReport == null || _currentReportPath == null) return null;
     try {
       await saveReport();
+
+      // Подтягиваем в локальную папку отсутствующие файлы (фото, добавленные
+      // другими устройствами, и шапку) — иначе ZIP соберётся без них.
+      await _downloadMissingFilesForExport(onProgress: onDownloadProgress);
 
       // Сохраняем Excel
       final excelBytes = await generateExcelBytes();

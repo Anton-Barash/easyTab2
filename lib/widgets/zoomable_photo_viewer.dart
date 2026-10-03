@@ -65,6 +65,7 @@ class ZoomablePhotoViewer extends StatefulWidget {
     this.controller,
     this.onPageChanged,
     this.imageProvider,
+    this.thumbnailProvider,
     this.pageBuilder,
     this.maxScale = 4.0,
   });
@@ -84,6 +85,11 @@ class ZoomablePhotoViewer extends StatefulWidget {
   /// Возвращает ImageProvider для зумируемой страницы (фото) или
   /// null, если страница не зумируемая (например, видео).
   final ImageProvider? Function(int index)? imageProvider;
+
+  /// Возвращает ImageProvider лёгкой миниатюры для страницы. Показывает
+  /// её подложкой, пока грузится полное фото (imageProvider), чтобы не
+  /// было пустого экрана. Может вернуть null.
+  final ImageProvider? Function(int index)? thumbnailProvider;
 
   /// Запасная отрисовка страницы, для которой imageProvider вернул
   /// null (видео/заглушка).
@@ -439,27 +445,43 @@ class _ZoomablePhotoViewerState extends State<ZoomablePhotoViewer>
 
     final Widget content;
     if (provider != null) {
-      content = Image(
-        image: provider,
-        fit: BoxFit.contain,
-        width: w,
-        height: h,
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return const Center(
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: Colors.white,
-              ),
+      final thumb = widget.thumbnailProvider?.call(index);
+      content = Stack(
+        fit: StackFit.expand,
+        children: [
+          // Лёгкая миниатюра-подложка: видна, пока грузится полное фото.
+          if (thumb != null)
+            Image(
+              image: thumb,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) => const Center(
-          child: Icon(Icons.broken_image, size: 60, color: Colors.white),
-        ),
+          Image(
+            image: provider,
+            fit: BoxFit.contain,
+            width: w,
+            height: h,
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) return child;
+              // Полное фото ещё грузится: если есть миниатюра — она уже
+              // видна под этим прозрачным слоем, иначе показываем спиннер.
+              if (thumb != null) return const SizedBox.expand();
+              return const Center(
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) => const Center(
+              child: Icon(Icons.broken_image, size: 60, color: Colors.white),
+            ),
+          ),
+        ],
       );
     } else if (widget.pageBuilder != null) {
       content = widget.pageBuilder!(index);

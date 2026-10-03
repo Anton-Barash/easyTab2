@@ -37,6 +37,11 @@ class MediaGrid extends StatelessWidget {
           mediaList: mediaList,
           initialIndex: initialIndex,
           reportPath: reportState.currentReportPath,
+          cacheKey: reportState.mediaCacheKey,
+          cacheFullMedia: (mediaMap) => reportState.cacheFullImage(
+            mediaMap['localPath'] as String?,
+            mediaMap['webUrl'] as String?,
+          ),
           onDelete: (indices) async {
             for (final index in indices.toList()..sort((a, b) => b.compareTo(a))) {
               await reportState.removeMedia(
@@ -101,6 +106,7 @@ class MediaGrid extends StatelessWidget {
           MediaItemWidget(
             media: media,
             reportPath: reportState.currentReportPath,
+            cacheKey: reportState.mediaCacheKey,
             onTap: () => _openViewer(
               context,
               initialIndex: idx,

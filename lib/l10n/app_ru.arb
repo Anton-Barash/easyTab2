@@ -57,7 +57,14 @@
   "reportMenuDeleteLocal": "Удалить на устройстве",
   "reportMenuDeleteServer": "Удалить на сервере",
   "reportMenuUnlink": "Отменить связь",
+  "reportMenuUpload": "Залить на сервер",
+  "reportMenuUploadSuccess": "Отчёт залит на сервер",
+  "reportMenuDownload": "Скачать с сервера",
+  "reportMenuDownloadAll": "Скачать все на устройство",
+  "reportMenuDownloadAllHint": "С сервера будет загружена последняя версия отчёта и все файлы (фото, видео, вложения). Несохранённые локальные изменения будут потеряны.",
   "reportMenuUnlinkHint": "Отмена связи делает отчёт локальным. Синхронизация с облачной копией потеряется.",
+  "reportMenuRemoveShare": "Убрать из списка",
+  "reportMenuRemoveShareHint": "Отчёт будет убран из списка «Мои отчёты» на этом устройстве. Сам отчёт на сервере останется у автора.",
   "reportDeleteServerDenied": "Нельзя удалить этот отчёт на сервере: вы не его автор.",
   "createNewReport": "+ Создать новый отчёт",
   "continueReport": "Продолжить",
@@ -245,6 +252,13 @@
   "unlockModeAdd": "Добавить новый ответ (переводы остаются)",
   "saved": "Сохранено",
   "processingZip": "Обработка ZIP...",
+  "@downloadingFiles": {
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "downloadingFiles": "Скачивание файлов: {done}/{total}",
   "processingMedia": "Файлы добавляются, подождите...",
   "importingProject": "Импорт проекта...",
   "projectImported": "Проект импортирован!",
@@ -361,8 +375,13 @@
   "templateSourceFileDesc": "Загрузить файл шаблона",
   "templateSourceJson": "Вставить JSON",
   "templateSourceJsonDesc": "Вставить JSON-код вручную",
-  "templateDownloadSample": "Скачать пример",
+  "templateDownloadSample": "Скопировать пример",
   "templateDownloadSampleDesc": "Образец JSON-шаблона",
+  "templateSourceReport": "Из отчётов",
+  "templateSourceReportDesc": "Использовать существующий отчёт как шаблон",
+  "templateSelectReport": "Выберите отчёт",
+  "templateReportLoadError": "Не удалось загрузить отчёт как шаблон",
+  "templateReportWebUnsupported": "На веб-версии выбор шаблона из отчётов пока не поддерживается",
   "jsonTemplateTitle": "Вставьте JSON-шаблон",
   "jsonTemplateHint": "questions: [...], availableLanguages: [...]",
   "loadJsonButton": "Загрузить",
@@ -405,6 +424,14 @@
       "error": {"type": "String"}
     }
   },
+  "autoCompressTitle": "Сжать видео перед синхронизацией?",
+  "autoCompressMessage": "Видео будут сжаты до уровня качества: {quality}. Уровень можно изменить в настройках перед синхронизацией.",
+  "@autoCompressMessage": {
+    "placeholders": {
+      "quality": {"type": "String"}
+    }
+  },
+  "autoCompressCancelled": "Синхронизация отменена. Можно изменить качество видео в настройках и синхронизировать снова.",
   "reportIdMissing": "Не указан ID отчёта",
   "shareTokenMissing": "Не указан токен ссылки",
   "@reportNumber": {

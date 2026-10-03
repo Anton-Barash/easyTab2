@@ -13,7 +13,8 @@ import 'package:easy_tab/utils/platform_io.dart'
 import 'package:easy_tab/widgets/video_thumbnail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../utils/app_colors.dart';
+import 'package:easy_tab/services/media_cache_service.dart';
+import 'package:easy_tab/utils/app_colors.dart';
 
 class MediaItemWidget extends StatelessWidget {
   final Map<String, dynamic> media;
@@ -21,12 +22,18 @@ class MediaItemWidget extends StatelessWidget {
   final VoidCallback onLongPress;
   final String? reportPath;
 
+  /// Ключ дискового кэша миниатюр (`media_cache/<cacheKey>/`) — тот же,
+  /// что использует ReportState. Если задан и миниатюра уже скачана,
+  /// показываем локальный файл кэша (работает офлайн, без трафика).
+  final String? cacheKey;
+
   const MediaItemWidget({
     super.key,
     required this.media,
     required this.onTap,
     required this.onLongPress,
     this.reportPath,
+    this.cacheKey,
   });
 
   String? _getAbsolutePath(String? relativePath) {
@@ -142,10 +149,22 @@ class MediaItemWidget extends StatelessWidget {
                       );
                     }
                     // Mobile/Desktop: локальный файл; если его нет (фото
-                    // добавлено другим устройством, например с web) —
-                    // грузим миниатюру/оригинал по сети.
+                    // добавлено другим устройством) — сначала кэш миниатюр
+                    // (скачан заранее, доступен офлайн), затем сеть.
                     if (!kIsWeb && localPath != null) {
                       if (!File(localPath).existsSync()) {
+                        final rel = media['localPath'] as String?;
+                        final cached = cacheKey != null
+                            ? MediaCacheService.cachedThumbPath(cacheKey, rel)
+                            : null;
+                        if (cached != null && File(cached).existsSync()) {
+                          return fileImageWidget(
+                            cached,
+                            width: 70,
+                            height: 70,
+                            fit: BoxFit.cover,
+                          );
+                        }
                         final netUrl =
                             (media['thumbnailUrl'] as String?) ??
                             (media['webUrl'] as String?);

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:easy_tab/services/template_parser_service.dart';
 import 'package:easy_tab/utils/app_colors.dart';
 import 'package:easy_tab/utils/platform_io.dart'
@@ -15,7 +16,9 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/report_provider.dart';
+import '../providers/report_sync_manager.dart';
 import '../models/report_models.dart';
+import '../models/report_summary.dart';
 import '../l10n/app_localizations.dart';
 
 class TemplateSelectScreen extends StatefulWidget {
@@ -668,6 +671,117 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       case 'download_sample':
         await _downloadSampleJson();
         break;
+      case 'from_reports':
+        await _pickReportTemplate();
+        break;
+    }
+  }
+
+  /// Выбор существующего отчёта (локального или облачного) как шаблона.
+  ///
+  /// Показывает список всех отчётов (через страже `loadCombinedList`),
+  /// затем читает report.json выбранного отчёта и использует его.
+  Future<void> _pickReportTemplate() async {
+    final loc = AppLocalizations.of(context)!;
+
+    final List<ReportSummary> summaries;
+    try {
+      summaries = await ReportSyncManager().loadCombinedList();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.templateReportLoadError)),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final summary = await showDialog<ReportSummary>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(loc.templateSelectReport),
+        children: summaries.isEmpty
+            ? [
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(loc.noSavedReports),
+                ),
+              ]
+            : summaries.map((s) {
+                return ListTile(
+                  leading: const Icon(Icons.description),
+                  title: Text(
+                    s.title,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${s.modified.day}.${s.modified.month}.${s.modified.year}'
+                    '${s.onServer ? ' · cloud' : ''}',
+                  ),
+                  onTap: () => Navigator.pop(ctx, s),
+                );
+              }).toList(),
+      ),
+    );
+
+    if (summary == null || !mounted) return;
+
+    // На веб локальные папки и скачивание в кэш недоступны —
+    // облачный шаблон из отчётов там пока не поддержан.
+    if (summary.localFolderPath == null && kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.templateReportWebUnsupported)),
+      );
+      return;
+    }
+
+    try {
+      String reportJson;
+      if (summary.localFolderPath != null) {
+        final file = File(
+          '${summary.localFolderPath}${Platform.pathSeparator}report.json',
+        );
+        if (!await file.exists()) {
+          throw Exception('report.json missing');
+        }
+        reportJson = await file.readAsString();
+      } else {
+        final reportId = int.tryParse(summary.id);
+        if (reportId == null) {
+          throw Exception('invalid report id');
+        }
+        final cacheDir = await ReportSyncManager()
+            .downloadReportToCache(reportId);
+        if (cacheDir == null || cacheDir.isEmpty) {
+          throw Exception('download report failed');
+        }
+        final file = File(
+          '$cacheDir${Platform.pathSeparator}report.json',
+        );
+        reportJson = await file.readAsString();
+      }
+
+      final decoded = jsonDecode(reportJson);
+      if (decoded is! Map<String, dynamic>) {
+        throw Exception('invalid report json');
+      }
+      final report = Report.fromJson(decoded);
+      if (report.questions.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.templateReportLoadError)),
+        );
+        return;
+      }
+      setState(() {
+        _selectedReport = report;
+      });
+    } catch (e) {
+      if (kDebugMode) print('_pickReportTemplate error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.templateReportLoadError)),
+      );
     }
   }
 
@@ -711,6 +825,12 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                   icon: Icons.code,
                   label: loc.templateSourceJson,
                   onTap: () => Navigator.pop(ctx, 'json_text'),
+                ),
+                const SizedBox(height: 8),
+                PickerItem(
+                  icon: Icons.folder_open,
+                  label: loc.templateSourceReport,
+                  onTap: () => Navigator.pop(ctx, 'from_reports'),
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
@@ -879,15 +999,11 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     final loc = AppLocalizations.of(context)!;
     try {
       final sample = TemplateParserService.generateSampleJson();
-      final directory = await FilePicker.platform.getDirectoryPath();
-      if (directory == null) return;
-
-      final file = File('$directory/template_sample.json');
-      await file.writeAsString(sample);
+      await Clipboard.setData(ClipboardData(text: sample));
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.templateSampleSaved(file.path))),
+        SnackBar(content: Text(loc.templateCopiedClipboard)),
       );
     } catch (e) {
       if (!mounted) return;

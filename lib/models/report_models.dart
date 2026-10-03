@@ -654,18 +654,42 @@ class Report {
         }
         rid ??= _canonicalUuid();
 
+        // Персистим rid обратно в модель: иначе следующий вызов toJson()
+        // сгенерировал бы НОВЫЙ случайный rid для того же ряда, и diff-движок
+        // увидел бы не update, а remove+add (что затирало переводы при
+        // синхронизации с сервером).
+        if (markersList != null &&
+            r < markersList.length &&
+            (markersList[r].rowId == null || markersList[r].rowId!.isEmpty)) {
+          markersList[r].rowId = rid;
+        }
+
         final cells = <String, dynamic>{};
+        // Стабильный createdAt для синтетических пустых ячеек: берём его из
+        // любой существующей ячейки ряда. Иначе toJson() каждый раз создавал
+        // бы ячейку с текущим временем, а сервер по расхождению меток времени
+        // ловил бы ложный optimistic-lock конфликт и затирал переводы.
+        int? rowCreatedAt;
+        for (final list in langMap.values) {
+          if (r < list.length) {
+            rowCreatedAt = list[r].createdAt;
+            break;
+          }
+        }
         for (final lang in allLangs) {
           final list = langMap[lang];
           if (list != null && r < list.length) {
             final cell = list[r];
-            cells[lang] = cell.toJson();
             if (cell.rowId == null || cell.rowId!.isEmpty) {
-              cells[lang] = {...cells[lang] as Map<String, dynamic>, 'rowId': rid};
+              cell.rowId = rid;
             }
+            cells[lang] = cell.toJson();
           } else {
             // Нет ячейки в этом языке для ряда — добавляем пустую.
-            cells[lang] = TranslationAnswer(rowId: rid).toJson();
+            cells[lang] = TranslationAnswer(
+              rowId: rid,
+              createdAt: rowCreatedAt ?? 0,
+            ).toJson();
           }
         }
 

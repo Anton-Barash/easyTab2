@@ -11,6 +11,7 @@ class SettingsState extends ChangeNotifier {
   bool _starsBackground = false;
   MediaQualityLevel _imageQualityLevel = MediaQualityLevel.medium;
   int _videoQualityLevel = MediaQuality.defaultVideoLevel;
+  bool _videoCompressWarningShown = false;
 
   String get templatesFolder => _templatesFolder;
   String get reportsFolder => _reportsFolder;
@@ -31,6 +32,10 @@ class SettingsState extends ChangeNotifier {
   /// Уровень качества видео: 1 — high, 2 — medium, 3 — low (default).
   /// Используется ffmpeg.wasm (web) и v_video_compressor (native).
   int get videoQualityLevel => _videoQualityLevel;
+
+  /// Показывали ли уже одноразовое предупреждение об авто-сжатии видео
+  /// перед синхронизацией. true — больше не показываем.
+  bool get videoCompressWarningShown => _videoCompressWarningShown;
 
   SettingsState() {
     // P1-55: _loadSettings() теперь вызывается через init(),
@@ -54,6 +59,8 @@ class SettingsState extends ChangeNotifier {
         MediaQuality.levelFromKey(prefs.getString('imageQualityLevel'));
     _videoQualityLevel =
         MediaQuality.videoLevelFromKey(prefs.getString('videoQualityLevel'));
+    _videoCompressWarningShown =
+        prefs.getBool('videoCompressWarningShown') ?? false;
     notifyListeners();
   }
 
@@ -114,6 +121,15 @@ class SettingsState extends ChangeNotifier {
     await saveSettings();
   }
 
+  /// Отметить, что одноразовое предупреждение об авто-сжатии уже показано.
+  Future<void> markVideoCompressWarningShown() async {
+    if (_videoCompressWarningShown) return;
+    _videoCompressWarningShown = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('videoCompressWarningShown', true);
+    notifyListeners();
+  }
+
   Future<void> resetSettings() async {
     final prefs = await SharedPreferences.getInstance();
     // TODO-35: НЕ используем prefs.clear() — он удаляет ВСЕ ключи,
@@ -125,6 +141,7 @@ class SettingsState extends ChangeNotifier {
     await prefs.remove('starsBackground');
     await prefs.remove('imageQualityLevel');
     await prefs.remove('videoQualityLevel');
+    await prefs.remove('videoCompressWarningShown');
     _templatesFolder = '';
     _reportsFolder = '';
     _mediaFolder = '';

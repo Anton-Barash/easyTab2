@@ -181,8 +181,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportMenuUnlink => 'Unlink';
 
   @override
+  String get reportMenuUpload => 'Upload to server';
+
+  @override
+  String get reportMenuUploadSuccess => 'Report uploaded to server';
+
+  @override
+  String get reportMenuDownload => 'Download from server';
+
+  @override
+  String get reportMenuDownloadAll => 'Download all to device';
+
+  @override
+  String get reportMenuDownloadAllHint =>
+      'The latest report version and all files (photos, videos, attachments) will be downloaded from the server. Unsaved local changes will be lost.';
+
+  @override
   String get reportMenuUnlinkHint =>
       'Unlink makes this report local only. Sync with the original cloud copy is lost.';
+
+  @override
+  String get reportMenuRemoveShare => 'Remove from list';
+
+  @override
+  String get reportMenuRemoveShareHint =>
+      'This report will be removed from \"My Reports\" on this device. The report stays on the server with its author.';
 
   @override
   String get reportDeleteServerDenied =>
@@ -574,6 +597,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get processingZip => 'Processing ZIP...';
 
   @override
+  String downloadingFiles(int done, int total) {
+    return 'Downloading files: $done/$total';
+  }
+
+  @override
   String get processingMedia => 'Adding files, please wait...';
 
   @override
@@ -918,10 +946,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get templateSourceJsonDesc => 'Paste JSON code manually';
 
   @override
-  String get templateDownloadSample => 'Download sample';
+  String get templateDownloadSample => 'Copy sample';
 
   @override
   String get templateDownloadSampleDesc => 'Sample JSON template';
+
+  @override
+  String get templateSourceReport => 'From reports';
+
+  @override
+  String get templateSourceReportDesc => 'Use an existing report as a template';
+
+  @override
+  String get templateSelectReport => 'Select a report';
+
+  @override
+  String get templateReportLoadError =>
+      'Could not load the report as a template';
+
+  @override
+  String get templateReportWebUnsupported =>
+      'Selecting a template from reports is not supported on the web yet';
 
   @override
   String get jsonTemplateTitle => 'Paste JSON template';
@@ -997,6 +1042,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String compressionError(String error) {
     return 'Compression error: $error';
   }
+
+  @override
+  String get autoCompressTitle => 'Compress videos before syncing?';
+
+  @override
+  String autoCompressMessage(String quality) {
+    return 'Videos will be compressed to quality level: $quality. You can change the quality in settings before syncing.';
+  }
+
+  @override
+  String get autoCompressCancelled =>
+      'Sync cancelled. You can change video quality in settings and sync again.';
 
   @override
   String get reportIdMissing => 'Report ID is missing';

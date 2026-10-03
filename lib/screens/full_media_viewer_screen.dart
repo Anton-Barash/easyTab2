@@ -11,7 +11,10 @@
 //   - режим сетки с множественным выделением/удалением
 // ============================================================
 
+import 'dart:async';
+
 import 'package:easy_tab/l10n/app_localizations.dart';
+import 'package:easy_tab/services/media_cache_service.dart';
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
 import 'package:easy_tab/utils/file_image.dart'
@@ -33,6 +36,15 @@ class FullMediaViewerScreen extends StatefulWidget {
   final String? reportPath;
   final bool startInSelectionMode;
 
+  /// Ключ дискового кэша медиа (`media_cache/<cacheKey>/`) — тот же, что
+  /// использует ReportState. Позволяет показать закэшированное полное
+  /// фото без повторной загрузки по сети.
+  final String? cacheKey;
+
+  /// Скачать полное фото в кэш (native). Вызывается при показе фото,
+  /// которого нет локально; результат доступен при следующих просмотрах.
+  final Future<String?> Function(Map<String, dynamic> media)? cacheFullMedia;
+
   const FullMediaViewerScreen({
     super.key,
     required this.mediaList,
@@ -40,6 +52,8 @@ class FullMediaViewerScreen extends StatefulWidget {
     this.onDelete,
     this.reportPath,
     this.startInSelectionMode = false,
+    this.cacheKey,
+    this.cacheFullMedia,
   });
 
   @override
@@ -314,6 +328,14 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
   /// добавлено с другого устройства) — тогда грузим миниатюру/оригинал
   /// по сети.
   Widget _buildNativeGridPhoto(Map<String, dynamic> media) {
+    // Сначала кэш миниатюр (офлайн, без трафика).
+    final cached = widget.cacheKey != null
+        ? MediaCacheService.cachedThumbPath(
+            widget.cacheKey, media['localPath'] as String?)
+        : null;
+    if (cached != null && File(cached).existsSync()) {
+      return fileImageWidget(cached, fit: BoxFit.cover);
+    }
     final thumbUrl = media['thumbnailUrl'] as String?;
     final webUrl = media['webUrl'] as String?;
     final url = thumbUrl ?? webUrl;
@@ -491,6 +513,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
               _initializeVideo(index);
             },
             imageProvider: _imageProviderFor,
+            thumbnailProvider: _thumbnailProviderFor,
             pageBuilder: _buildPageFallback,
           ),
         ),
@@ -511,10 +534,24 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     final webUrl = media['webUrl'] as String?;
 
     // Локальный файл есть только у медиа, добавленных на этом устройстве.
-    // Фото с других устройств (например с web) локально отсутствует —
-    // грузим по сети (миниатюра/оригинал уже в webUrl).
     if (!kIsWeb && localPath != null && File(localPath).existsSync()) {
       return fileImageProvider(localPath);
+    }
+    // Native: сначала дисковый кэш (фото уже просматривали — офлайн и
+    // без трафика), затем сеть; показанное по сети фото кэшируется.
+    if (!kIsWeb) {
+      final rel = media['localPath'] as String?;
+      final cached = widget.cacheKey != null
+          ? MediaCacheService.cachedFullPath(widget.cacheKey, rel)
+          : null;
+      if (cached != null && File(cached).existsSync()) {
+        return fileImageProvider(cached);
+      }
+      if (webUrl != null && webUrl.isNotEmpty) {
+        unawaited(widget.cacheFullMedia?.call(media));
+        return NetworkImage(webUrl);
+      }
+      return null;
     }
     if (webUrl != null && webUrl.isNotEmpty) {
       return NetworkImage(webUrl);

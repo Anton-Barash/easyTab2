@@ -28,6 +28,7 @@ import '../utils/clipboard_utils.dart';
 import '../services/anonymous_id_service.dart';
 import '../utils/share_link_opener_stub.dart'
     if (dart.library.html) '../utils/share_link_opener_web.dart';
+import '../widgets/form_fill/answer_fields_binder.dart';
 import '../widgets/form_fill/edit_header_dialog.dart';
 import '../widgets/form_fill/header_list_tile.dart';
 import '../widgets/form_fill/header_side_panel_tile.dart';
@@ -63,14 +64,20 @@ class FormFillScreen extends StatefulWidget {
 }
 
 class _FormFillScreenState extends State<FormFillScreen> {
-  final Map<String, Map<int, TextEditingController>> _answerControllers = {};
-  final Map<String, Map<int, Timer?>> _debounceTimers = {};
+  /// Связывание полей ввода ответов с моделью отчёта.
+  ///
+  /// Логика контроллеров, дебаунса и защиты от потери набранного текста
+  /// вынесена в отдельный класс, чтобы её можно было покрыть unit-тестами.
+  late AnswerFieldsBinder _answerFields;
+
+  /// Доступность полей: есть ли у ряда ответы в других языках (только чтение).
+  final Map<String, Map<int, bool>> _enabledAnswers = {};
+
   ViewMode _viewMode = ViewMode.list;
   bool _isLoadingSharedReport = false;
 
-  TextEditingController? _getSafeController(String qid, int j) {
-    return _answerControllers[qid]?[j];
-  }
+  TextEditingController? _getSafeController(String qid, int j) =>
+      _answerFields.controller(qid, j);
 
   bool _isSidePanelCollapsed = false;
   bool _hideAnsweredQuestions = false;
@@ -81,11 +88,11 @@ class _FormFillScreenState extends State<FormFillScreen> {
   int _currentPage = -1;
   final Map<int, bool> _needsWorkMap = {};
   Set<int> _blockedQuestionIndices = {};
-  bool _isUpdatingControllers = false;
-  final Map<String, Map<int, bool>> _enabledAnswers = {};
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
-  String _processingMessage = '';
+  // Реактивное сообщение в диалоге обработки (прогресс скачивания N/M):
+  // обновляется без пересоздания диалога.
+  final ValueNotifier<String> _processingNotifier = ValueNotifier<String>('');
 
   bool _checkedSyncAfterLoad = false;
 
@@ -94,15 +101,30 @@ class _FormFillScreenState extends State<FormFillScreen> {
   late final ReportState _reportState;
 
   void _resetControllers() {
-    _answerControllers.values
-        .expand((map) => map.values)
-        .forEach((c) => c.dispose());
-    _answerControllers.clear();
-    _debounceTimers.values
-        .expand((map) => map.values)
-        .forEach((timer) => timer?.cancel());
-    _debounceTimers.clear();
+    _answerFields.dispose();
+    _answerFields = _createAnswerFieldsBinder();
     _enabledAnswers.clear();
+  }
+
+  AnswerFieldsBinder _createAnswerFieldsBinder() {
+    final binder = AnswerFieldsBinder();
+    binder.onCommit = (questionIndex, answerIndex, text, language) {
+      if (!_hasUnsavedChanges && mounted) {
+        setState(() => _hasUnsavedChanges = true);
+      }
+      // Язык передаётся явно: иначе сброс набранного текста затирал бы
+      // переводы, уже сделанные в других языках.
+      _reportState.updateAnswerText(
+        questionIndex,
+        answerIndex,
+        text,
+        language: language,
+      );
+    };
+    binder.onAvailability = (qid, answerIndex, enabled) {
+      _enabledAnswers.putIfAbsent(qid, () => {})[answerIndex] = enabled;
+    };
+    return binder;
   }
 
   @override
@@ -113,6 +135,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     // а не в build() — это устраняет побочные эффекты из метода сборки.
     final reportState = context.read<ReportState>();
     _reportState = reportState;
+    _answerFields = _createAnswerFieldsBinder();
     reportState.addListener(_onReportStateChanged);
     reportState.onVersionConflict = _showConflictDialog;
     final report = reportState.currentReport;
@@ -229,14 +252,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
   void dispose() {
     _reportState.removeListener(_onReportStateChanged);
     _reportState.onVersionConflict = null;
-    _answerControllers.values
-        .expand((map) => map.values)
-        .forEach((c) => c.dispose());
-    _debounceTimers.values
-        .expand((map) => map.values)
-        .forEach((timer) => timer?.cancel());
+    _answerFields.dispose();
     _pageController.dispose();
     _autoSaveTimer?.cancel();
+    _processingNotifier.dispose();
     super.dispose();
   }
 
@@ -303,10 +322,10 @@ class _FormFillScreenState extends State<FormFillScreen> {
     try {
       final reportState = context.read<ReportState>();
       final authProvider = context.read<AuthProvider>();
+      final settings = context.read<SettingsState>();
       final loc = AppLocalizations.of(context)!;
       final onServer =
           reportState.serverReportId != null ||
-          (reportState.serverPublicId?.isNotEmpty ?? false) ||
           (reportState.shareToken?.isNotEmpty ?? false);
       // Писать на сервер может залогиненный владелец или редактор по share-ссылке.
       final canSyncServer =
@@ -319,6 +338,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       // уже содержит изменения других). Отдельный pull здесь НЕ вызываем —
       // при неудачном сохранении он затирал бы несохранённые правки.
       bool saved;
+      bool syncCancelled = false;
       if (kIsWeb) {
         // На web локальной ФС нет: сохранение идёт сразу на сервер.
         saved = canSyncServer
@@ -326,9 +346,20 @@ class _FormFillScreenState extends State<FormFillScreen> {
             : await reportState.saveReport();
       } else {
         final localOk = await reportState.saveReport();
-        saved = canSyncServer
-            ? await reportState.saveReportToServer()
-            : localOk;
+        if (canSyncServer) {
+          // Авто-сжатие видео перед отправкой на сервер (native).
+          if (await _autoCompressBeforeSync(reportState, settings)) {
+            saved = await reportState.saveReportToServer();
+          } else {
+            // Пользователь отменил сжатие: отчёт сохранён локально, но
+            // правки остаются «несохранёнными», чтобы можно было изменить
+            // настройки качества и синхронизировать повторно.
+            syncCancelled = true;
+            saved = false;
+          }
+        } else {
+          saved = localOk;
+        }
       }
 
       // Сервер мог ответить постоянным отказом (истекло право на
@@ -345,7 +376,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           if (saved) _hasUnsavedChanges = false;
         });
       }
-      if (!saved && !detached && mounted) {
+      if (!saved && !detached && !syncCancelled && mounted) {
         final detail = reportState.lastSyncError;
         final message = syncFailureMessageFromText(detail, loc);
         ScaffoldMessenger.of(
@@ -368,27 +399,22 @@ class _FormFillScreenState extends State<FormFillScreen> {
     }
   }
 
-  /// Есть ли отложенные дебаунсом правки, ещё не попавшие в модель отчёта.
-  bool _hasPendingEdits() => _debounceTimers.values.any(
-    (perIndex) => perIndex.values.any((t) => t?.isActive ?? false),
-  );
+  /// Есть ли отложенные правки, ещё не попавшие в модель отчёта: либо активный
+  /// дебаунс-таймер, либо расхождение текста поля с моделью. Второй случай
+  /// возможен, если таймер был снят синхронизацией контроллеров — раньше такие
+  /// правки молча терялись при сохранении.
+  bool _hasPendingEdits() {
+    if (_answerFields.hasPendingEdits) return true;
+    final report = _reportState.currentReport;
+    return report != null && _answerFields.hasModelDiff(report);
+  }
 
   /// Применить отложенные (дебаунс) правки в модель немедленно.
   /// Нужно перед сохранением/подтягиванием, чтобы текст из полей не потерялся.
   void _flushPendingEdits(ReportState reportState) {
-    _debounceTimers.forEach((qid, perIndex) {
-      final qIndex = int.tryParse(qid);
-      if (qIndex == null) return;
-      perIndex.forEach((j, timer) {
-        if (!(timer?.isActive ?? false)) return;
-        timer!.cancel();
-        reportState.updateAnswerText(
-          qIndex,
-          j,
-          _getSafeController(qid, j)?.text ?? '',
-        );
-      });
-    });
+    final report = reportState.currentReport;
+    if (report == null) return;
+    _answerFields.flush(report);
   }
 
   /// Кнопка «Синхронизировать» (без несохранённых правок) — ТОЛЬКО подтягивает
@@ -412,9 +438,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
       return;
     }
 
+    // Есть несохранённые правки (в т.ч. медиа, чья загрузка могла упасть):
+    // сначала отправляем их на сервер. Иначе pull затрёт локальные правки
+    // серверной версией, в которой их ещё нет («пропавший ответ»).
+    if (_hasUnsavedChanges) {
+      await _doSaveAndSync();
+      return;
+    }
+
     final onServer =
         reportState.serverReportId != null ||
-        (reportState.serverPublicId?.isNotEmpty ?? false) ||
         (reportState.shareToken?.isNotEmpty ?? false);
 
     // Отчёт ещё ни разу не сохранён на сервер — подтягивать нечего.
@@ -1391,9 +1424,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
   }
 
   void _showProcessingDialog(String message) {
-    setState(() {
-      _processingMessage = message;
-    });
+    _processingNotifier.value = message;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1403,18 +1434,24 @@ class _FormFillScreenState extends State<FormFillScreen> {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text(_processingMessage),
+            ValueListenableBuilder<String>(
+              valueListenable: _processingNotifier,
+              builder: (_, value, _) => Text(value, textAlign: TextAlign.center),
+            ),
           ],
         ),
       ),
     );
   }
 
+  /// Обновить текст в открытом диалоге обработки (например, прогресс N/M).
+  void _setProcessingMessage(String message) {
+    _processingNotifier.value = message;
+  }
+
   void _hideProcessingDialog() {
     if (!mounted) return;
-    setState(() {
-      _processingMessage = '';
-    });
+    _processingNotifier.value = '';
     // P3-47: pop только если диалог действительно активен.
     // Проверяем через canPop — иначе pop() закроет текущий экран,
     // если диалог уже был закрыт ранее.
@@ -1708,10 +1745,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                             ),
                             onPressed: () async {
                               final qid = i.toString();
-                              _debounceTimers[qid]?[j]?.cancel();
-                              _debounceTimers[qid]?.remove(j);
-                              _answerControllers[qid]?[j]?.dispose();
-                              _answerControllers[qid]?.remove(j);
+                              _answerFields.disposeAnswer(qid, j);
                               _enabledAnswers[qid]?.remove(j);
                               await reportState.removeAnswer(i, j);
                               _markAsUnsaved();
@@ -1745,10 +1779,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         ),
                         onPressed: () async {
                           final qid = i.toString();
-                          _debounceTimers[qid]?[j]?.cancel();
-                          _debounceTimers[qid]?.remove(j);
-                          _answerControllers[qid]?[j]?.dispose();
-                          _answerControllers[qid]?.remove(j);
+                          _answerFields.disposeAnswer(qid, j);
                           _enabledAnswers[qid]?.remove(j);
                           await reportState.removeAnswer(i, j);
                           _markAsUnsaved();
@@ -1947,7 +1978,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
                           // Изменение смысла: удаляем переводы в других языках.
                           reportState.updateAnswerText(i, j, text);
                           setState(() {
-                            _enabledAnswers[qid]![j] = true;
+                            _enabledAnswers
+                                .putIfAbsent(qid, () => {})[j] = true;
                           });
                         }
                       }
@@ -2093,84 +2125,18 @@ class _FormFillScreenState extends State<FormFillScreen> {
 
   /// Синхронизировать TextEditingController'ы с текущими ответами отчёта.
   ///
-  /// Вызывается из listener'а ReportState (синхронно при notifyListeners),
+  /// Вызывается из listenerа ReportState (синхронно при notifyListeners),
   /// поэтому контроллеры всегда готовы к моменту пересборки виджета.
   /// Не вызывать из build() — метод имеет побочные эффекты (создание
   /// контроллеров, таймеров, dispose устаревших).
   void _syncControllers(ReportState reportState) {
     final report = reportState.currentReport;
     if (report == null) return;
-
-    for (int i = 0; i < report.questions.length; i++) {
-      final qid = i.toString();
-      if (!_answerControllers.containsKey(qid)) {
-        _answerControllers[qid] = {};
-      }
-      if (!_enabledAnswers.containsKey(qid)) {
-        _enabledAnswers[qid] = {};
-      }
-      if (!_debounceTimers.containsKey(qid)) {
-        _debounceTimers[qid] = {};
-      }
-      final answers = report.getAnswersForQuestion(i, report.currentLanguage);
-
-      final existingIndices = _answerControllers[qid]?.keys.toList() ?? [];
-      for (final j in existingIndices) {
-        // Cancel any pending debounce timer to prevent stale updates
-        _debounceTimers[qid]?[j]?.cancel();
-        _debounceTimers[qid]?.remove(j);
-        if (j >= answers.length) {
-          _getSafeController(qid, j)?.dispose();
-          _answerControllers[qid]?.remove(j);
-          _enabledAnswers[qid]?.remove(j);
-        }
-      }
-
-      for (int j = 0; j < answers.length; j++) {
-        if (!_answerControllers[qid]!.containsKey(j)) {
-          _answerControllers[qid]![j] = TextEditingController(
-            text: answers[j]['text'] ?? '',
-          );
-          _getSafeController(qid, j)?.addListener(() {
-            if (!_isUpdatingControllers) {
-              _debounceTimers[qid] ??= {};
-              _debounceTimers[qid]![j] = Timer(
-                const Duration(milliseconds: 300),
-                () {
-                  reportState.updateAnswerText(
-                    i,
-                    j,
-                    _getSafeController(qid, j)?.text ?? '',
-                  );
-                  if (!_hasUnsavedChanges) {
-                    setState(() => _hasUnsavedChanges = true);
-                  }
-                },
-              );
-            }
-          });
-        } else {
-          final controller = _getSafeController(qid, j);
-          if (controller != null) {
-            final newText = answers[j]['text'] ?? '';
-            if (controller.text != newText) {
-              _isUpdatingControllers = true;
-              // НЕ сохраняем позицию курсора — сбрасываем выделение
-              // и ставим курсор в конец текста. Это предотвращает
-              // нежелательное выделение при синхронизации.
-              controller.value = TextEditingValue(
-                text: newText,
-                selection: TextSelection.collapsed(offset: newText.length),
-              );
-              _isUpdatingControllers = false;
-            }
-          }
-        }
-
-        final hasOtherAnswers = reportState.hasAnswersInOtherLanguages(i, j);
-        _enabledAnswers[qid]![j] = !hasOtherAnswers;
-      }
-    }
+    _answerFields.sync(
+      report,
+      hasTranslationsInOtherLanguages:
+          reportState.hasAnswersInOtherLanguages,
+    );
   }
 
   /// Вернуться к списку отчётов (используется кликом по названию в шапке
@@ -2334,7 +2300,6 @@ class _FormFillScreenState extends State<FormFillScreen> {
           ((() {
             final onServer =
                 reportState.serverReportId != null ||
-                (reportState.serverPublicId?.isNotEmpty ?? false) ||
                 (reportState.shareToken?.isNotEmpty ?? false);
             final webSync = kIsWeb && onServer;
             return IconButton(
@@ -2640,6 +2605,13 @@ class _FormFillScreenState extends State<FormFillScreen> {
                         final zipPath = await reportState.exportZip(
                           customSavePath: path.dirname(result),
                           customFileName: path.basename(result),
+                          onDownloadProgress: (done, total) {
+                            if (total > 0) {
+                              _setProcessingMessage(
+                                loc.downloadingFiles(done, total),
+                              );
+                            }
+                          },
                         );
                         _hideProcessingDialog();
                         if (zipPath != null && context.mounted) {
@@ -2663,7 +2635,15 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     } else {
                       await reportState.saveReport();
                       _showProcessingDialog(loc.processingZip);
-                      final zipPath = await reportState.exportZip();
+                      final zipPath = await reportState.exportZip(
+                        onDownloadProgress: (done, total) {
+                          if (total > 0) {
+                            _setProcessingMessage(
+                              loc.downloadingFiles(done, total),
+                            );
+                          }
+                        },
+                      );
                       _hideProcessingDialog();
                       if (zipPath != null && mounted) {
                         await reportState.shareZip(zipPath);
@@ -4069,6 +4049,60 @@ class _FormFillScreenState extends State<FormFillScreen> {
         ],
       ),
     );
+  }
+
+  /// Авто-сжатие видео перед синхронизацией (native).
+  ///
+  /// Первый раз показывает предупреждение с текущим уровнем качества:
+  /// «ОК» — сжать и продолжить, «Отмена» — прервать синхронизацию,
+  /// чтобы пользователь мог изменить настройки. Предупреждение показывается
+  /// только один раз (флаг в SettingsState/shared_preferences).
+  /// Возвращает true, если можно продолжать сохранение на сервер.
+  Future<bool> _autoCompressBeforeSync(
+    ReportState reportState,
+    SettingsState settings,
+  ) async {
+    if (!reportState.hasUncompressedVideos) return true;
+    final loc = AppLocalizations.of(context)!;
+
+    if (!settings.videoCompressWarningShown) {
+      final qualityLabel = switch (settings.videoQualityLevel) {
+        1 => loc.highQuality,
+        2 => loc.mediumQuality,
+        _ => loc.lowQuality,
+      };
+      final ok = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: Text(loc.autoCompressTitle),
+          content: Text(loc.autoCompressMessage(qualityLabel)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(loc.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(loc.ok),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(loc.autoCompressCancelled)),
+          );
+        }
+        return false;
+      }
+      await settings.markVideoCompressWarningShown();
+    }
+
+    // Сжатие с прогресс-диалогом (переиспользуем существующий хелпер).
+    await _compressVideosWithQuality(settings.videoQualityLevel);
+    return true;
   }
 
   /// Сжатие всех видео с прогресс-диалогом (native, v_video_compressor).

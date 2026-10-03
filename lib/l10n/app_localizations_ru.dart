@@ -181,8 +181,31 @@ class AppLocalizationsRu extends AppLocalizations {
   String get reportMenuUnlink => 'Отменить связь';
 
   @override
+  String get reportMenuUpload => 'Залить на сервер';
+
+  @override
+  String get reportMenuUploadSuccess => 'Отчёт залит на сервер';
+
+  @override
+  String get reportMenuDownload => 'Скачать с сервера';
+
+  @override
+  String get reportMenuDownloadAll => 'Скачать все на устройство';
+
+  @override
+  String get reportMenuDownloadAllHint =>
+      'С сервера будет загружена последняя версия отчёта и все файлы (фото, видео, вложения). Несохранённые локальные изменения будут потеряны.';
+
+  @override
   String get reportMenuUnlinkHint =>
       'Отмена связи делает отчёт локальным. Синхронизация с облачной копией потеряется.';
+
+  @override
+  String get reportMenuRemoveShare => 'Убрать из списка';
+
+  @override
+  String get reportMenuRemoveShareHint =>
+      'Отчёт будет убран из списка «Мои отчёты» на этом устройстве. Сам отчёт на сервере останется у автора.';
 
   @override
   String get reportDeleteServerDenied =>
@@ -576,6 +599,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get processingZip => 'Обработка ZIP...';
 
   @override
+  String downloadingFiles(int done, int total) {
+    return 'Скачивание файлов: $done/$total';
+  }
+
+  @override
   String get processingMedia => 'Файлы добавляются, подождите...';
 
   @override
@@ -920,10 +948,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get templateSourceJsonDesc => 'Вставить JSON-код вручную';
 
   @override
-  String get templateDownloadSample => 'Скачать пример';
+  String get templateDownloadSample => 'Скопировать пример';
 
   @override
   String get templateDownloadSampleDesc => 'Образец JSON-шаблона';
+
+  @override
+  String get templateSourceReport => 'Из отчётов';
+
+  @override
+  String get templateSourceReportDesc =>
+      'Использовать существующий отчёт как шаблон';
+
+  @override
+  String get templateSelectReport => 'Выберите отчёт';
+
+  @override
+  String get templateReportLoadError => 'Не удалось загрузить отчёт как шаблон';
+
+  @override
+  String get templateReportWebUnsupported =>
+      'На веб-версии выбор шаблона из отчётов пока не поддерживается';
 
   @override
   String get jsonTemplateTitle => 'Вставьте JSON-шаблон';
@@ -998,6 +1043,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String compressionError(String error) {
     return 'Ошибка сжатия: $error';
   }
+
+  @override
+  String get autoCompressTitle => 'Сжать видео перед синхронизацией?';
+
+  @override
+  String autoCompressMessage(String quality) {
+    return 'Видео будут сжаты до уровня качества: $quality. Уровень можно изменить в настройках перед синхронизацией.';
+  }
+
+  @override
+  String get autoCompressCancelled =>
+      'Синхронизация отменена. Можно изменить качество видео в настройках и синхронизировать снова.';
 
   @override
   String get reportIdMissing => 'Не указан ID отчёта';

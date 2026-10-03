@@ -57,7 +57,14 @@
   "reportMenuDeleteLocal": "Delete on device",
   "reportMenuDeleteServer": "Delete on server",
   "reportMenuUnlink": "Unlink",
+  "reportMenuUpload": "Upload to server",
+  "reportMenuUploadSuccess": "Report uploaded to server",
+  "reportMenuDownload": "Download from server",
+  "reportMenuDownloadAll": "Download all to device",
+  "reportMenuDownloadAllHint": "The latest report version and all files (photos, videos, attachments) will be downloaded from the server. Unsaved local changes will be lost.",
   "reportMenuUnlinkHint": "Unlink makes this report local only. Sync with the original cloud copy is lost.",
+  "reportMenuRemoveShare": "Remove from list",
+  "reportMenuRemoveShareHint": "This report will be removed from \"My Reports\" on this device. The report stays on the server with its author.",
   "reportDeleteServerDenied": "Cannot delete this report on the server: you are not its author.",
   "createNewReport": "+ Create New Report",
   "continueReport": "Continue",
@@ -252,6 +259,13 @@
   "unlockModeAdd": "Add a new answer (keep translations)",
   "saved": "Saved",
   "processingZip": "Processing ZIP...",
+  "@downloadingFiles": {
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "downloadingFiles": "Downloading files: {done}/{total}",
   "processingMedia": "Adding files, please wait...",
   "importingProject": "Importing project...",
   "projectImported": "Project imported!",
@@ -368,8 +382,13 @@
   "templateSourceFileDesc": "Upload template file",
   "templateSourceJson": "Paste JSON",
   "templateSourceJsonDesc": "Paste JSON code manually",
-  "templateDownloadSample": "Download sample",
+  "templateDownloadSample": "Copy sample",
   "templateDownloadSampleDesc": "Sample JSON template",
+  "templateSourceReport": "From reports",
+  "templateSourceReportDesc": "Use an existing report as a template",
+  "templateSelectReport": "Select a report",
+  "templateReportLoadError": "Could not load the report as a template",
+  "templateReportWebUnsupported": "Selecting a template from reports is not supported on the web yet",
   "jsonTemplateTitle": "Paste JSON template",
   "jsonTemplateHint": "questions: [...], availableLanguages: [...]",
   "loadJsonButton": "Load",
@@ -412,6 +431,14 @@
       "error": {"type": "String"}
     }
   },
+  "autoCompressTitle": "Compress videos before syncing?",
+  "autoCompressMessage": "Videos will be compressed to quality level: {quality}. You can change the quality in settings before syncing.",
+  "@autoCompressMessage": {
+    "placeholders": {
+      "quality": {"type": "String"}
+    }
+  },
+  "autoCompressCancelled": "Sync cancelled. You can change video quality in settings and sync again.",
   "reportIdMissing": "Report ID is missing",
   "shareTokenMissing": "Share link token is missing",
   "@reportNumber": {

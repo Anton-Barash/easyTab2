@@ -57,6 +57,7 @@
   - Основная роль: отрисовка списка полей, обработка локального сохранения черновиков, валидация, привязка мультимедиа (фото/видео), сбор и отправка репорта.
   - Внутренние компоненты (по структуре файла): форма с динамическими полями, менеджер мультимедиа, локальные авто-сохранения, обработка загрузки файлов на сервер (background upload), preview шаблона.
   - Точки улучшения: разбить на несколько виджетов/файлов (FormModel, FormFieldWidget, MediaManager), вынести сетевые операции в services.
+  - Контроллеры полей ответов и дебаунс набора вынесены в `widgets/form_fill/answer_fields_binder.dart` (`AnswerFieldsBinder`, поле `_answerFields`); экран вызывает `_syncControllers` из listenerа ReportState (синхронно при notifyListeners, до пересборки), `_resetControllers` при смене языка, `flush` перед сохранением/pull.
 
 - template_select_screen.dart (~53kB): экран выбора шаблона.
   - Импорты: провайдеры/репозитории, widgets для карточек шаблонов.
@@ -72,6 +73,7 @@
   - settings_provider.dart — загрузка/сохранение настроек, theme, debug flags
   - repo_providers/ — провайдеры для репозиториев (список репов, выбранный репо)
   - report providers — загрузка/кеширование списков репортов
+- report_provider.dart — состояние текущего отчёта. Экспорт ZIP (`exportZip`) перед упаковкой докачивает в папку отчёта отсутствующие файлы (фото других устройств, шапка) через `_downloadMissingFilesForExport` (share — прокси по share_token, владелец — presigned KS3), чтобы они попали в архив; прогресс N/M через onDownloadProgress. Тики прогресса загрузки троттлятся (мин. интервал 120 мс, `_shouldNotifyProgress`): иначе каждое notifyListeners пересобирает весь экран заполнения и ввод текста подтормаживает.
 - Замечание: привести единообразие имени методов (loadXAsync vs fetchX), разделить ответственность fetch vs state mutation.
 
 
@@ -80,6 +82,7 @@
 - app_deeplinks.dart — deep-link (Android App Links / iOS Universal Links): захват ссылки `https://easytab.cloud/#/welcome?token=...` и переход на `/welcome`; инициализируется в main()
 - anonymous_id_service.dart — стабильный анонимный id для анонимных редакторов share
 - file services — загрузка/скачивание файлов, thumbnail generation
+- media_cache_service.dart — дисковый кэш сетевых медиа на native (`media_cache/<reportKey>/`): авто-подгрузка миниатюр чужих фото (офлайн, без повторного трафика), кэш полного фото при просмотре, pruneKeep удаляет неактуальные файлы. Используется провайдером и виджетами (media_item_widget, full_media_viewer).
 - http wrapper — центральный http-клиент с обработкой заголовков, retry, caching
 
 
@@ -87,6 +90,8 @@
 - utils/app_colors.dart — тема цветов
 - utils/share_link_parser.dart — извлечение share-токена из ссылки или голого токена (переиспользуется QR-сканером и диалогом «Вставить ссылку»)
 - widgets/* — набор общих кнопок, EasyTabButton, dialogs (login dialog, settings dialog), templates list item
+- widgets/form_fill/answer_fields_binder.dart — класс `AnswerFieldsBinder`: связывание `TextEditingController` полей ответов с моделью отчёта (создание/уничтожение контроллеров по рядам, дебаунс набора 300 мс, применение изменений модели к полям, аварийный сброс `flush` набранного текста). Выделен из `_FormFillScreenState` для unit-тестируемости. Инварианты: таймер снимается только при исчезновении ряда; поле не перезаписывается при незакоммиченной правке; курсор не прыгает в конец; flush находит расхождения «поле↔модель». Покрыт тестами `test/answer_fields_binder_test.dart` (в т.ч. быстрый набор, длинные блоки, форматирование).
+- widgets/form_fill/question_card.dart, answer_block.dart — карточка вопроса и блок ответа (получают контроллеры через колбэк `answerControllerFor` экрана)
 
 
 ## Полный список файлов (корневой lib)

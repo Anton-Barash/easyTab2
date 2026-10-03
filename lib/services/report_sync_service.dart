@@ -302,6 +302,26 @@ bool applySyncAnswers(Report report, String jsonStr) {
       final answerId = answerData['id'] as int;
       final texts = (answerData['variants'] as List).cast<String>();
 
+      // rid ряда: сначала маркер, затем любая уже существующая ячейка языка.
+      // Без этого перезапись ячейки «с нуля» теряла rowId, diff-движок строил
+      // remove+add вместо update, и переводы затирались при синхронизации.
+      String? rowRid;
+      if (answerId < markersList.length &&
+          markersList[answerId].rowId != null &&
+          markersList[answerId].rowId!.isNotEmpty) {
+        rowRid = markersList[answerId].rowId;
+      }
+      if (rowRid == null) {
+        for (final list in report.translations[qid]!.values) {
+          if (answerId < list.length &&
+              list[answerId].rowId != null &&
+              list[answerId].rowId!.isNotEmpty) {
+            rowRid = list[answerId].rowId;
+            break;
+          }
+        }
+      }
+
       if (kDebugMode) {
         debugPrint(
           'applySyncAnswers: qid=$qid, answerId=$answerId, texts=$texts',
@@ -327,15 +347,19 @@ bool applySyncAnswers(Report report, String jsonStr) {
         if (text.isEmpty) continue;
 
         if (answerId < answersList.length) {
-          answersList[answerId] = TranslationAnswer(
-            text: text,
-            isEmpty: false,
-          );
+          // Обновляем существующую ячейку на месте, сохраняя её id/автора/
+          // даты: присвоение нового объекта теряло rowId ряда.
+          final cell = answersList[answerId];
+          cell.text = text;
+          cell.isEmpty = false;
+          if (rowRid != null) cell.rowId = rowRid;
         } else {
           while (answersList.length < answerId) {
-            answersList.add(TranslationAnswer());
+            answersList.add(TranslationAnswer(rowId: rowRid));
           }
-          answersList.add(TranslationAnswer(text: text, isEmpty: false));
+          answersList.add(
+            TranslationAnswer(text: text, isEmpty: false, rowId: rowRid),
+          );
         }
       }
     }

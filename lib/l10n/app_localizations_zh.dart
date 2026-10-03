@@ -180,7 +180,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportMenuUnlink => '解除关联';
 
   @override
+  String get reportMenuUpload => '上传到服务器';
+
+  @override
+  String get reportMenuUploadSuccess => '报告已上传到服务器';
+
+  @override
+  String get reportMenuDownload => '从服务器下载';
+
+  @override
+  String get reportMenuDownloadAll => '全部下载到设备';
+
+  @override
+  String get reportMenuDownloadAllHint =>
+      '将从服务器下载最新版本的报告及所有文件（照片、视频、附件）。未保存的本地更改将丢失。';
+
+  @override
   String get reportMenuUnlinkHint => '解除关联将使此报告仅保存在本地。与云端副本的同步将丢失。';
+
+  @override
+  String get reportMenuRemoveShare => '从列表中移除';
+
+  @override
+  String get reportMenuRemoveShareHint =>
+      '此报告将从本设备的“我的报告”列表中移除。报告本身仍保留在服务器上作者名下。';
 
   @override
   String get reportDeleteServerDenied => '无法在服务器上删除此报告：你不是它的作者。';
@@ -563,6 +586,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get processingZip => '正在处理ZIP...';
 
   @override
+  String downloadingFiles(int done, int total) {
+    return '正在下载文件：$done/$total';
+  }
+
+  @override
   String get processingMedia => '正在添加文件，请稍候...';
 
   @override
@@ -899,10 +927,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get templateSourceJsonDesc => '手动粘贴JSON代码';
 
   @override
-  String get templateDownloadSample => '下载示例';
+  String get templateDownloadSample => '复制示例';
 
   @override
   String get templateDownloadSampleDesc => 'JSON模板示例';
+
+  @override
+  String get templateSourceReport => '从报表';
+
+  @override
+  String get templateSourceReportDesc => '使用现有报表作为模板';
+
+  @override
+  String get templateSelectReport => '选择报表';
+
+  @override
+  String get templateReportLoadError => '无法将报表作为模板加载';
+
+  @override
+  String get templateReportWebUnsupported => '网页版暂不支持从报表选择模板';
 
   @override
   String get jsonTemplateTitle => '粘贴JSON模板';
@@ -977,6 +1020,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String compressionError(String error) {
     return '压缩错误：$error';
   }
+
+  @override
+  String get autoCompressTitle => '同步前压缩视频？';
+
+  @override
+  String autoCompressMessage(String quality) {
+    return '视频将压缩至质量等级：$quality。可在同步前于设置中更改质量等级。';
+  }
+
+  @override
+  String get autoCompressCancelled => '同步已取消。可在设置中更改视频质量后重新同步。';
 
   @override
   String get reportIdMissing => '缺少报告ID';

@@ -233,6 +233,40 @@ void main() {
       expect(report.translations['0']!['EN']![0].text, 'Yes');
     });
 
+    test('сохраняет rowId ряда при применении переводов (иначе remove+add)', () {
+      final report = _makeReport(
+        translations: {
+          '0': {
+            'RU': [TranslationAnswer(text: 'Да', isEmpty: false, rowId: 'r1')],
+            'EN': [TranslationAnswer(rowId: 'r1')],
+          },
+        },
+      );
+      report.markers['0']![0].rowId = 'r1';
+
+      final syncJson = jsonEncode({
+        'languages': ['RU', 'EN'],
+        'questions': [
+          {
+            'id': 1,
+            'answers': [
+              {
+                'id': 0,
+                'variants': ['Да', 'Yes'],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(applySyncAnswers(report, syncJson), isTrue);
+      // Ячейки обновлены на месте — идентичность ряда (rid) сохранена, иначе
+      // diff-движок на сервере видел бы remove+add и терял переводы.
+      expect(report.translations['0']!['EN']![0].text, 'Yes');
+      expect(report.translations['0']!['EN']![0].rowId, 'r1');
+      expect(report.translations['0']!['RU']![0].rowId, 'r1');
+    });
+
     test('сохраняет медиа и флаги attention при применении', () {
       final report = _makeReport();
       report.markers['0']![0].attention = true;
