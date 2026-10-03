@@ -563,6 +563,29 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     return null;
   }
 
+  /// ImageProvider лёгкой миниатюры страницы-фото: служит подложкой, пока
+  /// грузится полное фото (чтобы не было пустого экрана). Для видео и при
+  /// отсутствии миниатюры возвращает null.
+  ImageProvider? _thumbnailProviderFor(int index) {
+    final media = widget.mediaList[index] as Map<String, dynamic>;
+    if ((media['type'] as String? ?? '').startsWith('video')) return null;
+
+    // Сначала локальная миниатюра из дискового кэша (native, офлайн).
+    if (!kIsWeb && widget.cacheKey != null) {
+      final rel = media['localPath'] as String?;
+      final cachedThumb = MediaCacheService.cachedThumbPath(widget.cacheKey, rel);
+      if (cachedThumb != null && File(cachedThumb).existsSync()) {
+        return fileImageProvider(cachedThumb);
+      }
+    }
+    // Затем сетевая миниатюра.
+    final thumbUrl = media['thumbnailUrl'] as String?;
+    if (thumbUrl != null && thumbUrl.isNotEmpty) {
+      return NetworkImage(thumbUrl);
+    }
+    return null;
+  }
+
   Widget _buildPageFallback(int index) {
     final media = widget.mediaList[index] as Map<String, dynamic>;
     final isVideo = (media['type'] as String? ?? '').startsWith('video');
@@ -614,8 +637,55 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
       );
     }
 
-    return const Center(
-      child: Icon(Icons.videocam, size: 60, color: Colors.white),
+    // Плеер ещё инициализируется — показываем постер-миниатюру видео,
+    // чтобы не было пустого экрана (аналогично фото).
+    return _buildVideoPoster();
+  }
+
+  /// Постер видео (миниатюра кадра) на время инициализации плеера.
+  Widget _buildVideoPoster() {
+    final index = _videoIndex;
+    if (index == null || index < 0 || index >= widget.mediaList.length) {
+      return const Center(
+        child: Icon(Icons.videocam, size: 60, color: Colors.white),
+      );
+    }
+    final media = widget.mediaList[index] as Map<String, dynamic>;
+
+    Widget? poster;
+    if (!kIsWeb && widget.cacheKey != null) {
+      final rel = media['localPath'] as String?;
+      final cached = MediaCacheService.cachedThumbPath(widget.cacheKey, rel);
+      if (cached != null && File(cached).existsSync()) {
+        poster = fileImageWidget(cached, fit: BoxFit.contain);
+      }
+    }
+    if (poster == null) {
+      final thumbUrl = media['thumbnailUrl'] as String?;
+      if (thumbUrl != null && thumbUrl.isNotEmpty) {
+        poster = Image.network(
+          thumbUrl,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        );
+      }
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (poster != null) poster,
+        const Center(
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
