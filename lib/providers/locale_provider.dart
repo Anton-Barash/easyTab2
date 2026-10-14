@@ -10,23 +10,35 @@ class LocaleProvider extends ChangeNotifier {
   Locale get locale => _locale;
 
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? code;
+    final code = await resolveCurrentLocaleCode();
+    if (code != null) {
+      _locale = Locale(code);
+      notifyListeners();
+    }
+  }
 
+  /// Определяет сохранённый язык приложения (для переиспользования там, где
+  /// нет доступа к BuildContext — например, при фоновой генерации PDF).
+  ///
+  /// Приоритет как в [init]: на web параметр `?lang=` в URL, иначе —
+  /// сохранённое значение из SharedPreferences. `null`, если ничего не найдено.
+  static Future<String?> resolveCurrentLocaleCode() async {
     if (kIsWeb) {
       try {
         final qp = Uri.base.queryParameters['lang'];
         if (qp != null && _supportedCodes.contains(qp.toLowerCase())) {
-          code = qp.toLowerCase();
+          return qp.toLowerCase();
         }
       } catch (_) {}
     }
 
-    code ??= prefs.getString(_storageKey);
-    if (code != null && _supportedCodes.contains(code)) {
-      _locale = Locale(code);
-      notifyListeners();
-    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final code = prefs.getString(_storageKey);
+      if (code != null && _supportedCodes.contains(code)) return code;
+    } catch (_) {}
+
+    return null;
   }
 
   void setLocale(Locale locale) {

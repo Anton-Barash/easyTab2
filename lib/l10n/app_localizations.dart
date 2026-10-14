@@ -2631,6 +2631,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Anonymous'**
   String get anonymous;
+
+  /// No description provided for @pdf.
+  ///
+  /// In en, this message translates to:
+  /// **'PDF'**
+  String get pdf;
+
+  /// No description provided for @selectReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Select reports to export'**
+  String get selectReports;
+
+  /// No description provided for @pdfExportProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating PDF…'**
+  String get pdfExportProgress;
+
+  /// No description provided for @pdfExportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create PDF'**
+  String get pdfExportFailed;
+
+  /// No description provided for @pdfExportEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No reports to export'**
+  String get pdfExportEmpty;
+
+  /// No description provided for @pdfShareTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PDF reports'**
+  String get pdfShareTitle;
+
+  /// No description provided for @pdfArchiveName.
+  ///
+  /// In en, this message translates to:
+  /// **'PDF_Reports'**
+  String get pdfArchiveName;
+
+  /// No description provided for @pdfColumnMarks.
+  ///
+  /// In en, this message translates to:
+  /// **'Marks'**
+  String get pdfColumnMarks;
 }
 
 class _AppLocalizationsDelegate

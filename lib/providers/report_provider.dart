@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show Locale;
 
 import 'package:easy_tab/utils/platform_io.dart'
     if (dart.library.html) 'package:easy_tab/utils/platform_io_web.dart';
@@ -10,6 +11,7 @@ import 'package:uuid/uuid.dart';
 // share_plus (~50-80 KB) нужен только при экспорте ZIP — deferred.
 import 'package:share_plus/share_plus.dart' deferred as share_plus;
 import '../models/report_models.dart';
+import '../models/report_summary.dart';
 import '../services/api_service.dart';
 import '../services/report_merge_service.dart';
 // Тяжёлые сервисы (Excel/Sync/HTML/ZIP, видео-очередь, сжатие видео,
@@ -32,6 +34,13 @@ import '../services/upload_helper.dart';
 import '../utils/image_compressor.dart' deferred as image_compressor;
 import '../services/video_upload_queue.dart' deferred as video_upload_queue;
 import '../utils/video_thumbnail_generator.dart' deferred as thumbnail_gen;
+import '../services/report_pdf_service.dart' deferred as pdf_service;
+import '../services/pdf_zip_service.dart' deferred as pdf_zip;
+import 'package:http/http.dart' as http;
+import '../l10n/app_localizations.dart';
+import 'locale_provider.dart';
+import 'package:easy_tab/utils/pdf_web_download.dart'
+    if (dart.library.html) 'package:easy_tab/utils/pdf_web_download_web.dart';
 
 const String reportFilename = 'report.json';
 const String exportDir = 'reports';
@@ -4398,6 +4407,268 @@ class ReportState extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) debugPrint('Error sharing zip: $e');
     }
+  }
+
+  /// Экспортирует выбранные отчёты в отдельные PDF-файлы (офлайн, клиент-сайд).
+  ///
+  /// Для каждого [ReportSummary]:
+  ///   - локальный отчёт читается из `<localFolderPath>/report.json`;
+  ///   - облачный — через `ApiService.getReport(...)`, а URL его медиа
+  ///     подтягиваются из `getReportFileUrls` (фото скачиваются по HTTP).
+  ///
+  /// Медиа резолвится в порядке: локальный файл → web-байты → HTTP по URL.
+  /// При ошибке отдельного отчёта он пропускается (процесс не падает).
+  /// Возвращает список путей PDF (на web — имена уже скачанных браузером файлов).
+  /// [onProgress] вызывается по мере обработки (done/total).
+  Future<List<String>> exportReportsPdf(
+    List<ReportSummary> summaries, {
+    void Function(int done, int total)? onProgress,
+  }) async {
+    final results = <String>[];
+    // Готовые PDF в памяти: имя файла → байты. Нужны, чтобы при нескольких
+    // отчётах упаковать их в один ZIP.
+    final entries = <MapEntry<String, Uint8List>>[];
+    final total = summaries.length;
+    onProgress?.call(0, total);
+    if (total == 0) return results;
+
+    // Локализация без BuildContext: используем сохранённый язык приложения.
+    final loc = lookupAppLocalizations(
+      Locale(await LocaleProvider.resolveCurrentLocaleCode() ?? 'ru'),
+    );
+
+    try {
+      await pdf_service.loadLibrary();
+    } catch (e) {
+      if (kDebugMode) debugPrint('exportReportsPdf loadLibrary error: $e');
+    }
+
+    final usedNames = <String>{};
+    var done = 0;
+    for (final summary in summaries) {
+      done++;
+      try {
+        Report? report;
+        String? localFolder;
+        final isLocal = summary.localExists && summary.localFolderPath != null;
+
+        if (isLocal) {
+          localFolder = summary.localFolderPath;
+          final jsonFile = File(
+            '$localFolder${Platform.pathSeparator}$reportFilename',
+          );
+          if (await jsonFile.exists()) {
+            final decoded = jsonDecode(await jsonFile.readAsString());
+            if (decoded is Map<String, dynamic>) {
+              report = Report.fromJson(decoded, folderPath: localFolder);
+            }
+          }
+        } else {
+          final serverId = int.tryParse(summary.id);
+          if (serverId == null) {
+            if (kDebugMode) {
+              debugPrint('exportReportsPdf: bad id ${summary.id}');
+            }
+            continue;
+          }
+          final result = await ApiService.getReport(serverId);
+          final reportData = result.data?['report']?['reportData'];
+          if (reportData is Map) {
+            report = Report.fromJson(Map<String, dynamic>.from(reportData));
+            await _populateReportMediaUrls(report, serverId);
+          }
+        }
+
+        final loadedReport = report;
+        if (loadedReport == null) {
+          if (kDebugMode) {
+            debugPrint('exportReportsPdf: no report for ${summary.id}');
+          }
+          continue;
+        }
+
+        final bytes = await pdf_service.ReportPdfService.build(
+          loadedReport,
+          loc: loc,
+          folderPath: localFolder,
+          resolveMedia: (item) =>
+              _resolveReportMediaBytes(item, localFolder: localFolder),
+        );
+
+        final fileName = _uniquePdfFileName(loadedReport.reportName, usedNames);
+        entries.add(MapEntry(fileName, bytes));
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('exportReportsPdf error (${summary.id}): $e');
+        }
+      } finally {
+        onProgress?.call(done, total);
+      }
+    }
+
+    if (entries.isEmpty) return results;
+
+    if (entries.length == 1) {
+      // Один отчёт — отдаём сам PDF-файл.
+      final single = entries.first;
+      results.add(await _deliverBytes(single.value, single.key));
+    } else {
+      // Несколько отчётов — упаковываем все PDF в один ZIP-архив.
+      await pdf_zip.loadLibrary();
+      final zipBytes = pdf_zip.buildZipFromBytes({
+        for (final e in entries) e.key: e.value,
+      });
+      final zipName = _uniqueZipFileName(loc.pdfArchiveName, usedNames);
+      results.add(await _deliverBytes(zipBytes, zipName));
+    }
+    return results;
+  }
+
+  /// Сохранить байты в файл (native) или скачать в браузере (web).
+  /// Возвращает путь к файлу (native) или имя файла (web).
+  Future<String> _deliverBytes(Uint8List bytes, String fileName) async {
+    if (kIsWeb) {
+      await downloadBytesInBrowser(bytes, fileName);
+      return fileName;
+    }
+    final reportsDir = await _getReportsDir();
+    final path = '$reportsDir${Platform.pathSeparator}$fileName';
+    await File(path).writeAsBytes(bytes, flush: true);
+    return path;
+  }
+
+  /// Доставка PDF-файлов пользователю: на native — системный «Поделиться»,
+  /// на web файлы уже скачаны браузером во время экспорта (no-op).
+  Future<void> sharePdfFiles(List<String> paths) async {
+    if (paths.isEmpty || kIsWeb) return;
+    try {
+      await share_plus.loadLibrary();
+      final loc = lookupAppLocalizations(
+        Locale(await LocaleProvider.resolveCurrentLocaleCode() ?? 'ru'),
+      );
+      await share_plus.Share.shareXFiles(
+        paths.map((p) => share_plus.XFile(p)).toList(),
+        text: loc.pdfShareTitle,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('sharePdfFiles error: $e');
+    }
+  }
+
+  /// Медиа-резолвер для PDF: локальный файл → web-байты → HTTP по URL.
+  Future<Uint8List?> _resolveReportMediaBytes(
+    MediaItem item, {
+    String? localFolder,
+  }) async {
+    // 1) Локальный файл отчёта (относительный путь внутри папки отчёта).
+    if (!kIsWeb && item.localPath != null && item.localPath!.isNotEmpty) {
+      if (localFolder != null && localFolder.isNotEmpty) {
+        final rel = item.localPath!.replaceAll('/', Platform.pathSeparator);
+        final file = File('$localFolder${Platform.pathSeparator}$rel');
+        if (await file.exists()) return file.readAsBytes();
+      }
+      // Абсолютный путь (медиа вне папки отчёта).
+      if (item.localPath!.startsWith('/') || item.localPath!.contains(':\\')) {
+        final file = File(item.localPath!);
+        if (await file.exists()) return file.readAsBytes();
+      }
+    }
+
+    // 2) Web-байты (в памяти).
+    if (item.webBytes != null && item.webBytes!.isNotEmpty) {
+      return item.webBytes;
+    }
+
+    // 3) HTTP по presigned URL (предпочитаем миниатюру — она легче).
+    final url = (item.thumbnailUrl?.isNotEmpty ?? false)
+        ? item.thumbnailUrl
+        : item.webUrl;
+    if (url != null && url.isNotEmpty) {
+      try {
+        final response = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 60));
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          return response.bodyBytes;
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('_resolveReportMediaBytes http error: $e');
+      }
+    }
+    return null;
+  }
+
+  /// Заполняет webUrl/thumbnailUrl для медиа произвольного [report]
+  /// (аналог `_populateMediaWebUrls`, но не для `_currentReport`).
+  Future<void> _populateReportMediaUrls(Report report, int reportId) async {
+    try {
+      final urlsResult = await ApiService.getReportFileUrls(reportId);
+      if (!urlsResult.success || urlsResult.data?['urls'] == null) return;
+      final urlsData = urlsResult.data!['urls'] as Map<String, dynamic>;
+      if (urlsData.isEmpty) return;
+
+      report.markers.forEach((qid, markersList) {
+        for (final markers in markersList) {
+          for (final media in markers.media) {
+            final rel = media.localPath;
+            if (rel == null || rel.isEmpty) continue;
+            final url = urlsData[rel] ?? urlsData[media.name];
+            if (url is String && url.isNotEmpty) media.webUrl = url;
+            if (media.type.startsWith('image/')) {
+              final baseName = rel.split('/').last;
+              final thumbUrl = urlsData[_imageThumbRelPath(rel)] ??
+                  urlsData[_imageThumbRelPath(baseName)];
+              if (thumbUrl is String && thumbUrl.isNotEmpty) {
+                media.thumbnailUrl = thumbUrl;
+              }
+            }
+          }
+        }
+      });
+    } catch (e) {
+      if (kDebugMode) debugPrint('_populateReportMediaUrls error: $e');
+    }
+  }
+
+  /// Безопасное имя PDF-файла из названия отчёта (как в exportZip).
+  /// При совпадении имён добавляет числовой суффикс, чтобы файлы не перезаписывались.
+  String _uniquePdfFileName(String reportName, Set<String> used) {
+    final safe = reportName
+        .replaceAll(RegExp(r'[^\w\sа-яА-ЯёЁ\u4e00-\u9fff-]'), '')
+        .replaceAll(' ', '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final base = safe.isEmpty ? 'report' : safe;
+    var name = '$base.pdf';
+    var i = 1;
+    while (used.contains(name)) {
+      name = '${base}_$i.pdf';
+      i++;
+    }
+    used.add(name);
+    return name;
+  }
+
+  /// Безопасное имя ZIP-архива с PDF: базовое имя + метка времени,
+  /// с разрешением возможных совпадений.
+  String _uniqueZipFileName(String baseName, Set<String> used) {
+    final safe = baseName
+        .replaceAll(RegExp(r'[^\w\sа-яА-ЯёЁ\u4e00-\u9fff-]'), '')
+        .replaceAll(' ', '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final base = safe.isEmpty ? 'reports' : safe;
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final stamp =
+        '${now.year}${two(now.month)}${two(now.day)}_'
+        '${two(now.hour)}${two(now.minute)}';
+    var name = '${base}_$stamp.zip';
+    var i = 1;
+    while (used.contains(name)) {
+      name = '${base}_$stamp($i).zip';
+      i++;
+    }
+    used.add(name);
+    return name;
   }
 
   Future<List<int>> getUnsyncQuestionIndices() async {

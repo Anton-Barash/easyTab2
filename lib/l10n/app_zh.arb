@@ -629,5 +629,13 @@
   "modifiedLabel": "修改：",
   "openReportFailed": "无法打开报告",
   "cloudSessionSyncFailed": "无法将更改同步到云端",
-  "anonymous": "匿名"
+  "anonymous": "匿名",
+  "pdf": "PDF",
+  "selectReports": "请选择要导出的报告",
+  "pdfExportProgress": "正在生成 PDF…",
+  "pdfExportFailed": "无法创建 PDF",
+  "pdfExportEmpty": "没有可导出的报告",
+  "pdfShareTitle": "PDF 报告",
+  "pdfArchiveName": "PDF报告",
+  "pdfColumnMarks": "标记"
 }

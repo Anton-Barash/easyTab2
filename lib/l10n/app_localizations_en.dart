@@ -1395,4 +1395,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get anonymous => 'Anonymous';
+
+  @override
+  String get pdf => 'PDF';
+
+  @override
+  String get selectReports => 'Select reports to export';
+
+  @override
+  String get pdfExportProgress => 'Generating PDF…';
+
+  @override
+  String get pdfExportFailed => 'Failed to create PDF';
+
+  @override
+  String get pdfExportEmpty => 'No reports to export';
+
+  @override
+  String get pdfShareTitle => 'PDF reports';
+
+  @override
+  String get pdfArchiveName => 'PDF_Reports';
+
+  @override
+  String get pdfColumnMarks => 'Marks';
 }

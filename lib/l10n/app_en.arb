@@ -636,5 +636,13 @@
   "modifiedLabel": "Modified:",
   "openReportFailed": "Failed to open report",
   "cloudSessionSyncFailed": "Failed to sync changes to the cloud",
-  "anonymous": "Anonymous"
+  "anonymous": "Anonymous",
+  "pdf": "PDF",
+  "selectReports": "Select reports to export",
+  "pdfExportProgress": "Generating PDF…",
+  "pdfExportFailed": "Failed to create PDF",
+  "pdfExportEmpty": "No reports to export",
+  "pdfShareTitle": "PDF reports",
+  "pdfArchiveName": "PDF_Reports",
+  "pdfColumnMarks": "Marks"
 }

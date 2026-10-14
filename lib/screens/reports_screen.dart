@@ -46,6 +46,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final Set<String> _syncedReports = {};
   final Set<String> _syncingReports = {};
 
+  /// Отмеченные для экспорта в PDF отчёты (по id). Выбор сохраняется при
+  /// смене поиска/фильтра/сортировки; при удалении отчёта id убирается.
+  final Set<String> _selectedReportIds = {};
+
   final ReportSyncManager _syncManager = ReportSyncManager();
 
   @override
@@ -413,7 +417,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
     await ShareTokenStorage.removeToken(token);
     if (!mounted) return;
-    setState(_loadReports);
+    setState(() {
+      _selectedReportIds.remove(report.id);
+      _loadReports();
+    });
   }
 
   @override
@@ -427,6 +434,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: loc.pdf,
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: _selectedReportIds.isEmpty ? null : _exportSelectedPdf,
+          ),
           IconButton(
             tooltip: loc.addByLink,
             icon: const Icon(Icons.link),
@@ -749,6 +761,94 @@ class _ReportsScreenState extends State<ReportsScreen> {
       case ReportListSort.statusAsc:
         return a.status.index.compareTo(b.status.index);
     }
+  }
+
+  /// Переключить отметку отчёта для экспорта в PDF.
+  void _toggleReportSelection(String id) {
+    setState(() {
+      if (_selectedReportIds.contains(id)) {
+        _selectedReportIds.remove(id);
+      } else {
+        _selectedReportIds.add(id);
+      }
+    });
+  }
+
+  /// Экспорт выбранных отчётов в PDF и доставка пользователю.
+  ///
+  /// Список для экспорта берётся из полного списка отчётов по id: выбор
+  /// сохраняется при смене поиска/фильтра/сортировки, поэтому отчёт, скрытый
+  /// текущим фильтром, всё равно экспортируется (id — источник истины).
+  Future<void> _exportSelectedPdf() async {
+    if (_selectedReportIds.isEmpty) return;
+    final loc = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final state = Provider.of<ReportState>(context, listen: false);
+
+    final all = await (_reportsFuture ?? Future.value(<ReportSummary>[]));
+    if (!mounted) return;
+    final selected =
+        all.where((r) => _selectedReportIds.contains(r.id)).toList();
+    if (selected.isEmpty) {
+      messenger.showSnackBar(SnackBar(content: Text(loc.selectReports)));
+      return;
+    }
+
+    final progress = ValueNotifier<int>(0);
+    // Прогресс-диалог; закрываем вручную после завершения.
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ValueListenableBuilder<int>(
+                valueListenable: progress,
+                builder: (_, done, _) => Text(
+                  '${loc.pdfExportProgress} ($done/${selected.length})',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    List<String> paths = const [];
+    var failed = false;
+    try {
+      paths = await state.exportReportsPdf(
+        selected,
+        onProgress: (done, total) => progress.value = done,
+      );
+    } catch (e) {
+      if (kDebugMode) print('_exportSelectedPdf error: $e');
+      failed = true;
+    }
+
+    progress.dispose();
+    if (mounted) navigator.pop(); // закрываем диалог прогресса
+
+    if (paths.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(failed ? loc.pdfExportFailed : loc.pdfExportEmpty),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _selectedReportIds.clear());
+    await state.sharePdfFiles(paths);
   }
 
   String _filterLabel(AppLocalizations loc, ReportListFilter f) {
@@ -1113,6 +1213,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
             children: [
               Row(
                 children: [
+                  // Чекбокс для экспорта в PDF. Оборачиваем в GestureDetector,
+                  // чтобы тап по нему не открывал отчёт (InkWell карточки).
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _toggleReportSelection(report.id),
+                    child: IgnorePointer(
+                      child: Checkbox(
+                        value: _selectedReportIds.contains(report.id),
+                        onChanged: (_) {},
+                        activeColor: AppColors.primary,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ),
                   _buildReportThumbnail(context, report),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1358,7 +1472,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final deleted =
         await reportState.deleteReportLocal(report.localFolderPath!);
     if (!mounted) return;
-    setState(() => _loadReports());
+    setState(() {
+      _selectedReportIds.remove(report.id);
+      _loadReports();
+    });
     _showSnack(deleted
         ? loc.reportDeleted
         : loc.reportDeleteError
@@ -1405,7 +1522,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
     // После удаления на сервере локальная копия (если была) остаётся
     // обычным локальным отчётом — перечитываем список.
-    setState(() => _loadReports());
+    setState(() {
+      _selectedReportIds.remove(report.id);
+      _loadReports();
+    });
     _showSnack(result == 0
         ? loc.reportDeleted
         : loc.reportDeleteError);

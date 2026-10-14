@@ -1364,4 +1364,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get anonymous => '匿名';
+
+  @override
+  String get pdf => 'PDF';
+
+  @override
+  String get selectReports => '请选择要导出的报告';
+
+  @override
+  String get pdfExportProgress => '正在生成 PDF…';
+
+  @override
+  String get pdfExportFailed => '无法创建 PDF';
+
+  @override
+  String get pdfExportEmpty => '没有可导出的报告';
+
+  @override
+  String get pdfShareTitle => 'PDF 报告';
+
+  @override
+  String get pdfArchiveName => 'PDF报告';
+
+  @override
+  String get pdfColumnMarks => '标记';
 }

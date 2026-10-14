@@ -65,6 +65,7 @@
 
 - login_screen.dart, reports_screen.dart, share_welcome_screen.dart, full_media_viewer_screen.dart, share_qr_scanner_screen.dart
   - Каждый экран содержит UI + вызовы провайдеров для загрузки/обновления данных. reports_screen отвечает за список отчетов, фильтры и просмотр репорта (переход в full_media_viewer). Просмотр HTML на web открывает серверный HTML напрямую (без Flutter). share_qr_scanner_screen — скан QR камерой (mobile_scanner) и добавление расшаренного (edit) отчёта в список.
+  - reports_screen: выбор отчётов для PDF — чекбокс на карточке (`_selectedReportIds`, тап по чекбоксу не открывает отчёт), кнопка `PDF` в AppBar (активна при ≥1 выбранном), `_exportSelectedPdf` (прогресс-диалог → `state.exportReportsPdf` → `state.sharePdfFiles`, затем очистка выбора; пустой результат — локализованное сообщение). Выбор сохраняется при смене поиска/фильтра/сортировки; экспорт берёт полный список по id; при удалении отчёта его id убирается из выбора.
 
 
 ### lib/providers/
@@ -74,6 +75,7 @@
   - repo_providers/ — провайдеры для репозиториев (список репов, выбранный репо)
   - report providers — загрузка/кеширование списков репортов
 - report_provider.dart — состояние текущего отчёта. Экспорт ZIP (`exportZip`) перед упаковкой докачивает в папку отчёта отсутствующие файлы (фото других устройств, шапка) через `_downloadMissingFilesForExport` (share — прокси по share_token, владелец — presigned KS3), чтобы они попали в архив; прогресс N/M через onDownloadProgress. Тики прогресса загрузки троттлятся (мин. интервал 120 мс, `_shouldNotifyProgress`): иначе каждое notifyListeners пересобирает весь экран заполнения и ввод текста подтормаживает.
+  - Экспорт PDF списка отчётов: `exportReportsPdf(summaries, onProgress)` — по каждому отчёту собирает `Report` (локальный из `report.json`, облачный через `ApiService.getReport` + `_populateReportMediaUrls`), вызывает `ReportPdfService.build` с резолвером медиа `_resolveReportMediaBytes` (локальный файл → web-байты → HTTP по presigned URL). PDF собираются в память: один выбранный отчёт → отдельный `.pdf`; несколько → все PDF упаковываются в один ZIP (`pdf_zip_service.buildZipFromBytes`, имя `_uniqueZipFileName`). Доставка через `_deliverBytes`: native — запись в папку отчётов (`_uniquePdfFileName` для PDF), web — скачивание в браузере. `sharePdfFiles(paths)` — `share_plus` на native (no-op на web); локализация берётся без BuildContext через `LocaleProvider.resolveCurrentLocaleCode()`.
 - Замечание: привести единообразие имени методов (loadXAsync vs fetchX), разделить ответственность fetch vs state mutation.
 
 
@@ -84,6 +86,9 @@
 - file services — загрузка/скачивание файлов, thumbnail generation
 - media_cache_service.dart — дисковый кэш сетевых медиа на native (`media_cache/<reportKey>/`): авто-подгрузка миниатюр чужих фото (офлайн, без повторного трафика), кэш полного фото при просмотре, pruneKeep удаляет неактуальные файлы. Используется провайдером и виджетами (media_item_widget, full_media_viewer).
 - http wrapper — центральный http-клиент с обработкой заголовков, retry, caching
+- report_pdf_service.dart — `ReportPdfService`: офлайн-генерация PDF одного отчёта (`build(Report, loc, resolveMedia, folderPath)`) через пакет `pdf`. A4/MultiPage, шапка (название, сведения клиент/тип/фабрика/модель, дата), таблица ответов по вопросам (№ | Ответ | Метки | Фото) с ответами других языков, метками attention/needsWork (символы `!`/`*`) и фото-сеткой ≤ 8 штук (`mediaToRender` → `MediaRenderPlan`), видео — компактный плейсхолдер. Шрифты (латиница+кириллица NotoSans, CJK Droid Sans Fallback) грузятся из `assets/fonts/` через `rootBundle` и кешируются статически; текст рисуется одним `pw.TextStyle(font, fontFallback)`.
+- utils/pdf_web_download.dart (+ `_web.dart`) — условный импорт: скачивание байтов файла в браузере (web) / no-op (native).
+- pdf_zip_service.dart — `buildZipFromBytes(Map<String, Uint8List>)`: in-memory упаковка готовых PDF в один ZIP (пакет `archive`), без `dart:io` — работает на web и native. Используется в `ReportState.exportReportsPdf`, когда выбрано несколько отчётов (все PDF → один архив).
 
 
 ### lib/utils & lib/widgets

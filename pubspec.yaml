@@ -1,7 +1,7 @@
 name: easy_tab
 description: "EasyTab - Excel Report Builder"
 publish_to: 'none'
-version: 1.0.30+30
+version: 1.0.31+31
 
 environment:
   sdk: ^3.11.5
@@ -43,6 +43,9 @@ dependencies:
   mobile_scanner: ^7.1.0
   app_links: ^6.4.1
 
+  # Генерация PDF из отчёта (офлайн, все платформы)
+  pdf: ^3.11.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -63,3 +66,7 @@ dependency_overrides:
 flutter:
   uses-material-design: true
   generate: true
+
+  # Шрифты для генерации PDF (кириллица/латиница + CJK).
+  assets:
+    - assets/fonts/

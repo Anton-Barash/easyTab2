@@ -1397,4 +1397,28 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get anonymous => 'Аноним';
+
+  @override
+  String get pdf => 'PDF';
+
+  @override
+  String get selectReports => 'Выберите отчёты для экспорта';
+
+  @override
+  String get pdfExportProgress => 'Генерация PDF…';
+
+  @override
+  String get pdfExportFailed => 'Не удалось создать PDF';
+
+  @override
+  String get pdfExportEmpty => 'Нет отчётов для экспорта';
+
+  @override
+  String get pdfShareTitle => 'Отчёты PDF';
+
+  @override
+  String get pdfArchiveName => 'Отчёты_PDF';
+
+  @override
+  String get pdfColumnMarks => 'Метки';
 }

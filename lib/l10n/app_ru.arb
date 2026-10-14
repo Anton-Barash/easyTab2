@@ -629,5 +629,37 @@
   "modifiedLabel": "Изменён:",
   "openReportFailed": "Не удалось открыть отчёт",
   "cloudSessionSyncFailed": "Не удалось синхронизировать изменения с облаком",
-  "anonymous": "Аноним"
+  "anonymous": "Аноним",
+  "pdf": "PDF",
+  "@pdf": {
+    "description": "Подпись кнопки экспорта выбранных отчётов в PDF"
+  },
+  "selectReports": "Выберите отчёты для экспорта",
+  "@selectReports": {
+    "description": "Подсказка о необходимости отметить хотя бы один отчёт"
+  },
+  "pdfExportProgress": "Генерация PDF…",
+  "@pdfExportProgress": {
+    "description": "Сообщение о процессе генерации PDF"
+  },
+  "pdfExportFailed": "Не удалось создать PDF",
+  "@pdfExportFailed": {
+    "description": "Сообщение об ошибке экспорта PDF"
+  },
+  "pdfExportEmpty": "Нет отчётов для экспорта",
+  "@pdfExportEmpty": {
+    "description": "Сообщение об отсутствии отчётов для экспорта"
+  },
+  "pdfShareTitle": "Отчёты PDF",
+  "@pdfShareTitle": {
+    "description": "Заголовок при отправке PDF-файлов"
+  },
+  "pdfArchiveName": "Отчёты_PDF",
+  "@pdfArchiveName": {
+    "description": "Базовое имя ZIP-архива с PDF-файлами (к нему добавляется метка времени)"
+  },
+  "pdfColumnMarks": "Метки",
+  "@pdfColumnMarks": {
+    "description": "Заголовок столбца меток в PDF-таблице ответов"
+  }
 }
