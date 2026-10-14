@@ -166,7 +166,12 @@ class HeaderListTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${report.productType} | ${report.factory} | ${report.model}',
+                  <String>[
+                    if (report.client.isNotEmpty) report.client,
+                    report.productType,
+                    report.factory,
+                    report.model,
+                  ].where((s) => s.isNotEmpty).join(' | '),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,

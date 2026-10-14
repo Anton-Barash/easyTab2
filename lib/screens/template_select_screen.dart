@@ -30,6 +30,7 @@ class TemplateSelectScreen extends StatefulWidget {
 
 class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   final _reportNameController = TextEditingController();
+  final _clientController = TextEditingController();
   final _productTypeController = TextEditingController();
   final _factoryController = TextEditingController();
   final _modelController = TextEditingController();
@@ -103,6 +104,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
   @override
   void dispose() {
     _reportNameController.dispose();
+    _clientController.dispose();
     _productTypeController.dispose();
     _factoryController.dispose();
     _modelController.dispose();
@@ -132,42 +134,47 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
+                        loc.client,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _clientController,
+                        decoration: _fieldDecoration(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                        onChanged: (_) => _updateReportName(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         loc.productType,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       TextField(
                         controller: _productTypeController,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2.5,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
+                        decoration: _fieldDecoration(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
                         ),
-                        style: const TextStyle(color: AppColors.textPrimary),
                         onChanged: (_) => _updateReportName(),
                       ),
                     ],
@@ -182,39 +189,18 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         loc.factory,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       TextField(
                         controller: _factoryController,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2.5,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
+                        decoration: _fieldDecoration(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
                         ),
-                        style: const TextStyle(color: AppColors.textPrimary),
                         onChanged: (_) => _updateReportName(),
                       ),
                     ],
@@ -229,39 +215,18 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         loc.model,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       TextField(
                         controller: _modelController,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                              width: 2.5,
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
+                        decoration: _fieldDecoration(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
                         ),
-                        style: const TextStyle(color: AppColors.textPrimary),
                         onChanged: (_) => _updateReportName(),
                       ),
                     ],
@@ -276,11 +241,11 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                         loc.photo,
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary,
-                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       if (_isPickingPhoto)
                         Container(
                           width: double.infinity,
@@ -288,8 +253,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: AppColors.border,
-                              width: 2,
+                              color: AppColors.grey300,
+                              width: 1,
                             ),
                             color: AppColors.grey100,
                           ),
@@ -308,8 +273,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: AppColors.border,
-                                  width: 2,
+                                  color: AppColors.grey300,
+                                  width: 1,
                                 ),
                                 image: DecorationImage(
                                   image: fileImageProvider(_headerImagePath!),
@@ -362,8 +327,8 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                               color: AppColors.surface,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: AppColors.border,
-                                width: 2,
+                                color: AppColors.grey300,
+                                width: 1,
                                 style: BorderStyle.solid,
                               ),
                             ),
@@ -485,7 +450,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         ..._selectedReport!.questions.asMap().entries.map((
                           entry,
                         ) {
@@ -538,10 +503,29 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(width: 2, color: AppColors.border),
+        border: Border.all(width: 1, color: AppColors.grey200),
       ),
       padding: const EdgeInsets.all(16),
       child: child,
+    );
+  }
+
+  /// Единый стиль поля ввода — такой же, как у поля поиска в списке отчётов:
+  /// тонкая рамка grey300, радиус 8, белый фон, отступы 14/12.
+  InputDecoration _fieldDecoration({String? hint}) {
+    OutlineInputBorder border(Color color, double width) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: color, width: width),
+    );
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 14),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: border(AppColors.grey300, 1),
+      enabledBorder: border(AppColors.grey300, 1),
+      focusedBorder: border(AppColors.border, 2),
     );
   }
 
@@ -1020,6 +1004,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     final productType = _productTypeController.text.trim();
     final factory = _factoryController.text.trim();
     final model = _modelController.text.trim();
+    final client = _clientController.text.trim();
 
     if (productType.isEmpty ||
         factory.isEmpty ||
@@ -1031,7 +1016,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       return;
     }
 
-    final reportName = '$factory ($productType) $model';
+    final reportName = client.isEmpty
+        ? '$factory ($productType) $model'
+        : '$client $factory ($productType) $model';
 
     state.newReport(
       reportName,
@@ -1040,6 +1027,7 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
       productType: productType,
       factory: factory,
       model: model,
+      client: client,
       headerImagePath: _headerImagePath,
     );
 
@@ -1059,7 +1047,9 @@ class _TemplateSelectScreenState extends State<TemplateSelectScreen> {
     final productType = _productTypeController.text.trim();
     final factory = _factoryController.text.trim();
     final model = _modelController.text.trim();
-    _reportNameController.text = '$factory ($productType) $model';
+    final client = _clientController.text.trim();
+    final base = '$factory ($productType) $model';
+    _reportNameController.text = client.isEmpty ? base : '$client $base';
   }
 
   Future<void> _pickHeaderImage() async {

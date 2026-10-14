@@ -436,6 +436,10 @@ class Report {
   String productType;
   String factory;
   String model;
+
+  /// Клиент (пометка шапки). Задаётся в «карточке 0» или при создании отчёта
+  /// и включается в reportName, а значит и в имя файла (ZIP/HTML).
+  String client;
   int? dateTimestamp;
   String? headerImagePath;
 
@@ -457,6 +461,7 @@ class Report {
     this.productType = 'Аэрогриль',
     this.factory = '',
     this.model = '',
+    this.client = '',
     this.dateTimestamp,
     this.headerImagePath,
     List<Attachment>? attachments,
@@ -595,6 +600,7 @@ class Report {
     'productType': productType,
     'factory': factory,
     'model': model,
+    'client': client,
     'dateTimestamp': dateTimestamp,
     'headerImagePath': headerImagePath,
     'attachments': attachments.map((a) => a.toJson()).toList(),
@@ -942,6 +948,7 @@ class Report {
       productType: json['productType'] ?? 'Аэрогриль',
       factory: json['factory'] ?? '',
       model: json['model'] ?? '',
+      client: json['client'] ?? '',
       dateTimestamp: json['dateTimestamp'] as int?,
       headerImagePath: json['headerImagePath'] as String?,
       attachments:
@@ -965,6 +972,7 @@ class Report {
     String? productType,
     String? factory,
     String? model,
+    String? client,
     int? dateTimestamp,
     String? headerImagePath,
     List<Attachment>? attachments,
@@ -982,6 +990,7 @@ class Report {
       productType: productType ?? this.productType,
       factory: factory ?? this.factory,
       model: model ?? this.model,
+      client: client ?? this.client,
       dateTimestamp: dateTimestamp ?? this.dateTimestamp,
       headerImagePath: headerImagePath ?? this.headerImagePath,
       attachments: attachments ?? this.attachments,

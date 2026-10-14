@@ -1078,6 +1078,78 @@ abstract class AppLocalizations {
   /// **'Reports not found'**
   String get reportsNotFound;
 
+  /// No description provided for @client.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get client;
+
+  /// No description provided for @reportFilterLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get reportFilterLabel;
+
+  /// No description provided for @reportFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get reportFilterAll;
+
+  /// No description provided for @reportFilterLocalOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'On device'**
+  String get reportFilterLocalOnly;
+
+  /// No description provided for @reportFilterCloudOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'On server'**
+  String get reportFilterCloudOnly;
+
+  /// No description provided for @reportFilterSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Synced'**
+  String get reportFilterSynced;
+
+  /// No description provided for @reportFilterConflicts.
+  ///
+  /// In en, this message translates to:
+  /// **'Conflicts'**
+  String get reportFilterConflicts;
+
+  /// No description provided for @reportSortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get reportSortLabel;
+
+  /// No description provided for @reportSortModifiedDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently modified'**
+  String get reportSortModifiedDesc;
+
+  /// No description provided for @reportSortCreatedDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest first'**
+  String get reportSortCreatedDesc;
+
+  /// No description provided for @reportSortNameAsc.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get reportSortNameAsc;
+
+  /// No description provided for @reportSortStatusAsc.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get reportSortStatusAsc;
+
   /// No description provided for @allAnswersSynced.
   ///
   /// In en, this message translates to:

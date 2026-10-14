@@ -525,6 +525,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reportsNotFound => '未找到报告';
 
   @override
+  String get client => '客户';
+
+  @override
+  String get reportFilterLabel => '筛选';
+
+  @override
+  String get reportFilterAll => '全部';
+
+  @override
+  String get reportFilterLocalOnly => '仅本地';
+
+  @override
+  String get reportFilterCloudOnly => '仅服务器';
+
+  @override
+  String get reportFilterSynced => '已同步';
+
+  @override
+  String get reportFilterConflicts => '有冲突';
+
+  @override
+  String get reportSortLabel => '排序';
+
+  @override
+  String get reportSortModifiedDesc => '最近修改';
+
+  @override
+  String get reportSortCreatedDesc => '最新创建';
+
+  @override
+  String get reportSortNameAsc => '按名称';
+
+  @override
+  String get reportSortStatusAsc => '按状态';
+
+  @override
   String get allAnswersSynced => '所有答案已同步！';
 
   @override

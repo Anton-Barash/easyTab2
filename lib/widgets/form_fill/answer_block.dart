@@ -109,8 +109,8 @@ class _AnswerBlockState extends State<AnswerBlock> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 700),
       curve: Curves.easeOut,
-      margin: EdgeInsets.only(bottom: isMobile ? 6 : 12),
-      padding: EdgeInsets.all(isMobile ? 8 : 12),
+      margin: EdgeInsets.only(bottom: isMobile ? 2 : 6),
+      padding: EdgeInsets.all(isMobile ? 4 : 8),
       decoration: BoxDecoration(
         color: animatedColor,
         border: Border.all(
@@ -143,6 +143,8 @@ class _AnswerBlockState extends State<AnswerBlock> {
             // предложения (после точки).
             textCapitalization: TextCapitalization.sentences,
             style: TextStyle(
+              fontSize: isMobile ? 16 : 17,
+              height: 1.35,
               color: widget.enabled ? AppColors.textDark : AppColors.textLight,
             ),
             decoration: InputDecoration(
@@ -153,14 +155,14 @@ class _AnswerBlockState extends State<AnswerBlock> {
               disabledBorder: InputBorder.none,
               filled: false,
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
+                horizontal: 8,
+                vertical: 4,
               ),
             ),
           ),
           if (!isFake && ((answer['media'] as List?)?.isNotEmpty ?? false))
             Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.only(top: 6),
               child: MediaGrid(
                 mediaList: answer['media'] as List,
                 questionIndex: widget.questionIndex,
@@ -169,7 +171,7 @@ class _AnswerBlockState extends State<AnswerBlock> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.only(top: 6),
             child: Row(
               children: [
                 IconButton(

@@ -579,6 +579,7 @@ class ReportState extends ChangeNotifier {
     String productType = 'Аэрогриль',
     String factory = '',
     String model = '',
+    String client = '',
     String? headerImagePath,
   }) {
     final now = DateTime.now();
@@ -594,6 +595,7 @@ class ReportState extends ChangeNotifier {
       productType: productType,
       factory: factory,
       model: model,
+      client: client,
       dateTimestamp: now.millisecondsSinceEpoch,
       headerImagePath: headerImagePath,
     );
@@ -684,12 +686,14 @@ class ReportState extends ChangeNotifier {
     String? productType,
     String? factory,
     String? model,
+    String? client,
     int? dateTimestamp,
   }) {
     if (_currentReport == null) return;
     if (productType != null) _currentReport!.productType = productType;
     if (factory != null) _currentReport!.factory = factory;
     if (model != null) _currentReport!.model = model;
+    if (client != null) _currentReport!.client = client;
     if (dateTimestamp != null) _currentReport!.dateTimestamp = dateTimestamp;
     updateReportName();
     notifyListeners();
@@ -704,7 +708,11 @@ class ReportState extends ChangeNotifier {
         ? '${_currentReport!.factory} '
         : '';
     final model = _currentReport!.model.isNotEmpty ? _currentReport!.model : '';
-    _currentReport!.reportName = '$factory$productType $model'.trim();
+    // Клиент — пометка шапки, идёт в начало имени файла/отчёта.
+    final client = _currentReport!.client.isNotEmpty
+        ? '${_currentReport!.client} '
+        : '';
+    _currentReport!.reportName = '$client$factory$productType $model'.trim();
     notifyListeners();
   }
 

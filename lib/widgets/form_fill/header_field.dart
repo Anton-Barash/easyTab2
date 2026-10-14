@@ -35,11 +35,11 @@ class HeaderField extends StatelessWidget {
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             color: AppColors.textDark,
-            fontSize: 13,
+            fontSize: 12,
             letterSpacing: 0.1,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         TextField(
           controller: controller,
           keyboardType: keyboardType,
@@ -47,20 +47,20 @@ class HeaderField extends StatelessWidget {
           textCapitalization: textCapitalization,
           style: const TextStyle(
             color: AppColors.textDark,
-            fontSize: 15,
+            fontSize: 14,
             height: 1.3,
           ),
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: const TextStyle(
               color: AppColors.textTertiary,
-              fontSize: 15,
+              fontSize: 14,
             ),
             filled: true,
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
-              vertical: 12,
+              vertical: 8,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),

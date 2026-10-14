@@ -674,7 +674,7 @@ class _FullMediaViewerScreenState extends State<FullMediaViewerScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (poster != null) poster,
+        ?poster,
         const Center(
           child: SizedBox(
             width: 40,

@@ -536,6 +536,42 @@ class AppLocalizationsRu extends AppLocalizations {
   String get reportsNotFound => 'Отчёты не найдены';
 
   @override
+  String get client => 'Клиент';
+
+  @override
+  String get reportFilterLabel => 'Фильтр';
+
+  @override
+  String get reportFilterAll => 'Все';
+
+  @override
+  String get reportFilterLocalOnly => 'На устройстве';
+
+  @override
+  String get reportFilterCloudOnly => 'На сервере';
+
+  @override
+  String get reportFilterSynced => 'Синхронизированные';
+
+  @override
+  String get reportFilterConflicts => 'Расхождения';
+
+  @override
+  String get reportSortLabel => 'Сортировка';
+
+  @override
+  String get reportSortModifiedDesc => 'Сначала изменённые';
+
+  @override
+  String get reportSortCreatedDesc => 'Сначала новые';
+
+  @override
+  String get reportSortNameAsc => 'По названию';
+
+  @override
+  String get reportSortStatusAsc => 'По статусу';
+
+  @override
   String get allAnswersSynced => 'Все ответы синхронизированы!';
 
   @override

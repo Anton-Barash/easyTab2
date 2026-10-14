@@ -52,6 +52,7 @@ class _EditHeaderBottomSheet extends StatefulWidget {
 }
 
 class _EditHeaderBottomSheetState extends State<_EditHeaderBottomSheet> {
+  late final TextEditingController _clientController;
   late final TextEditingController _productTypeController;
   late final TextEditingController _factoryController;
   late final TextEditingController _modelController;
@@ -70,6 +71,7 @@ class _EditHeaderBottomSheetState extends State<_EditHeaderBottomSheet> {
     final report = widget.report;
     final reportState = widget.reportState;
 
+    _clientController = TextEditingController(text: report.client);
     _productTypeController = TextEditingController(text: report.productType);
     _factoryController = TextEditingController(text: report.factory);
     _modelController = TextEditingController(text: report.model);
@@ -97,6 +99,7 @@ class _EditHeaderBottomSheetState extends State<_EditHeaderBottomSheet> {
 
   @override
   void dispose() {
+    _clientController.dispose();
     _productTypeController.dispose();
     _factoryController.dispose();
     _modelController.dispose();
@@ -110,6 +113,7 @@ class _EditHeaderBottomSheetState extends State<_EditHeaderBottomSheet> {
     setState(() => _isSaving = true);
     try {
       widget.reportState.updateHeaderInfo(
+        client: _clientController.text.trim(),
         productType: _productTypeController.text.trim(),
         factory: _factoryController.text.trim(),
         model: _modelController.text.trim(),
@@ -232,6 +236,11 @@ class _EditHeaderBottomSheetState extends State<_EditHeaderBottomSheet> {
                       _GroupBox(
                         child: Column(
                           children: [
+                            HeaderField(
+                              label: loc.client,
+                              controller: _clientController,
+                            ),
+                            const SizedBox(height: 16),
                             HeaderField(
                               label: loc.productType,
                               controller: _productTypeController,

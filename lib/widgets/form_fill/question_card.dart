@@ -77,7 +77,7 @@ class QuestionCard extends StatelessWidget {
           Container(
             padding: isMobile
                 ? const EdgeInsets.fromLTRB(0, 4, 4, 0)
-                : const EdgeInsets.all(16),
+                : const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: AppColors.grey100,
               border: const Border(
@@ -128,7 +128,7 @@ class QuestionCard extends StatelessWidget {
                                 q.getDisplayName(lang) ??
                                 loc.noName,
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textDark,
                             ),
@@ -256,7 +256,7 @@ class QuestionCard extends StatelessWidget {
                                           q.getDisplayName(lang) ??
                                           loc.noName,
                                       style: const TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                         color: AppColors.textDark,
                                       ),
@@ -362,7 +362,7 @@ class QuestionCard extends StatelessWidget {
                                 child: Text(
                                   '${questionLoc?.example}',
                                   style: const TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: AppColors.primary,
                                     fontStyle: FontStyle.italic,
                                   ),
@@ -378,8 +378,8 @@ class QuestionCard extends StatelessWidget {
           ),
           Padding(
             padding: isMobile
-                ? const EdgeInsets.all(8)
-                : const EdgeInsets.all(16),
+                ? const EdgeInsets.all(4)
+                : const EdgeInsets.all(8),
             child: Column(
               children: [
                 for (int j = 0; j < answers.length; j++)

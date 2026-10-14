@@ -13,7 +13,7 @@ class SectionTitle extends StatelessWidget {
       title,
       style: const TextStyle(
         color: AppColors.border,
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: FontWeight.bold,
       ),
     );

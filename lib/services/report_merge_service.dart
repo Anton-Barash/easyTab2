@@ -106,6 +106,7 @@ List<Map<String, dynamic>> buildReportOps(
     'productType',
     'factory',
     'model',
+    'client',
     'headerImagePath',
   ];
   final meta = <String, dynamic>{};

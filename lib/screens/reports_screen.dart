@@ -24,6 +24,12 @@ import '../services/anonymous_id_service.dart';
 import '../utils/share_link_parser.dart';
 import 'share_qr_scanner_screen.dart';
 
+/// Фильтр списка отчётов (по способу хранения).
+enum ReportListFilter { all, localOnly, cloudOnly, synced, conflicts }
+
+/// Сортировка списка отчётов.
+enum ReportListSort { modifiedDesc, createdDesc, nameAsc, statusAsc }
+
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
@@ -35,6 +41,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<List<ReportSummary>>? _reportsFuture;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  ReportListFilter _filter = ReportListFilter.all;
+  ReportListSort _sort = ReportListSort.modifiedDesc;
   final Set<String> _syncedReports = {};
   final Set<String> _syncingReports = {};
 
@@ -440,7 +448,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: TextField(
                   controller: _searchController,
                   onChanged: (value) {
@@ -489,6 +497,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: _buildListControls(loc),
+              ),
               Expanded(
                 child: FutureBuilder<List<ReportSummary>>(
                   future: _reportsFuture,
@@ -502,14 +514,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       );
                     }
                     final reports = snapshot.data ?? [];
-                    final filteredReports = reports.where((report) {
-                      if (_searchQuery.isEmpty) return true;
-                      return report.title.toLowerCase().contains(_searchQuery);
-                    }).toList();
+                    final filteredReports =
+                        reports.where(_matchesFilter).toList()
+                          ..sort(_compareReports);
                     if (filteredReports.isEmpty) {
                       return Center(
                         child: Text(
-                          _searchQuery.isEmpty
+                          (_searchQuery.isEmpty &&
+                                  _filter == ReportListFilter.all)
                               ? loc.noReportsYet
                               : loc.reportsNotFound,
                           style: const TextStyle(
@@ -698,6 +710,156 @@ class _ReportsScreenState extends State<ReportsScreen> {
           maxScale: 5,
           minScale: 0.8,
           child: Image(image: image, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+
+  /// Предикат фильтра списка отчётов (поиск + способ хранения).
+  bool _matchesFilter(ReportSummary report) {
+    if (_searchQuery.isNotEmpty &&
+        !report.title.toLowerCase().contains(_searchQuery)) {
+      return false;
+    }
+    switch (_filter) {
+      case ReportListFilter.all:
+        return true;
+      case ReportListFilter.localOnly:
+        return report.localExists && !report.onServer;
+      case ReportListFilter.cloudOnly:
+        return report.onServer && !report.localExists;
+      case ReportListFilter.synced:
+        return report.localExists && report.onServer;
+      case ReportListFilter.conflicts:
+        return report.status == ReportSyncStatus.conflict ||
+            report.status == ReportSyncStatus.dirtyLocal ||
+            report.status == ReportSyncStatus.dirtyRemote;
+    }
+  }
+
+  /// Компаратор сортировки списка отчётов.
+  int _compareReports(ReportSummary a, ReportSummary b) {
+    switch (_sort) {
+      case ReportListSort.modifiedDesc:
+        return b.modified.compareTo(a.modified);
+      case ReportListSort.createdDesc:
+        return b.createdAt.compareTo(a.createdAt);
+      case ReportListSort.nameAsc:
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      case ReportListSort.statusAsc:
+        return a.status.index.compareTo(b.status.index);
+    }
+  }
+
+  String _filterLabel(AppLocalizations loc, ReportListFilter f) {
+    switch (f) {
+      case ReportListFilter.all:
+        return loc.reportFilterAll;
+      case ReportListFilter.localOnly:
+        return loc.reportFilterLocalOnly;
+      case ReportListFilter.cloudOnly:
+        return loc.reportFilterCloudOnly;
+      case ReportListFilter.synced:
+        return loc.reportFilterSynced;
+      case ReportListFilter.conflicts:
+        return loc.reportFilterConflicts;
+    }
+  }
+
+  String _sortLabel(AppLocalizations loc, ReportListSort s) {
+    switch (s) {
+      case ReportListSort.modifiedDesc:
+        return loc.reportSortModifiedDesc;
+      case ReportListSort.createdDesc:
+        return loc.reportSortCreatedDesc;
+      case ReportListSort.nameAsc:
+        return loc.reportSortNameAsc;
+      case ReportListSort.statusAsc:
+        return loc.reportSortStatusAsc;
+    }
+  }
+
+  /// Строка управления списком: фильтр и сортировка.
+  Widget _buildListControls(AppLocalizations loc) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildDropdown<ReportListFilter>(
+            icon: Icons.filter_list,
+            tooltip: loc.reportFilterLabel,
+            value: _filter,
+            items: ReportListFilter.values,
+            labelOf: (f) => _filterLabel(loc, f),
+            onChanged: (v) {
+              if (v != null) setState(() => _filter = v);
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildDropdown<ReportListSort>(
+            icon: Icons.sort,
+            tooltip: loc.reportSortLabel,
+            value: _sort,
+            items: ReportListSort.values,
+            labelOf: (s) => _sortLabel(loc, s),
+            onChanged: (v) {
+              if (v != null) setState(() => _sort = v);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required IconData icon,
+    required String tooltip,
+    required T value,
+    required List<T> items,
+    required String Function(T) labelOf,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.grey300),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<T>(
+                  isExpanded: true,
+                  value: value,
+                  iconSize: 18,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
+                  items: items
+                      .map(
+                        (e) => DropdownMenuItem<T>(
+                          value: e,
+                          child: Text(
+                            labelOf(e),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: onChanged,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

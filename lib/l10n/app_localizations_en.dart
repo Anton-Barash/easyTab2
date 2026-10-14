@@ -535,6 +535,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportsNotFound => 'Reports not found';
 
   @override
+  String get client => 'Client';
+
+  @override
+  String get reportFilterLabel => 'Filter';
+
+  @override
+  String get reportFilterAll => 'All';
+
+  @override
+  String get reportFilterLocalOnly => 'On device';
+
+  @override
+  String get reportFilterCloudOnly => 'On server';
+
+  @override
+  String get reportFilterSynced => 'Synced';
+
+  @override
+  String get reportFilterConflicts => 'Conflicts';
+
+  @override
+  String get reportSortLabel => 'Sort';
+
+  @override
+  String get reportSortModifiedDesc => 'Recently modified';
+
+  @override
+  String get reportSortCreatedDesc => 'Newest first';
+
+  @override
+  String get reportSortNameAsc => 'Name';
+
+  @override
+  String get reportSortStatusAsc => 'Status';
+
+  @override
   String get allAnswersSynced => 'All answers synced!';
 
   @override
